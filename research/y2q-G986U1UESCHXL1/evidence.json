@@ -126,10 +126,10 @@
     "listingEvidence": "Owner-supplied Samsung Open Source Release Center table on 2026-10-09",
     "matchStatus": "exact firmware token found in official-listed archive filename",
     "archiveDownloaded": true,
-    "archiveSha256": null,
-    "archiveContentsInspected": false,
+    "archiveSha256": "c7fcbabd46ddb9aa0aaa6f396bb68651ecaa42d963d3f2397c93872e3602d7c3",
+    "archiveContentsInspected": true,
     "kernelSourceMatchedToBinary": false,
-    "notes": "Exact HXL1 archive present inside downloaded Samsung wrapper (not separately extracted). Outer wrapper hash and listing verified from owner terminal output; inner HXL1/base ZIP hashes and file contents not yet inspected.",
+    "notes": "Outer ZIP hash, base/U1 DTS/HXL1 ZIP inner hashes and nested archive entry counts from owner-reported inspector. Main kernel TAR scanned only first 20,000 entries, explicitly truncated; HXL1 TAR all 59 members scanned but not fully listed. Exact source build/version correspondence not yet established.",
     "wrapperDownload": {
       "name": "SM-G986U.zip",
       "sizeBytes": 256918162,
@@ -143,6 +143,41 @@
       ],
       "source": "Owner-supplied source-inventory CLI output 2026-10-09",
       "nestedPackagesScanned": false
+    },
+    "nestedArchives": {
+      "base": {
+        "name": "SM-G986U_NA_13_Opensource.zip",
+        "sizeBytes": 255083506,
+        "sha256": "23011b7641701e4542f3a0b212eb5aca6a2f9ea4f14cee3b64f46dcf0cb1bfc7",
+        "entries": 4,
+        "innerArchiveNames": [
+          "Kernel.tar.gz",
+          "Platform.tar.gz"
+        ],
+        "kernelTarMembersExamined": 20000,
+        "kernelTarScanTruncated": true,
+        "platformTarMembersExamined": 14822,
+        "platformTarScanTruncated": false
+      },
+      "deviceTree": {
+        "name": "SM-G986U1_NA_13_Opensource_dts.zip",
+        "sizeBytes": 45136,
+        "sha256": "51b2099dc5d5dc658a8519026be1b1e6aa0088efc35af176831a67228619c7ae",
+        "entries": 2,
+        "innerTarName": "G986U1UES8HXA1_kernel.tar.gz",
+        "innerTarMembersExamined": 6,
+        "observedDefconfig": "Kernel/arch/arm64/configs/vendor/y2q_usa_openw_defconfig"
+      },
+      "hxl1": {
+        "name": "SM-G986U_13_Opensource_G986USQSCHXL1_G986U1UESCHXL1_G986WVLSCHXL1.zip",
+        "sizeBytes": 314586,
+        "sha256": "c7fcbabd46ddb9aa0aaa6f396bb68651ecaa42d963d3f2397c93872e3602d7c3",
+        "entries": 2,
+        "innerTarName": "G986USQSCHXL1_kernel.tar.gz",
+        "innerTarMembersExamined": 59,
+        "innerTarScanTruncated": false,
+        "overlayNature": "probable, not confirmed pending list of 59 members"
+      }
     }
   }
 }
