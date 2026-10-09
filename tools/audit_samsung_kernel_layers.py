@@ -96,6 +96,7 @@ def process_inner_zip(archive, zip_name):
         "name": zip_name,
         "entries": len(entries),
         "tarFiles": [],
+        "buildReadmes": {},
         "sourceFiles": {},
         "selectedSourceText": {},
         "memberCount": 0,
@@ -104,6 +105,11 @@ def process_inner_zip(archive, zip_name):
     is_base = zip_name == BASE
     is_u1 = zip_name == U1
     for entry in entries:
+        if (Path(entry.filename).name.lower()
+                in ("readme_kernel.txt", "readme_platform.txt", "readme.txt")
+                and not entry.is_dir() and entry.file_size <= 128 * 1024):
+            readme = archive.read(entry).decode("utf-8", "replace")
+            summary["buildReadmes"][entry.filename] = readme[:50000]
         if not entry.filename.lower().endswith((".tar", ".tar.gz", ".tgz", ".tar.xz")):
             continue
         if is_base and Path(entry.filename).name != "Kernel.tar.gz":
@@ -245,6 +251,7 @@ def run(args):
             {"name": p["name"], "zipSha256": p["zipSha256"],
              "zipSizeBytes": p["zipSizeBytes"], "entries": p["entries"],
              "tarFiles": p["tarFiles"], "tarMemberCount": p["memberCount"],
+             "buildReadmes": p["buildReadmes"],
              "selectedSourceText": {name: {k: v for k, v in entry.items() if k != "configValues"}
                                     for name, entry in p["selectedSourceText"].items()}}
             for p in packages
@@ -266,6 +273,8 @@ def main(argv=None):
     parser.add_argument("--device-config-gz", type=Path)
     parser.add_argument("--json", type=Path, help="Save structured provenance report")
     parser.add_argument("--sample-limit", type=int, default=20)
+    parser.add_argument("--show-readme", action="store_true",
+                        help="Print release readmes found within selected inner ZIPs")
     args = parser.parse_args(argv)
     if not 1 <= args.sample_limit <= 200:
         parser.error("--sample-limit must be 1..200")
@@ -284,6 +293,12 @@ def main(argv=None):
             print("    source:", path, "SHA256:", selected.get("sha256"))
             if selected.get("kernelVersion"):
                 print("      kernel Makefile:", selected["kernelVersion"])
+    if args.show_readme:
+        for package in report["sourcePackages"]:
+            for name, contents in package["buildReadmes"].items():
+                print("\n===== README:", package["name"], "::", name, "=====")
+                print(contents)
+                print("===== END README =====\n")
     for stage in report["overlayStages"]:
         print("  UPDATE:", stage["archive"])
         print("    files:", stage["regularSourceFiles"],
