@@ -266,6 +266,106 @@ long SHA-256 and update list again). Confirming Samsung's intended
 update integration steps is the final prerequisite to a
 **stock-only, off-device** source assembly and build attempt.
 
+## Reconstructing a stock HXL1 kernel source tree — experimental/off-device
+
+The main release's `README_Kernel.txt` gives a base kernel build recipe,
+not an explicit application order for firmware-specific source updates.
+It documents:
+
+- Cross-compile architecture: `ARCH=arm64`
+- Target config: `vendor/y2q_usa_singlew_defconfig`
+- Qualcomm `llvm-arm-toolchain-ship/10.0/bin/clang`
+- `aarch64-linux-android-4.9` GCC supporting toolchain
+- `CLANG_TRIPLE=aarch64-linux-gnu-`, `DTC_EXT=tools/dtc`,
+  `CONFIG_BUILD_ARM64_DT_OVERLAY=y`, and out-of-tree `O=out`
+- Result: `arch/arm64/boot/Image` and any `.ko` modules.
+
+The original proprietary toolchain has **not** been located or reproduced.
+The NDK r30 used for a read-only Android userspace ELF is a newer, distinct
+toolchain; do not label an NDK kernel build as bit-identical.
+
+### Safety and source provenance assumptions
+
+Samsung's inner ZIPs contain base kernel source, U1-specific device config
+and incremental source replacement TARs. The release README **does not
+explicitly document their assembly order**. The candidate assembler uses
+the release wrapper's listed order only **through HXL1**, never HYC1. It
+requires an explicit experimental opt-in. The tool:
+
+1. Requires the exact known SHA-256 of the 256,918,162-byte owner-provided
+   `SM-G986U.zip` wrapper.
+2. Uses the JSON source audit to select and individually hash-check
+   11 internal ZIPs.
+3. Restores **only kernel source**, not the unrelated `Platform.tar.gz`.
+4. Rejects TAR traversal, escaping symlinks, special device entries,
+   existing output destinations and unexpected changes of inner ZIP hashes.
+5. Applies 9 sets of replacement source files with no binary modifications.
+6. Checks the final SHA-256 hashes of all **40** changed source paths.
+7. Writes an external provenance manifest, with source build/boot verification
+   explicitly remaining **open**.
+
+Allow at least **3 GiB free** in Ubuntu's Linux filesystem, preferably
+more. Source tree reconstruction can write significantly more than the
+256.9 MB compressed wrapper. Use a path under `~/src`, **not** on `/mnt/d`.
+The tool does not communicate with the phone, compile a root payload,
+write a boot image or run Odin/fastboot.
+
+### Phase A: verify source inputs only (default)
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+df -h ~
+
+python3 tools/assemble_samsung_stock_kernel.py \
+  /mnt/d/root-my-galaxy-test/source/SM-G986U.zip \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --output ~/src/samsung-y2q-hxl1-stock \
+  --json ~/s20-artifacts/samsung-hxl1-assembly-preflight.json
+```
+
+Expected: `Mode: PREFLIGHT ONLY`; the command should not create
+`~/src/samsung-y2q-hxl1-stock`. If it rejects the archive, do not
+bypass integrity checks.
+
+### Phase B: assemble the candidate stock source
+
+Only after accepting that the firmware-update order remains an
+**inference**, invoke this explicit opt-in:
+
+```bash
+python3 tools/assemble_samsung_stock_kernel.py \
+  /mnt/d/root-my-galaxy-test/source/SM-G986U.zip \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --output ~/src/samsung-y2q-hxl1-stock \
+  --assemble-experimental \
+  --json ~/s20-artifacts/samsung-hxl1-assembly-report.json
+```
+
+Expected:
+- Candidate output `~/src/samsung-y2q-hxl1-stock/`
+- Manifest `~/src/samsung-y2q-hxl1-stock.source-manifest.json`
+- `Verified final overlay source files: 40`
+
+Failure produces an explicit staging path (`.s20-hxl1-stage-*`) for
+inspection and manual removal. The tool never clears existing output
+automatically.
+
+### Phase C: validate unmodified source before building
+
+Verify the resulting source version and configuration against the audit:
+
+```bash
+cd ~/src/samsung-y2q-hxl1-stock
+sed -n '1,12p' Makefile
+sha256sum arch/arm64/configs/vendor/y2q_usa_singlew_defconfig \
+  arch/arm64/configs/vendor/y2q_usa_openw_defconfig
+test ! -e out && echo 'No kernel build output yet'
+```
+
+Next verify available original Clang 10/GCC 4.9 or document deviations
+before even attempting a stock kernel build. **Do not flash the output.**
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
