@@ -47,6 +47,7 @@ class KernelLayerAuditTests(unittest.TestCase):
             ))
             makefile = b"VERSION = 4\nPATCHLEVEL = 19\nSUBLEVEL = 113\n"
             makefile += b"# PADDED TO MATCH SAMSUNG'S >64-KiB MAKEFILE\n"
+            makefile += b"EXTRAVERSION =\nNAME = \"People's Front\"\n"
             makefile += b"#" * (65984 - len(makefile))
             with zipfile.ZipFile(wrapper, "w") as z:
                 z.writestr(BASE, package(BASE, {
@@ -86,9 +87,13 @@ class KernelLayerAuditTests(unittest.TestCase):
             self.assertEqual(data["overlayStages"][1]["pathsOverridingPreviousLayer"], 1)
             self.assertEqual(data["overlayStages"][1]["contentDifferentWhenOverridden"], 1)
             self.assertEqual(data["sourcePackages"][0]["selectedSourceText"]["Makefile"]["kernelVersion"]["SUBLEVEL"], "113")
+            self.assertEqual(data["sourcePackages"][0]["selectedSourceText"]["Makefile"]["kernelVersion"]["EXTRAVERSION"], "")
             self.assertEqual(data["configComparisons"]["arch/arm64/configs/vendor/y2q_usa_singlew_defconfig"]["differentExplicitSymbols"], 0)
             self.assertEqual(data["configComparisons"]["arch/arm64/configs/vendor/y2q_usa_openw_defconfig"]["differentExplicitSymbols"], 1)
             self.assertNotIn(HYC, [x["name"] for x in data["sourcePackages"]])
+            self.assertEqual(data["sourcePackages"][0]["buildReadmes"]["README.txt"], BASE)
+            self.assertEqual(data["sourcePackages"][3]["buildReadmes"]["README.txt"], HXL)
+
 
     def test_invalid_wrapper_errors(self):
         with tempfile.TemporaryDirectory() as temp:
