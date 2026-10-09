@@ -228,11 +228,20 @@
     "stockSourceAssembly": {
       "tool": "tools/assemble_samsung_stock_kernel.py",
       "implementationStatus": "committed and synthetic-GitHub-Actions tests passed",
-      "ownerRealWorldSourceAssemblyTested": false,
+      "ownerRealWorldSourceAssemblyTested": true,
       "method": "Off-device base + U1 DTS + nine incremental ZIP source TARs through HXL1, ZIP listing order assumed rather than Samsung-documented",
       "validates": "Known wrapper SHA256, audited inner ZIP hashes, all 40 final firmware-updated source file hashes",
       "operationDefault": "Preflight only; opt-in --assemble-experimental required",
-      "bootOrRootVerified": false
+      "bootOrRootVerified": false,
+      "ownerTestDate": "2026-10-09",
+      "ownerWSLPath": "/home/main/src/samsung-y2q-hxl1-stock",
+      "ownerPreflightResult": "PASS; verified known wrapper SHA-256 and 11 selected archive names",
+      "ownerAssemblyResult": "PASS; all 11 selected archives processed; all 40 final overlay source SHA-256 digests match audit",
+      "ownerFreeSpaceBeforeAssembly": "950 GiB available on /dev/sdd",
+      "vendorDocumentedUpdateOrder": false,
+      "stockKernelBuilt": false,
+      "stockKernelBooted": false,
+      "notes": "Owner-provided WSL terminal reports successful off-device reconstruction; exact runtime toolchain/source-to-binary reproducibility remain unverified; source ZIP listing order is inferred."
     }
   }
 }
