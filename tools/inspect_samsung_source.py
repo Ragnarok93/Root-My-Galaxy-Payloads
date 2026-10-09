@@ -37,7 +37,7 @@ def sha256_file(path):
 def parse_makefile(contents):
     text = contents.decode("utf-8", "replace")
     pairs = re.findall(
-        r"^(VERSION|PATCHLEVEL|SUBLEVEL|EXTRAVERSION)\s*[:?+]?=\s*(.*)$",
+        r"^(VERSION|PATCHLEVEL|SUBLEVEL|EXTRAVERSION)[ \t]*[:?+]?=[ \t]*([^\r\n]*)$",
         text, flags=re.MULTILINE,
     )
     return dict(pairs) or None
