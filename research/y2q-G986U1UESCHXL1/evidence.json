@@ -93,5 +93,25 @@
     "Compatible 4.19-specific KernelSU build and module-loading mechanism not validated",
     "Verified boot state and recovery safety assessed on actual handset",
     "Firmware fingerprint-locked app-side support matching and independently reviewed hardware tests"
-  ]
+  ],
+  "nativeIdentityProbe": {
+    "testedAt": "2026-10-09",
+    "executionMethod": "Windows 11 PowerShell -> wireless ADB -> /data/local/tmp/y2q-identity-probe",
+    "transport": "192.168.0.78:37375",
+    "result": "FIRMWARE_IDENTITY_MATCH",
+    "uid": 2000,
+    "pageSize": 4096,
+    "observedModel": "SM-G986U1",
+    "observedDevice": "y2q",
+    "observedBootloader": "G986U1UESCHXL1",
+    "observedFingerprint": "samsung/y2quew/y2q:13/TP1A.220624.014/G986U1UESCHXL1:user/release-keys",
+    "observedSecurityPatch": "2025-01-01",
+    "observedFlashLocked": "1",
+    "observedVbmetaDeviceState": "locked",
+    "observedKernelRelease": "4.19.113-27095354",
+    "localBuiltProbeSha256": "d88ad7d55c422914e4c56725a02eb19de02069041ec622db38d3ef16add55887",
+    "verifiedHardwareExecution": true,
+    "verifiedKernelPrivilegeEscalation": false,
+    "notes": "Operator-submitted complete terminal output; this proves read-only ARM64 diagnostic execution and build identity matching only, not root access."
+  }
 }
