@@ -10,6 +10,8 @@ on:
       - 'research/y2q-G986U1UESCHXL1/identity_probe.c'
       - 'research/y2q-G986U1UESCHXL1/build_probe.sh'
       - 'tools/verify_s20plus_firmware.py'
+      - 'tools/inspect_samsung_source.py'
+      - 'tools/test_inspect_samsung_source.py'
 
 jobs:
   diagnostic:
@@ -19,8 +21,10 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Validate offline evidence checker syntax
-        run: python3 -m py_compile tools/verify_s20plus_firmware.py
+      - name: Validate read-only research tooling and source ZIP fixtures
+        run: |
+          python3 -m py_compile tools/verify_s20plus_firmware.py tools/inspect_samsung_source.py
+          python3 -m unittest -v tools/test_inspect_samsung_source.py
       - name: Install or find Android NDK
         shell: bash
         run: |
