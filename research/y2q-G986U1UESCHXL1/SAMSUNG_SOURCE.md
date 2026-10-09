@@ -207,6 +207,65 @@ The output reports:
 
 This is the next evidence gate before assembling or building stock kernel source.
 
+## October 9: provenance audit confirms configuration compatibility
+
+Owner-reported audit through firmware `G986U1UESCHXL1`:
+
+- Shared Samsung source kernel: `VERSION=4`, `PATCHLEVEL=19`,
+  `SUBLEVEL=113`, agreeing with running `4.19.113-27095354`.
+- Base `y2q_usa_singlew_defconfig` SHA-256:
+  `61f109752d3c91a5167dddcb05f79707f04f09edd2d4161a384fefa6fa35b5b8`.
+- U1-specific `y2q_usa_openw_defconfig` SHA-256:
+  `61f109752d3c91a5167dddcb05f79707f04f09edd2d4161a384fefa6fa35b5b8`.
+  **These two files have identical bytes, despite differing filenames.**
+- **5,799 matching explicit config values, 0 differing,
+  0 explicit symbols missing** when either defconfig is compared against
+  the extracted live kernel configuration (`config.gz`).
+- 11 selected ZIPs: base + U1 device tree + **nine** chronological
+  source-revision archives through HXL1. Later HYC1 excluded.
+- **40 distinct source paths** changed across these updates. **10** paths
+  modified before HXL1 are **not** repeated in the final HXL1 ZIP.
+  A naive base+HXL1-only assembly is therefore not a faithful source
+  reconstruction.
+- The original Makefile's blank `EXTRAVERSION =` was previously
+  misparsed by a cross-newline regex as `NAME = "People's Front"`.
+  The parser has been fixed; it does not indicate an extra kernel suffix.
+
+**Important limitation:** ZIP listing order was used as an assumed
+incremental apply order. It has NOT yet been confirmed by Samsung's
+build README. While strong, an identical defconfig does not prove
+binary identity of the resulting kernel or an installable image.
+
+### Next: read Samsung's own release/build instructions
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/audit_samsung_kernel_layers.py \
+  /mnt/d/root-my-galaxy-test/source/SM-G986U.zip \
+  --target-firmware G986U1UESCHXL1 \
+  --device-config-gz ~/s20-artifacts/config.gz \
+  --show-readme \
+  --json ~/s20-artifacts/samsung-hxl1-source-audit-with-readmes.json \
+  > ~/s20-artifacts/samsung-hxl1-instructions.txt
+
+grep -nE '^===== (README:|END README)' \
+  ~/s20-artifacts/samsung-hxl1-instructions.txt
+```
+
+Review the blocks bounded by `===== README: ... =====` and
+`===== END README =====` in the text report. You can inspect it with:
+
+```bash
+less ~/s20-artifacts/samsung-hxl1-instructions.txt
+```
+
+Extract only the needed readme text to share (do not paste the
+long SHA-256 and update list again). Confirming Samsung's intended
+update integration steps is the final prerequisite to a
+**stock-only, off-device** source assembly and build attempt.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
