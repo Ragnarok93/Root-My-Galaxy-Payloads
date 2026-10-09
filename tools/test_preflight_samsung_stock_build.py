@@ -15,6 +15,28 @@ spec.loader.exec_module(preflight)
 
 
 class BuildPreflightTests(unittest.TestCase):
+    def test_binary_version_accepts_str_and_path(self):
+        class FakeCompleted:
+            returncode = 0
+            stdout = "OpenSSL 3.0.13\\n"
+            stderr = ""
+
+        with patch.object(preflight.subprocess, "run", return_value=FakeCompleted()) as runner:
+            observed = preflight.binary_version("/usr/bin/openssl")
+            self.assertIn("OpenSSL 3.0.13", observed)
+            self.assertEqual(runner.call_args.args[0], ["/usr/bin/openssl", "version"])
+
+            preflight.binary_version(Path("/usr/bin/clang"))
+            self.assertEqual(runner.call_args.args[0], ["/usr/bin/clang", "--version"])
+
+    def test_find_exe_handles_shutil_which_string(self):
+        with patch.object(preflight, "binary_version", return_value="compiler version") as version:
+            path = preflight.find_exe(["python3"])
+        self.assertIsNotNone(path)
+        self.assertIn("python", path["path"])
+        self.assertEqual(path["version"], "compiler version")
+        version.assert_called_once()
+
     def test_good_source_config_audit_and_manifest_without_build(self):
         with tempfile.TemporaryDirectory() as temp:
             parent = Path(temp)
