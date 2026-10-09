@@ -51,21 +51,28 @@ def is_kernel_makefile(path):
     )
 
 
-def scan_tar(stream, limit):
-    """Streaming TAR metadata only; never extract members to disk."""
+def scan_tar(stream, limit, path_regex=None, max_matched_paths=120):
+    """Read TAR metadata; optionally report path-regex matches without extraction."""
     candidates = []
+    matched_paths = []
+    match_count = 0
     count = 0
     version = None
+    truncated = False
     with tarfile.open(fileobj=stream, mode="r|*") as archive:
         for member in archive:
             if count >= limit:
-                return {
-                    "membersExamined": count,
-                    "limitReached": True,
-                    "versionFromMakefile": version,
-                    "importantPaths": candidates,
-                }
+                truncated = True
+                break
             count += 1
+            if path_regex is not None and path_regex.search(member.name):
+                match_count += 1
+                if len(matched_paths) < max_matched_paths:
+                    matched_paths.append({
+                        "path": member.name, "sizeBytes": member.size,
+                        "type": "file" if member.isfile() else
+                                "directory" if member.isdir() else "other",
+                    })
             if not member.isfile():
                 continue
             if IMPORTANT.search(member.name):
@@ -75,8 +82,12 @@ def scan_tar(stream, limit):
                     reader = archive.extractfile(member)
                     if reader:
                         version = parse_makefile(reader.read()) or version
-    return {"membersExamined": count, "limitReached": False,
-            "versionFromMakefile": version, "importantPaths": candidates}
+    return {
+        "membersExamined": count, "limitReached": truncated,
+        "versionFromMakefile": version, "importantPaths": candidates,
+        "matchedPathCount": match_count, "matchedPaths": matched_paths,
+        "matchedPathsTruncated": match_count > len(matched_paths),
+    }
 
 
 def scan_zip(z, depth, args):
@@ -142,7 +153,7 @@ def scan_zip(z, depth, args):
             detail = {"name": name, "type": "tar"}
             try:
                 with z.open(member) as stream:
-                    detail.update(scan_tar(stream, args.max_tar_members))
+                    detail.update(scan_tar(stream, args.max_tar_members, args.tar_path_regex, args.max_matched_paths))
             except (OSError, EOFError, ValueError, RuntimeError, zipfile.BadZipFile,
                     tarfile.TarError, NotImplementedError) as error:
                 detail["scanError"] = f"{type(error).__name__}: {error}"
@@ -168,6 +179,12 @@ def print_nested(detail, indent=2):
         print(prefix + "  Makefile kernel version:", detail["versionFromMakefile"])
     for candidate in detail.get("importantPaths", [])[:30]:
         print(prefix + "  candidate:", candidate["path"])
+    if detail.get("matchedPaths"):
+        print(prefix + "  matched TAR paths:", detail.get("matchedPathCount"),
+              "truncated:", detail.get("matchedPathsTruncated"))
+        for candidate in detail["matchedPaths"]:
+            print(prefix + "    match:", candidate["path"],
+                  f"({candidate['sizeBytes']} bytes)")
     for child in detail.get("nestedArchives", []):
         print_nested(child, indent + 2)
 
@@ -178,6 +195,11 @@ def main(argv=None):
     parser.add_argument("--scan-nested", action="store_true",
                         help="Inspect ZIP-in-ZIP contents and nested TAR metadata")
     parser.add_argument("--max-tar-members", type=int, default=20000)
+    parser.add_argument("--tar-path-regex",
+                        help="Report TAR members matching this regex, even if not Makefiles")
+    parser.add_argument("--max-matched-paths", type=int, default=120,
+                        help="Maximum matching TAR paths included per TAR in JSON/output")
+
     parser.add_argument("--max-depth", type=int, default=3,
                         help="Maximum archive nesting level (outer ZIP is level 0)")
     parser.add_argument("--max-nested-zip-mib", type=int, default=512,
@@ -192,6 +214,13 @@ def main(argv=None):
         parser.error("--max-depth must be between 1 and 6")
     if not 1 <= args.max_nested_zip_mib <= 2048:
         parser.error("--max-nested-zip-mib must be between 1 and 2048")
+    if not 1 <= args.max_matched_paths <= 1000:
+        parser.error("--max-matched-paths must be between 1 and 1000")
+    if args.tar_path_regex:
+        try:
+            args.tar_path_regex = re.compile(args.tar_path_regex, re.IGNORECASE)
+        except re.error as exc:
+            parser.error(f"invalid --tar-path-regex: {exc}")
     args.max_nested_zip_bytes = args.max_nested_zip_mib * 1024 * 1024
     if args.select_zip_regex:
         try:
