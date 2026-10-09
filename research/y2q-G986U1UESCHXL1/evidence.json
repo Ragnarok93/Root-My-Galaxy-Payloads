@@ -192,6 +192,26 @@
           "Kernel/security/sdp/fs_handler.c"
         ]
       }
+    },
+    "layerAudit": {
+      "source": "Owner-executed audit_samsung_kernel_layers.py output, 2026-10-09",
+      "firmware": "G986U1UESCHXL1",
+      "linuxSourceMakefileVersion": "4.19.113",
+      "androidRunningKernelRelease": "4.19.113-27095354",
+      "sourceMakefileSha256": "d7f9cb790c68a280b20db07c7bcd3f8a3cce3ad99494f72f849c6f3a24a6b79d",
+      "singlewDefconfigSha256": "61f109752d3c91a5167dddcb05f79707f04f09edd2d4161a384fefa6fa35b5b8",
+      "openwDefconfigSha256": "61f109752d3c91a5167dddcb05f79707f04f09edd2d4161a384fefa6fa35b5b8",
+      "explicitSourceSymbols": 5799,
+      "explicitMatchesInRunningKernelConfig": 5799,
+      "explicitDifferences": 0,
+      "explicitSourceSymbolsMissingFromRunningConfig": 0,
+      "selectedArchiveCount": 11,
+      "incrementalArchiveCount": 9,
+      "uniqueChangedSourcePathsThroughHXL1": 40,
+      "earlierModifiedPathsAbsentFromHXL1": 10,
+      "assumedLayerOrder": "Samsung outer ZIP listing order through HXL1; not yet verified against README or binary",
+      "sourceToBinaryByteIdentical": false,
+      "makefileParserArtifact": "Earlier audit reported EXTRAVERSION as NAME = People's Front due newline-sensitive regex; parser corrected, EXTRAVERSION must be rechecked before build."
     }
   }
 }
