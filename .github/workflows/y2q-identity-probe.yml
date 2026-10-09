@@ -1,0 +1,39 @@
+name: Galaxy S20+ read-only ARM64 probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/s20plus-investigation-shizuku-20261009
+    paths:
+      - '.github/workflows/y2q-identity-probe.yml'
+      - 'research/y2q-G986U1UESCHXL1/identity_probe.c'
+      - 'research/y2q-G986U1UESCHXL1/build_probe.sh'
+      - 'tools/verify_s20plus_firmware.py'
+
+jobs:
+  diagnostic:
+    name: Build non-root ARM64 identity probe
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate offline evidence checker syntax
+        run: python3 -m py_compile tools/verify_s20plus_firmware.py
+      - name: Setup Android tools
+        uses: android-actions/setup-android@v3
+      - name: Install Android NDK
+        run: sdkmanager --install "ndk;30.0.16248370"
+      - name: Build Android 13 ARM64 non-root probe
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/30.0.16248370
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/30.0.16248370"
+          bash research/y2q-G986U1UESCHXL1/build_probe.sh
+      - name: Upload read-only diagnostic (not an exploit)
+        uses: actions/upload-artifact@v4
+        with:
+          name: y2q-identity-probe-NOT-ROOT
+          path: research/y2q-G986U1UESCHXL1/build/y2q-identity-probe
+          if-no-files-found: error
