@@ -46,9 +46,13 @@ def parse_makefile_version(path):
 
 
 def binary_version(path):
+    # shutil.which() returns a str; callers may also supply pathlib.Path.
+    path = Path(path)
     try:
-        p = subprocess.run([str(path), "version" if path.name == "openssl" else "--version"], capture_output=True,
-                           text=True, timeout=8, check=False)
+        p = subprocess.run(
+            [str(path), "version" if path.name == "openssl" else "--version"],
+            capture_output=True, text=True, timeout=8, check=False,
+        )
     except (OSError, subprocess.TimeoutExpired) as error:
         return f"cannot execute: {type(error).__name__}: {error}"
     line = (p.stdout or p.stderr).splitlines()
