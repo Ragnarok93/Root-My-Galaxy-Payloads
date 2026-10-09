@@ -31,8 +31,10 @@ Status:
 - [x] Wrapper ZIP entries inventoried (13 internal ZIPs)
 - [x] Base/U1 DTS/HXL1 inner ZIP hashes and their TAR entries inventoried
 - [x] HXL1 TAR fully scanned (59 members); U1 DTS TAR fully scanned (6)
-- [ ] List all 59 HXL1 paths and determine patch/overlay order
-- [ ] Complete main Kernel.tar.gz scan (initial scan stopped at 20,000 members)
+- [x] All 59 HXL1 entries listed: 30 regular source files and 29 directories
+- [ ] Determine cumulative firmware-overlay order and source-file provenance
+- [x] Full main Kernel.tar.gz scan completed (76,068 members)
+- [ ] Compare Samsung defconfigs with extracted running kernel config
 - [ ] Kernel Makefile (`VERSION/PATCHLEVEL/SUBLEVEL`) examined
 - [ ] Source defconfig and toolchain instructions compared with `config.gz`
 - [ ] Exact commit/build provenance assessed against extracted ARM64 kernel
@@ -154,6 +156,56 @@ still reports `limitReached: True`, raise the member cap only
 after checking available CPU/disk resources. The ZIP inspector
 spools compressed source data to a temporary file and does not
 persistently unpack either kernel tree.
+
+## October 9: full inventory confirms HXL1 source override set
+
+The owner ran the updated full TAR inventory:
+
+- Shared main kernel TAR: **76,068** total entries, `limitReached=False`.
+- Main kernel Makefile: `./Makefile` (**65,984 bytes**, just above the
+  inspector's former 64-KiB text-reading limit; fixed to 256 KiB).
+- Shared base source config: `./arch/arm64/configs/vendor/y2q_usa_singlew_defconfig`
+  (**190,565 bytes**).
+- U1 DTS config: `Kernel/arch/arm64/configs/vendor/y2q_usa_openw_defconfig`
+  (**190,565 bytes**). Equal file sizes are not proof of identical contents.
+- HXL1 firmware TAR: **59** entries, including **30** C/header files,
+  with the remaining **29** entries being directories.
+
+The HXL1 source files affect GPU KGSL, USB notify, Linux networking,
+SDP, HID, IOMMU, MHI, Qualcomm SMEM, DSP/RPC, UVC and USB audio.
+No root or module-loading capability is implied by these changes.
+
+### Compare stock kernel configuration and source-update provenance
+
+The next read-only research tool audits individual Samsung incremental
+update ZIPs **through HXL1**, retaining their archive listing order,
+and records which update last changed each source filename. It **does not**
+apply patches or generate a boot image. Any proposed overlay order must
+still be checked against Samsung's build README/provenance.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/audit_samsung_kernel_layers.py \
+  /mnt/d/root-my-galaxy-test/source/SM-G986U.zip \
+  --target-firmware G986U1UESCHXL1 \
+  --device-config-gz ~/s20-artifacts/config.gz \
+  --json ~/s20-artifacts/samsung-hxl1-source-audit.json
+```
+
+The output reports:
+
+- Version/patchlevel/sublevel parsed from Samsung's base kernel Makefile.
+- SHA-256 of the base Makefile and both singlew/openw defconfigs.
+- Explicit config differences between each source defconfig and the
+  running device's extracted kernel `config.gz`. These are **pre-Kconfig**
+  comparisons; differences alone do not prove a broken or wrong build.
+- Per-update source-file counts, repeated names and which updates
+  contain files not repeated in the final HXL1 update ZIP.
+- Exclusion of later HYC1 source updates from the HXL1 target build.
+
+This is the next evidence gate before assembling or building stock kernel source.
 
 ## What we will compare
 
