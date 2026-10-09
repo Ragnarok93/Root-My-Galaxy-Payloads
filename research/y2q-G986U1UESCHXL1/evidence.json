@@ -270,7 +270,39 @@
       "hostPackageInstallReported": "Ubuntu apt install completed successfully for flex,bison,pahole,dwarves,libelf-dev,libssl-dev and related host tools",
       "aarch64CrossCompilerStillAbsent": true,
       "qualcommOriginalClang10StillAbsent": true,
-      "kernelBuilt": false
+      "kernelBuilt": false,
+      "lastRun": {
+        "date": "2026-10-09",
+        "result": "PASS_SOURCE_AND_HOST_UTILITIES_ORIGINAL_TOOLCHAIN_UNVERIFIED",
+        "kernelMakefileVersion": "4.19.113",
+        "modelConfigHashVerified": true,
+        "overlayHashesVerified": "40/40",
+        "hostMake": "4.3",
+        "hostPython": "3.12.3",
+        "hostFlex": "2.6.4",
+        "hostBison": "3.8.2",
+        "hostBc": "1.07.1",
+        "hostOpenSSL": "3.0.13",
+        "hostDtc": "1.7.0",
+        "hostPahole": "1.25",
+        "hostGcc": "13.3.0",
+        "hostClang": "18.1.3",
+        "hostLdLld": "18.1.3",
+        "aarch64Gcc": "13.3.0",
+        "aarch64Binutils": "2.42",
+        "sourceDtc": "1.4.4-Android-build",
+        "ndkR30Clang": "21.0.0",
+        "originalQualcommClang10Located": false,
+        "originalAndroidAarch64Gcc49Located": false,
+        "relevantMakefileLines": {
+          "372": "LD = $(CROSS_COMPILE)ld",
+          "373": "REAL_CC = $(srctree)/toolchain/llvm-arm-toolchain-ship/10.0/bin/clang",
+          "394": "CC = $(PYTHON) $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)",
+          "490": "CLANG_TRIPLE ?= aarch64-linux-gnu-",
+          "795": "CC = $(srctree)/scripts/gcc-wrapper.py $(CFP_CC)"
+        },
+        "note": "Host tools and Samsung kernel-source matches verified. Modern GCC13/LLVM18 available but do not equal Samsung's original GCC4.9/Qualcomm Clang10 build. No kernel compilation or boot yet."
+      }
     }
   }
 }
