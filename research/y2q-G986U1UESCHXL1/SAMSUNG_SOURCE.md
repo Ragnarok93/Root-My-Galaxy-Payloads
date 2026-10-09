@@ -598,6 +598,100 @@ Do not begin a stock Image compilation until any important config
 differences have been understood and the original compiler discrepancy
 has been recorded.
 
+## October 9: generated Kconfig matches running device except compiler version
+
+Owner-reported output from `tools/compare_samsung_kernel_configs.py`:
+
+- Generated file:
+  `~/src/samsung-y2q-hxl1-config-clang18/.config`
+- SHA-256:
+  `97cf1d93f86251294951ff235e76281e9e3705d5745be6b44f130fc3aa501c09`
+- 5,790 shared symbols with exactly matching values, **one different
+  explicit value**:
+  `CONFIG_CLANG_VERSION=180103` (generated Ubuntu Clang 18) versus
+  `CONFIG_CLANG_VERSION=100006` (running Samsung Clang 10.0.6).
+- Zero generated-only symbols; 18 running-only symbols, all listed
+  as hardware-model or Samsung project identifiers (e.g. Y2Q
+  alternative region selectors). They remain unverified for exact
+  release fidelity; absent does **not** mean disabled.
+- Original source defconfig against generated config: 5,790 matching
+  explicit values, 1 compiler-version difference, 8 source-only.
+- All 15 compared ARM64/Qualcomm/Kona/Samsung security, module-signature
+  and synchronization symbols match the running device.
+
+This is compelling for a **research-only compilation attempt**, not
+an exact reconstruction of the OEM executable or a method to load a
+custom kernel on a locked bootloader.
+
+### First isolated stock Image compilation — guarded compatibility trial
+
+The included `tools/build_samsung_stock_kernel.py` tool defaults to
+**dry run** and enforces:
+
+- Source Makefile SHA-256 from the owner's Samsung base archive.
+- SHA-256 of the known, successful generated `.config`.
+- Exact reference to the user's full generated-vs-running comparison,
+  accepting only the documented `CONFIG_CLANG_VERSION` mismatch,
+  rejecting changes to all 15 security/platform symbols.
+- Base kernel version, both defconfig digests, and SHA-256 checks
+  of all 40 HXL1 source overlays.
+- Existing isolated `O=` output directory, original source untouched.
+- Explicit `--execute`, separate log file, no output Image already
+  present, and no signed/flashable image generation.
+
+The modern Ubuntu GCC 13/Clang 18 environment is a **compatibility
+experiment**, not the original Qualcomm GCC 4.9/Clang 10 build.
+
+Dry run:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --jobs 2 \
+  --json ~/s20-artifacts/samsung-hxl1-image-preflight.json
+```
+
+Only after a successful dry run, compile `Image` off-device with
+a **fresh, exclusively named log and report**:
+
+```bash
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --jobs 2 \
+  --execute \
+  --log ~/s20-artifacts/samsung-hxl1-image-clang18-build.log \
+  --json ~/s20-artifacts/samsung-hxl1-image-clang18-report.json
+```
+
+The actual compile can fail on modern compiler version, old Kbuild
+scripts, dependencies, assembly or linker differences. Failure is
+valuable evidence and does not imply a corrupt source archive.
+Retain the log, which records the full Make output and exit status.
+If unsuccessful, use:
+
+```bash
+grep -nE '(^|[[:space:]])(error:|Error [0-9]+|fatal error:|undefined reference)' \
+  ~/s20-artifacts/samsung-hxl1-image-clang18-build.log | head -60
+tail -n 90 ~/s20-artifacts/samsung-hxl1-image-clang18-build.log
+```
+
+If the command succeeds, the tool records the compiled `Image` size,
+SHA-256 and path, but the binary remains **unsigned, unbooted,
+and nonflashable on the owner's currently locked device**.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
