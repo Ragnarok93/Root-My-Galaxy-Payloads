@@ -7,6 +7,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 TOOL = Path(__file__).with_name("configure_samsung_stock_kernel.py")
+# exec_module does not add sibling tools to sys.path, unlike CLI execution.
+sys.path.insert(0, str(TOOL.parent))
 spec = importlib.util.spec_from_file_location("config_samsung_stock", TOOL)
 config = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(config)
