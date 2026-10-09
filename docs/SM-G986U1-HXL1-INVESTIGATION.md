@@ -22,7 +22,7 @@ and original gzip kernel configuration. SHA-256 of config.gz:
 | Local firmware file | `SAMFW.COM_SM-G986U1_XAA_G986U1UESCHXL1_fac.zip` (6,869,850,700 bytes) |
 | ZIP inventory | AP/BL/CP match `G986U1UESCHXL1`; CSC/HOME_CSC are `G986U1OYMCHXL1` |
 | Boot/kernel image SHA-256 | Not yet available: nested AP TAR not inspected |
-| Patch level, bootloader lock | Not captured: all shell diagnostic probes failed |
+| Security patch / bootloader lock | `2025-01-01` / `ro.boot.flash.locked=1`, vbmeta device state `locked` |
 
 ### Verified kernel-config flags
 
@@ -42,37 +42,64 @@ and original gzip kernel configuration. SHA-256 of config.gz:
 | `CONFIG_IKCONFIG_PROC` | enabled | Original `/proc/config.gz` was successfully exported |
 | `CONFIG_DEBUG_INFO_BTF` | absent from config | BTF is not established |
 
-### App-side Shizuku collector bug found
+### Shizuku diagnostic validation — second report (2026-10-09T20:55:41Z)
 
-All 23 collected shell observations failed with
-`IllegalArgumentException: process hasn't exited`. The Shizuku remote-process
-adapter did not honor Java `Process.exitValue()` semantics during timed waits.
-This is an app bug, **not evidence that Android denied all 23 probes**.
-The separate kernel-config extraction succeeded. Re-run these diagnostics
-with the corrected app to obtain security patch, SELinux, tracefs accessibility,
-bootloader state and command UID.
+The initial **23 FAILED** results were caused by the old adapter's
+`IllegalArgumentException: process hasn't exited` bug. After the
+Process-compatible timeout fix, **22 probes returned OK, 1 UNAVAILABLE,
+and 0 FAILED**; Shizuku execution was confirmed as **UID 2000** (ADB shell,
+not root).
 
-### Next evidence gates
+| Probe | Observed result | Interpretation |
+|---|---|---|
+| `ro.product.name` | `y2quew` | Matches model/codename in fingerprint |
+| `ro.build.version.security_patch` | `2025-01-01` | Android security patch |
+| `ro.boot.bootloader` | `G986U1UESCHXL1` | Bootloader firmware identity |
+| `gsm.version.baseband` | `G986U1UESCHXL1,G986U1UESCHXL1` | Dual-value baseband string |
+| `ro.boot.flash.locked` | `1` | Locked flash/bootloader state |
+| `ro.boot.vbmeta.device_state` | `locked` | Locked verified-boot device state |
+| `security.selinux` | `Enforcing` | Mandatory access control enforced |
+| `kernel.trace_event` | `72` | `sched_blocked_reason` event ID currently readable; per-build/boot value, **not** a kernel address |
+| `kernel.kallsyms` | UNAVAILABLE | ADB shell cannot read `/proc/kallsyms` via probe; compiled-in kallsyms do not imply access |
+| `kernel.modules` | exit 0, empty stdout | No modules listed by `/proc/modules` at capture time; modules are supported by config |
+| `boot.slot` | exit 0, empty stdout | No slot suffix returned; does not alone prove partitioning layout |
+| `storage.partitions` | block-device major/minor/size inventory | Physical `sd[a-d]`, removable `mmcblk0`, loop, zram and device-mapper entries enumerated; no partition labels or raw contents captured |
 
-1. Re-run Shizuku probes on a fixed debug build, saving the new report.
-2. Obtain `boot.img.lz4` from the exact AP TAR.MD5 and hash the compressed
-   image, decompressed boot image, and extracted kernel. ZIP central-directory
-   metadata does not expose embedded AP partitions.
-3. Independently validate the exact 4.19 binary/source before drawing any
-   conclusion about CVE-2026-43499.
-4. Account for signature enforcement, Samsung KDP/RKP, DEFEX, KASLR, and
-   target-specific structure offsets before researching a loader.
+From `/proc/version`, the exact deployed kernel identifies
+`clang version 10.0.6 for Android NDK`, Samsung build
+`dpi@21DJ7C20`, and `#1 SMP PREEMPT Fri Dec 27 14:53:28 KST 2024`.
+
+The original kernel config contains `CONFIG_TRACEPOINTS=y`,
+`CONFIG_FTRACE=y` and `CONFIG_KALLSYMS_ALL=y`, but the shell
+report demonstrates that trace event *metadata* is readable while
+kernel symbol metadata is not. Do not infer unprivileged trace event
+attachment, writable tracefs, a usable symbol leak, or root viability.
+
+### Remaining research gates
+
+1. Use the new bootloader/patch/fingerprint evidence to constrain the
+   **SM-G986U1 / y2q / G986U1UESCHXL1 / 4.19.113-27095354** target.
+2. Inspect the contents of the AP TAR.MD5 (the uploaded ZIP inventory only
+   lists the **nested AP TAR**). Acquire and hash `boot.img.lz4`,
+   decompressed `boot.img`, and extracted ARM64 kernel offline.
+3. Verify exact kernel binary/source and whether the proposed futex/rtmutex
+   vulnerability is applicable **before** forming a payload.
+4. Validate protection and rollback constraints, including locked AVB,
+   SELinux enforcing, forced module signatures, Samsung RKP/KDP/DEFEX,
+   KASLR, and inaccessible `/proc/kallsyms`.
+5. Do not add this target to the supported payload manifest before
+   firmware-locked identification and an independently validated method.
 
 ## Target reported by device owner
 
 | Field | Reported value | Verification still needed |
 |---|---|---|
-| Handset | Galaxy S20+ SM-G986U1/DS | Android Build.MODEL (possibly SM-G986U1) |
+| Handset | Galaxy S20+ SM-G986U1/DS | Confirmed Android model `SM-G986U1`; `/DS` marketing suffix not surfaced in Build.MODEL |
 | SoC | Qualcomm SM8250 / Snapdragon 865 | Build.DEVICE and product variant |
 | Kernel | 4.19.113-27095354 | Exact uname -r and compiled kernel hash |
 | Modem/baseband | G986U1UESCHXL1 | Actual AP/PDA and CSC build, not inferred from baseband |
-| OS | Android 13 / One UI 5.1 | Fingerprint and security patch |
-| Bootloader | Unconfirmed; US U1 generally locked | Device-reported state and recovery options |
+| OS | Android 13 / One UI 5.1 | Build fingerprint confirmed; Android security patch `2025-01-01` |
+| Bootloader | `G986U1UESCHXL1` | Device reports `ro.boot.flash.locked=1`, vbmeta state `locked`; recovery options still require investigation |
 
 The Exynos S20+ SM-G986B / codename y2s is a different port. The Snapdragon
 variant is commonly known as y2q, but confirm the device identifier on hardware.
