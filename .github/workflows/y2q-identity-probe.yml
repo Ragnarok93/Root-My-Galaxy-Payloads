@@ -12,6 +12,8 @@ on:
       - 'tools/verify_s20plus_firmware.py'
       - 'tools/inspect_samsung_source.py'
       - 'tools/test_inspect_samsung_source.py'
+      - 'tools/audit_samsung_kernel_layers.py'
+      - 'tools/test_audit_samsung_kernel_layers.py'
 
 jobs:
   diagnostic:
@@ -23,8 +25,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate read-only research tooling and source ZIP fixtures
         run: |
-          python3 -m py_compile tools/verify_s20plus_firmware.py tools/inspect_samsung_source.py
-          python3 -m unittest -v tools/test_inspect_samsung_source.py
+          python3 -m py_compile tools/verify_s20plus_firmware.py tools/inspect_samsung_source.py tools/audit_samsung_kernel_layers.py
+          python3 -m unittest -v tools/test_inspect_samsung_source.py tools/test_audit_samsung_kernel_layers.py
       - name: Install or find Android NDK
         shell: bash
         run: |
