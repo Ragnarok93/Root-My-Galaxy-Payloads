@@ -125,11 +125,11 @@
     "expectedFirmwareToken": "G986U1UESCHXL1",
     "listingEvidence": "Owner-supplied Samsung Open Source Release Center table on 2026-10-09",
     "matchStatus": "exact firmware token found in official-listed archive filename",
-    "archiveDownloaded": false,
+    "archiveDownloaded": true,
     "archiveSha256": null,
     "archiveContentsInspected": false,
     "kernelSourceMatchedToBinary": false,
-    "notes": "Samsung wrapper archive downloaded, hashed, and ZIP directory inspected (13 nested ZIPs); HXL1 inner ZIP and large base ZIP NOT yet inspected, hashed individually, or validated against firmware binary.",
+    "notes": "Exact HXL1 archive present inside downloaded Samsung wrapper (not separately extracted). Outer wrapper hash and listing verified from owner terminal output; inner HXL1/base ZIP hashes and file contents not yet inspected.",
     "wrapperDownload": {
       "name": "SM-G986U.zip",
       "sizeBytes": 256918162,
