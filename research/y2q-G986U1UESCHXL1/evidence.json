@@ -129,7 +129,7 @@
     "archiveSha256": "c7fcbabd46ddb9aa0aaa6f396bb68651ecaa42d963d3f2397c93872e3602d7c3",
     "archiveContentsInspected": true,
     "kernelSourceMatchedToBinary": false,
-    "notes": "Outer ZIP hash, base/U1 DTS/HXL1 ZIP inner hashes and nested archive entry counts from owner-reported inspector. Main kernel TAR scanned only first 20,000 entries, explicitly truncated; HXL1 TAR all 59 members scanned but not fully listed. Exact source build/version correspondence not yet established.",
+    "notes": "Full nested main kernel TAR scan completed: 76,068 members (not truncated), main Makefile 65,984 bytes, main y2q_usa_singlew_defconfig 190,565 bytes. U1 DTS provides y2q_usa_openw_defconfig also 190,565 bytes. HXL1 tar 59 entries: 30 regular source files and 29 directories. Source assembly and runtime configuration equivalence remain unverified.",
     "wrapperDownload": {
       "name": "SM-G986U.zip",
       "sizeBytes": 256918162,
@@ -154,10 +154,13 @@
           "Kernel.tar.gz",
           "Platform.tar.gz"
         ],
-        "kernelTarMembersExamined": 20000,
-        "kernelTarScanTruncated": true,
+        "kernelTarMembersExamined": 76068,
+        "kernelTarScanTruncated": false,
         "platformTarMembersExamined": 14822,
-        "platformTarScanTruncated": false
+        "platformTarScanTruncated": false,
+        "observedConfigPath": "./arch/arm64/configs/vendor/y2q_usa_singlew_defconfig",
+        "kernelMakefilePath": "./Makefile",
+        "kernelMakefileSizeBytes": 65984
       },
       "deviceTree": {
         "name": "SM-G986U1_NA_13_Opensource_dts.zip",
@@ -166,7 +169,8 @@
         "entries": 2,
         "innerTarName": "G986U1UES8HXA1_kernel.tar.gz",
         "innerTarMembersExamined": 6,
-        "observedDefconfig": "Kernel/arch/arm64/configs/vendor/y2q_usa_openw_defconfig"
+        "observedDefconfig": "Kernel/arch/arm64/configs/vendor/y2q_usa_openw_defconfig",
+        "observedConfigSizeBytes": 190565
       },
       "hxl1": {
         "name": "SM-G986U_13_Opensource_G986USQSCHXL1_G986U1UESCHXL1_G986WVLSCHXL1.zip",
@@ -176,7 +180,17 @@
         "innerTarName": "G986USQSCHXL1_kernel.tar.gz",
         "innerTarMembersExamined": 59,
         "innerTarScanTruncated": false,
-        "overlayNature": "probable, not confirmed pending list of 59 members"
+        "overlayNature": "HXL1 tar contains 30 regular C/header source files and 29 directory entries; effective baseline and intervening update dependencies remain under evaluation",
+        "regularSourceFiles": 30,
+        "directoryEntries": 29,
+        "observedPathsSample": [
+          "Kernel/drivers/gpu/msm/kgsl.c",
+          "Kernel/drivers/gpu/msm/kgsl_sharedmem.c",
+          "Kernel/drivers/usb/notify/usb_notify.c",
+          "Kernel/include/net/sock.h",
+          "Kernel/net/unix/af_unix.c",
+          "Kernel/security/sdp/fs_handler.c"
+        ]
       }
     }
   }
