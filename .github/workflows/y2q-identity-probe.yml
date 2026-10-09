@@ -21,16 +21,21 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate offline evidence checker syntax
         run: python3 -m py_compile tools/verify_s20plus_firmware.py
-      - name: Setup Android tools
-        uses: android-actions/setup-android@v3
-      - name: Install Android NDK
-        run: sdkmanager --install "ndk;30.0.16248370"
-      - name: Build Android 13 ARM64 non-root probe
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/30.0.16248370
+      - name: Install or find Android NDK
+        shell: bash
         run: |
-          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/30.0.16248370"
-          bash research/y2q-G986U1UESCHXL1/build_probe.sh
+          set -euo pipefail
+          : "${ANDROID_HOME:=/usr/local/lib/android/sdk}"
+          if [[ ! -x "$ANDROID_HOME/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang" ]]; then
+            yes | sdkmanager --sdk_root="$ANDROID_HOME" "ndk;30.0.16248370" || true
+          fi
+          if [[ ! -x "$ANDROID_HOME/ndk/30.0.16248370/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang" ]]; then
+            echo "NDK r30 not installed by sdkmanager" >&2
+            exit 1
+          fi
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/30.0.16248370" >> "$GITHUB_ENV"
+      - name: Build Android 13 ARM64 non-root probe
+        run: bash research/y2q-G986U1UESCHXL1/build_probe.sh
       - name: Upload read-only diagnostic (not an exploit)
         uses: actions/upload-artifact@v4
         with:
