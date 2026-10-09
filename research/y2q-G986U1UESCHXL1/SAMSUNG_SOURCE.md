@@ -547,6 +547,57 @@ Warnings in `drivers/gps/Kconfig` and `drivers/perf_mgr/Kconfig`
 are recorded, but do not by themselves establish that the 40 file
 overlays or the 5,799 config symbols are wrong.
 
+## October 9: stock Kconfig successfully generated with Clang 18
+
+Owner-side configuration retry of the reconstructed, 40/40 hash-verified
+HXL1 source was successful after installing Ubuntu's
+`python-is-python3` package. The command:
+
+- Ran `vendor/y2q_usa_singlew_defconfig` with
+  `REAL_CC=/usr/lib/llvm-18/bin/clang` and
+  `CROSS_COMPILE=/usr/bin/aarch64-linux-gnu-`.
+- Created the 186-KiB
+  `/home/main/src/samsung-y2q-hxl1-config-clang18/.config`.
+- Printed `configuration written to .config` and returned successfully.
+- Left remaining nonfatal Kconfig warnings in GPS, LEDs,
+  security debug and performance manager portions of the vendor source.
+- **Did not compile kernel Image, modules or DTBs; did not flash device.**
+
+The next gate is to compare the **generated** configuration (which may
+have Kconfig-driven defaults) against the **running device's** verified
+`config.gz`. The previous 5,799 exact matches concerned the Samsung
+*input defconfig*, not this freshly generated output.
+
+### Compare generated and live kernel configurations
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/compare_samsung_kernel_configs.py \
+  --generated ~/src/samsung-y2q-hxl1-config-clang18/.config \
+  --running-config-gz ~/s20-artifacts/config.gz \
+  --source-defconfig ~/src/samsung-y2q-hxl1-stock/arch/arm64/configs/vendor/y2q_usa_singlew_defconfig \
+  --json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json
+```
+
+The comparator validates the known original `config.gz` SHA-256 and the
+source defconfig SHA-256, then prints:
+
+- Explicit symbol matches and differing values between generated and live config.
+- Generated-only and running-only symbol counts.
+- Source defconfig versus generated config changes.
+- Qualcomm Kona/ARM64, module-signature enforcement, KDP/RKP, DEFEX
+  and other important platform/security settings.
+- Full difference inventory in JSON, while console examples are limited.
+
+Absent symbols are **not** treated as disabled automatically. The
+comparison does not assert bootability or binary identity.
+
+Do not begin a stock Image compilation until any important config
+differences have been understood and the original compiler discrepancy
+has been recorded.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
