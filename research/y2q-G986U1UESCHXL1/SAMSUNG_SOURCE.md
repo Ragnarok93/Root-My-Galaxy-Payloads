@@ -29,7 +29,10 @@ Status:
 - [x] Exact firmware token identified in Samsung source package listing
 - [x] Wrapper archive downloaded; size and SHA-256 reported by owner
 - [x] Wrapper ZIP entries inventoried (13 internal ZIPs)
-- [ ] Inner base, U1 DTS, HXL1 ZIP and any nested TAR contents inspected
+- [x] Base/U1 DTS/HXL1 inner ZIP hashes and their TAR entries inventoried
+- [x] HXL1 TAR fully scanned (59 members); U1 DTS TAR fully scanned (6)
+- [ ] List all 59 HXL1 paths and determine patch/overlay order
+- [ ] Complete main Kernel.tar.gz scan (initial scan stopped at 20,000 members)
 - [ ] Kernel Makefile (`VERSION/PATCHLEVEL/SUBLEVEL`) examined
 - [ ] Source defconfig and toolchain instructions compared with `config.gz`
 - [ ] Exact commit/build provenance assessed against extracted ARM64 kernel
@@ -100,6 +103,57 @@ or error, do not infer any absent source files from that incomplete scan.
 The inventories print SHA-256 for every scanned inner ZIP, allowing
 the specific HXL1 package and base-source bytes to be tracked
 independently of the outer wrapper.
+
+## October 9, 2026: observed nested package results
+
+The Samsung wrapper SHA-256 is verified by the owner's local inspection.
+The three separately scanned nested ZIPs were:
+
+| Archive | SHA-256 | Observation |
+| --- | --- | --- |
+| `SM-G986U_NA_13_Opensource.zip` | `23011b7641701e4542f3a0b212eb5aca6a2f9ea4f14cee3b64f46dcf0cb1bfc7` | Contains `Kernel.tar.gz` and `Platform.tar.gz`; kernel scan **truncated at 20,000 entries** |
+| `SM-G986U1_NA_13_Opensource_dts.zip` | `51b2099dc5d5dc658a8519026be1b1e6aa0088efc35af176831a67228619c7ae` | Contains 6-member `G986U1UES8HXA1_kernel.tar.gz` with `Kernel/arch/arm64/configs/vendor/y2q_usa_openw_defconfig` |
+| `SM-G986U_13_Opensource_G986USQSCHXL1_G986U1UESCHXL1_G986WVLSCHXL1.zip` | `c7fcbabd46ddb9aa0aaa6f396bb68651ecaa42d963d3f2397c93872e3602d7c3` | Contains 59-member `G986USQSCHXL1_kernel.tar.gz` |
+
+The HXL1 TAR being small suggests firmware-specific changes, but
+we must inventory its entire contents before deciding whether it is
+a patch, replacement set, or supplement. The U1 DTS TAR filename
+contains `8HXA1`; its reuse on HXL1 is plausible, but not yet
+proven to be valid for the exact running hardware.
+
+### Inspect all 59 HXL1 files and the six U1 DTS files
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+SOURCE_ZIP=/mnt/d/root-my-galaxy-test/source/SM-G986U.zip
+
+python3 tools/inspect_samsung_source.py "$SOURCE_ZIP" \
+  --scan-nested \
+  --select-zip-regex 'G986U1UESCHXL1|SM-G986U1_NA_13_Opensource_dts' \
+  --tar-path-regex '.*' \
+  --max-matched-paths 120 \
+  --json ~/s20-artifacts/samsung-hxl1-paths.json
+```
+
+### Inspect the entire main kernel source TAR and locate defconfigs
+
+```bash
+python3 tools/inspect_samsung_source.py "$SOURCE_ZIP" \
+  --scan-nested \
+  --select-zip-regex '^SM-G986U_NA_13_Opensource[.]zip$' \
+  --max-tar-members 200000 \
+  --tar-path-regex '(^(\./)?Makefile$|^Kernel/Makefile$|(^|/)arch/arm64/configs/vendor/.*(y2q|kona).*defconfig$)' \
+  --max-matched-paths 120 \
+  --json ~/s20-artifacts/samsung-base-paths.json
+```
+
+These are inventories, not kernel builds. If the main TAR
+still reports `limitReached: True`, raise the member cap only
+after checking available CPU/disk resources. The ZIP inspector
+spools compressed source data to a temporary file and does not
+persistently unpack either kernel tree.
 
 ## What we will compare
 
