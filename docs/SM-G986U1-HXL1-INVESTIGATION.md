@@ -6,6 +6,63 @@ This document accompanies the app's read-only Investigation tab. It is deliberat
 not represented in support/targets-v3.json: neither an exploit nor a KernelSU
 late-load module has been verified for this target.
 
+## Findings from the October 9, 2026 device reports
+
+Evidence: user-uploaded firmware inventory JSON, Shizuku investigation JSON,
+and original gzip kernel configuration. SHA-256 of config.gz:
+`1931b2c99e1dad26e93013eac8442384368e7bcde313443ba44baa65d4c053cd`
+
+| Field | Observed |
+|---|---|
+| Model / codename | `SM-G986U1` / `y2q` |
+| Android | 13 (SDK 33), ARM64, 4096-byte pages |
+| Build | `TP1A.220624.014.G986U1UESCHXL1` |
+| Fingerprint | `samsung/y2quew/y2q:13/TP1A.220624.014/G986U1UESCHXL1:user/release-keys` |
+| Kernel | `4.19.113-27095354`, built Dec 27 2024 KST |
+| Local firmware file | `SAMFW.COM_SM-G986U1_XAA_G986U1UESCHXL1_fac.zip` (6,869,850,700 bytes) |
+| ZIP inventory | AP/BL/CP match `G986U1UESCHXL1`; CSC/HOME_CSC are `G986U1OYMCHXL1` |
+| Boot/kernel image SHA-256 | Not yet available: nested AP TAR not inspected |
+| Patch level, bootloader lock | Not captured: all shell diagnostic probes failed |
+
+### Verified kernel-config flags
+
+| Flag | Status | Implication |
+|---|---|---|
+| `CONFIG_ARCH_QCOM`, `CONFIG_ARCH_KONA` | enabled | Qualcomm Kona |
+| `CONFIG_FUTEX_PI`, `CONFIG_RT_MUTEXES` | enabled | Relevant subsystems present; **no proof of vulnerability** |
+| `CONFIG_KALLSYMS_ALL` | enabled | Symbol table compiled in; runtime addresses may be masked |
+| `CONFIG_DEBUG_INFO` | enabled | Debug data requested at kernel build time, not guaranteed in deployed image |
+| `CONFIG_KPROBES` | disabled | Kprobes unavailable |
+| `CONFIG_MODULES`, `CONFIG_MODVERSIONS` | enabled | Module loading compiled in, ABI versioning enforced |
+| `CONFIG_MODULE_SIG_FORCE`, `CONFIG_MODULE_SIG_SHA512` | enabled | Mandatory SHA-512 module signature verification |
+| `CONFIG_RANDOMIZE_BASE` | enabled | KASLR |
+| `CONFIG_UH_RKP` | enabled | Samsung RKP configured |
+| `CONFIG_KDP_CRED`, `CONFIG_KDP_NS`, `CONFIG_KDP_DMAP` | enabled | Samsung KDP configured |
+| `CONFIG_SECURITY_DEFEX` | enabled | Samsung DEFEX configured |
+| `CONFIG_IKCONFIG_PROC` | enabled | Original `/proc/config.gz` was successfully exported |
+| `CONFIG_DEBUG_INFO_BTF` | absent from config | BTF is not established |
+
+### App-side Shizuku collector bug found
+
+All 23 collected shell observations failed with
+`IllegalArgumentException: process hasn't exited`. The Shizuku remote-process
+adapter did not honor Java `Process.exitValue()` semantics during timed waits.
+This is an app bug, **not evidence that Android denied all 23 probes**.
+The separate kernel-config extraction succeeded. Re-run these diagnostics
+with the corrected app to obtain security patch, SELinux, tracefs accessibility,
+bootloader state and command UID.
+
+### Next evidence gates
+
+1. Re-run Shizuku probes on a fixed debug build, saving the new report.
+2. Obtain `boot.img.lz4` from the exact AP TAR.MD5 and hash the compressed
+   image, decompressed boot image, and extracted kernel. ZIP central-directory
+   metadata does not expose embedded AP partitions.
+3. Independently validate the exact 4.19 binary/source before drawing any
+   conclusion about CVE-2026-43499.
+4. Account for signature enforcement, Samsung KDP/RKP, DEFEX, KASLR, and
+   target-specific structure offsets before researching a loader.
+
 ## Target reported by device owner
 
 | Field | Reported value | Verification still needed |
@@ -54,9 +111,10 @@ Ground identity in these report keys before deciding on a profile name:
 Download the **matching AP version**, not a package chosen solely from CP
 (baseband). Extract boot.img.lz4 offline from AP; use lz4 to decompress and
 a boot-image-aware unpacker (e.g., magiskboot) to recover the ARM64 kernel.
-Keep SHA-256 for each stage. The app's SAF inspector can identify and hash a
-user-selected boot.img or LZ4 file (up to 256 MiB); it neither unpacks an AP
-archive nor reconstructs a symbolized kernel.
+Keep SHA-256 for each stage. The app's SAF inspector can index a selected
+AP/BL/CP/CSC TAR.MD5 directly without extraction; it also lists nested TAR
+names in an outer ZIP. It does not inflate nested AP files or reconstruct
+symbols. For large files the application explicitly skips full-file hashing.
 
 ## Phase 3 — kernel analysis blockers
 
