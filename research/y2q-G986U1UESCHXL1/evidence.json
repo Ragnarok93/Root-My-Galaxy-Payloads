@@ -212,6 +212,27 @@
       "assumedLayerOrder": "Samsung outer ZIP listing order through HXL1; not yet verified against README or binary",
       "sourceToBinaryByteIdentical": false,
       "makefileParserArtifact": "Earlier audit reported EXTRAVERSION as NAME = People's Front due newline-sensitive regex; parser corrected, EXTRAVERSION must be rechecked before build."
+    },
+    "kernelReadmeBuildRequirements": {
+      "source": "Samsung README_Kernel.txt from SM-G986U_NA_13_Opensource.zip as provided by owner",
+      "arch": "arm64",
+      "defconfig": "vendor/y2q_usa_singlew_defconfig",
+      "qcomClangShipExample": "vendor/qcom/proprietary/llvm-arm-toolchain-ship/10.0/bin/clang",
+      "crossCompileGccExample": "prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-",
+      "clangTriple": "aarch64-linux-gnu-",
+      "externalDtc": "tools/dtc",
+      "configBuildArm64DtOverlay": "y",
+      "kernelOutput": "arch/arm64/boot/Image",
+      "notes": "README covers base kernel compile only; does not document the assembly sequence of incremental firmware revision source packages. Toolchain paths are examples in Samsung's instructions; do not assume locally installed."
+    },
+    "stockSourceAssembly": {
+      "tool": "tools/assemble_samsung_stock_kernel.py",
+      "implementationStatus": "committed and synthetic-GitHub-Actions tests passed",
+      "ownerRealWorldSourceAssemblyTested": false,
+      "method": "Off-device base + U1 DTS + nine incremental ZIP source TARs through HXL1, ZIP listing order assumed rather than Samsung-documented",
+      "validates": "Known wrapper SHA256, audited inner ZIP hashes, all 40 final firmware-updated source file hashes",
+      "operationDefault": "Preflight only; opt-in --assemble-experimental required",
+      "bootOrRootVerified": false
     }
   }
 }
