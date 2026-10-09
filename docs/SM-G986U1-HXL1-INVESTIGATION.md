@@ -21,7 +21,7 @@ and original gzip kernel configuration. SHA-256 of config.gz:
 | Kernel | `4.19.113-27095354`, built Dec 27 2024 KST |
 | Local firmware file | `SAMFW.COM_SM-G986U1_XAA_G986U1UESCHXL1_fac.zip` (6,869,850,700 bytes) |
 | ZIP inventory | AP/BL/CP match `G986U1UESCHXL1`; CSC/HOME_CSC are `G986U1OYMCHXL1` |
-| Boot/kernel image SHA-256 | Not yet available: nested AP TAR not inspected |
+| Boot/kernel image SHA-256 | Recovered offline from AP; see exact image hashes below. Installed partition hash unverified. |
 | Security patch / bootloader lock | `2025-01-01` / `ro.boot.flash.locked=1`, vbmeta device state `locked` |
 
 ### Verified kernel-config flags
@@ -79,9 +79,7 @@ attachment, writable tracefs, a usable symbol leak, or root viability.
 
 1. Use the new bootloader/patch/fingerprint evidence to constrain the
    **SM-G986U1 / y2q / G986U1UESCHXL1 / 4.19.113-27095354** target.
-2. Inspect the contents of the AP TAR.MD5 (the uploaded ZIP inventory only
-   lists the **nested AP TAR**). Acquire and hash `boot.img.lz4`,
-   decompressed `boot.img`, and extracted ARM64 kernel offline.
+2. **Completed offline:** extracted and hashed `boot.img.lz4`, decompressed `boot.img`, and ARM64 kernel from matching AP. A running-partition hash is not available.
 3. Verify exact kernel binary/source and whether the proposed futex/rtmutex
    vulnerability is applicable **before** forming a payload.
 4. Validate protection and rollback constraints, including locked AVB,
@@ -89,6 +87,84 @@ attachment, writable tracefs, a usable symbol leak, or root viability.
    KASLR, and inaccessible `/proc/kallsyms`.
 5. Do not add this target to the supported payload manifest before
    firmware-locked identification and an independently validated method.
+
+## Exact boot image recovered from selected AP firmware (2026-10-09)
+
+Source: user-provided `boot.img.lz4` extracted from the
+`SAMFW.COM_SM-G986U1_XAA_G986U1UESCHXL1_fac.zip` AP package. Binary and
+hashes were analyzed offline; **no proprietary kernel/image content is
+committed to the repository**.
+
+| Artifact | Size (bytes) | SHA-256 |
+|---|---:|---|
+| Extracted `boot.img.lz4` | 25,597,493 | `02099ccbfb423292b631f228b8d3163b9a601f4a058360a4bca93f71f8e50a78` |
+| Decompressed `boot.img` | 67,108,864 | `bd8987c28ef0b9fdb56ad3e82ce3b45929c5e53717525769e5625dd1e17f7dc8` |
+| Kernel `Image` | 51,957,772 | `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123` |
+| Gzip ramdisk | 724,388 | `86b00ab1f20206ceedcc574423ef11417927aa1f773408ec2c2af4a855ea7586` |
+| Appended DTB image | 1,580,275 | `a6104cdba11e0cd3d6ddaba6819098ab01f0dc0e8e7fd333137c88ad07d9d0ce` |
+| Kernel-embedded `config.gz` | 42,754 | `1931b2c99e1dad26e93013eac8442384368e7bcde313443ba44baa65d4c053cd` |
+
+### Byte-exact cross-validation of kernel configuration
+
+The ARM64 kernel Image contains the normal `IKCFG_ST` / `IKCFG_ED` embedded
+kernel config sequence at offsets 26,785,408–26,828,170. The embedded 42,754
+compressed bytes match the **previously exported live `/proc/config.gz`
+byte-for-byte** (not merely a text-only configuration comparison), including
+the SHA-256 shown above.
+
+Its embedded Linux version string also exactly matches the running device:
+`Linux version 4.19.113-27095354 (dpi@21DJ7C20) (clang version 10.0.6 for Android NDK) #1 SMP PREEMPT Fri Dec 27 14:53:28 KST 2024`.
+
+This establishes strong firmware/kernel *build equivalence evidence*,
+but a **live boot-partition byte-for-byte hash was not obtained**. The source
+Image's hash must not be presented as a verified hash of the installed
+partition.
+
+### Android boot and ARM64 Image headers
+
+| Field | Inspected value |
+|---|---|
+| LZ4 | Standard framed stream, 1 MiB independent blocks, content checksum, original size 64 MiB |
+| Android boot magic | `ANDROID!` |
+| Boot header version / header bytes | `2` / `1660` |
+| Header page size | `4096` bytes |
+| Kernel offset and length | `4096` / `51957772` |
+| Ramdisk offset and length | `51965952` / `724388` |
+| DTB offset and length | `52690944` / `1580275` |
+| Header board name | `SRPSH29C012` |
+| Kernel signature | `ARMd` (uncompressed AArch64 Image, not ELF) |
+| ARM64 text_offset / image_size | `0x80000` / `0x433b000` |
+| ARM64 Image flags | `0xA` |
+| Boot-header OS version field | Android **11.0.0**, patch **2025-01** (the phone's *running* Android is **13**) |
+
+The OS version discrepancy is **limited to the boot-header metadata** and
+does not overturn the live-build and exact IKCONFIG match. Do not treat the
+boot-header field as authoritative for running Android userspace.
+
+The gzip ramdisk decompresses to a `cpio newc` archive of 1,565,952 bytes,
+with 8 entries including `init`, `fstab.qcom` and `dpolicy`.
+`fstab.qcom` references `first_stage_mount` and logical
+`system` / `product` / `vendor` / `odm` partitions protected by AVB,
+and `/data` with `fileencryption=ice`.
+
+The DTB section contains **four sequential FDT v17 blobs**, of lengths
+528,520 / 528,516 / 523,066 / 173 bytes. The first three identify Qualcomm
+`kona` SoC variants **v2.1 / v2 / v1**. This does not establish which
+board DTB was actually selected by the running bootloader.
+
+### Research implications
+
+- The extracted Image provides an exact byte artifact for further
+  disassembly and comparison with Samsung's released 4.19 sources.
+- `CONFIG_FUTEX_PI` and `CONFIG_RT_MUTEXES` are present in the *same*
+  binary's embedded config. This remains **insufficient to establish that
+  any exploit-relevant vulnerable code is present or reachable**.
+- Module signatures, RKP, KDP, DEFEX, bootloader/AVB lock and SELinux
+  enforcement remain meaningful constraints.
+- `/proc/kallsyms` is unavailable through the current Shizuku shell;
+  runtime addresses were **not** recovered.
+- Keep all analysis read-only. No boot image modifications or
+  flashing are justified by these findings.
 
 ## Target reported by device owner
 
