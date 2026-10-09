@@ -242,6 +242,35 @@
       "stockKernelBuilt": false,
       "stockKernelBooted": false,
       "notes": "Owner-provided WSL terminal reports successful off-device reconstruction; exact runtime toolchain/source-to-binary reproducibility remain unverified; source ZIP listing order is inferred."
+    },
+    "stockBuildPreflight": {
+      "testedAt": "2026-10-09",
+      "sourceVersionMatches": true,
+      "singlewConfigHashMatch": true,
+      "openwConfigHashMatch": true,
+      "verifiedFinalOverlayHashes": 40,
+      "overlayFileCount": 40,
+      "hostToolsBeforeInstall": {
+        "make": "GNU Make 4.3",
+        "python": "3.12.3",
+        "bc": "1.07.1",
+        "dtc": "1.7.0",
+        "localSamsungDtc": "1.4.4-Android-build",
+        "gcc": "Ubuntu 13.3.0",
+        "clang": "Ubuntu LLVM 18.1.3",
+        "lld": "Ubuntu LLD 18.1.3",
+        "ndkClang": "Android LLVM 21.0.0",
+        "missing": [
+          "flex",
+          "bison",
+          "pahole",
+          "aarch64_gcc"
+        ]
+      },
+      "hostPackageInstallReported": "Ubuntu apt install completed successfully for flex,bison,pahole,dwarves,libelf-dev,libssl-dev and related host tools",
+      "aarch64CrossCompilerStillAbsent": true,
+      "qualcommOriginalClang10StillAbsent": true,
+      "kernelBuilt": false
     }
   }
 }
