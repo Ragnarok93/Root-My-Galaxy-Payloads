@@ -166,6 +166,71 @@ board DTB was actually selected by the running bootloader.
 - Keep all analysis read-only. No boot image modifications or
   flashing are justified by these findings.
 
+## Offline boot-image inspection — October 9, 2026
+
+**Artifact provenance:** Device owner extracted `boot.img.lz4` from the matching
+`G986U1UESCHXL1` firmware package using the in-app selective extractor and
+provided the file for independent binary inspection. Extraction from a matching
+ZIP is not proof that these bytes were independently read from the locked
+handset's boot partition; no boot-partition read or flash was performed.
+
+| Artifact | Size (bytes) | SHA-256 |
+|---|---:|---|
+| Original `boot.img.lz4` | 25,597,493 | `02099ccbfb423292b631f228b8d3163b9a601f4a058360a4bca93f71f8e50a78` |
+| LZ4-decompressed `boot.img` | 67,108,864 | `bd8987c28ef0b9fdb56ad3e82ce3b45929c5e53717525769e5625dd1e17f7dc8` |
+| ARM64 kernel payload | 51,957,772 | `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123` |
+| Gzip ramdisk payload | 724,388 | `86b00ab1f20206ceedcc574423ef11417927aa1f773408ec2c2af4a855ea7586` |
+| DTB payload | 1,580,275 | `a6104cdba11e0cd3d6ddaba6819098ab01f0dc0e8e7fd333137c88ad07d9d0ce` |
+| Kernel-embedded config.gz | 42,754 | `1931b2c99e1dad26e93013eac8442384368e7bcde313443ba44baa65d4c053cd` |
+
+### Binary structure
+
+- Outer LZ4 frame: valid decompression and content checksum; declared original
+  content size 64 MiB; frame uses independent 1-MiB blocks.
+- Android boot image: **header version 2**, page size **4,096 bytes**, board name
+  `SRPSH29C012`, command-line parameter `androidboot.hardware=qcom`.
+- Boot image kernel field: ARM64 Linux Image (header magic `ARMd`), not a gzip
+  compressed kernel; the Image reports a runtime image size larger than its
+  file payload, which is not by itself corruption.
+- Ramdisk: gzip compressed CPIO `070701` archive; no device user data recovered
+  or required for analysis.
+- Device-tree region: three substantial FDTs and a small fourth FDT header,
+  containing Qualcomm Kona/QCOM identification. The four blobs are packed in
+  the boot header's DTB payload region.
+- The embedded kernel version string is exactly
+  `Linux version 4.19.113-27095354 (dpi@21DJ7C20) (clang version 10.0.6 for Android NDK) #1 SMP PREEMPT Fri Dec 27 14:53:28 KST 2024`.
+  This matches the device-side Shizuku `/proc/version` result **verbatim**.
+- Kernel image contains markers `IKCFG_ST` and `IKCFG_ED`. Its embedded
+  `config.gz` is **byte-for-byte identical** to the previously exported
+  `/proc/config.gz` (42,754 bytes and the same SHA-256). The decompressed
+  configuration is 190,938 bytes / 6,985 lines.
+- The boot image header's encoded OS version field reports **Android 11.0.0**
+  and OS patch month **2025-01**, while the live device reports **Android 13**
+  and security patch **2025-01-01**. This is an observed metadata difference,
+  **not evidence of tampering** or a claim that the device runs Android 11.
+
+### Android Verified Boot examination
+
+The boot partition image contains an `AVBf` footer and an embedded `AVB0`
+vbmeta block. The footer specifies an original (pre-vbmeta) image size of
+**54,272,528 bytes**, vbmeta offset **54,276,096** and vbmeta size **2,112**.
+A SHA-256 hash descriptor identifies the `boot` partition and contains a salt
+and digest. Recomputing **SHA256(salt || first 54,272,528 bytes)** matches the
+recorded descriptor digest:
+`0779aea9bd07a5319c9eaab12d8ce2c191139613b6ae50bc92ff4814f1e476b1`.
+This verifies image-content consistency with its embedded descriptor.
+**It does not verify the AVB signature against a trusted manufacturer key,
+the full trusted boot chain, or which image the locked phone actually booted.**
+
+### Impact on the S20+ support investigation
+
+The firmware identity, build string and the full compile-time kernel config
+are now corroborated by **the extracted binary itself**. Important blockers
+remain: identifying and safely verifying a kernel-level vulnerability on this
+exact build, Samsung's locked AVB and enforced module signatures, RKP/KDP/DEFEX,
+and unavailable unprivileged `/proc/kallsyms`. This is **read-only static
+analysis only**; do not add a working-root/support manifest entry.
+
 ## Target reported by device owner
 
 | Field | Reported value | Verification still needed |
