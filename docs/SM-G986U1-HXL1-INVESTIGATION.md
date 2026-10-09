@@ -231,6 +231,45 @@ exact build, Samsung's locked AVB and enforced module signatures, RKP/KDP/DEFEX,
 and unavailable unprivileged `/proc/kallsyms`. This is **read-only static
 analysis only**; do not add a working-root/support manifest entry.
 
+## Native binary validation and source candidates — October 9, 2026
+
+The owner compiled `research/y2q-G986U1UESCHXL1/identity_probe.c` under Windows
+11/WSL2 using the Android ARM64 NDK and executed it on the handset over
+Wireless ADB. The program returned **`RESULT=FIRMWARE_IDENTITY_MATCH`**.
+The device reported UID **2000**, 4-KiB page size, matching build fingerprint,
+AP/bootloader identity `G986U1UESCHXL1`, patch `2025-01-01`, and kernel
+`4.19.113-27095354`; AVB and flash state both remained **locked**.
+
+Owner-reported SHA-256 of the locally compiled diagnostic:
+`d88ad7d55c422914e4c56725a02eb19de02069041ec622db38d3ef16add55887`.
+
+**Milestone:** firmware-targeted Android-native ELF execution works on the
+unmodified device. This is NOT a privilege escalation, kernel module load,
+bootloader unlock, or successful root experiment.
+
+### Public source leads, not yet exact-match source
+
+- Official: [Samsung Open Source Release Center](https://opensource.samsung.com/)
+  and [Galaxy G98 release search](https://opensource.samsung.com/uploadSearch?searchValue=G98).
+  The public search lists other S20 regional variants, including `SM-G9860`
+  (Snapdragon) and `SM-G986N` (not interchangeable), but an exact
+  `SM-G986U1 / G986U1UESCHXL1` source archive has **not yet been verified**.
+- Unofficial study reference:
+  [GoRhanHee/kernel_samsung_sm8250](https://github.com/GoRhanHee/kernel_samsung_sm8250)
+  describes a Snapdragon Galaxy S20 series kernel with KernelSU-Next changes.
+  Its code, patches, and source revision are **not** evidence of compatibility
+  with this locked North American `SM-G986U1` firmware.
+- Another community source:
+  [bggRGjQaUbCoE/android_kernel_samsung_sm8250-mohammad92](https://github.com/bggRGjQaUbCoE/android_kernel_samsung_sm8250-mohammad92)
+  identifies itself as Snapdragon S20/Note20 kernel source. Provenance,
+  complete revision, and binary correspondence require verification.
+
+Next: obtain a Samsung source archive from the official portal, record its
+source filename and hash, compare its build instructions/defconfig to the
+owner's verified `config.gz`, then attempt a **stock, unmodified**
+cross-compilation. Do not mistake source family similarity or compile success
+for a signed, bootable, or exploitable image on this device.
+
 ## Target reported by device owner
 
 | Field | Reported value | Verification still needed |
