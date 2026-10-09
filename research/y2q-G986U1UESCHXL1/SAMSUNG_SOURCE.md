@@ -366,6 +366,64 @@ test ! -e out && echo 'No kernel build output yet'
 Next verify available original Clang 10/GCC 4.9 or document deviations
 before even attempting a stock kernel build. **Do not flash the output.**
 
+## October 9: owner-side stock source reconstruction passed
+
+The owner completed preflight with the exact `SM-G986U.zip` wrapper hash,
+then ran experimental source assembly in WSL2:
+
+- Reconstructed output: `/home/main/src/samsung-y2q-hxl1-stock`
+- 11 Samsung release source layers processed through HXL1
+- SHA-256 verified for **all 40** final firmware-overlay files
+- Atomic final output directory created, external manifest written
+- **No kernel compile, bootloader change, image flashing, or root test**
+- Caveat: applying incrementals in Samsung's ZIP listing order is an
+  explicitly recorded reconstruction assumption, not a README guarantee
+
+The root filesystem showed 950 GiB available before assembly.
+
+### Next: check source integrity and compiler readiness without building
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/preflight_samsung_stock_build.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --json ~/s20-artifacts/samsung-hxl1-build-preflight.json
+```
+
+This checks the kernel Makefile version, both 190,565-byte Samsung
+defconfig fingerprints, all 40 verified overlay files, the assembly
+manifest, and the availability/versions of common kernel host tools.
+It **does not** build or change anything in the source directory.
+
+Original Samsung's README mentions Qualcomm's
+`llvm-arm-toolchain-ship/10.0/bin/clang` plus
+`aarch64-linux-android-4.9` GCC. Those versions may not be installed
+in Ubuntu. The current NDK r30 userspace LLVM used for the read-only
+diagnostic is a **much newer toolchain and cannot establish a faithful
+Samsung stock-kernel build**.
+
+When the preflight identifies missing host build prerequisites, the
+following Ubuntu packages are normal starting points, though this
+does not install the needed matching Clang/GCC cross-toolchains:
+
+```bash
+sudo apt update
+sudo apt install -y build-essential bc bison flex libssl-dev libelf-dev \
+  cpio rsync python3 dwarves device-tree-compiler
+```
+
+Locate a compatible original-era Clang and GCC cross-compiler, record
+their source revisions and hashes, and evaluate the Makefile's explicit
+`REAL_CC`/`CROSS_COMPILE`/`CLANG_TRIPLE` requirements before compiling.
+For context, Google maintains public historical AOSP Clang and GCC
+prebuilt repositories, but they are **not guaranteed** to reproduce
+Qualcomm's proprietary 10.0 compiler:
+- https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/
+- https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
