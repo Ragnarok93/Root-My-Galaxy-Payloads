@@ -322,7 +322,25 @@
       "kconfigGenerated": false,
       "kernelCompiled": false,
       "retryMethod": "Install python-is-python3 and run configure_samsung_stock_kernel.py --execute --resume-from-report previous failed JSON using same source/compiler/output; validate .config creation",
-      "notes": "Do not infer independent init/Kconfig source corruption before resolving missing python dependency. No firmware or phone modifications."
+      "notes": "Do not infer independent init/Kconfig source corruption before resolving missing python dependency. No firmware or phone modifications.",
+      "secondAttempt": {
+        "date": "2026-10-09",
+        "toolchain": "Ubuntu Clang 18.1.3 and AArch64 GCC 13.3.0",
+        "legacyPythonCompatibility": "python-is-python3 appears installed, inferred from successful shell script execution",
+        "result": "SUCCESS: configuration written to .config; exit 0",
+        "output": "/home/main/src/samsung-y2q-hxl1-config-clang18/.config",
+        "configSizeApprox": "186 KiB",
+        "warnings": [
+          "GPS Kconfig duplicate type/prompts",
+          "LED Kconfig type redefinition",
+          "vendor security debug choice defaults",
+          "perf_mgr unsupported characters"
+        ],
+        "kernelCompiled": false,
+        "generatedVsRunningConfigCompared": false,
+        "generatedKernelBooted": false,
+        "notes": "Successful first Make-based Kconfig generation from reconstructed Samsung HXL1 source. The generated config still requires direct comparison against extracted device config.gz before an Image compile."
+      }
     }
   }
 }
