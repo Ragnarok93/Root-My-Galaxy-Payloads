@@ -303,6 +303,26 @@
         },
         "note": "Host tools and Samsung kernel-source matches verified. Modern GCC13/LLVM18 available but do not equal Samsung's original GCC4.9/Qualcomm Clang10 build. No kernel compilation or boot yet."
       }
+    },
+    "firstKconfigAttempt": {
+      "date": "2026-10-09",
+      "compiler": "Ubuntu Clang 18.1.3 (resolved /usr/lib/llvm-18/bin/clang)",
+      "crossCompiler": "Ubuntu AArch64 GCC 13.3.0",
+      "target": "vendor/y2q_usa_singlew_defconfig",
+      "source": "/home/main/src/samsung-y2q-hxl1-stock",
+      "output": "/home/main/src/samsung-y2q-hxl1-config-clang18",
+      "dryRunPassed": true,
+      "executeResult": "nonzero; scripts/gcc-version.sh and scripts/clang-version.sh call missing unversioned python; init/Kconfig compiler dependent syntax error",
+      "hostToolStagesReached": [
+        "scripts/basic/fixdep",
+        "scripts/kconfig/conf",
+        "scripts/kconfig/zconf.tab.o"
+      ],
+      "pythonUnversionedMissing": true,
+      "kconfigGenerated": false,
+      "kernelCompiled": false,
+      "retryMethod": "Install python-is-python3 and run configure_samsung_stock_kernel.py --execute --resume-from-report previous failed JSON using same source/compiler/output; validate .config creation",
+      "notes": "Do not infer independent init/Kconfig source corruption before resolving missing python dependency. No firmware or phone modifications."
     }
   }
 }
