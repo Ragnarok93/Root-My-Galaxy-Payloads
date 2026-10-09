@@ -70,7 +70,7 @@ def read_nested_zip(parent, member):
 def makefile_version(data):
     text = data.decode("utf-8", "replace")
     match = re.findall(
-        r"^(VERSION|PATCHLEVEL|SUBLEVEL|EXTRAVERSION)\s*[:?+]?=\s*(.*)$",
+        r"^(VERSION|PATCHLEVEL|SUBLEVEL|EXTRAVERSION)[ \t]*[:?+]?=[ \t]*([^\r\n]*)$",
         text, flags=re.MULTILINE,
     )
     return dict(match)
