@@ -8,6 +8,18 @@ the **Description** column includes:
 
 `SM-G986U_13_Opensource_G986USQSCHXL1_G986U1UESCHXL1_G986WVLSCHXL1.zip`
 
+
+**Owner-reported source download (2026-10-09):** the downloaded file
+`D:\root-my-galaxy-test\source\SM-G986U.zip` is a **wrapper containing
+13 ZIP archives**, not the exact firmware patch ZIP by itself. Size:
+`256918162` bytes. SHA-256:
+`940fe6bbcfe3dcd372ad662dd24b56e0a3ba1a965666b04051fe9941bab4986d`.
+The base source (`SM-G986U_NA_13_Opensource.zip`; 255083506 bytes) and
+HXL1-specific source (`...G986U1UESCHXL1...zip`; 314586 bytes)
+are separately nested within the wrapper. The small HXL1 ZIP may be a
+delta/overlay; its contents and relationships have not yet been inspected.
+Do not assume the newest HYC1 ZIP applies to the HXL1 firmware.
+
 **Target firmware:** `G986U1UESCHXL1`. The full filename explicitly includes
 this firmware string, unlike the older revisions also present in the
 release list. The top-level **Version** column is not the exact revision
@@ -15,8 +27,9 @@ of every cumulative source archive listed under **Description**.
 
 Status:
 - [x] Exact firmware token identified in Samsung source package listing
-- [ ] Archive downloaded; size and SHA-256 recorded
-- [ ] Outer and nested ZIP/TAR contents inspected
+- [x] Wrapper archive downloaded; size and SHA-256 reported by owner
+- [x] Wrapper ZIP entries inventoried (13 internal ZIPs)
+- [ ] Inner base, U1 DTS, HXL1 ZIP and any nested TAR contents inspected
 - [ ] Kernel Makefile (`VERSION/PATCHLEVEL/SUBLEVEL`) examined
 - [ ] Source defconfig and toolchain instructions compared with `config.gz`
 - [ ] Exact commit/build provenance assessed against extracted ARM64 kernel
@@ -41,46 +54,52 @@ You may need to sign in or agree to Samsung's terms on their website.
 The archive is not automatically retrievable from an ordinary public
 GitHub URL.
 
-## Ubuntu in WSL2: inspect without unpacking
+## Ubuntu in WSL2: inspect the actual ZIP-in-ZIP packaging
 
-The Windows D: drive is mounted under `/mnt/d` in your existing WSL
+The Windows D: drive is mounted under `/mnt/d` in the existing WSL
 environment. Open Ubuntu and run:
 
 ```bash
 cd ~/src/Root-My-Galaxy-Payloads
 git pull --ff-only
 
-SOURCE_ZIP=$(find /mnt/d/root-my-galaxy-test/source \
-    -maxdepth 1 -type f \
-    -name '*G986U1UESCHXL1*.zip' -print -quit)
+SOURCE_ZIP="/mnt/d/root-my-galaxy-test/source/SM-G986U.zip"
 
-if [[ -z "$SOURCE_ZIP" ]]; then
-  echo 'Could not locate the exact HXL1 source archive on D:' >&2
-else
-  printf 'Selected: %s\n' "$SOURCE_ZIP"
-  python3 tools/inspect_samsung_source.py "$SOURCE_ZIP" \
+python3 tools/inspect_samsung_source.py "$SOURCE_ZIP" \
     --json ~/s20-artifacts/samsung-source-inventory.json
-fi
 ```
 
-The inventory prints the ZIP's full SHA-256, size, outer members and
-declared sizes, with a saved JSON report. This does **not** unpack the
-multi-gigabyte archive or assert that any contained source builds correctly.
-Do not treat arbitrary ZIP contents as trusted scripts or run them.
+The tool now understands ZIPs nested within Samsung's outer release ZIP.
+First inspect **only the HXL1 and U1-specific DTS** packages:
 
-To inspect the headers of nested source TAR archives without
-extracting them, optionally run:
+```bash
+python3 tools/inspect_samsung_source.py "$SOURCE_ZIP" \
+    --scan-nested \
+    --select-zip-regex 'G986U1UESCHXL1|SM-G986U1_NA_13_Opensource_dts' \
+    --json ~/s20-artifacts/samsung-hxl1-inventory.json
+```
+
+Then inspect the **large shared base source** package, which may contain
+further nested TARs:
 
 ```bash
 python3 tools/inspect_samsung_source.py "$SOURCE_ZIP" \
     --scan-nested --max-tar-members 20000 \
-    --json ~/s20-artifacts/samsung-source-detailed.json
+    --select-zip-regex '^SM-G986U_NA_13_Opensource[.]zip$' \
+    --json ~/s20-artifacts/samsung-base-inventory.json
 ```
 
-Nested scans may take time because compressed data must be decompressed
-sequentially. They stop at the member count limit; a truncated scan is
-**not** evidence that files absent from the first 20,000 members do
-not exist. The source inspector never executes or extracts archive data.
+These actions never extract files into the working source directory or
+execute code from the package. The tool may spool the inner 255 MB ZIP
+to an automatically deleted temporary file because Python's ZIP
+reader requires seeking, so **have ~300 MB of free temporary disk space**.
+Nested ZIPs are capped by default at 512 MiB per archive, and TAR
+traversal is capped at 20,000 members. If a scan reports a limit
+or error, do not infer any absent source files from that incomplete scan.
+
+The inventories print SHA-256 for every scanned inner ZIP, allowing
+the specific HXL1 package and base-source bytes to be tracked
+independently of the outer wrapper.
 
 ## What we will compare
 
