@@ -2,6 +2,7 @@
 import argparse
 import importlib.util
 import tempfile
+import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
