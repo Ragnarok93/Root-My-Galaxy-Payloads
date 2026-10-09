@@ -113,5 +113,22 @@
     "verifiedHardwareExecution": true,
     "verifiedKernelPrivilegeEscalation": false,
     "notes": "Operator-submitted complete terminal output; this proves read-only ARM64 diagnostic execution and build identity matching only, not root access."
+  },
+  "sourceCandidate": {
+    "provider": "Samsung Open Source Release Center",
+    "sourceListingModelGroup": [
+      "SM-G986U",
+      "SM-G986U1",
+      "SM-G986W"
+    ],
+    "listedArchive": "SM-G986U_13_Opensource_G986USQSCHXL1_G986U1UESCHXL1_G986WVLSCHXL1.zip",
+    "expectedFirmwareToken": "G986U1UESCHXL1",
+    "listingEvidence": "Owner-supplied Samsung Open Source Release Center table on 2026-10-09",
+    "matchStatus": "exact firmware token found in official-listed archive filename",
+    "archiveDownloaded": false,
+    "archiveSha256": null,
+    "archiveContentsInspected": false,
+    "kernelSourceMatchedToBinary": false,
+    "notes": "The release table's Version column may represent the release record's original version, not each cumulative archive in Description. Actual content must be verified after download."
   }
 }
