@@ -247,28 +247,34 @@ Owner-reported SHA-256 of the locally compiled diagnostic:
 unmodified device. This is NOT a privilege escalation, kernel module load,
 bootloader unlock, or successful root experiment.
 
-### Public source leads, not yet exact-match source
+### Matching Samsung source archive identified in release listing
 
-- Official: [Samsung Open Source Release Center](https://opensource.samsung.com/)
-  and [Galaxy G98 release search](https://opensource.samsung.com/uploadSearch?searchValue=G98).
-  The public search lists other S20 regional variants, including `SM-G9860`
-  (Snapdragon) and `SM-G986N` (not interchangeable), but an exact
-  `SM-G986U1 / G986U1UESCHXL1` source archive has **not yet been verified**.
-- Unofficial study reference:
-  [GoRhanHee/kernel_samsung_sm8250](https://github.com/GoRhanHee/kernel_samsung_sm8250)
-  describes a Snapdragon Galaxy S20 series kernel with KernelSU-Next changes.
-  Its code, patches, and source revision are **not** evidence of compatibility
-  with this locked North American `SM-G986U1` firmware.
-- Another community source:
-  [bggRGjQaUbCoE/android_kernel_samsung_sm8250-mohammad92](https://github.com/bggRGjQaUbCoE/android_kernel_samsung_sm8250-mohammad92)
-  identifies itself as Snapdragon S20/Note20 kernel source. Provenance,
-  complete revision, and binary correspondence require verification.
+The device owner provided Samsung Open Source Release Center results grouping
+`SM-G986U / SM-G986U1 / SM-G986W` Android 13 releases. One explicitly
+listed package is:
 
-Next: obtain a Samsung source archive from the official portal, record its
-source filename and hash, compare its build instructions/defconfig to the
-owner's verified `config.gz`, then attempt a **stock, unmodified**
-cross-compilation. Do not mistake source family similarity or compile success
-for a signed, bootable, or exploitable image on this device.
+`SM-G986U_13_Opensource_G986USQSCHXL1_G986U1UESCHXL1_G986WVLSCHXL1.zip`
+
+This filename includes the *exact* handset firmware `G986U1UESCHXL1`.
+It is preferred over older Android 13 packages named in the same listing.
+The listing's **Version** column is a group/record value and should not be
+used to override a more specific ZIP name within **Description**.
+
+**Verified:** exact firmware identifier occurs in official-listed source
+archive name. **Not yet verified:** the downloaded bytes/hash, actual
+contained source tree/configuration, toolchain, or ability to reproduce the
+phone's kernel binary. See
+[the Windows 11 Samsung source inspection guide](../research/y2q-G986U1UESCHXL1/SAMSUNG_SOURCE.md)
+and [source inventory tool](../tools/inspect_samsung_source.py).
+
+Unofficial Snapdragon S20 source trees remain secondary research references
+and are not needed as substitutes when official HXL1-labelled source is
+available. Do not use other phones' offsets or root modules.
+
+Next: download the exact HXL1 source ZIP from Samsung, run the read-only
+ZIP inventory and SHA-256 inspector, compare the kernel Makefile and build
+configuration with `~/s20-artifacts/config.gz`, and attempt only a stock
+unmodified kernel cross-build after recording provenance.
 
 ## Target reported by device owner
 
