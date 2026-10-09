@@ -47,7 +47,7 @@ def is_kernel_makefile(path):
     # A kernel source ZIP may have a source-directory prefix.
     parts = path.lstrip("./").split("/")
     return parts[-1] == "Makefile" and (
-        len(parts) == 1 or len(parts) == 2 and parts[0] in ("kernel", "kernel-4.19")
+        len(parts) == 1 or len(parts) == 2 and parts[0].lower() in ("kernel", "kernel-4.19")
     )
 
 
