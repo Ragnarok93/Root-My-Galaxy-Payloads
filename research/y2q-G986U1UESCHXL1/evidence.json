@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "profileId": "y2q-G986U1UESCHXL1-research",
+  "status": "research-only",
+  "installable": false,
+  "publishInSupportFeed": false,
+  "rootVerified": false,
+  "vulnerabilityVerified": false,
+  "moduleLoadVerified": false,
+  "source": "Owner-provided 2026-10-09 firmware extraction and Shizuku diagnostic reports",
+  "identity": {
+    "manufacturer": "samsung",
+    "model": "SM-G986U1",
+    "device": "y2q",
+    "product": "y2quew",
+    "firmware": "G986U1UESCHXL1",
+    "displayBuild": "TP1A.220624.014.G986U1UESCHXL1",
+    "fingerprint": "samsung/y2quew/y2q:13/TP1A.220624.014/G986U1UESCHXL1:user/release-keys",
+    "kernelRelease": "4.19.113-27095354",
+    "kernelVersion": "Linux version 4.19.113-27095354 (dpi@21DJ7C20) (clang version 10.0.6 for Android NDK) #1 SMP PREEMPT Fri Dec 27 14:53:28 KST 2024",
+    "androidRelease": "13",
+    "sdk": 33,
+    "abi": "arm64-v8a",
+    "pageSize": 4096,
+    "securityPatch": "2025-01-01"
+  },
+  "artifacts": {
+    "boot.img.lz4": {
+      "sizeBytes": 25597493,
+      "sha256": "02099ccbfb423292b631f228b8d3163b9a601f4a058360a4bca93f71f8e50a78"
+    },
+    "boot.img": {
+      "sizeBytes": 67108864,
+      "sha256": "bd8987c28ef0b9fdb56ad3e82ce3b45929c5e53717525769e5625dd1e17f7dc8"
+    },
+    "kernel.bin": {
+      "sizeBytes": 51957772,
+      "sha256": "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123"
+    },
+    "config.gz": {
+      "sizeBytes": 42754,
+      "sha256": "1931b2c99e1dad26e93013eac8442384368e7bcde313443ba44baa65d4c053cd"
+    },
+    "ramdisk.img": {
+      "sizeBytes": 724388,
+      "sha256": "86b00ab1f20206ceedcc574423ef11417927aa1f773408ec2c2af4a855ea7586"
+    },
+    "dtb.img": {
+      "sizeBytes": 1580275,
+      "sha256": "a6104cdba11e0cd3d6ddaba6819098ab01f0dc0e8e7fd333137c88ad07d9d0ce"
+    }
+  },
+  "boot": {
+    "headerVersion": 2,
+    "boardName": "SRPSH29C012",
+    "bootHashDescriptorVerified": true,
+    "manufacturerTrustChainVerified": false
+  },
+  "kernelConfig": {
+    "CONFIG_ARCH_QCOM": "y",
+    "CONFIG_ARCH_KONA": "y",
+    "CONFIG_FUTEX": "y",
+    "CONFIG_FUTEX_PI": "y",
+    "CONFIG_RT_MUTEXES": "y",
+    "CONFIG_MODULES": "y",
+    "CONFIG_MODVERSIONS": "y",
+    "CONFIG_MODULE_SIG_FORCE": "y",
+    "CONFIG_MODULE_SIG_SHA512": "y",
+    "CONFIG_RANDOMIZE_BASE": "y",
+    "CONFIG_UH_RKP": "y",
+    "CONFIG_KDP_CRED": "y",
+    "CONFIG_KDP_NS": "y",
+    "CONFIG_SECURITY_DEFEX": "y",
+    "CONFIG_KALLSYMS_ALL": "y",
+    "CONFIG_KPROBES": "n",
+    "CONFIG_IKCONFIG_PROC": "y"
+  },
+  "shizuku": {
+    "uid": 2000,
+    "flashLocked": "1",
+    "vbmetaDeviceState": "locked",
+    "selinux": "Enforcing",
+    "procKallsymsAccessible": false,
+    "traceEventIdObserved": 72,
+    "traceEventIdStable": false,
+    "probeSuccessCount": 22,
+    "probeUnavailableCount": 1
+  },
+  "outstandingGates": [
+    "Exact vendor source matched and independently audited against extracted kernel",
+    "Vulnerability applicability on this 4.19 build established without relying only on compiled configuration",
+    "No functional privilege-escalation or root-loader implementation has been device-tested",
+    "Compatible 4.19-specific KernelSU build and module-loading mechanism not validated",
+    "Verified boot state and recovery safety assessed on actual handset",
+    "Firmware fingerprint-locked app-side support matching and independently reviewed hardware tests"
+  ]
+}
