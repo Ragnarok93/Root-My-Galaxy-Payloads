@@ -78,7 +78,7 @@ def scan_tar(stream, limit, path_regex=None, max_matched_paths=120):
             if IMPORTANT.search(member.name):
                 if len(candidates) < MAX_CANDIDATES:
                     candidates.append({"path": member.name, "sizeBytes": member.size})
-                if is_kernel_makefile(member.name) and member.size <= 64 * 1024:
+                if is_kernel_makefile(member.name) and member.size <= 256 * 1024:
                     reader = archive.extractfile(member)
                     if reader:
                         version = parse_makefile(reader.read()) or version
@@ -107,7 +107,7 @@ def scan_zip(z, depth, args):
                 info["importantPaths"].append(
                     {"path": member.filename, "sizeBytes": member.file_size}
                 )
-            if is_kernel_makefile(member.filename) and member.file_size <= 64 * 1024:
+            if is_kernel_makefile(member.filename) and member.file_size <= 256 * 1024:
                 try:
                     info["versionFromMakefile"] = (
                         parse_makefile(z.read(member)) or info["versionFromMakefile"]
