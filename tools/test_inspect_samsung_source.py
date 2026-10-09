@@ -36,6 +36,7 @@ class SourceInventoryTests(unittest.TestCase):
             report_path = root / "report.json"
             proc = subprocess.run([
                 sys.executable, str(TOOL), str(archive_path), "--scan-nested",
+                "--tar-path-regex", "^(Makefile|arch/arm64/configs/vendor/.*defconfig)$",
                 "--json", str(report_path),
             ], capture_output=True, text=True)
             self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -43,6 +44,9 @@ class SourceInventoryTests(unittest.TestCase):
             self.assertEqual(report["entries"], 2)
             self.assertEqual(len(report["sha256"]), 64)
             self.assertEqual(report["nestedArchives"][0]["membersExamined"], 2)
+            self.assertEqual(report["nestedArchives"][0]["matchedPathCount"], 2)
+            self.assertEqual(len(report["nestedArchives"][0]["matchedPaths"]), 2)
+            self.assertFalse(report["nestedArchives"][0]["matchedPathsTruncated"])
             self.assertEqual(report["nestedArchives"][0]["versionFromMakefile"]["VERSION"], "4")
             self.assertEqual(report["nestedArchives"][0]["versionFromMakefile"]["PATCHLEVEL"], "19")
             self.assertEqual(report["nestedArchives"][0]["versionFromMakefile"]["SUBLEVEL"], "113")
