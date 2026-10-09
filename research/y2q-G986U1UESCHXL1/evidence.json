@@ -341,6 +341,32 @@
         "generatedKernelBooted": false,
         "notes": "Successful first Make-based Kconfig generation from reconstructed Samsung HXL1 source. The generated config still requires direct comparison against extracted device config.gz before an Image compile."
       }
+    },
+    "generatedKernelConfigComparison": {
+      "date": "2026-10-09",
+      "firmware": "G986U1UESCHXL1",
+      "generatedConfigPath": "/home/main/src/samsung-y2q-hxl1-config-clang18/.config",
+      "generatedSha256": "97cf1d93f86251294951ff235e76281e9e3705d5745be6b44f130fc3aa501c09",
+      "sourceDefconfigVsGenerated": {
+        "matchingExplicitSymbols": 5790,
+        "different": 1,
+        "sourceOnly": 8,
+        "generatedOnly": 0
+      },
+      "generatedVsRunning": {
+        "matchingExplicitSymbols": 5790,
+        "differingExplicitValues": 1,
+        "generatedOnly": 0,
+        "runningOnly": 18,
+        "difference": {
+          "symbol": "CONFIG_CLANG_VERSION",
+          "generated": "180103",
+          "running": "100006"
+        }
+      },
+      "runningOnlyClassification": "All listed running-only CONFIG_* entries are platform / hardware project machine selectors, not yet shown to affect active US y2q config",
+      "criticalSecurityPlatformChecks": "All 15 compared symbols matched, including ARM64, QCOM/KONA, modules signatures, UH_RKP, KDP, DEFEX, KPROBES disabled",
+      "status": "Config near-match; modern Clang 18 test only; no kernel Image compiled, signed, booted or flashed."
     }
   }
 }
