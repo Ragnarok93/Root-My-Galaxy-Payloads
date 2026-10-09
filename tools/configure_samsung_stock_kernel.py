@@ -10,6 +10,7 @@ This is a modern-toolchain compatibility trial, not a Samsung factory build.
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -29,7 +30,12 @@ def command_for(args):
     if destination == source or source in destination.parents or destination in source.parents:
         raise ValueError("output must be separate from original Samsung source tree")
     if destination.exists() or destination.is_symlink():
-        raise ValueError("refusing to re-use existing output path: " + str(destination))
+        if not getattr(args, "resume_from_report", None):
+            raise ValueError("refusing to re-use existing output path: " + str(destination))
+        if destination.is_symlink() or not destination.is_dir():
+            raise ValueError("retry destination is not a normal directory")
+    elif getattr(args, "resume_from_report", None):
+        raise ValueError("retry requested but configuration output directory is missing")
     if not destination.parent.is_dir() or destination.parent.is_symlink():
         raise ValueError("output parent does not exist or is a symlink")
     if destination.as_posix().startswith("/mnt/"):
@@ -67,6 +73,28 @@ def command_for(args):
         "CONFIG_BUILD_ARM64_DT_OVERLAY=y",
         TARGET,
     ]
+    resume_report = getattr(args, "resume_from_report", None)
+    if resume_report:
+        if not getattr(args, "execute", False):
+            raise ValueError("retry requires --execute")
+        report_path = Path(resume_report).expanduser()
+        try:
+            previous = json.loads(report_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            raise ValueError("could not read previous failed configuration report") from error
+        if (previous.get("firmware") != "G986U1UESCHXL1"
+                or previous.get("source") != str(source)
+                or previous.get("output") != str(destination)
+                or previous.get("command") != command
+                or previous.get("mode") != "configure_only"
+                or type(previous.get("returncode")) is not int
+                or previous["returncode"] == 0
+                or previous.get("configCreated") is not False):
+            raise ValueError("retry report does not match this failed stock configuration")
+        if (destination / ".config").exists() or (destination / ".config").is_symlink():
+            raise ValueError("retry refused because a .config already exists")
+        if not (destination / "Makefile").is_file() or not (destination / "scripts/kconfig/conf").is_file():
+            raise ValueError("retry output is missing the expected partial Kconfig build files")
     return command, source, destination
 
 
@@ -78,8 +106,12 @@ def main():
     parser.add_argument("--clang", type=Path, default=Path("/usr/bin/clang"))
     parser.add_argument("--gcc-prefix", default="/usr/bin/aarch64-linux-gnu-")
     parser.add_argument("--execute", action="store_true", help="Run ONLY stock defconfig target")
+    parser.add_argument("--resume-from-report", type=Path,
+                        help="Retry ONLY a previous failed Kconfig run with an identical command")
     parser.add_argument("--json", type=Path, help="Record plan/result JSON outside source")
     args = parser.parse_args()
+    if args.execute and shutil.which("python") is None:
+        parser.error("Samsung kernel shell scripts invoke 'python'; install python-is-python3 and retry")
     try:
         command, source, destination = command_for(args)
     except (OSError, ValueError) as exc:
@@ -101,7 +133,8 @@ def main():
         "note": "Modern GNU/LLVM compatibility test only; no signing or flashing.",
     }
     if args.execute:
-        destination.mkdir(mode=0o755)
+        if not destination.exists():
+            destination.mkdir(mode=0o755)
         proc = subprocess.run(command, check=False)
         report["returncode"] = proc.returncode
         report["configCreated"] = (destination / ".config").is_file()
