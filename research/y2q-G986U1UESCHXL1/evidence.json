@@ -129,6 +129,20 @@
     "archiveSha256": null,
     "archiveContentsInspected": false,
     "kernelSourceMatchedToBinary": false,
-    "notes": "The release table's Version column may represent the release record's original version, not each cumulative archive in Description. Actual content must be verified after download."
+    "notes": "Samsung wrapper archive downloaded, hashed, and ZIP directory inspected (13 nested ZIPs); HXL1 inner ZIP and large base ZIP NOT yet inspected, hashed individually, or validated against firmware binary.",
+    "wrapperDownload": {
+      "name": "SM-G986U.zip",
+      "sizeBytes": 256918162,
+      "sha256": "940fe6bbcfe3dcd372ad662dd24b56e0a3ba1a965666b04051fe9941bab4986d",
+      "outerZipEntries": 13,
+      "entryNames": [
+        "SM-G986U_NA_13_Opensource.zip",
+        "SM-G986U1_NA_13_Opensource_dts.zip",
+        "SM-G986W_NA_13_Opensource_dts.zip",
+        "SM-G986U_13_Opensource_G986USQSCHXL1_G986U1UESCHXL1_G986WVLSCHXL1.zip"
+      ],
+      "source": "Owner-supplied source-inventory CLI output 2026-10-09",
+      "nestedPackagesScanned": false
+    }
   }
 }
