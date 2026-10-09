@@ -101,8 +101,9 @@ class ImageBuildPlanTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             args, comparison, makefile, config = self.setup_case(temp)
             comparison["critical"]["CONFIG_UH_RKP"]["match"] = False
-            with self.assertRaisesRegex(ValueError, "platform/security"):
-                module.check_comparison(comparison, args.output_dir)
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)):
+                with self.assertRaisesRegex(ValueError, "platform/security"):
+                    module.check_comparison(comparison, args.output_dir)
 
     def test_rejects_additional_config_delta(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -110,8 +111,9 @@ class ImageBuildPlanTests(unittest.TestCase):
             comparison["generatedVsRunning"]["different"].append(
                 {"symbol": "CONFIG_MODULE_SIG_FORCE", "generated": "n", "running": "y"}
             )
-            with self.assertRaisesRegex(ValueError, "exceed audited"):
-                module.check_comparison(comparison, args.output_dir)
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)):
+                with self.assertRaisesRegex(ValueError, "exceed audited"):
+                    module.check_comparison(comparison, args.output_dir)
 
     def test_rejects_config_file_mutation(self):
         with tempfile.TemporaryDirectory() as temp:
