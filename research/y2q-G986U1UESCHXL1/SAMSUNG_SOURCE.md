@@ -488,6 +488,65 @@ and the same branch contains that compiler's files. It is a relevant
 has historical branches; its latest head removed GCC 4.9 binaries.
 Do not use the unpinned repository HEAD as an original GCC 4.9 binary.
 
+## October 9: first Kconfig trial reached host build, failed on missing `python`
+
+The owner ran `tools/configure_samsung_stock_kernel.py --execute` using
+Ubuntu Clang 18, AArch64 GCC 13, and the verified 11-layer stock HXL1
+source tree. The tool successfully invoked GNU Make and built
+`scripts/basic/fixdep` and `scripts/kconfig/conf`, but the Samsung
+4.19 shell scripts attempted to call `python` (unversioned) and Ubuntu
+24.04 had only `python3`. These errors preceded the Kconfig parser's
+`init/Kconfig:17: syntax error`. We cannot conclude a standalone
+Kconfig incompatibility until the missing Python executable is fixed.
+
+The original source tree and firmware remain untouched. The failed
+generated output is preserved at:
+
+`~/src/samsung-y2q-hxl1-config-clang18`
+
+The tool's first-attempt JSON is:
+
+`~/s20-artifacts/samsung-hxl1-config-result.json`
+
+### Fix Python compatibility and safely retry the same Kconfig command
+
+```bash
+sudo apt install -y python-is-python3
+python --version
+
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/configure_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --execute \
+  --resume-from-report ~/s20-artifacts/samsung-hxl1-config-result.json \
+  --json ~/s20-artifacts/samsung-hxl1-config-retry.json
+```
+
+The explicit retry is permitted **only** if the original failed JSON
+matches the same source, output, command, and target and the expected
+partial Kconfig build files exist without a generated `.config`. The
+command reruns `vendor/y2q_usa_singlew_defconfig` only: no Image,
+DTB, modules, signing, rooting, or flashing.
+
+If the Kconfig error persists after the missing `python` is resolved,
+inspect the generated compiler version and only the relevant diagnostics,
+without changing the assembled official source:
+
+```bash
+sed -n '12,22p' ~/src/samsung-y2q-hxl1-stock/init/Kconfig
+sed -n '1,42p' ~/src/samsung-y2q-hxl1-stock/scripts/gcc-version.sh
+```
+
+Warnings in `drivers/gps/Kconfig` and `drivers/perf_mgr/Kconfig`
+are recorded, but do not by themselves establish that the 40 file
+overlays or the 5,799 config symbols are wrong.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
