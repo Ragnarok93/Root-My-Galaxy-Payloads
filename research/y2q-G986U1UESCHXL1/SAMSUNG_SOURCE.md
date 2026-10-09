@@ -424,6 +424,70 @@ Qualcomm's proprietary 10.0 compiler:
 - https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/
 - https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/
 
+## First Kconfig compatibility trial (modern toolchain, no kernel build)
+
+The owner confirmed that the following WSL2 tools are available:
+
+- Ubuntu Clang 18.1.3 (`/usr/bin/clang`)
+- AArch64 GCC 13.3.0 (`/usr/bin/aarch64-linux-gnu-gcc`)
+- AArch64 GNU binutils 2.42 (`/usr/bin/aarch64-linux-gnu-ld`)
+- Flex 2.6.4, Bison 3.8.2, Pahole 1.25, host Make 4.3
+- Samsung source-local DTC `tools/dtc` version 1.4.4-Android-build
+
+The Samsung Makefile assigns
+`REAL_CC = $(srctree)/toolchain/llvm-arm-toolchain-ship/10.0/bin/clang`
+and uses `scripts/gcc-wrapper.py`. The historical Qualcomm compiler and
+Android GCC 4.9 cross-toolchain remain unverified/unavailable. A
+**configuration-only** compatibility trial can run with the modern tools,
+without claiming a factory-equivalent kernel binary.
+
+After pulling the latest project changes, run a dry-run first:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/configure_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --json ~/s20-artifacts/samsung-hxl1-config-preflight.json
+```
+
+The dry-run verifies all 40 overlay hashes, both stock defconfig hashes,
+and the source Makefile version. It rejects an existing output directory
+rather than mixing builds.
+
+To generate the stock `.config` with **no Image/DTB/module compile**,
+repeat with the `--execute` flag and a separate JSON filename:
+
+```bash
+python3 tools/configure_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --execute \
+  --json ~/s20-artifacts/samsung-hxl1-config-result.json
+```
+
+Expected output includes `SUCCESS: standalone Kconfig generated; kernel
+compilation NOT started.` If Make exits nonzero, preserve the output
+directory and report the error. The tool never flashes or loads anything
+onto the phone.
+
+AOSP's [Clang prebuilts README](https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+/refs/heads/android11-qpr3-release/)
+identifies `clang-r370808` as an Android 4.19 kernel compiler,
+and the same branch contains that compiler's files. It is a relevant
+**historical toolchain candidate**, not proof that Samsung's Qualcomm
+10.0 compiler produces matching binaries. The
+[AOSP GCC 4.9 prebuilt repository](https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/)
+has historical branches; its latest head removed GCC 4.9 binaries.
+Do not use the unpinned repository HEAD as an original GCC 4.9 binary.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
