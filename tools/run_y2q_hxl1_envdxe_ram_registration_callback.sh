@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Stage 4: doubled substantive work in one run.
-# 57 offline tests; full upstream contract+registration+interface+8 xrefs+optional callback.
+# 79 offline tests; upstream+registration+interface+8 xrefs+callback raw recovery.
 # Original firmware from pinned HXL1 XBL only; NO ADB/phone/root/flash.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -10,11 +10,12 @@ EFI="$OUT/EnvDxe-HXL1.efi"
 REA="$HOME/src/rea/scripts/rea.mjs"
 PIN=9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670
 
-echo "=== 57 offline original EnvDxe RAM-registration/callback tests ==="
+echo "=== 79 offline original EnvDxe RAM-registration/callback tests ==="
 python3 -m unittest -q \
   tools/test_y2q_hxl1_envdxe_ram_registration_interface.py \
   tools/test_y2q_hxl1_envdxe_ram_registration_callback.py \
-  tools/test_y2q_hxl1_envdxe_ram_registration_parent_chain.py
+  tools/test_y2q_hxl1_envdxe_ram_registration_parent_chain.py \
+  tools/test_y2q_hxl1_envdxe_callback_raw_proof.py
 
 echo "=== Authenticate exact original EnvDxe and previously verified registration ==="
 [[ -f "$EFI" && ! -L "$EFI" && -f "$REA" ]] || {
@@ -109,44 +110,77 @@ smem-generic-item-accessor|0x7d08
 other-protocol-installer|0x23b0
 XREFS
 
-echo "=== Optional actual callback function if pointer is statically usable ==="
+echo "=== Independently validate candidate callback 64 original PE code bytes ==="
 CALLBACK="$(python3 - "$OUT" <<'PY'
 from pathlib import Path
 import sys
 from tools.y2q_hxl1_envdxe_ram_registration_callback import interface_readback
-a=interface_readback(Path(sys.argv[1]))
-print(a["unrelocatedStaticFunctionCoordinateCandidate"] or "UNRESOLVED")
+doc=interface_readback(Path(sys.argv[1]))
+print(doc["unrelocatedStaticFunctionCoordinateCandidate"] or "UNRESOLVED")
 PY
 )"
 if [[ "$CALLBACK" == "UNRESOLVED" ]]; then
-  echo "[LIMIT] Static callback slot not a plain code pointer; may need PE relocations/runtime init"
+  echo "[LIMIT] No statically usable callback pointer: PE relocation or runtime initialization may be needed"
 elif [[ "$CALLBACK" =~ ^0x[[:xdigit:]]+$ ]]; then
-  f="$OUT/rea-envdxe-ram-protocol-callback-function.json"
+  python3 - "$OUT" "$CALLBACK" <<'PY'
+from pathlib import Path
+import sys
+from tools.y2q_hxl1_envdxe_callback_raw_proof import original_code
+info=original_code(Path(sys.argv[1]),sys.argv[2])
+print("[VERIFIED ORIGINAL PE EXECUTABLE]",info["coordinate"],
+      info["sectionName"],"file",info["fileOffset"],
+      "64-byte sha256",info["bytesSha256"])
+PY
+  bytes_file="$OUT/rea-envdxe-ram-protocol-callback-code-read.json"
   if python3 tools/y2q_hxl1_envdxe_ram_registration_callback.py \
-     --out "$OUT" --verify-single callback >/dev/null 2>&1; then
-    echo "[REUSE] Authenticated original callback $CALLBACK"
+       --out "$OUT" --verify-single callback-bytes >/dev/null 2>&1; then
+    echo "[REUSE] Original callback imported code bytes match pinned PE"
+  elif [[ -e "$bytes_file" ]]; then
+    echo "[STOP] Existing raw callback Ghidra evidence conflicts with original PE: $bytes_file" >&2
+    exit 2
   else
-    [[ ! -e "$f" ]] || {
-      echo "[STOP] Existing callback dossier invalid; preserving $f" >&2
-      exit 2
-    }
-    tmp="$OUT/rea-envdxe-ram-protocol-callback-function.partial.json"
-    [[ ! -e "$tmp" ]] || {
-      echo "[STOP] Previous partial callback analysis: $tmp" >&2
-      exit 2
-    }
-    echo "[GHIDRA FUNCTION] Protocol +0x18 method candidate $CALLBACK"
-    if ! node "$REA" function "$EFI" "$CALLBACK" --provider ghidra --json \
-       > "$tmp" 2> "$OUT/rea-envdxe-ram-protocol-callback-function-stderr.txt"; then
-      echo "[STOP] Ghidra callback analysis failed: inspect partial and stderr" >&2
-      exit 2
+    partial="$OUT/rea-envdxe-ram-protocol-callback-code-read.partial.json"
+    if [[ -e "$partial" ]]; then
+      echo "[LIMIT] Previous incomplete raw callback read preserved: $partial"
+    else
+      echo "[GHIDRA BYTES] Read 64 code bytes at $CALLBACK"
+      if node "$REA" read-bytes "$EFI" "$CALLBACK" --length 64 \
+          --provider ghidra --json > "$partial" \
+          2> "$OUT/rea-envdxe-ram-protocol-callback-code-read-stderr.txt"; then
+        mv "$partial" "$bytes_file"
+        python3 tools/y2q_hxl1_envdxe_ram_registration_callback.py \
+          --out "$OUT" --verify-single callback-bytes
+      else
+        echo "[LIMIT] Imported callback byte read failed; original PE executable proof retained"
+      fi
     fi
-    mv "$tmp" "$f"
-    python3 tools/y2q_hxl1_envdxe_ram_registration_callback.py \
-        --out "$OUT" --verify-single callback
+  fi
+
+  echo "=== Optional callback decompilation; preserve prior failure ==="
+  function_file="$OUT/rea-envdxe-ram-protocol-callback-function.json"
+  function_partial="$OUT/rea-envdxe-ram-protocol-callback-function.partial.json"
+  if python3 tools/y2q_hxl1_envdxe_ram_registration_callback.py \
+      --out "$OUT" --verify-single callback >/dev/null 2>&1; then
+    echo "[REUSE] Verified original Ghidra callback decompilation $CALLBACK"
+  elif [[ -e "$function_file" ]]; then
+    echo "[STOP] Existing callback function evidence is invalid: $function_file" >&2
+    exit 2
+  elif [[ -e "$function_partial" ]]; then
+    echo "[PRESERVED] Earlier failed Ghidra callback function analysis; collecting independent proof"
+  else
+    echo "[GHIDRA FUNCTION] Attempt original callback $CALLBACK"
+    if node "$REA" function "$EFI" "$CALLBACK" --provider ghidra --json \
+        > "$function_partial" \
+        2> "$OUT/rea-envdxe-ram-protocol-callback-function-stderr.txt"; then
+      mv "$function_partial" "$function_file"
+      python3 tools/y2q_hxl1_envdxe_ram_registration_callback.py \
+          --out "$OUT" --verify-single callback
+    else
+      echo "[LIMIT] Callback function analysis failed; partial and stderr preserved, continuing"
+    fi
   fi
 else
-  echo "[STOP] Invalid callback coordinate from original PE table" >&2
+  echo "[STOP] Invalid static callback address returned by original PE" >&2
   exit 2
 fi
 
