@@ -165,6 +165,47 @@ class LabTests(unittest.TestCase):
             self.assertEqual(image.read_bytes(),
                              b"precompiled KASAN ARM64 kernel")
 
+    def test_bounded_pi_result_exit_code_matches_json_status(self):
+        """A passing extended guest must return zero, not just print PASS."""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            args = args_for(root, action="boot")
+            image = args.output / "kernel-build/arch/arm64/boot/Image"
+            image.parent.mkdir(parents=True)
+            image.write_bytes(b"mock kernel")
+            (args.output / "initramfs.cpio.gz").write_bytes(b"mock ramdisk")
+            checks = (
+                "RMG_QEMU_LAB_FUTEX=PASS_BASIC_WAIT_EAGAIN_ONLY\n"
+                "RMG_QEMU_LAB_FUTEX_WAKE=PASS_ZERO_WAITERS\n"
+                "RMG_QEMU_LAB_FUTEX_PI_LOCK=PASS_UNCONTENDED\n"
+                "RMG_QEMU_LAB_FUTEX_PI_TRYLOCK=PASS_UNCONTENDED\n"
+                "RMG_QEMU_LAB_COMPLETE=PASS_BOUNDED_PI_NOT_GHOSTLOCK\n"
+            )
+            import json
+            for trace, rc, expected_status, expected_exit in (
+                (checks, 0, "PASS_BOUNDED_PI", 0),
+                (checks + "BUG: KASAN: simulated\n", 0, "FAIL_BOOT", 3),
+                (checks, 1, "FAIL_BOOT", 3),
+            ):
+                with self.subTest(expected_status=expected_status,
+                                  qemu_return_code=rc):
+                    simulated = subprocess.CompletedProcess(
+                        ["qemu"], rc, trace, "")
+                    with mock.patch.object(
+                        lab.shutil, "which",
+                        return_value="/usr/bin/qemu-system-aarch64"
+                    ), mock.patch.object(
+                        lab.subprocess, "run", return_value=simulated
+                    ):
+                        actual_exit = lab.boot(args)
+                    report = next(args.output.glob("qemu-boot-*.json"))
+                    actual_report = json.loads(report.read_text())
+                    self.assertEqual(actual_exit, expected_exit)
+                    self.assertEqual(actual_report["status"], expected_status)
+                    self.assertEqual(
+                        actual_report["boundedFutexPiChecksPassed"],
+                        expected_status == "PASS_BOUNDED_PI")
+
     def test_incomplete_pi_output_cannot_pass(self):
         with tempfile.TemporaryDirectory() as td:
             args = args_for(Path(td), action="boot")
