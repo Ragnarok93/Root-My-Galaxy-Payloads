@@ -2438,7 +2438,7 @@
     "workingKernelSu": false,
     "verifiedStockIdentity": true,
     "verifiedStockOriginalSourceHashes": true,
-    "nextOwnerAction": "Verify toolchain provenance via executable-aware command -v/readlink/--version; inventory section headers of QEMU control objects only as format calibration, not HXL1 struct offset evidence; locate authentic HXL1 unstripped build objects or matching vendor Clang10, or use constrained source+stock ARM64 instruction corroboration.",
+    "nextOwnerAction": "Inspect existing Samsung Clang18 experimental O= output for retained .o with DWARF and for generated config/hash; avoid rebuilding kernel and avoid importing QEMU4.19.325 structure offsets. Optionally demonstrate pahole on QEMU only to calibrate.",
     "noPhoneChanges": true,
     "noCrossDeviceOffsets": true,
     "noPrematureSupportFeedRegistration": true,
@@ -2601,6 +2601,56 @@
         "limitation": "-type f excludes symlinks, and /usr/bin /usr/lib/llvm-* are outside searched roots; system Clang 18 and NDK Clang 21 were previously identified"
       },
       "nextProof": "Inspect compiler symlinks/versions via command -v/readlink, raw DWARF sections of QEMU controls only for method calibration, then identify a genuine Clang10/stock-object source or derive provisional layouts using exact Samsung Kconfig and independently compare selected stock instructions."
+    },
+    "ownerCompilerAndDwarfVerification": {
+      "observedAt": "2026-10-10T06:37:59Z",
+      "compiler": {
+        "clang": {
+          "resolved": "/usr/lib/llvm-18/bin/clang",
+          "version": "Ubuntu clang version 18.1.3 (1ubuntu1)"
+        },
+        "clang10": "unavailable on PATH",
+        "llvmReadelf": {
+          "resolved": "/usr/lib/llvm-18/bin/llvm-readobj",
+          "version": "Ubuntu LLVM version 18.1.3"
+        },
+        "llvmObjdump": {
+          "resolved": "/usr/lib/llvm-18/bin/llvm-objdump",
+          "version": "Ubuntu LLVM version 18.1.3"
+        },
+        "aarch64Gcc": {
+          "resolved": "/usr/bin/aarch64-linux-gnu-gcc-13",
+          "version": "Ubuntu GCC 13.3.0"
+        }
+      },
+      "qemuControls": [
+        {
+          "path": "/home/main/s20-artifacts/qemu-lab/kernel-build/vmlinux",
+          "upstreamVersion": "4.19.325",
+          "dwarfInfo": true,
+          "dwarfAbbrev": true,
+          "symtab": true
+        },
+        {
+          "path": "/home/main/s20-artifacts/qemu-lab-kasan/kernel-build/vmlinux",
+          "upstreamVersion": "4.19.325",
+          "dwarfInfo": true,
+          "dwarfAbbrev": true,
+          "symtab": true
+        }
+      ],
+      "expectedVendorClang10": "/home/main/src/samsung-y2q-hxl1-stock/toolchain/llvm-arm-toolchain-ship/10.0/bin/clang",
+      "vendorClang10Exists": false,
+      "compiledVendorDebugObjectEvidence": false,
+      "possibleExistingExperimentalBuildDirectory": "/home/main/src/samsung-y2q-hxl1-config-clang18",
+      "earlierImageBuildReachedStages": [
+        "init/main.o and arch/arm64/kernel/process.o in eighth attempt",
+        "arch/arm64/kernel/asm-offsets.s and include/generated/asm-offsets.h in sixth attempt"
+      ],
+      "pending": "Inspect the existing partial Samsung/Clang18 output tree (no rebuild) for any retained ARM64 objects with .debug_info; label all such layouts comparison-only. Then corroborate any candidate offsets against original kernel instruction displacements and exact config before accepting.",
+      "noGenuineMatchingClang10Yet": true,
+      "noS20CompiledStructLayoutProven": true,
+      "stockSourceStillUnmodified": true
     }
   },
   "hxl1Stage4BootloaderDiscovery": {
