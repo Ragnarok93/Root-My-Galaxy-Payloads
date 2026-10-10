@@ -1619,6 +1619,51 @@ alter the kernel build, source tree, or configuration.
 kernel source and the generated `.config` remain unchanged. The source-copy
 still contains only the two approved upstream VDSO compatibility patches.
 
+## October 9: ninth-build `-Wformat` type mismatch classified — hold further build
+
+The log summary reveals a specific Clang 18 warning at
+`init/main.c:720:60`:
+
+```text
+warning: format specifies type 'unsigned long' but the argument has
+type 'u64' (aka 'unsigned long long') [-Wformat]
+('error, forbidden warning:', 'main.c:720')
+```
+
+This is a **format-specifier / vararg type mismatch**, not an
+assembler or linker error. Disabling the broad `-Wformat` category
+would hide real format bugs across the entire kernel. Do **not**
+add `-Wno-format`, use `-w`, or modify Samsung's strict warning
+wrapper.
+
+The proper minimal correction will be in a *new* isolated, hashed
+compatibility source variant **after inspecting the exact call**
+around line 720. For a `u64` value, the familiar kernel pattern is
+`%llu` with a corresponding `(unsigned long long)` cast, but
+no specific source patch should be assumed before reviewing the
+statement, its other format arguments, and macro expansion.
+
+Read-only extraction from the owner's already extracted
+compatibility and original stock trees:
+
+```bash
+nl -ba ~/src/samsung-y2q-hxl1-vdso-ias-compat/init/main.c |
+  sed -n '711,728p'
+
+nl -ba ~/src/samsung-y2q-hxl1-stock/init/main.c |
+  sed -n '711,728p'
+
+sha256sum \
+  ~/src/samsung-y2q-hxl1-stock/init/main.c \
+  ~/src/samsung-y2q-hxl1-vdso-ias-compat/init/main.c
+```
+
+These commands do **not** edit any files. Once the precise
+printing call is known, implement only the required type-safe
+format/argument correction in another audited source copy and
+run the next guarded off-device Image test. Avoid adjusting
+the user's already verified `.config`.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
