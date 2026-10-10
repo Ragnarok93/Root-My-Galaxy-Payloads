@@ -1446,6 +1446,120 @@ This is still an experimental, unsigned, off-device Image-only
 test of Clang18/GCC13 against Samsung Linux 4.19.113, not a
 flashable custom kernel for the locked SM-G986U1.
 
+## October 9: eighth Image build passes VDSO linking and begins main ARM64 compilation
+
+The eighth experimental Clang18/GCC13 build, using the isolated,
+fully verified two-patch VDSO source, successfully linked
+`arch/arm64/kernel/vdso/vdso.so.dbg` with
+`/usr/bin/aarch64-linux-gnu-ld`, ran AArch64 `objcopy` to produce
+`vdso.so`, and began building `init/main.o` plus ARM64 kernel objects.
+
+Two **Clang warnings** stopped the build because Samsung's
+`scripts/gcc-wrapper.py` rejects every compiler warning:
+
+- `include/linux/seq_buf.h:35`: converting/assigning a
+  `unsigned char *` to `char *`, warning `-Wpointer-sign`;
+  affected `init/main.o` and `arch/arm64/kernel/process.o`.
+- `arch/arm64/include/asm/sec_debug.h:113`: local
+  `which_el` set but unused, warning `-Wunused-but-set-variable`,
+  affected `arch/arm64/kernel/fpsimd.o`.
+
+These are compatibility diagnostics in old Samsung source exposed
+by Clang 18; no evidence yet that either reflects a code-generation
+crash or security issue. They should still be tracked explicitly.
+
+A separate `arch/arm64/kernel/entry.S` DWARF2 section warning was
+observed but **did not cause the first reported failure**. Do not
+disable assembly warnings globally.
+
+### Ninth experiment: two independently validated Clang warning categories
+
+The new opt-in `--suppress-legacy-core-warnings` requires all
+prior successful compatibility options:
+
+- `--integrated-arm64-as`
+- `--suppress-cgroup-layout-warning`
+- `--cross-arm64-linker`
+
+It adds **exactly** `-Wno-pointer-sign` and
+`-Wno-unused-but-set-variable` to `KCFLAGS`, not `KAFLAGS`.
+The original Samsung source, two-patch compatibility source,
+generated `.config`, and warning-enforcing wrapper remain intact.
+
+Before allowing a Make invocation, the tool uses `clang -fsyntax-only`
+on disposable built-in C snippets to verify each diagnostic is
+emitted without its suppression and absent when its *specific*
+suppression is applied. It additionally confirms an unrelated
+`-Wunused-parameter` diagnostic remains enabled, preventing a
+blanket warning-disable workaround.
+
+**Caveat:** these two warning categories are disabled for the
+experimental C compilation as a whole, not just the reported source
+lines. This is for identifying further modern-toolchain
+compatibility blockers; it does not establish binary equivalence
+to the original Samsung kernel.
+
+Pull and dry-run (retains previous output artifacts and existing
+experimental source copy; no source preparation required):
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --compat-source-dir ~/src/samsung-y2q-hxl1-vdso-ias-compat \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --integrated-arm64-as \
+  --suppress-cgroup-layout-warning \
+  --cross-arm64-linker \
+  --suppress-legacy-core-warnings \
+  --verbose \
+  --jobs 2
+```
+
+If the dry run passes, start the ninth experimental `Image` attempt
+with **new** filenames for the immutable log and report:
+
+```bash
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --compat-source-dir ~/src/samsung-y2q-hxl1-vdso-ias-compat \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --integrated-arm64-as \
+  --suppress-cgroup-layout-warning \
+  --cross-arm64-linker \
+  --suppress-legacy-core-warnings \
+  --verbose \
+  --jobs 2 \
+  --execute \
+  --log ~/s20-artifacts/samsung-hxl1-image-clang18-build-09.log \
+  --json ~/s20-artifacts/samsung-hxl1-image-clang18-report-09.json
+```
+
+If it fails, extract both standard errors and Samsung's custom
+strict-warning failure messages:
+
+```bash
+grep -nE 'error:|forbidden warning|fatal error:|Error [0-9]+|undefined reference|No such file' \
+  ~/s20-artifacts/samsung-hxl1-image-clang18-build-09.log | head -100
+tail -n 90 ~/s20-artifacts/samsung-hxl1-image-clang18-build-09.log
+```
+
+The device remains locked and untouched. A successful `Image`
+would still be unsigned, untested on hardware, and unflashable on
+the current locked bootloader.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
