@@ -117,3 +117,26 @@ cat ~/s20-artifacts/hxl1-research/abl-linuxloader/independent-uefi-recovery.json
 The `|| true` does **not** mark a failed extractor as a success: the second command authenticates an actually recovered file against evidence and refuses missing/mismatched outputs. We run it because the current strict validator's unresolved PE variant may still cause the initial wrapper to return 2 **after** preserving authentic GUID/UI-bound bytes.
 
 For deeper actual handoff work, once Ghidra admission is demonstrated, follow relevant `LinuxLoader` PE functions from Android boot-v2 header handling to `Image.text_offset`, memory allocation/placement and final AArch64 indirect jump. Record concrete disassembly and value-flow references and cite them separately from assumptions. Neither successful Ghidra import nor decompilation alone yields a physical kernel address.
+
+
+### Next operator action: no re-extraction, use REA fork directly
+
+A more efficient later change introduced `tools/y2q_hxl1_cached_linuxloader.py`. Its only inputs are the **existing** native `linuxloader-extraction-diagnostics.json`, existing independent `independent-unpacked/.../file-f536d559-459f-48fa-8bbc-43b554ecae8d/section1.pe` and adjacent `section0.ui`, and the original pinned ABL. It asserts that:
+- The original ABL hash and size still match HXL1.
+- The native decoder recorded **one** `LinuxLoader` FFS application and one `0x10` executable section.
+- The independent decoder's FFS GUID and UTF-16 UI both identify `LinuxLoader`.
+- The independent section's **entire SHA256, length and first 64 bytes** equal the native decoder's record of that original section.
+
+It writes `LinuxLoader-HXL1.unclassified.pe` and `linuxloader-cached-correlation.json`, including measured DOS/COFF header fields and **without promoting unclassified architecture to AArch64 PE32+**. SHA or identity mismatches fail closed. 9 offline synthetic fixture tests were added; actual HXL1 run remains pending.
+
+`tools/analyze_y2q_hxl1_linuxloader_rea.sh` now runs that cached correlation automatically when there is no previously verified `LinuxLoader-HXL1.efi`; it then collects `file` and LLVM PE/assembly reports, and when the owner's `~/src/rea` fork and native Ghidra provider are already functional it executes `node ~/src/rea/scripts/rea.mjs analyze ... --provider ghidra --json` and focused `search` commands. The REA tool registration, provider availability and Ghidra import are **not yet demonstrated on the owner's WSL2 environment**.
+
+**Single new command for next operator test:**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/analyze_y2q_hxl1_linuxloader_rea.sh
+```
+
+Do **not** re-run the whole decompression/UEFI extraction chain: the original PE section is already saved and independently fingerprinted. If REA's fork/Node/Ghidra is absent, the command preserves the raw original loader classification and reports precisely which dependency is missing without installing an arbitrary tool or claiming success.
