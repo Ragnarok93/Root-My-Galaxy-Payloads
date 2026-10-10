@@ -965,6 +965,34 @@
           "Only selected 64-byte windows were compared; ELF decoder may represent additional relocated instructions incorrectly.",
           "Physical handset RAM and KASLR were not dumped or measured.",
           "Disassembly demonstrates wrong-task access in original extracted firmware but not reachability, UAF triggering or root."
+        ],
+        "disassemblyScopeCaveat": "The compare covered 64 bytes after each symbol entry. The mrs SP_EL0 at remove_waiter+0x34 and add #0x8c8 at +0x38 were inside this validated window; str xzr [x20,#0x8f8] at remove_waiter+0x68 was visible in the reconstructed ELF disassembly but lies outside the already direct-byte-matched 64-byte window. Verify that exact raw ARM64 instruction separately before calling it raw-byte-correlated.",
+        "piBlockedOnRawInstructionBytesDirectlyCompared": false,
+        "nextDirectByteLocations": [
+          {
+            "symbol": "remove_waiter",
+            "address": "0xffffff8008147de8",
+            "instruction": "mrs x20, SP_EL0",
+            "validatedInFirst64Bytes": true
+          },
+          {
+            "symbol": "remove_waiter",
+            "address": "0xffffff8008147dec",
+            "instruction": "add x21, x20, #0x8c8",
+            "validatedInFirst64Bytes": true
+          },
+          {
+            "symbol": "remove_waiter",
+            "address": "0xffffff8008147e1c",
+            "instruction": "str xzr, [x20,#0x8f8]",
+            "validatedInFirst64Bytes": false
+          },
+          {
+            "symbol": "rt_mutex_start_proxy_lock",
+            "address": "0xffffff8008147d58",
+            "instruction": "bl remove_waiter",
+            "validatedInFirst64Bytes": false
+          }
         ]
       }
     },
