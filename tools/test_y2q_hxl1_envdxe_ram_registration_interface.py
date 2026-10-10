@@ -16,7 +16,9 @@ def initial_prior():
     return {
         "originalEnvDxeSha256":mod.PE_SHA256,
         "efiRamProtocolRegistrationProven":False,
-        "numericRuntimeRamBaseMeasured":False,
+        "ramProtocolImplementationRegistrationConfirmed":False,
+        "physicalBaseMemoryMeasured":False,
+        "runtimeSmemTableContentsObserved":False,
         "kernelPhysicalLoadVerified":False,
         "smemItemIdentifier":{"decimal":402},
         "originalCandidateInstallationGuid":{
@@ -136,7 +138,7 @@ class RegistrationInterfaceFixture(unittest.TestCase):
             self.reg()
 
     def test_previous_evidence_must_not_claim_runtime_ram_base(self):
-        self.previous["numericRuntimeRamBaseMeasured"]=True
+        self.previous["physicalBaseMemoryMeasured"]=True
         with self.assertRaisesRegex(ExtractionError,"without runtime"):
             self.reg()
 
@@ -144,6 +146,44 @@ class RegistrationInterfaceFixture(unittest.TestCase):
         self.previous["efiRamProtocolRegistrationProven"]=True
         with self.assertRaisesRegex(ExtractionError,"without runtime"):
             self.reg()
+
+    def test_missing_parent_runtime_field_is_rejected(self):
+        self.previous.pop("physicalBaseMemoryMeasured")
+        with self.assertRaisesRegex(ExtractionError,"without runtime"):
+            self.reg()
+
+    def test_parent_runtime_smem_flag_must_stay_unobserved(self):
+        self.previous["runtimeSmemTableContentsObserved"]=True
+        with self.assertRaisesRegex(ExtractionError,"without runtime"):
+            self.reg()
+
+    def test_other_prior_registration_field_cannot_claim_installation(self):
+        self.previous["ramProtocolImplementationRegistrationConfirmed"]=True
+        with self.assertRaisesRegex(ExtractionError,"without runtime"):
+            self.reg()
+
+    def test_parent_report_schema_matches_immediate_upstream_contract(self):
+        from tools import y2q_hxl1_envdxe_smem402_protocol as upstream
+        import inspect
+        names=set(self.previous)
+        expected={"efiRamProtocolRegistrationProven",
+                  "ramProtocolImplementationRegistrationConfirmed",
+                  "physicalBaseMemoryMeasured",
+                  "runtimeSmemTableContentsObserved",
+                  "kernelPhysicalLoadVerified"}
+        self.assertTrue(expected.issubset(names))
+        # This test guards the schema mismatch that stopped the owner run:
+        # parse keys from the actual upstream audit result's return dictionary.
+        source=inspect.getsource(upstream.audit)
+        import ast
+        parsed=ast.parse(source)
+        all_keys=set()
+        for node in ast.walk(parsed):
+            if isinstance(node,ast.Dict):
+                all_keys.update(key.value for key in node.keys
+                                if isinstance(key,ast.Constant) and isinstance(key.value,str))
+        self.assertTrue(expected.issubset(all_keys),
+                        "Immediate previous stage removed or renamed a required field")
 
     def test_wrong_smem_item_dependency_refused(self):
         self.previous["smemItemIdentifier"]["decimal"]=403
