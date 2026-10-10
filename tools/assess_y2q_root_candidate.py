@@ -16,6 +16,8 @@ import re
 import sys
 from pathlib import Path
 
+from prepare_samsung_vdso_compat import source_gate
+
 FIRMWARE = "G986U1UESCHXL1"
 MODEL = "SM-G986U1"
 DEVICE = "y2q"
@@ -218,6 +220,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--stock-source", type=Path, required=True)
+    parser.add_argument("--audit-json", type=Path, required=True,
+                        help="Original 11-layer Samsung source audit; must verify 40 overlay files")
     parser.add_argument("--boot-img", type=Path)
     parser.add_argument("--kernel-bin", type=Path)
     parser.add_argument("--output", type=Path)
@@ -225,7 +229,17 @@ def main():
     try:
         evidence = json.loads(args.evidence.expanduser().read_text(encoding="utf-8"))
         data = inspect_configuration(evidence)
+        verified_source = source_gate(args.stock_source.expanduser(), args.audit_json.expanduser())
         source_report = inspect_source(args.stock_source)
+        source_report["sourceAudit"] = {
+            "firmware": FIRMWARE,
+            "originalKernelMakefile": verified_source["makefileVersion"]["matchesExpected"],
+            "verifiedOverlayFiles": verified_source["overlayVerification"]["verified"],
+            "deviceConfigHashesVerified": all(
+                row["matchesOfficialAudit"]
+                for row in verified_source["deviceConfigs"].values()
+            ),
+        }
         checks = {}
         for key, name, path in (("boot.img", "boot.img", args.boot_img),
                                 ("kernel.bin", "kernel.bin", args.kernel_bin)):
