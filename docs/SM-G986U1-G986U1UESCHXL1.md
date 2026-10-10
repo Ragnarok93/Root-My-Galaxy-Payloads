@@ -4149,6 +4149,82 @@ physical Samsung device and is not a root exploit.
 
 ---
 
+## October 10, 04:55 UTC — owner-verified upstream ARM64 QEMU boot
+
+The owner completed the plain (non-KASAN)
+upstream Linux `4.19.325`
+`tools/y2q_qemu_lab.py` run end to end.
+
+| Verified lab result | Evidence |
+|---|---|
+| Upstream `linux-4.19.325` download, extract, configure | Completed |
+| Original Samsung `rtmutex.c`/`futex.c` integrity | Previously matched |
+| Static ARM64 init build | Pass; SHA-256 `8cb61ef869e855fdd450bd191a0a535330140ea3f5595df2fa9f955053e062af` |
+| Gzip CPIO initramfs | Pass; SHA-256 `2c8e76cad504663380358c4854aa3a86d867c0c635a85b0ea9a6a4de82ef00fc` |
+| Linux 4.19.325 ARM64 `Image` compile | Pass; SHA-256 `bd1176222b44d47576f95ffbff3f3ab5e38bf370e5b8216b888d2c4d1873b12a` |
+| QEMU `virt` / Cortex-A57 / 1 CPU / 1024 MiB guest | Pass |
+| Guest userspace `uname` | `4.19.325` / `aarch64` |
+| Guest immediate-return basic futex check | `PASS_BASIC_WAIT_EAGAIN_ONLY` |
+| Guest shutdown | Clean `reboot: Power down` |
+| Overall bootstrap | `[PASS_BOOT_ONLY]` |
+
+Owner's guest console included:
+
+```text
+RMG_QEMU_LAB_KERNEL=4.19.325
+RMG_QEMU_LAB_MACHINE=aarch64
+RMG_QEMU_LAB_FUTEX=PASS_BASIC_WAIT_EAGAIN_ONLY
+RMG_QEMU_LAB_COMPLETE=PASS_BOOT_ONLY_NOT_GHOSTLOCK
+[    1.383573] reboot: Power down
+[PASS_BOOT_ONLY]
+```
+
+Boot log:
+`~/s20-artifacts/qemu-lab/qemu-boot-20261010T045524Z.log`
+
+JSON report:
+`~/s20-artifacts/qemu-lab/qemu-boot-20261010T045524Z.json`
+
+### Next gated test: separate KASAN + RT-mutex-debug build
+
+**Keep the successful, uninstrumented Image intact.**
+Use a different `--output` directory because
+`configure` rebuilds the target directory's
+`.config`, and configuring it for KASAN would
+replace the working plain-boot config.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+KASAN_LAB="$HOME/s20-artifacts/qemu-lab-kasan"
+
+python3 tools/y2q_qemu_lab.py initramfs --output "$KASAN_LAB"
+python3 tools/y2q_qemu_lab.py configure --kasan --output "$KASAN_LAB"
+python3 tools/y2q_qemu_lab.py build --jobs 1 --output "$KASAN_LAB"
+python3 tools/y2q_qemu_lab.py boot --memory 1536 --output "$KASAN_LAB"
+```
+
+The helper verifies `CONFIG_KASAN=y` and
+`CONFIG_DEBUG_RT_MUTEXES=y` in the instrumented
+`.config` after `olddefconfig`. Confirm
+`[PASS_BOOT_ONLY]` from the newly instrumented
+guest, plus the absence of a boot panic or
+KASAN report. Instrumented compilation and
+guest boot are **not yet verified**.
+
+The upstream `virt` board and generic 4.19.325
+kernel remain a *behavioral test environment*,
+not the original Samsung boot image or a
+reproduction of CVE-2026-43499. In particular,
+successful guest boot does not demonstrate that
+the proxy-lock error branch was reached,
+that any kernel corruption occurred, that the
+Galaxy S20+ can gain root, or that KernelSU
+may be loaded on the locked stock firmware.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
