@@ -1562,7 +1562,14 @@
         "stockFtraceFrameworkBuilt": true,
         "stockFunctionTracerBuilt": false,
         "stockKprobesBuilt": false,
-        "verifiedKernelSuHookBackend": false
+        "verifiedKernelSuHookBackend": false,
+        "stockTracepointsBuilt": true,
+        "stockPerfEventsBuilt": true,
+        "stockUprobesBuilt": true,
+        "stockUprobeEventsBuilt": true,
+        "stockBpfEventsBuilt": true,
+        "stockBpfJitBuilt": false,
+        "kernelSuHookFeasibilityEstablished": false
       },
       "nextNonDestructiveChecks": [
         "Inspect exact stock config for PERF_EVENTS, TRACEPOINTS, BPF_EVENTS/JIT, UPROBES, FUNCTION_GRAPH_TRACER, DYNAMIC_FTRACE and KRETPROBES; do not infer runtime permissions.",
@@ -1578,7 +1585,14 @@
           "CONFIG_KPROBES": "n",
           "CONFIG_FTRACE": "y",
           "CONFIG_FUNCTION_TRACER": "n",
-          "CONFIG_FTRACE_SYSCALLS": "n"
+          "CONFIG_FTRACE_SYSCALLS": "n",
+          "CONFIG_PERF_EVENTS": "y",
+          "CONFIG_TRACEPOINTS": "y",
+          "CONFIG_UPROBES": "y",
+          "CONFIG_UPROBE_EVENTS": "y",
+          "CONFIG_BPF_JIT": "n",
+          "CONFIG_EVENT_TRACING": "y",
+          "CONFIG_BPF_EVENTS": "y"
         },
         "notPrintedByThisGrep": [
           "CONFIG_KRETPROBES",
@@ -1598,22 +1612,22 @@
         "inference": "Current Samsung v3.2.5 late-load patch has no demonstrated compatible stock-HXL1 function interception mechanism.",
         "deviceCodeExecutionObserved": false,
         "productionSupportAllowed": false,
-        "nextReadOnlyCapabilityKeys": [
-          "CONFIG_BPF_EVENTS",
-          "CONFIG_BPF_JIT",
-          "CONFIG_BPF_JIT_ALWAYS_ON",
-          "CONFIG_PERF_EVENTS",
-          "CONFIG_TRACEPOINTS",
-          "CONFIG_EVENT_TRACING",
-          "CONFIG_KPROBE_EVENTS",
-          "CONFIG_UPROBES",
-          "CONFIG_UPROBE_EVENTS",
-          "CONFIG_FUNCTION_GRAPH_TRACER",
-          "CONFIG_DYNAMIC_FTRACE",
-          "CONFIG_KRETPROBES",
-          "CONFIG_HAVE_KPROBES",
-          "CONFIG_HAVE_KRETPROBES"
-        ]
+        "nextReadOnlyCapabilityKeys": [],
+        "ownerFinalConfigAt": "2026-10-10",
+        "capabilities": {
+          "kernelStaticTracepoints": "compiled in; attachment/use may require privileges and accessible tracefs/debugfs",
+          "perfEvents": "compiled in; permission-gated by perf_event_paranoid and SELinux/Android restrictions",
+          "uprobes": "compiled in for user-space instruction tracing, not a kernel function interception replacement",
+          "bpfEvents": "compiled in, may be interpreted due BPF_JIT=n; verifier and privilege limits remain",
+          "bpfJit": "disabled; does not imply all BPF execution disabled",
+          "kprobes": "not compiled",
+          "ftraceFunctionTracer": "not compiled",
+          "ftraceSyscallTracer": "not compiled",
+          "kernelSuHookBackend": "not established under current Samsung v3.2.5 patch",
+          "executionAndRoot": "not tested or established"
+        },
+        "status": "HXL1 original tracing/BPF inventory complete for basic observation vs kernel function interception; observe-only features cannot be equated with KernelSU hooking or privilege.",
+        "nextGate": "If useful, inspect non-root device-side accessible tracefs paths and perf/BPF sysctls (no writes); prioritize legitimate loader/hook feasibility or stop-go decision instead of more offline config scans."
       }
     }
   }
