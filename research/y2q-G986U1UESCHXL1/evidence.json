@@ -528,6 +528,58 @@
         "secgetspf missing (nonfatal to current compile stage)",
         "arch/arm64 .inst unreliable disassembly warning"
       ]
+    },
+    "sixthImageBuildAttempt": {
+      "reportedAt": "2026-10-09T19:36:10-05:00",
+      "firmware": "G986U1UESCHXL1",
+      "source": "/home/main/src/samsung-y2q-hxl1-stock",
+      "output": "/home/main/src/samsung-y2q-hxl1-config-clang18",
+      "log": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-build-06.log",
+      "compiler": "Ubuntu Clang 18.1.3 / GCC 13.3",
+      "options": [
+        "--integrated-arm64-as",
+        "--suppress-cgroup-layout-warning",
+        "--verbose"
+      ],
+      "dryRunSucceeded": true,
+      "assemblyOffsetStagePassed": true,
+      "generatedHeaders": [
+        "include/generated/asm-offsets.h",
+        "include/generated/bounds.h"
+      ],
+      "failureStage": "arch/arm64/kernel/vdso/vdso_prepare",
+      "errors": [
+        {
+          "file": "arch/arm64/kernel/vdso/gettimeofday.S",
+          "lines": [
+            230,
+            253,
+            274
+          ],
+          "diagnostic": "too many positional arguments: clock_gettime_return, shift=1"
+        },
+        {
+          "file": "arch/arm64/kernel/vdso/note.S",
+          "line": 31,
+          "diagnostic": "changed section flags for .note.Linux, expected: 0x2"
+        }
+      ],
+      "verifiedUpstreamFixes": [
+        {
+          "path": "arch/arm64/kernel/vdso/gettimeofday.S",
+          "patch": "linux 4.19 stable upstream remove comma at three clock_gettime_return shift=1 calls",
+          "url": "https://www.spinics.net/lists/arm-kernel/msg893332.html"
+        },
+        {
+          "path": "include/linux/elfnote.h",
+          "patch": "Linux upstream commit 51da9dfb7f20911ae4e79e9b412a9c2d4c373d4b mark ELFNOTE assembly SHF_ALLOC",
+          "url": "https://lists.openwall.net/linux-kernel/2020/03/25/1250"
+        }
+      ],
+      "proposedNextBuild": "Generate isolated whole-tree verified source copy with only these two upstream compatibility fixes; use opt-in --compat-source-dir in existing build tool, keeping stock source and .config intact; compile Image off-device with fifth-build flags and fresh -07 log/report",
+      "imageCompiled": false,
+      "deviceModified": false,
+      "bootloaderLocked": true
     }
   }
 }
