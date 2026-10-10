@@ -61,6 +61,25 @@ jobs:
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/30.0.16248370" >> "$GITHUB_ENV"
       - name: Build Android 13 ARM64 non-root probe
         run: bash research/y2q-G986U1UESCHXL1/build_probe.sh
+      - name: Build inert Android HXL1 ELF64 shared diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p research/y2q-G986U1UESCHXL1/build
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang" \
+            -std=c11 -O2 -g0 -fPIC -shared -fvisibility=hidden \
+            -fstack-protector-strong -Wall -Wextra -Werror -Wl,--no-undefined \
+            research/y2q-G986U1UESCHXL1/diagnostic_payload.c \
+            -o research/y2q-G986U1UESCHXL1/build/y2q-HXL1-identity-diagnostic.so
+          python3 -c 'import sys; sys.path.insert(0,"tools"); from y2q_research_toolchain import verify_elf_shared_aarch64; from pathlib import Path; verify_elf_shared_aarch64(Path("research/y2q-G986U1UESCHXL1/build/y2q-HXL1-identity-diagnostic.so"))'
+          readelf -h research/y2q-G986U1UESCHXL1/build/y2q-HXL1-identity-diagnostic.so | grep -E 'DYN|AArch64'
+          echo 'READ-ONLY ARM64 ELF verified; not an exploit or root payload'
+      - name: Upload inert HXL1 diagnostic shared library
+        uses: actions/upload-artifact@v4
+        with:
+          name: y2q-HXL1-readonly-library-NOT-ROOT
+          path: research/y2q-G986U1UESCHXL1/build/y2q-HXL1-identity-diagnostic.so
+          if-no-files-found: error
       - name: Upload read-only diagnostic (not an exploit)
         uses: actions/upload-artifact@v4
         with:
