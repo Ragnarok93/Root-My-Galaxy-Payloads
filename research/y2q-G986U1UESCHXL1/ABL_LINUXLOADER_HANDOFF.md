@@ -561,3 +561,47 @@ Exact next host step (no phone writes/firmware unpacking):
     bash tools/run_y2q_hxl1_stage4_handoff_sources.sh
 
 Inspect the report rea-stage4-ram-partition-chain.md and inspect its RAM table descriptor layout and provider protocol before assuming numerical ranges or loading addresses. The live Android UID 2000 interfaces /proc/iomem, /proc/cmdline and DT chosen bootargs are **PERMISSION_DENIED**, so keep kernel_phys_load UNVERIFIED. Additional nonroot futex-PI execution is a separate, opt-in diagnostic and would not establish a GhostLock vulnerability.
+
+
+## 2026-10-10 13:27 — On-device safe futex prerequisites PASS; original EFI RAM protocol read verified
+
+The owner ran `bash tools/run_y2q_hxl1_stage4_handoff_sources.sh` with head `b7f1252`. **27/27** offline unit tests PASSED, all three previously authenticated REA/Ghidra source dossiers were correctly cached and reused, and one new exact original LinuxLoader function `FUN_0001eca0`, body `0x1eca0–0x1eee7`, was successfully decompiled. Ghidra source evidence ID: `ev_3368790f6a1b8ce33a5fc47bfb0dc5d44f0a82919c1e897e93aa67255021d2f9`.
+
+### Exact original RAM partition source chain
+
+`FUN_0001f018(&BaseMemory)` invokes `FUN_0001eca0(&local_30, &local_34)` to obtain a pointer/count and then processes the base addresses at 16-byte strides. The called firmware routine:
+
+1. Checks cached `DAT_00346ad8` for an existing RAM partition array.
+2. If absent, resolves an EFI protocol using GUID data at **`DAT_000ef880`**, with LocateProtocol through BootServices+0x140.
+3. Calls the protocol function at **`(local_50 + 0x18)`** first with no output buffer to obtain the required RAM-partition count, handling `EFI_BUFFER_TOO_SMALL`.
+4. Allocates exactly `DAT_00346ae0 << 4` bytes = **16 × entry count**, then calls the same function again to populate the buffer; on failure frees the allocated data.
+5. Returns the validated array pointer through `*param_1` and count through `*param_2`, caching both for subsequent reads.
+
+An external copy of the Qualcomm protocol header, `EFIRamPartition.h`, declares `RamPartitionEntry` as `UINT64 Base; UINT64 AvailableLength` (16-byte total), and positions `GetRamPartitions` at protocol+0x18. Reference: https://www.cnblogs.com/schips/p/qualcomm_about_uefi.html . This independently agrees with the genuine ELF's allocation and Base-entry traversal. The public header defines GUID **`5172ffb5-4253-7d51-c641-a701f973103c`**. However, the actual 16 GUID bytes at the original `LinuxLoader` address `0xef880` have **not yet been read**; do not claim that GUID identity is verified until the next probe completes.
+
+### Physical S20+ uncontended futex-PI syscall smoke
+
+Separately the user **opted in** and executed the existing safe diagnostic once on their exact HXL1 Galaxy S20+ as ADB UID 2000, SELinux Enforcing. ELF SHA256 `e7506a3f5ef3f323e278b83ec353354298f7f1c74a6972efbddd3f5b70c54412`; on-device stdout:
+
+- `FUTEX_WAIT_PRIVATE` mismatch: PASS, `errno=11` (EAGAIN).
+- `FUTEX_WAKE_PRIVATE` with no waiters: PASS, `rc=0`.
+- `FUTEX_LOCK_PI_PRIVATE` uncontended and `FUTEX_UNLOCK_PI_PRIVATE`: PASS, correct owner TID and zero state restored.
+- `FUTEX_TRYLOCK_PI_PRIVATE` uncontended and unlock: PASS, correct owner and zero state restored.
+- `RESULT=PASS_BASIC_FUTEX_PI_SYSCALLS_ONLY` and host status `SAFE_PI_PREREQUISITES_VERIFIED_NOT_ROOT`.
+- The staging executable was removed successfully. Host report: `~/s20-artifacts/y2q-futex-pi-smoke-20261010T132706Z.json`.
+
+These are **basic syscall prerequisite tests** only; no concurrency, race, requeue, real GhostLock exploit, kernel information leak, root or KernelSU operation was attempted or demonstrated. Do not repeat this exact safe test unless a new question warrants it.
+
+### Next singular original-EFI proof
+
+The new `tools/run_y2q_hxl1_ram_partition_protocol.sh` is a **host-only** Ghidra static probe of the exact protocol GUID at PE-analysis address `0xef880`, length 16, against already-known original stock EFI SHA256 `5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003`. It reuses all original REA function dossiers and only reads a single GUID. `tools/y2q_hxl1_ram_partition_protocol_audit.py` checks Ghidra provenance, exact pointer/callsite, count×16 allocation, caller 16-byte traversal, correct EFI GUID byte order and published protocol value before certifying the ABI. Ten additional fixture tests cover forgery, mismatched GUID/read, and missing caller/reader evidence.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_ram_partition_protocol.sh
+```
+
+Expected host output location: `~/s20-artifacts/hxl1-research/abl-linuxloader/rea-stage4-ram-partition-protocol.md`. If the GUID differs, stop and investigate; a generic Qualcomm header is not proof that Samsung's stock HXL1 vendor protocol has the same GUID. Even when the GUID is confirmed, no original XBL protocol **implementation**, runtime partition data or numerical physical kernel base is established by ABL alone.
+
+**Stage 4 state:** Original UEFI RAM partition source flow and static kernel handoff verified; live BaseMemory/physical kernel entry **UNVERIFIED**. GhostLock exploitability **UNVERIFIED** despite clean futex-PI prerequisites.
