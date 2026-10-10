@@ -844,6 +844,87 @@ automatically change the guessed base to force a match.
 
 ---
 
+## October 10: original kernel ARM64 instruction-level confirmation
+
+The owner compared the first **64 bytes** at each recovered function
+offset in the original, SHA-256-verified `kernel.bin` against the
+reconstructed ELF's first LOAD segment. All three were identical:
+
+| Function | Original `kernel.bin` file offset | Byte comparison |
+|---|---:|---|
+| `__rt_mutex_start_proxy_lock` | `0xC7744` | **64/64 equal** |
+| `rt_mutex_start_proxy_lock` | `0xC7D14` | **64/64 equal** |
+| `remove_waiter` | `0xC7DB4` | **64/64 equal** |
+
+The provided original-firmware-correlated disassembly explicitly
+implements the erroneous `current` behavior found in the audited
+Samsung source:
+
+```asm
+ffffff8008147de8: mrs x20, SP_EL0
+ffffff8008147dec: add x21, x20, #0x8c8
+ffffff8008147df8: bl  _raw_spin_lock
+...
+ffffff8008147e1c: str xzr, [x20, #0x8f8]
+```
+
+This kernel configuration uses `SP_EL0` to obtain `current`
+while running in kernel mode. The task `pi_lock` is reached
+using offset `0x8c8`, and the `pi_blocked_on` state is
+cleared relative to that same task at offset `0x8f8`.
+This correlates to `rtmutex.c:1077–1080`.
+
+The proxy-start wrapper contains the actual direct cleanup
+call (not merely a recovered name):
+
+```asm
+ffffff8008147d50: mov x0, x19
+ffffff8008147d54: mov x1, x20
+ffffff8008147d58: bl  remove_waiter
+```
+
+This is **source-and-original-firmware evidence** for the
+incorrect task handling described by
+[CVE-2026-43499](https://lists.openwall.net/linux-cve-announce/2026/05/21/7).
+The disassembly also shows `try_to_take_rt_mutex` and a
+nonzero-result cleanup path; reviewing the exact returns
+is a separate correctness question. The later
+[CVE-2026-53163 advisory](https://lists.openwall.net/linux-cve-announce/2026/06/25/20)
+documents why an upstream cleanup change needed additional guards.
+Do not assume the later introduced regression applies independently
+to this older vendor build merely because the control-flow looks similar.
+
+**Evidence scope:** an ELF reconstituted from the original
+kernel will naturally share original instruction bytes;
+these checks establish the relative offset mapping of these
+selected windows, not independent symbol-address attestation.
+They do **not** confirm byte-for-byte equality with the
+kernel currently running in handset RAM, establish runtime
+KASLR or demonstrate successful triggering, exploitation,
+root access, or KernelSU compatibility.
+
+### Next read-only semantic-review excerpts
+
+Inspect the complete proxy-start state transition, including
+how the `task` argument is associated with `waiter` and
+how failure is propagated to `futex_requeue()`:
+
+```bash
+nl -ba ~/src/samsung-y2q-hxl1-stock/kernel/locking/rtmutex.c |
+  sed -n '1730,1811p'
+
+nl -ba ~/src/samsung-y2q-hxl1-stock/kernel/futex.c |
+  sed -n '2120,2205p'
+```
+
+Do not execute crash-based GhostLock proof-of-concepts on
+the physical handset at this stage. Retain the original
+`kernel.bin` and symbolized `vmlinux-stock.elf` unchanged.
+Production `support/targets-v3.json` registration remains
+blocked.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
