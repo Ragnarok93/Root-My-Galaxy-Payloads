@@ -77,6 +77,89 @@ does not close Stage 3.
 
 ---
 
+## October 10, 07:20 UTC — exact HXL1 BL package located and hashed (Stage 4 archive gate resolved)
+
+The owner's *already decompressed outer firmware ZIP* is under:
+`/mnt/c/Users/Admin/Downloads/SAMFW.COM_SM-G986U1_XAA_G986U1UESCHXL1_fac`.
+
+It contains **AP (8,279,715,964 bytes), BL (92,600,434 bytes),
+CP (67,543,150 bytes), CSC and HOME_CSC** TAR/MD5 files;
+the name/size inventory was confirmed by `find`, not yet by
+individually hashing each of those non-BL archives.
+
+Actual matching BL archive:
+`BL_G986U1UESCHXL1_G986U1UESCHXL1_MQB90638722_REV00_user_low_ship_MULTI_CERT.tar.md5`
+
+- Owner-measured BL SHA-256:
+  `f6048fb50cd83741951552866c4dcf26e6165b0a67a232b81028c266bef22d6b`
+- Archive is readable using GNU `tar -tf`, and lists **27 members**:
+  `abl.elf.lz4`, `xbl.elf.lz4`, `xbl_config.elf.lz4`,
+  `tz.mbn.lz4`, `hyp.mbn.lz4`, `devcfg.mbn.lz4`,
+  `aop.mbn.lz4`, `cmnlib.mbn.lz4`, `cmnlib64.mbn.lz4`,
+  `qupv3fw.elf.lz4`, `NON-HLOS.bin.lz4`, `dspso.bin.lz4`,
+  `km4.mbn.lz4`, `storsec.mbn.lz4`, `sec.elf.lz4`,
+  `bksecapp.mbn.lz4`, `tz_iccc.mbn.lz4`,
+  `tz_hdm.mbn.lz4`, `apdp.mbn.lz4`,
+  `msadp.mbn.lz4`, `uefi_sec.mbn.lz4`,
+  `multi_image.mbn.lz4`, `quest.fv.lz4`,
+  `testvector.fv.lz4`, `spunvm.bin.lz4`,
+  `vbmeta.img.lz4`, `vaultkeeper.mbn.lz4`.
+
+**Stage 4 is OPEN for kernel physical load and boot handoff, not
+BLOCKED by missing BL firmware**. An ABL/XBL ELF `p_paddr` is
+a **bootloader ELF segment loading address** and is **not**
+proof of the Android kernel's own physical load address,
+handoff register contents or KASLR slide. The original
+ARM64 Image header's `text_offset=0x80000` is also
+not sufficient to derive the actual runtime load base.
+
+### Offline HXL1 ABL/XBL/XBL_CONFIG evidence acquisition
+
+These commands read just three files from the 89-MiB
+verified original BL TAR/MD5 and decompress them to
+a *separate Linux output folder*. They never flash,
+sign, alter source, or access the phone.
+
+```bash
+set -euo pipefail
+FIRMWARE="/mnt/c/Users/Admin/Downloads/SAMFW.COM_SM-G986U1_XAA_G986U1UESCHXL1_fac"
+BL="$FIRMWARE/BL_G986U1UESCHXL1_G986U1UESCHXL1_MQB90638722_REV00_user_low_ship_MULTI_CERT.tar.md5"
+OUT="$HOME/s20-artifacts/hxl1-research/bl-stock"
+mkdir -p "$OUT"
+
+echo "=== Pin original archive first ==="
+echo "f6048fb50cd83741951552866c4dcf26e6165b0a67a232b81028c266bef22d6b  $BL" | sha256sum -c -
+
+if ! command -v lz4 >/dev/null; then
+  echo "lz4 executable missing (Ubuntu: sudo apt install lz4)" >&2
+  exit 1
+fi
+
+for file in abl.elf xbl.elf xbl_config.elf; do
+  tar -xOf "$BL" "$file.lz4" | lz4 -dc > "$OUT/$file"
+  printf '\n=== %s ===\n' "$file"
+  sha256sum "$OUT/$file"
+  file "$OUT/$file"
+  readelf -h "$OUT/$file" 2>&1 | head -n 32
+done
+
+echo "=== ABL program headers (bootloader segments, not kernel load address) ==="
+readelf -lW "$OUT/abl.elf" 2>&1 | head -n 75
+
+echo "=== XBL program headers (bootloader segments) ==="
+readelf -lW "$OUT/xbl.elf" 2>&1 | head -n 65
+```
+
+Interpret the output as *file format and executable
+provenance*. ELF type, entry point, virtual address, physical
+segment address, and embedded vendor strings alone do not
+establish the Android kernel handoff; exact executable paths,
+EL state, memory reservations and original DTB/boot headers
+must be considered separately. Never substitute a guessed
+base address in a root/payload target.
+
+---
+
 ## October 10, 07:03 UTC — individual task field consistency with original HXL1 Image
 
 The owner inspected the full previously preserved Samsung Clang18
