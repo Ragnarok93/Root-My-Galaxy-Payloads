@@ -86,6 +86,12 @@ class StageThreeEvidenceTests(unittest.TestCase):
         self.assertEqual(len(x["checks"]["readinessStages"]),9)
         self.assertEqual(x["decisions"]["stage3"],"PARTIAL")
 
+    def test_original_stage_three_open_remains_open(self):
+        self.report[4]["gates"][2]["state"]="OPEN"
+        result=self.run_audit()
+        self.assertEqual(result["decisions"]["stage3"],"OPEN")
+        self.assertFalse(result["decisions"]["originalCompiledStructureOffsetsVerified"])
+
     def test_no_runtime_or_kernel_su_promotion(self):
         d=self.run_audit()["decisions"]
         for flag in (
