@@ -23,6 +23,67 @@ kernel compilation errors to perform the firmware-to-profile audit.
 - [Support feed selection limitations](../support/README.md)
 - [KernelSU module constraints and Samsung adaptations](../kernelsu/README.md)
 
+## October 10, 06:41 UTC — retained Samsung Clang18 DWARF verified (Stage 3 partial)
+
+The owner pulled 22134b5 and inspected the retained
+experimental Samsung HXL1 output tree at
+/home/main/src/samsung-y2q-hxl1-config-clang18.
+The generated .config still has pinned SHA-256
+97cf1d93f86251294951ff235e76281e9e3705d5745be6b44f130fc3aa501c09.
+There are **85** retained .o files, including AArch64
+objects with .debug_info, .debug_abbrev, .rela.debug_info and .symtab:
+
+| Original-source Samsung Clang18 object | Verified ELF/DWARF |
+|---|---|
+| init/main.o | ELF64 relocatable AArch64, DWARF present |
+| arch/arm64/kernel/process.o | ELF64 relocatable AArch64, DWARF present |
+| arch/arm64/kernel/fpsimd.o | ELF64 relocatable AArch64, DWARF present |
+
+This changes our available evidence: earlier search found only
+upstream QEMU vmlinux/rtmutex.o/futex.o, but it did not search
+the actual incomplete Samsung build's other .o names.
+**We have provisional Samsung-compiled type information.**
+It is not original unstripped OEM Clang10 DWARF or
+verified runtime ABI. In particular, the experimental
+Clang18 config has CONFIG_CLANG_VERSION=180103 whereas
+the original stock config has CONFIG_CLANG_VERSION=100006.
+
+### Read-only complete object inventory (not a new kernel build)
+
+The repository now includes a hash-pinned inventory helper
+tools/y2q_partial_samsung_dwarf_audit.py. It audits all
+partial Samsung *.o files and separates AArch64 ET_REL
+objects from host tool objects. It reports which ARM64
+objects contain both .debug_info and .debug_abbrev.
+It does not derive arbitrary field offsets, attempt the CVE,
+load KernelSU or modify the phone.
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    python3 -m unittest -v tools/test_y2q_partial_samsung_dwarf_audit.py
+    python3 tools/y2q_partial_samsung_dwarf_audit.py
+    cat ~/s20-artifacts/hxl1-research/samsung-clang18-dwarf-inventory.md
+
+Expected report paths:
+
+- ~/s20-artifacts/hxl1-research/samsung-clang18-dwarf-inventory.json
+- ~/s20-artifacts/hxl1-research/samsung-clang18-dwarf-inventory.md
+
+If owner confirms the inventory, a narrow read-only pahole
+inspection can determine whether structures are materialized
+in init/init_task.o, init/main.o or process.o. Such
+types must be classified **comparison only** until independently
+corroborated against original HXL1 firmware ARM64
+instruction displacements and conditional layout choices.
+Do not turn any provisional layouts into root payload
+constants. We still have no validated original factory
+compiler and no full matching unstripped stock debug ELF.
+
+**Status: Stage 3 PARTIAL, Stage 4 OPEN, no native exploit,
+no active support entry and no KernelSU deployment.**
+
+---
+
 ## October 10, 06:37 UTC — upstream DWARF works; inspect retained partial Samsung objects
 
 The owner reported the following real WSL results after pulling
