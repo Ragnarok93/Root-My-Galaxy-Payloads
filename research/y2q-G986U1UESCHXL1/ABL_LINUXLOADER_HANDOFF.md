@@ -540,3 +540,24 @@ bash tools/run_y2q_hxl1_stage4_handoff_sources.sh
 ```
 
 **Device-specific Stage 4 status:** correct locked HXL1 target VERIFIED; static BootLinux placement and ARM64 handoff code VERIFIED; live physical base/KASLR/DTB selection **UNAVAILABLE**, numeric `kernel_phys_load` UNVERIFIED; GhostLock exploit viability, root and KernelSU installation UNVERIFIED. No device-memory bypass or device operation is justified by this evidence alone.
+
+
+## October 10, 2026 — Genuine REA source dossiers on HXL1 and safe ADB preflight
+
+Owner submitted complete output from tools/run_y2q_hxl1_stage4_handoff_sources.sh and the futex smoke binary preflight (host report dated 20261010T130932Z). The REA pass returned **18/18 regression tests PASS** and verified the original ARM64 handoff plus the original four fallback words. All three new exact-original-EFI Ghidra source dossiers passed provider/PE SHA256/function body verification.
+
+- FUN_0001f018, body 0x1f018–0x1f1a3 (REA ev_e245a9baee51343ff77969723209b40f324422a08bace6cc2148ec130ec8dd24), invokes FUN_0001eca0(&local_30,&local_34), checks the returned status and processes a RAM-partition base pointer/count. Writes a derived value to *param_1 and can print "Memory Base Address: 0x%x". The decompiler shows complicated array/minimum selection, including compiler-vectorized-looking logic; **do not assert that it always selects the lowest physical partition base without understanding descriptor layout and control-flow details**.
+- FUN_00020838, body 0x20838–0x20927 (REA ev_d30c985627eaa4f4da9fca86ecba8265bf5efe9067d7e1df47734c6247c46ba0), invokes UEFI BootServices protocol lookup via DAT_00351a38+0x140 and a located protocol method at +8 to request pseudorandom bytes. Both lookup and acquisition have explicit failure logging; actual output, mask and runtime KASLR displacement are **not measured**.
+- FUN_0001e868, body 0x1e868–0x1e9b3 (REA ev_8d4701c2d6176bb67c8627e120c2d1b634d865985924c0dc61e7397fbce5389b), acquires UEFI memory map through DAT_00351a38+0x38, retries memory-map buffer allocation when needed, and calls ExitBootServices through DAT_00351a38+0xe8 using the map key. Actual branch execution remains unobserved.
+
+The owner also ran the project’s AArch64 futex-PI smoke diagnostic **--preflight-only**. It verified the specific local ELF SHA256 e7506a3f5ef3f323e278b83ec353354298f7f1c74a6972efbddd3f5b70c54412, physical phone identity, UID=2000 and enforcing SELinux. Its status was **PREFLIGHT_ONLY**, not syscall execution, exploitation, root or KernelSU.
+
+**Next distinct static evidence:** FUN_0001eca0 itself (the Qualcomm RAM-partition reader). The source-audit SOURCES tuple and one-command tools/run_y2q_hxl1_stage4_handoff_sources.sh now add this single specific REA function analysis; the other three dossiers are cached and reused. The new tools/y2q_linuxloader_rea_ram_partition_chain.py stores original authenticated caller and reader pseudocode, evidence IDs and function entrypoints with an explicit numeric runtime BaseMemory **unknown**. New tests check reader ownership, absence/forged outputs, missing call, and no invented physical address. The wrapper no longer needlessly republishes the previous long three-function/hand-off reports.
+
+Exact next host step (no phone writes/firmware unpacking):
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_stage4_handoff_sources.sh
+
+Inspect the report rea-stage4-ram-partition-chain.md and inspect its RAM table descriptor layout and provider protocol before assuming numerical ranges or loading addresses. The live Android UID 2000 interfaces /proc/iomem, /proc/cmdline and DT chosen bootargs are **PERMISSION_DENIED**, so keep kernel_phys_load UNVERIFIED. Additional nonroot futex-PI execution is a separate, opt-in diagnostic and would not establish a GhostLock vulnerability.
