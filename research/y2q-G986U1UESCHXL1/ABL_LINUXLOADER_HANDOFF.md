@@ -935,3 +935,24 @@ The combined test runner executes the prior 121 independent regression cases plu
     bash tools/run_y2q_hxl1_envdxe_method_arm64_trace.sh
 
 Expected report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-four-method-arm64.md`. It will contain four original method windows, original direct callee code window, static ARM64 branch targets and two xref sets. Phone NOT required. This extends original **static** XBL provider evidence; do not infer runtime DRAM entries, physical kernel load, exploit success or KernelSU. Follow this with the more decisive Linux 4.19 structure/layout and GhostLock applicability proof gates before claiming a working Root My Galaxy payload.
+
+
+## 2026-10-10 16:24 — ARM64 five-code-window suite failed only at synthetic PE section boundary
+
+Owner executed `bash tools/run_y2q_hxl1_envdxe_method_arm64_trace.sh` after fetching original branch commit `5a2d714`. The *offline regression suite* reported **317 tests, 35 failures + 5 errors**, all with the same `ExtractionError: Original ARM64 static window does not uniquely map into PE`. The runner stopped **before making any new Ghidra/REA queries**; there are therefore **no new original HXL1 code-window outputs or runtime address observations from this run**.
+
+Root cause was isolated to the new synthetic test PE in `tools/test_y2q_hxl1_envdxe_method_arm64_trace.py`:
+
+- Fixture section `.text` started at RVA `0x1000` and originally declared raw and virtual sizes `0x4000`, so the test section stopped at `0x5000`.
+- The fifth target, original callback's directly observed ARM64 `BL` callee, has static RVA `0x52cc`, **outside that synthetic section**. The production analyzer correctly rejected this range.
+- The synthetic PE fixture was expanded to `0x6000` file bytes and `0x5000` section raw/virtual sizes at RVA `0x1000`, with original synthetic file offset `0x400`. Its five 128-byte code windows now all fall inside backed executable data. Specifically `0x52cc -> PE file offset 0x46cc`; its read ends at `0x474c`, below both raw section end `0x5400` and PE file end `0x6000`. The existing synthetic `BL` at `0x1fa4` continues to encode `0x94000cca -> 0x52cc`.
+- Two new regressions explicitly enforce **all five mappings are backed and in-bounds** and verify **restoring the old section extent rejects 0x52cc** without weakening the production fail-closed PE section check. Full intended suite is now **319 tests**. Local independent Python arithmetic confirmed all five fixture offsets and BL target, but **the complete suite remains UNEXECUTED following this correction** and requires owner WSL run.
+- The 40 test failures were caused by *one synthetic coverage defect*. They do not falsify previously verified original firmware evidence: conditional RAM-protocol registration, authenticated interface qwords including callback slot +0x18 -> 0x1f74, original executable callback bytes, and ARM64 `BL 0x1fa4 -> 0x52cc`. They provide no privilege-escalation, kernel physical load or KernelSU evidence.
+
+Next command (host-only; S20+ need not be attached):
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_envdxe_method_arm64_trace.sh
+
+After 319/319 genuine regression passes, the runner should proceed to the five original-PE/Ghidra 128-byte windows, two bounded Ghidra xref requests and `rea-envdxe-four-method-arm64.md` report. CI is wired but no remote workflow result has yet been observed for the corrective commit. The *original* 0x52cc target was previously a verified ARM64 branch displacement only, not yet authenticated by the new 128-byte imported-Ghidra comparison.
