@@ -367,6 +367,29 @@
       "runningOnlyClassification": "All listed running-only CONFIG_* entries are platform / hardware project machine selectors, not yet shown to affect active US y2q config",
       "criticalSecurityPlatformChecks": "All 15 compared symbols matched, including ARM64, QCOM/KONA, modules signatures, UH_RKP, KDP, DEFEX, KPROBES disabled",
       "status": "Config near-match; modern Clang 18 test only; no kernel Image compiled, signed, booted or flashed."
+    },
+    "firstImageBuildAttempt": {
+      "reportedAt": "2026-10-09T19:02:20-05:00",
+      "source": "/home/main/src/samsung-y2q-hxl1-stock",
+      "output": "/home/main/src/samsung-y2q-hxl1-config-clang18",
+      "compiler": "Clang 18.1.3 + AArch64 GNU GCC 13.3.0",
+      "imageTarget": "Image",
+      "makeExitCode": 2,
+      "imageBuilt": false,
+      "knownGeneratedConfigSha256": "97cf1d93f86251294951ff235e76281e9e3705d5745be6b44f130fc3aa501c09",
+      "blockingError": "/usr/bin/env: ‘python2’: No such file or directory; scripts/mod/empty.o exited 127",
+      "secondaryDiagnostics": [
+        "make[1]: secgetspf: No such file or directory (unknown optional Samsung SEP feature query; no direct failure attributed yet)",
+        "arch/arm64/Makefile:48 detected assembler with broken .inst; disassembly unreliable (warning)"
+      ],
+      "hostStepsBeforeFailure": [
+        "scripts generated version and include headers",
+        "compiled scripts/genksyms host helpers",
+        "attempted scripts/mod/empty.o"
+      ],
+      "logPath": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-build.log",
+      "reportPath": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-report.json",
+      "nextStep": "Read-only inspect Makefile secgetspf reference, install genuine Python 2.7 in isolated user-owned prefix, retry with --python2 and new log/report paths; do not substitute python3 as python2 or edit stock source"
     }
   }
 }
