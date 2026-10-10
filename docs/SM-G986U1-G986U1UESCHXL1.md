@@ -769,6 +769,81 @@ instruction/source correlation.
 
 ---
 
+## October 10: recovered ELF map and proxy-lock symbols
+
+Owner confirmed SHA-256 of the **reconstructed, analysis-only ELF**:
+`e15f67e8253396d9e6463e5dfd78d67e324a7149842a7fbccb973ec0fd36ecdb`.
+This is separate from the original `kernel.bin` checksum.
+
+`readelf` shows ELF64 EXEC/AArch64 with three synthetic
+`PT_LOAD` ranges. The first maps ELF file offset `0x240` to
+the extractor-guessed `_text = 0xffffff8008080000`,
+`p_filesz=0x2695260`, and flags `RWE`/alignment zero.
+These are reconstruction properties; they do **not** reveal actual
+runtime page permissions, the Qualcomm physical load base,
+the boot entry, or the KASLR slide. The extractor's
+entry point is `0xffffff800a600870` (`start_kernel`), which
+must not be mistaken for the initial ARM64 boot instruction.
+
+The recovered symbol listing contains:
+
+| Symbol | Guessed virtual address | Candidate offset from `_text` |
+|---|---|---|
+| `__rt_mutex_start_proxy_lock` | `0xffffff8008147744` | `0xC7744` |
+| `rt_mutex_start_proxy_lock` | `0xffffff8008147d14` | `0xC7D14` |
+| `remove_waiter` | `0xffffff8008147db4` | `0xC7DB4` |
+| `start_kernel` | `0xffffff800a600870` | `0x2580870` |
+
+These offsets remain **provisional** until the recovered ELF
+function bytes agree with the original verified raw ARM64 Image.
+For symbols in the first LOAD segment, the hypothesis is
+`raw_file_offset = symbol_va - _text` and
+`elf_file_offset = 0x240 + raw_file_offset`.
+
+### Check three small instruction windows without modifying files
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 - <<'PY'
+from pathlib import Path
+
+raw = (Path.home() / "s20-artifacts/kernel.bin").read_bytes()
+elf = (Path.home() / "s20-artifacts/hxl1-research/vmlinux-stock.elf").read_bytes()
+base = 0xffffff8008080000
+elf_load_offset = 0x240
+symbols = {
+    "__rt_mutex_start_proxy_lock": 0xffffff8008147744,
+    "rt_mutex_start_proxy_lock":   0xffffff8008147d14,
+    "remove_waiter":               0xffffff8008147db4,
+}
+for name, address in symbols.items():
+    raw_offset = address - base
+    elf_offset = elf_load_offset + raw_offset
+    raw_bytes = raw[raw_offset:raw_offset + 64]
+    elf_bytes = elf[elf_offset:elf_offset + 64]
+    if len(raw_bytes) != 64 or len(elf_bytes) != 64:
+        raise SystemExit(f"STOP: short data at {name}")
+    print(f"{name}: raw=0x{raw_offset:x}, elf=0x{elf_offset:x}")
+    print(f"  first 64 instruction bytes match: {raw_bytes == elf_bytes}")
+PY
+
+ELF="$HOME/s20-artifacts/hxl1-research/vmlinux-stock.elf"
+llvm-objdump -d --disassemble-symbols=remove_waiter "$ELF" | head -n 95
+llvm-objdump -d --disassemble-symbols=rt_mutex_start_proxy_lock "$ELF" | head -n 95
+```
+
+A match validates *these selected instruction windows and their
+relative mapping* against the original extracted raw Image.
+It does not prove that all 142,890 relocation entries were
+correctly applied, that symbol boundaries are all reliable, or
+that the phone's running binary/slide is the same. If any window
+differs, stop and examine the extraction mapping; do not
+automatically change the guessed base to force a match.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
