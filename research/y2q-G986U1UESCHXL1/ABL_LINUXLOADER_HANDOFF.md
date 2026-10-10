@@ -684,3 +684,25 @@ Operator command:
     bash tools/run_y2q_hxl1_envdxe_rea_xrefs.sh
 
 Outputs in ~/s20-artifacts/hxl1-research/xbl-rampartition/: EnvDxe-HXL1.efi, original-envdxe-hxl1.md, rea-envdxe-ram-guid-xrefs-audit.md (if verified). **No device memory accessed, no firmware writes, no root attempt.** The RAM-partition provider function and its installer remain unverified until the actual code references, decompilation and call pattern are corroborated. Even a proven installer cannot supply boot-time RAM values from the firmware binary alone. Physical Linux kernel entry, GhostLock viability and KernelSU remain open.
+
+
+## 2026-10-10 14:12 — original EnvDxe extracted; valid GUID byte readback and ZERO direct Ghidra xrefs
+
+User ran `tools/run_y2q_hxl1_envdxe_rea_xrefs.sh` against exact original HXL1 XBL. **23/23** offline regressions PASS.
+
+- Exact original **EnvDxe PE** recovered from XBL gzip/FFS, SHA256 `9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670`. File: `~/s20-artifacts/hxl1-research/xbl-rampartition/EnvDxe-HXL1.efi`.
+- PE file offset and section RVA for original Qualcomm RAM protocol GUID: both **`0xd118`**, with preferred original static VA `0xd118`. SHA256-verified PE extraction and offset-to-RVA mapping completed.
+- REA 6.3.0 / Ghidra 12.1.4 **read_bytes at `0xd118` returned the exact 16-byte little-endian GUID**. Evidence ID `ev_74de6870e702b91b73346d03fc6a97b30bb98f413a4b894ac6ce8adf5bc316e3`; confirms the Ghidra imported program's byte at that coordinate is the right target, not merely a guessed file offset.
+- Direct REA/Ghidra `xrefs` of that same verified coordinate returned **ZERO** original source references; evidence ID `ev_5ff67c28ffa587f70fe81f43606c28e72d303300c650e426be4234bdaf1ac24a`. This is a **valid negative for Ghidra's direct xref model**, NOT a demonstration that this module never constructs or uses that GUID, and NOT evidence against provider installation.
+
+This result closes the previous uncertainty about module provenance and wrong static image base. The next step must change the investigative dimension, not simply repeat the same zero-xref query. A Qualcomm reference `boot_images/QcomPkg/Drivers/EnvDxe/EnvDxe.c` implementation registers the RAM partition protocol after initialization through UEFI `InstallMultipleProtocolInterfaces`; external context at https://www.cnblogs.com/linhaostudy/p/18358956 . This is **reference** source, not evidence that the exact Samsung binary uses the same implementation or symbols.
+
+**New distinct host-only REA probe**: `tools/run_y2q_hxl1_envdxe_entry_strings.sh` keeps the exact original EnvDxe SHA256 and both authenticated GUID readback / zero-xref records as hard preconditions. It reads and authenticates the original **PE entryPointRva and preferredImageBase** from the extraction manifest (rechecked against the actual original PE header), calls REA/Ghidra `function` exactly once on that entry, and runs only three literal, case-insensitive, Ghidra `search --kind strings` patterns: **RamPartition**, **GetRamPartitions**, **EnvDxe**. Each original function/string Evidence result is checked against PE SHA256, Ghidra provider, operation, original input address/literal and valid static coordinates; cached authenticated results are reused, conflicting/partial ones are never overwritten. The report retains complete original entrypoint decompilation and exact diagnostic string addresses.
+
+`tools/y2q_hxl1_envdxe_entry_strings.py` and **13 synthetic regressions** added, CI wired. The next checkpoint is the driver's entrypoint call tree or *actual observed* diagnostic string xref(s), not protocol installation claimed from a GUID literal alone. Run:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_envdxe_entry_strings.sh
+
+Report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-entry-strings-audit.md`. If the entrypoint or searches cannot be authenticated, report the exact gap and inspect the original REA saved JSON. **Do not invent dynamic firmware partition bases, per-boot KASLR, runtime kernel_phys_load, root or KernelSU.**
