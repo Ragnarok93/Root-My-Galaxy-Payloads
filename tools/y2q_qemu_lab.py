@@ -298,10 +298,25 @@ def build(args: argparse.Namespace) -> None:
 
 
 def boot(args: argparse.Namespace) -> int:
-    image = args.output / "kernel-build/arch/arm64/boot/Image"
+    # Reuse an already built KASAN Image without modifying its output tree.
+    image = getattr(args, "kernel_image", None) or (
+        args.output / "kernel-build/arch/arm64/boot/Image")
     ramdisk = args.output / "initramfs.cpio.gz"
     if not image.is_file() or not ramdisk.is_file():
-        raise LabError("Missing kernel Image or initramfs; run initramfs/configure/build")
+        raise LabError("Missing kernel Image or initramfs; run initramfs/configure/build "
+                       "or use boot --kernel-image /path/to/existing/Image")
+    # Checking the existing .config is non-mutating and avoids mislabeling
+    # a plain Image as KASAN-instrumented when its config is accessible.
+    config_file = image.parents[3] / ".config"
+    instrumented = False
+    if config_file.is_file():
+        cfg = set(config_file.read_text(errors="replace").splitlines())
+        instrumented = "CONFIG_KASAN=y" in cfg and "CONFIG_DEBUG_RT_MUTEXES=y" in cfg
+        print(f"[kernel] configuration KASAN+DEBUG_RT_MUTEXES={instrumented}",
+              flush=True)
+    else:
+        print("[kernel] original build .config unavailable; instrumentation "
+              "not independently verified", flush=True)
     if not shutil.which("qemu-system-aarch64"):
         raise LabError("Install the Ubuntu 'qemu-system-arm' package first")
     cmd = [
@@ -328,12 +343,24 @@ def boot(args: argparse.Namespace) -> int:
             else exc.stdout or ""
         )
         rc = -1
-    passed = "RMG_QEMU_LAB_COMPLETE=PASS_BOOT_ONLY_NOT_GHOSTLOCK" in trace
+    boot_passed = "RMG_QEMU_LAB_COMPLETE=PASS_BOOT_ONLY_NOT_GHOSTLOCK" in trace
+    pi_passed = (
+        "RMG_QEMU_LAB_COMPLETE=PASS_BOUNDED_PI_NOT_GHOSTLOCK" in trace
+        and all(marker in trace for marker in (
+            "RMG_QEMU_LAB_FUTEX=PASS_BASIC_WAIT_EAGAIN_ONLY",
+            "RMG_QEMU_LAB_FUTEX_WAKE=PASS_ZERO_WAITERS",
+            "RMG_QEMU_LAB_FUTEX_PI_LOCK=PASS_UNCONTENDED",
+            "RMG_QEMU_LAB_FUTEX_PI_TRYLOCK=PASS_UNCONTENDED",
+        ))
+    )
     fatal = any(marker in trace for marker in
                 ("Kernel panic", "RMG_QEMU_LAB_FAIL", "BUG: KASAN:", "Oops:"))
-    status = "PASS_BOOT_ONLY" if passed and not fatal else (
-        "INCONCLUSIVE_TIMEOUT" if timed_out else "FAIL_BOOT"
-    )
+    if not fatal and not timed_out and rc == 0 and pi_passed:
+        status = "PASS_BOUNDED_PI"
+    elif not fatal and not timed_out and rc == 0 and boot_passed:
+        status = "PASS_BOOT_ONLY"
+    else:
+        status = "INCONCLUSIVE_TIMEOUT" if timed_out else "FAIL_BOOT"
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     log = args.output / f"qemu-boot-{stamp}.log"
     log.write_text(trace)
@@ -342,7 +369,9 @@ def boot(args: argparse.Namespace) -> int:
         "status": status, "returnCode": rc, "timedOut": timed_out,
         "memoryMiB": args.memory, "cpus": 1,
         "guestKernelSha256": sha256(image), "initramfsSha256": sha256(ramdisk),
-        "scope": "Upstream Linux 4.19 VM boot and immediate-return futex only",
+        "kernelImagePath": str(image), "kasanRtMutexConfigVerified": instrumented,
+        "boundedFutexPiChecksPassed": status == "PASS_BOUNDED_PI",
+        "scope": "Upstream Linux 4.19 VM boot and single-thread uncontended futex-PI only",
         "stockSamsungDeviceAffected": False, "ghostLockReproduced": False,
         "kernelSuValidated": False, "rootOnPhoneVerified": False
     }, indent=2) + "\n")
@@ -360,6 +389,9 @@ def main() -> int:
     p.add_argument("--kasan", action="store_true",
                    help="On configure only: request KASAN/debug RT-mutex options")
     p.add_argument("--jobs", type=int, default=1, choices=(1, 2))
+    p.add_argument("--kernel-image", type=Path, default=None,
+                   help="For boot only: reuse an existing ARM64 Image, e.g. from "
+                        "the preserved KASAN lab, without rebuilding the kernel")
     p.add_argument("--memory", type=int, default=1024,
                    help="QEMU RAM MiB; start with 1024; use 1536 for KASAN")
     p.add_argument("--timeout", type=int, default=240,
@@ -368,6 +400,10 @@ def main() -> int:
     args.source = args.source.expanduser().resolve()
     args.vendor = args.vendor.expanduser().resolve()
     args.output = args.output.expanduser().resolve()
+    if args.kernel_image is not None:
+        if args.action != "boot":
+            p.error("--kernel-image is only valid with 'boot'")
+        args.kernel_image = args.kernel_image.expanduser().resolve()
     if args.memory < 768 or args.memory > 1536:
         p.error("--memory must be between 768 and 1536 MiB on this WSL host")
     if args.timeout < 30 or args.timeout > 900:
