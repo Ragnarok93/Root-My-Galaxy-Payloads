@@ -2004,13 +2004,16 @@
       "officialSourceDownloadedByOwner": true,
       "upstreamArm64KernelBuiltByOwner": true,
       "guestBootedByOwner": true,
-      "kasanImageBuiltByOwner": false,
+      "kasanImageBuiltByOwner": true,
       "cvePathReproduced": false,
       "phoneRootVerified": false,
       "productionSupportApproved": false,
-      "plainBootSuccessful": true
+      "plainBootSuccessful": true,
+      "kasanConfigAcceptedByHelper": true,
+      "kasanGuestBootedByOwner": true,
+      "kasanBootSuccessful": true
     },
-    "interpretation": "Confirmed owner physical WSL 4.19.325 upstream ARM64 Image compile, QEMU virt/cortex-a57 1024MiB boot, guest AArch64 and immediate EAGAIN futex check, clean shutdown. This does not emulate Samsung kernel board/protections, or prove GhostLock/KernelSU/root.",
+    "interpretation": "Both baseline and KASAN+DEBUG_RT_MUTEXES upstream Linux 4.19.325 ARM64 VM boots verified by owner. KASAN runtime fault-detection sensitivity and Samsung GhostLock path remain untested. No evidence of phone rooting/module loading/KernelSU.",
     "ownerUpstreamBootEvidence": {
       "reportedAt": "2026-10-10T04:56:05Z",
       "evidence": "owner WSL2 terminal transcript, local upstream linux-4.19.325 archive build and QEMU boot",
@@ -2047,6 +2050,65 @@
       "rootOnPhoneVerified": false,
       "status": "PASS_BOOT_ONLY",
       "next": "Build a separate KASAN + DEBUG_RT_MUTEXES upstream 4.19 ARM64 VM under a new out-of-tree output directory, then verify boot; no Samsung exploit or kernel module loading."
-    }
+    },
+    "ownerKasanBootEvidence": {
+      "reportedAt": "2026-10-10T05:30:23Z",
+      "source": "owner-provided WSL transcript, Linux 4.19.325 ARM64 QEMU --kasan configure/build/boot",
+      "config": {
+        "helperOutput": "KASAN requested: True; .config checked by helper",
+        "confirmedByHelper": [
+          "CONFIG_KASAN=y",
+          "CONFIG_DEBUG_RT_MUTEXES=y"
+        ],
+        "unverifiedExactStates": [
+          "CONFIG_KASAN_OUTLINE",
+          "CONFIG_DEBUG_LIST",
+          "CONFIG_DEBUG_SPINLOCK"
+        ],
+        "configReadDirectlyByAssistant": false
+      },
+      "compiler": "aarch64-linux-gnu-gcc 13.3.0 on Ubuntu 24.04.1",
+      "upstreamKernel": "Linux 4.19.325",
+      "distinctLabOutput": "/home/main/s20-artifacts/qemu-lab-kasan",
+      "bootKernelImageSha256": "c0ba1e7a775565fdf503082d31c21ce38e2dd7568d724ed6a559ffba8251e065",
+      "guestInitSha256": "8cb61ef869e855fdd450bd191a0a535330140ea3f5595df2fa9f955053e062af",
+      "initramfsSha256": "2c8e76cad504663380358c4854aa3a86d867c0c635a85b0ea9a6a4de82ef00fc",
+      "buildSecondsApprox": 1797,
+      "guestSettings": {
+        "machine": "virt",
+        "cpu": "cortex-a57",
+        "smp": 1,
+        "ramMiB": 1536,
+        "noNetwork": true,
+        "noDiskImage": true
+      },
+      "guestOutputMarkers": [
+        "RMG_QEMU_LAB_KERNEL=4.19.325",
+        "RMG_QEMU_LAB_MACHINE=aarch64",
+        "RMG_QEMU_LAB_FUTEX=PASS_BASIC_WAIT_EAGAIN_ONLY",
+        "RMG_QEMU_LAB_COMPLETE=PASS_BOOT_ONLY_NOT_GHOSTLOCK",
+        "[    6.492348] reboot: Power down",
+        "[PASS_BOOT_ONLY]"
+      ],
+      "notableWarnings": {
+        "armSmcccArchWorkaround1": "missing from firmware; not fatal in this run",
+        "cpuMap": "empty cluster; not fatal",
+        "elfLinker": "-z norelro ignored; warning not fatal"
+      },
+      "logs": {
+        "qemu": "/home/main/s20-artifacts/qemu-lab-kasan/qemu-boot-20261010T052910Z.log",
+        "report": "/home/main/s20-artifacts/qemu-lab-kasan/qemu-boot-20261010T052910Z.json",
+        "build": "/home/main/s20-artifacts/qemu-lab-kasan/kernel-build.log"
+      },
+      "boot": "PASS_BOOT_ONLY",
+      "cleanShutdown": true,
+      "kasanRuntimeErrorObservedInDisplayedTail": false,
+      "completeQemuLogReviewed": false,
+      "kasanBugDetectionSelfTestVerified": false,
+      "cve202643499Reproduced": false,
+      "samsungVendorKernelBooted": false,
+      "actualS20DeviceRootVerified": false
+    },
+    "next": "Optional read-only config and full guest log validation, then bounded healthy RT-mutex/FUTEX_LOCK_PI guest tests. No crash-triggering CVE sequences on Samsung phone."
   }
 }
