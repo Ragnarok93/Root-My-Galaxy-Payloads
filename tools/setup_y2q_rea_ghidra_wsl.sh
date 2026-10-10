@@ -154,6 +154,18 @@ if ! grep -Eq '^application.version[[:space:]]*=[[:space:]]*12\.1\.' "$candidate
   echo "[STOP] Selected Ghidra is not 12.1.x; inspect $candidate" >&2; exit 2
 fi
 
+# Python zipfile.extractall() did not preserve Unix +x mode from the
+# publisher's archive. REA explicitly requires executable analyzeHeadless
+# and a host-matching native decompiler. Repair only byte-for-byte proven
+# files from the already-downloaded official SHA256-pinned ZIP; no re-extract.
+if [[ "$candidate" == "$TARGET" && -f "$ARCHIVE" ]]; then
+  ROOT_REPO="$(cd "$(dirname "$0")/.." && pwd)"
+  python3 -m unittest -q tools/test_y2q_repair_ghidra_executable_modes.py
+  python3 "$ROOT_REPO/tools/y2q_repair_ghidra_executable_modes.py" \
+    --ghidra "$candidate" --archive "$ARCHIVE" \
+    --output "$OUT/ghidra-executable-mode-audit.json"
+fi
+
 export GHIDRA_INSTALL_DIR="$candidate"
 if [[ "$has_jdk" == true ]]; then
   export JAVA_HOME="$java_home"
