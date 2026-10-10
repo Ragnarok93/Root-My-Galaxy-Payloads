@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""137+ distinct original-XBL four-method/static-branch provenance regressions.
+"""195 distinct original-XBL four-method/direct-callee provenance regressions.
 
 Matrix independently exercises every real interface slot (08/10/18/20)
 against Ghidra request/result identity, executable source bytes, malformed
@@ -79,7 +79,8 @@ class FourMethodProvenanceTests(unittest.TestCase):
         self.file.write_bytes(self.pe)
         self.parent=base_parent()
         self.doc={}
-        for label,_,at in mod.EXPECTED_SLOTS:
+        for label,_,at in list(mod.EXPECTED_SLOTS)+[
+                (name,-1,addr) for name,addr in mod.ADDITIONAL_CODE_LEADS]:
             off=0x400+(int(at,16)-0x1000)
             self.doc[label]=record(label,at,self.pe[off:off+mod.WINDOW])
         self.write_all()
@@ -99,7 +100,9 @@ class FourMethodProvenanceTests(unittest.TestCase):
                 return mod.original_window(self.folder,at,size)
 
     def imported(self,label):
-        at=next(at for name,_,at in mod.EXPECTED_SLOTS if name==label)
+        at=next(at for name,_,at in list(mod.EXPECTED_SLOTS)+[
+            (name,-1,addr) for name,addr in mod.ADDITIONAL_CODE_LEADS
+        ] if name==label)
         src=self.window(at)
         return mod.imported_window(self.folder,label,at,src)
 
@@ -127,6 +130,15 @@ class FourMethodProvenanceTests(unittest.TestCase):
                        "rawWord":"0x94000cca","mnemonicClass":"BL",
                        "directBranchTarget":"0x52cc",
                        "runtimeExecutionObserved":False},calls)
+
+    def test_fifth_direct_callee_window_is_proven_in_same_pass(self):
+        result=self.full()
+        self.assertEqual(len(result["methods"]),4)
+        self.assertEqual(len(result["directCalleeCode"]),1)
+        self.assertEqual(result["directCalleeCode"][0]["code"]["staticAddress"],"0x52cc")
+        self.assertTrue(result["directCalleeCode"][0]["ghidraCode"]
+                        ["originalBytesMatchImported"])
+        self.assertFalse(result["directCalleeCode"][0]["functionExtentInferred"])
 
     def test_callback_synthetic_bl_0x52cc_is_not_live_execution(self):
         outcome=self.full()
@@ -284,7 +296,8 @@ CASE_MUTATIONS=(
 )
 
 
-for label,_,_ in mod.EXPECTED_SLOTS:
+for label in [x[0] for x in mod.EXPECTED_SLOTS]+[
+        x[0] for x in mod.ADDITIONAL_CODE_LEADS]:
     for suffix,mutate,expected in CASE_MUTATIONS:
         def factory(current_label,mutation,match):
             def t(self):
