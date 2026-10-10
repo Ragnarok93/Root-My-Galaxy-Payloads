@@ -713,5 +713,36 @@
       "kernelBuilt": false,
       "phoneUntouched": true
     }
+  },
+  "rootPayloadResearchPivot": {
+    "date": "2026-10-09",
+    "purpose": "Shift from compilation of a replacement Samsung stock kernel to firmware-specific, read-only CVE feasibility study for the locked S20+",
+    "cve": "CVE-2026-43499",
+    "kernelVersionWithinPublicAffectedRanges": true,
+    "confirmedUnpatchedSamsungKernel": false,
+    "confirmedDeviceVulnerable": false,
+    "workingRootPayload": false,
+    "rooted": false,
+    "originalSource": "/home/main/src/samsung-y2q-hxl1-stock",
+    "offlineTool": "tools/assess_y2q_root_candidate.py",
+    "guide": "research/y2q-G986U1UESCHXL1/ROOT_PAYLOAD_RESEARCH.md",
+    "producedOutput": "write-once JSON candidate metadata only, not binary",
+    "productionFeedPublishAllowed": false,
+    "studiedReferences": [
+      "NebuSec/CyberMeowfia",
+      "BuSung-dev/Root-My-Galaxy",
+      "BuSung-dev/Root-My-Galaxy-Payloads",
+      "wxxsfxyzm/GhostLock-Galaxy",
+      "YuKongA/ghostlock-app",
+      "ccp-p/ghostlock-cve-2026-43499-4.19-k40"
+    ],
+    "verificationRequired": [
+      "Run offline static source audit on owner's assembled HXL1 tree",
+      "Manually verify Samsung's remove_waiter fix/backport status",
+      "Reconcile exact stock boot/kernel SHA256 before dynamic kernel research",
+      "Validate all device-specific code paths and security enforcement before releasing any executable",
+      "Do not add unsupported target into support/targets-v3.json"
+    ],
+    "evidenceCertainty": "Public CVE applies to upstream Linux 4.19 range. Vendor backport and exact handset exploitability unknown. Kernel compile does not unlock bootloader."
   }
 }
