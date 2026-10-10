@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import patch
 
 from tools import y2q_linuxloader_rea_stage4_functions as fn
+from tools import y2q_linuxloader_rea_stage4_xrefs as xrefs
 
 
 class FunctionDossierTests(unittest.TestCase):
@@ -59,7 +60,8 @@ class FunctionDossierTests(unittest.TestCase):
 
     def scan(self):
         with patch.object(fn,"LOADER_SHA256",self.hash):
-            return fn.analyze(self.folder)
+            with patch.object(xrefs,"LOADER_SHA256",self.hash):
+                return fn.analyze(self.folder)
 
     def test_three_original_xrefs_have_valid_containing_functions(self):
         res=self.scan()
