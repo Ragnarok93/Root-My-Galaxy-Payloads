@@ -1074,6 +1074,77 @@ privilege-escalation payloads are part of this step.
 
 ---
 
+## October 10: waiter initialization/enqueue lifecycle now established
+
+The owner supplied the missing bounded `rtmutex.c` and `futex.c`
+source excerpts from the exact original audited HXL1 source
+(previously recorded source checksums still apply).
+
+| Observed source | What it establishes |
+|---|---|
+| `rtmutex.c:1149–1155` | `rt_mutex_init_waiter` initializes RB entries and sets `waiter->task = NULL` |
+| `rtmutex.c:950–951` | `task_blocks_on_rt_mutex` checks `owner == task` and returns `-EDEADLK` **before** associating or enqueueing the waiter |
+| `rtmutex.c:953–957` | Under `task->pi_lock`, sets `waiter->task = task`, `waiter->lock = lock`, priority and deadline |
+| `rtmutex.c:962–964` | Enqueues `waiter` in lock RB tree and assigns `task->pi_blocked_on = waiter` |
+| `rtmutex.c:295–301` | `rt_mutex_dequeue` returns early if the waiter's tree node is empty |
+| `rtmutex.c:1077–1080` | `remove_waiter` instead locks `current->pi_lock` and clears `current->pi_blocked_on` |
+| `rtmutex.c:1756–1761` | Immediate proxy acquisition can return `1` without passing through waiter setup; otherwise dispatches to `task_blocks_on_rt_mutex` |
+| `rtmutex.c:1804–1806` | Wrapper cleanup on any nonzero `ret` includes both a positive success and a negative error |
+| `futex.c:1837–1844` | `requeue_pi_wake_futex` unqueues `futex_q`, clears `rt_waiter`, wakes `q->task` |
+| `futex.c:2156–2186` | Proxy operation takes `this->rt_waiter` and `this->task`; treats `ret == 1` as success and other nonzero values as errors |
+
+**Two separate state conditions now need to be distinguished:**
+
+1. **Previously enqueued waiter, error returned:** if the
+   post-enqueue code returns an error, the wrapper removes
+   a waiter whose associated task is `waiter->task` while
+   `remove_waiter` clears the *current caller's* PI state.
+   This is the source-level lifetime mismatch described by
+   [CVE-2026-43499](https://lists.openwall.net/linux-cve-announce/2026/05/21/7).
+   The owner has not yet supplied the *entire*
+   `task_blocks_on_rt_mutex` body after line `968`,
+   so error outcomes and their preconditions must still
+   be checked before declaring a reproducible runtime trigger.
+2. **Not enqueued:** the early `owner == task` deadlock
+   check returns before setting `waiter->task`, and
+   immediate successful acquisition (`ret == 1`) also
+   skips waiter initialization. In these cases the wrapper
+   can still call `remove_waiter` because it checks
+   `if (ret)`. The RB-empty guard avoids erasing an
+   unqueued RB node, but `remove_waiter` still operates
+   on `current->pi_lock` and `current->pi_blocked_on`.
+   That is **not** evidence that HXL1 exhibits the
+   independently tracked null-task dereference introduced
+   by the later [CVE-2026-53163](https://lists.openwall.net/linux-cve-announce/2026/06/25/20)
+   upstream backport. The later advisory explicitly
+   identifies its post-fix `waiter->task` dereference
+   as the new failure mechanism.
+
+The implications are **source-level** and corroborated by the
+earlier four-word match with the original extracted ARM64
+`kernel.bin`. A hardware use-after-free, kernel memory
+primitive, root access and KernelSU loading remain unverified.
+
+### Recommended next **non-destructive** review
+
+Inspect `rtmutex.c:968–1060` in the original source to
+separate errors that occur **after** enqueue from errors
+that occur before association. Do not turn this finding
+into an on-device panic trigger or publish a production
+HXL1 payload.
+
+```bash
+nl -ba ~/src/samsung-y2q-hxl1-stock/kernel/locking/rtmutex.c |
+  sed -n '968,1060p'
+```
+
+Keep the read-only device identity check and exact firmware
+guards. Any later KernelSU module approach on this Samsung
+4.19 kernel must be justified independently of this CVE
+source/code correlation.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
