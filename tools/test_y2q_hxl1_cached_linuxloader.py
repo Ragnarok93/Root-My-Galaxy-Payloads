@@ -81,6 +81,39 @@ class CachedLinuxLoaderTests(unittest.TestCase):
         self.assertEqual(result["peHeader"]["dosPeHeaderOffset"],"0xe58")
         self.assertTrue(result["peHeader"]["strictAarch64Pe32PlusVerified"])
 
+    def test_cli_publishes_verified_efi_only_for_0xe58_hxl1_style_pe(self):
+        import struct
+        import sys
+        from unittest.mock import patch
+        data=bytearray(0x2000)
+        data[:2]=b"MZ"
+        struct.pack_into("<I", data, 0x3c, 0xe58)
+        header=24+0xf0+3*40
+        data[0xe58:0xe58+header]=self.bytes[0x80:0x80+header]
+        struct.pack_into("<H", data, 0xe58+6, 3)
+        self.source.write_bytes(data)
+        self.diagdata["sections"][0].update({
+            "sectionBodyBytes":len(data), "sha256":mod.digest(data),
+            "first64Hex":data[:64].hex(),
+        })
+        self.flush()
+        args=["y2q_hxl1_cached_linuxloader.py", "--abl",str(self.abl),
+              "--diagnostics",str(self.diag),
+              "--independent-unpacked",str(self.unpacked),
+              "--out",str(self.out)]
+        with patch.object(mod,"ORIGINAL_ABL_SHA256",self.abl_sha):
+            with patch.object(mod,"ORIGINAL_ABL_BYTES",self.abl.stat().st_size):
+                with patch.object(sys,"argv",args):
+                    self.assertEqual(mod.main(),0)
+        efi=self.root/"LinuxLoader-HXL1.efi"
+        self.assertEqual(efi.read_bytes(),bytes(data))
+        self.assertEqual(self.out.read_bytes(),bytes(data))
+        report=json.loads((self.root/"linuxloader-cached-correlation.json").read_text())
+        self.assertEqual(report["verifiedPeOutput"],str(efi))
+        self.assertEqual(report["verificationStatus"],
+                         "HXL1_ORIGINAL_FFS_UI_PE32PLUS_AARCH64_VERIFIED")
+        self.assertFalse(report["physicalKernelLoadVerified"])
+
     def test_original_stock_sha_mismatch_fails(self):
         with self.assertRaisesRegex(mod.CorrelationError,"size/hash mismatch"):
             mod.recover(self.abl,self.diag,self.unpacked,self.out)
