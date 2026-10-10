@@ -130,6 +130,62 @@ publication follows from this result.
 
 ---
 
+## October 10: source-level GhostLock task identity error confirmed
+
+The owner provided bounded, numbered, unmodified source excerpts from
+`kernel/locking/rtmutex.c` and `kernel/futex.c`. This advances the source
+assessment beyond a heuristic: **the audited reconstructed HXL1 source
+contains the specific incorrect task identity handling described by
+CVE-2026-43499.**
+
+| Upstream CVE error | Actual HXL1 source evidence |
+|---|---|
+| Dequeue without the waiter's task `pi_lock` | `rtmutex.c:1077–1080` locks `current->pi_lock` and dequeues `waiter` |
+| Waiter's `pi_blocked_on` state not cleared | `rtmutex.c:1079` clears `current->pi_blocked_on` instead |
+| Wrong priority-chain task | `rtmutex.c:1115–1116` passes `current` as final `rt_mutex_adjust_prio_chain()` argument |
+| Proxied target differs from caller | `rtmutex.c:1797–1806` accepts a separate `task`, calls proxy lock, then `remove_waiter(lock, waiter)` on rollback; `futex.c:2156–2158` passes `this->rt_waiter` and `this->task` |
+
+Source SHA-256 recorded with the previous scan:
+`rtmutex.c` = `36b187173cfb3934a5c9d51952bce58c2f41701d3585326f18cd3965e46a21f9`;
+`futex.c` = `493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5`.
+
+The [official Linux kernel advisory](https://lists.openwall.net/linux-cve-announce/2026/05/21/7)
+explains precisely these three mistakes. `rt_mutex_cleanup_proxy_lock()`
+at `rtmutex.c:1889–1912` is a separate path: its caller and
+`try_to_take_rt_mutex(lock, current, waiter)` use the current task.
+That path must not be conflated with proxy-start rollback.
+
+**What is verified:** the vulnerability's source-level code pattern and
+the cross-task proxy-lock caller are both present in the reconstructed
+Samsung source supplied by the owner.
+
+**What is NOT verified:** byte-for-byte equivalence between the original
+extracted firmware kernel and the booted kernel; the code path's
+reproducible exploitation on device; arbitrary kernel memory access;
+KernelSU load; root; safety under Samsung RKP/KDP/DEFEX. The existing
+`bootArtifactChecks` object is empty because no original image paths
+were passed to the initial scan. Keep `vulnerabilityVerified=false`
+as a *device-level* gate and the research candidate outside the feed.
+
+### Next safe gate — original kernel binary provenance
+
+Locate the **original** extracted `boot.img` and `kernel.bin` on the
+WSL host and verify their recorded SHA-256s. Do not use the
+Clang18-rebuilt `Image`. The expected digests are:
+
+```text
+boot.img   bd8987c28ef0b9fdb56ad3e82ce3b45929c5e53717525769e5625dd1e17f7dc8
+kernel.bin ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123
+```
+
+With those verified, inspect the binary format and whether
+read-only symbol recovery or BTF is possible. The source-level
+bug does not require more full-kernel compilation. Do not run
+kernel-panic or instability-oriented proof-of-concept code
+on the physical phone simply to close this evidence gate.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
