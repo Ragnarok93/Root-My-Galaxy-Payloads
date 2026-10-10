@@ -324,6 +324,59 @@ this stage.
 
 ---
 
+## October 10: WSL2 symbol tool installation blocker and BTF configuration check
+
+The owner ran the exact `CONFIG_DEBUG_INFO_BTF` grep against
+the retained original `config.gz` and got **no matching line**.
+That is **not** proof of an embedded BTF blob, nor by itself
+proof that BTF is absent: defer BTF parsing until the
+original kernel binary is independently inspected. The
+original source image remains available and was previously
+hash-verified.
+
+Ubuntu Noble `pipx install vmlinux-to-elf` failed **before
+installation**, while building the transitive dependency
+`minilzo`. The actual compiler error was:
+
+```text
+lzomodule.c:2:10: fatal error: Python.h: No such file or directory
+```
+
+This requires Ubuntu Python 3.12 development headers, not a
+Samsung kernel change. Next, on WSL2:
+
+```bash
+sudo apt install -y python3.12-dev build-essential liblzo2-dev
+test -f /usr/include/python3.12/Python.h
+python3-config --includes
+pipx install vmlinux-to-elf
+command -v vmlinux-to-elf
+```
+
+Ubuntu's `libpython3.12-dev` contains
+`/usr/include/python3.12/Python.h`; `python3.12-dev`
+depends on the appropriate development components.
+This should fix the **reported missing-header error**,
+but a subsequent Python-API or LZO compatibility error
+requires its own log rather than an unsupported assumption.
+Keep installations inside `pipx` and do not use
+`sudo pip`.
+
+Once the command exists, run symbol recovery on the
+**original raw** HXL1 `kernel.bin` as detailed above.
+Also inspect original config's relevant keys:
+
+```bash
+gzip -dc ~/s20-artifacts/config.gz |
+  grep -E '^CONFIG_(KALLSYMS|KALLSYMS_ALL|DEBUG_INFO)=' || true
+```
+
+The kernel's source-level CVE logic has been established,
+but exact running-binary equivalence, successful symbol
+recovery, BTF, root and KernelSU remain unverified.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
