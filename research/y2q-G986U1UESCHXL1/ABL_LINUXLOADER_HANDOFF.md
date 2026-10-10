@@ -507,3 +507,36 @@ The serial is used only for command routing, never written in the report. Output
 If stock Android denies /proc/iomem or hides the device-tree bootargs, document the absence and continue the already-targeted **static provenance** investigation of FUN_0001f018 (BaseMemory), FUN_00020838 (KASLR source), and FUN_0001e868 (UEFI boot-services shutdown) using tools/run_y2q_hxl1_stage4_handoff_sources.sh. Do not interpret WSL2 host /proc/iomem as phone memory, do not attempt to read /dev/mem, and do not bypass Android security protections just to force a value.
 
 **Still not verified:** firmware variable branch actually selected, per-boot BaseMemory, KASLR value, matching DTB, numerical physical kernel entry, usable exploit primitive, root or KernelSU. The device probe is observational only.
+
+
+## 2026-10-10 13:00 UTC — live phone ADB evidence: unprivileged memory access blocked
+
+The owner attached the **physical** SM-G986U1 through WSL2 ADB. Manual commands and the exact-HXL1 identity gate independently returned **SM-G986U1**, **G986U1UESCHXL1**, kernel **4.19.113-27095354**, and ADB `uid=2000(shell)` with SELinux context `u:r:shell:s0`. No elevated privileges or firmware changes were attempted.
+
+After pulling commit `3889301`, `python3 -m unittest -q tools/test_y2q_live_adb_boot_probe.py` returned **12/12 PASS**. The on-device, identity-gated, read-only collector passed and saved a timestamped report at `~/s20-artifacts/hxl1-research/live-adb/20261010T130008Z/live-boot-evidence.md`. Report contents beyond the printed command summaries have **not** yet been supplied to the repository.
+
+Observed permission status, directly from the physical S20+:
+
+| Source | Observed status |
+|---|---|
+| `/proc/cmdline` | PERMISSION_DENIED |
+| `/proc/bootconfig` | NOT_PRESENT |
+| `/proc/iomem` | PERMISSION_DENIED |
+| `/proc/device-tree/chosen/bootargs` | PERMISSION_DENIED |
+| `/sys/firmware/devicetree/base/chosen/bootargs` | PERMISSION_DENIED |
+| `/proc/device-tree/model` | PERMISSION_DENIED |
+| `/sys/firmware/devicetree/base/model` | PERMISSION_DENIED |
+| `/proc/sys/kernel/kptr_restrict` | PERMISSION_DENIED |
+| `/proc/sys/kernel/dmesg_restrict` | PERMISSION_DENIED |
+
+Collector correctly classified `/proc/iomem` as **UNAVAILABLE**, not zero. Neither WSL host `/proc/iomem` nor phone ADB shell can currently supply a verified live physical kernel-entry address. Shizuku starting from shell UID 2000 would not, by itself, change those permissions.
+
+**Decision:** Stop repeating these restricted Android reads. Continue original EFI *static* source attribution, which does not require privilege escalation, with the already committed `tools/run_y2q_hxl1_stage4_handoff_sources.sh`. It targets only `FUN_0001f018` (BaseMemory input provenance), `FUN_00020838` (KASLR state source), and `FUN_0001e868` (UEFI ExitBootServices path). A successful decompilation can narrow the set of possible placement conditions; it cannot claim the actual boot-time BaseMemory, KASLR or selected UEFI branch absent separate trustworthy live/firmware evidence.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_stage4_handoff_sources.sh
+```
+
+**Device-specific Stage 4 status:** correct locked HXL1 target VERIFIED; static BootLinux placement and ARM64 handoff code VERIFIED; live physical base/KASLR/DTB selection **UNAVAILABLE**, numeric `kernel_phys_load` UNVERIFIED; GhostLock exploit viability, root and KernelSU installation UNVERIFIED. No device-memory bypass or device operation is justified by this evidence alone.
