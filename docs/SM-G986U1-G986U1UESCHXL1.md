@@ -4303,6 +4303,99 @@ required before root can be claimed.
 
 ---
 
+## October 10, 05:35 UTC — KASAN config independently verified; bounded guest PI test staged
+
+The owner checked the actual instrumented VM `.config`
+and found all five required options enabled:
+
+```text
+CONFIG_KASAN=y
+CONFIG_KASAN_OUTLINE=y
+CONFIG_DEBUG_RT_MUTEXES=y
+CONFIG_DEBUG_SPINLOCK=y
+CONFIG_DEBUG_LIST=y
+```
+
+A separate `grep -nEi 'kasan|BUG:|kernel panic|Oops:'`
+of `qemu-boot-20261010T052910Z.log` printed
+no matching lines. That is **no observed logged
+issue**, not proof that KASAN fault reporting
+has been calibrated or that the actual Samsung
+vulnerable RT-mutex path has been reproduced.
+
+### Next: bounded, healthy futex-PI test reusing the same KASAN kernel
+
+The repo's QEMU guest init now performs a one-pass,
+single-process, **uncontended** futex-PI smoke test:
+ordinary FUTEX_WAIT on deliberately mismatched
+value (immediate EAGAIN); FUTEX_WAKE with no
+waiters; FUTEX_LOCK_PI_PRIVATE and
+FUTEX_TRYLOCK_PI_PRIVATE on separate fresh,
+unlocked words, each followed by the owning
+thread's FUTEX_UNLOCK_PI_PRIVATE. It verifies
+owner TID and zero after unlock. There are
+**no racing tasks, contended locks, priority
+changes, PI requeue calls or exploit attempts**.
+The guest uses a 10-second alarm as an extra
+bounded-run precaution.
+
+The helper's new `boot --kernel-image` option
+allows reusing an existing kernel Image in place
+without touching that image or its `.config`.
+Use an *independent new guest-output directory*
+to preserve both previously verified original
+QEMU lab directories and their initramfs files:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+# Regression/unit checks before guest execution.
+python3 -m unittest -v tools/test_y2q_qemu_lab.py
+
+# This compiles ONLY a static user-space AArch64 PID1 binary,
+# and creates an independent cpio.gz; no kernel rebuild.
+PI_LAB="$HOME/s20-artifacts/qemu-lab-pi"
+KASAN_IMAGE="$HOME/s20-artifacts/qemu-lab-kasan/kernel-build/arch/arm64/boot/Image"
+
+python3 tools/y2q_qemu_lab.py initramfs --output "$PI_LAB"
+
+# Reuses the exact KASAN Image already successfully booted.
+python3 tools/y2q_qemu_lab.py boot \
+  --output "$PI_LAB" \
+  --kernel-image "$KASAN_IMAGE" \
+  --memory 1536
+```
+
+The expected **new** guest output includes:
+
+```text
+RMG_QEMU_LAB_FUTEX=PASS_BASIC_WAIT_EAGAIN_ONLY
+RMG_QEMU_LAB_FUTEX_WAKE=PASS_ZERO_WAITERS
+RMG_QEMU_LAB_FUTEX_PI_LOCK=PASS_UNCONTENDED
+RMG_QEMU_LAB_FUTEX_PI_TRYLOCK=PASS_UNCONTENDED
+RMG_QEMU_LAB_COMPLETE=PASS_BOUNDED_PI_NOT_GHOSTLOCK
+[PASS_BOUNDED_PI]
+```
+
+The QEMU result must include **all** listed
+checks and a clean exit; missing markers,
+a KASAN BUG, kernel Oops/panic or timeout
+cause a non-pass. The JSON report records
+whether the reused kernel's accessible
+`.config` enables both `CONFIG_KASAN=y`
+and `CONFIG_DEBUG_RT_MUTEXES=y`.
+
+**Status:** Implemented and committed, **not
+yet physically tested** by the owner. The
+original verified plain and KASAN baseline
+Images stay intact. This guest test does not
+exercise proxy-lock requeue/error cleanup,
+show a GhostLock bug, grant privileges,
+load KernelSU or alter the physical S20+.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
