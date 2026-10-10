@@ -3106,6 +3106,92 @@ The HXL1 production/root/KernelSU gates remain open.
 
 ---
 
+## October 10: first direct PREL32 symbol+CRC audit **passed**
+
+The owner ran `tools/y2q_export_table_audit.py` from the
+`d262356` branch against the original,
+SHA-256-verified HXL1 raw Image and recovered
+`vmlinux-stock.nm`. The read-only audit succeeded:
+five of five selected `__ksymtab_*` records yielded
+the **expected symbol name and correct target address**
+when decoded from original raw ARM64 Image bytes
+using `CONFIG_HAVE_ARCH_PREL32_RELOCATIONS=y`.
+
+| Original exported name | Class | Raw slot bytes (LE) | Conditional absolute CRC candidate |
+|---|---|---|---|
+| `commit_creds` | ordinary | `794fccf2` | `0xf2cc4f79` |
+| `prepare_kernel_cred` | ordinary | `5caf6fb8` | `0xb86faf5c` |
+| `init_task` | ordinary | `e2bd0572` | `0x7205bde2` |
+| `module_layout` | ordinary | `758162b6` | `0xb6628175` |
+| `system_unbound_wq` | GPL | `3246c1d4` | `0xd4c14632` |
+
+The owner also reported `__start___kcrctab_gpl =
+0xffffff800a50721c` and `__stop___kcrctab_gpl =
+0xffffff800a50c4a8`, a `0x528c`-byte range. This is
+**5,283 four-byte slots**, exactly matching the
+**5,283 GPL exported symbol entries**.
+The ordinary table also matches at **7,427:7,427**.
+
+**CRC interpretation remains provisional:** the
+extracted configuration explicitly contains
+`CONFIG_MODVERSIONS=y`, but the audit reports
+`CONFIG_MODULE_REL_CRCS = absent`; this does
+**not** equal an explicit `# CONFIG_MODULE_REL_CRCS
+is not set` line. In Linux 4.19, the relevant
+`kernel/module.c` `check_version` uses
+`IS_ENABLED(CONFIG_MODULE_REL_CRCS)` to choose
+`resolve_rel_crc(crc)` or a direct `*crc`
+read. The `include/linux/export.h` macro also
+uses the presence of `CONFIG_MODULE_REL_CRCS`
+to select relative or direct CRC encodings.
+The direct little-endian values above are
+**candidate module-version CRCs if the symbol
+is truly undefined in the shipped build**.
+See [upstream Linux 4.19 module.c](https://kernel.googlesource.com/pub/scm/linux/kernel/git/stable/linux-stable.git/+/refs/tags/v4.19.268/kernel/module.c)
+and [Linux 4.19 export.h](https://cos.googlesource.com/third_party/kernel/+/refs/tags/upstream/v4.19.149/include/linux/export.h).
+Neither matching export names nor raw bytes proves
+the matching `Module.symvers` CRC values without
+checking this Samsung source and at least one
+independent CRC reference.
+
+The read-only auditor was revised to check **both**
+GPL and ordinary CRC-table spans and report an
+explicitly labeled
+`candidateCrcAssumingAbsolute` value when
+`MODULE_REL_CRCS` is absent rather than
+silently treating that absence as a proven `n`.
+**No module-load acceptance can be inferred.**
+
+### Next bounded verification
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+SRC="$HOME/src/samsung-y2q-hxl1-stock"
+rg -n 'MODULE_REL_CRCS|resolve_rel_crc|crcval = \*crc|__CRC_SYMBOL' \
+  "$SRC/init/Kconfig" "$SRC/kernel/module.c" "$SRC/include/linux/export.h" \
+  "$SRC/arch/arm64/Kconfig" || true
+
+gzip -dc ~/s20-artifacts/config.gz |
+  grep -E 'MODULE_REL_CRCS|MODVERSIONS|HAVE_ARCH_PREL32' || true
+
+python3 tools/y2q_export_table_audit.py \
+  --kernel-bin ~/s20-artifacts/kernel.bin \
+  --nm ~/s20-artifacts/hxl1-research/vmlinux-stock.nm \
+  --config-gz ~/s20-artifacts/config.gz
+```
+
+These steps run only on WSL2. Do not use CRC
+candidate numbers as an authorization to force-load
+unsigned code; the actual device has
+`CONFIG_MODULE_SIG_FORCE=y` and kernel data protections.
+No firmware-specific KernelSU 4.19 module has been
+built or loaded; HXL1 is not in the production
+support feed.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
