@@ -77,6 +77,63 @@ does not close Stage 3.
 
 ---
 
+## October 10, 07:54 UTC — 10/10 DTB inventory PASS, four contiguous original FDT blobs
+
+The owner ran all **10 read-only DTB header-inventory unit tests**
+successfully and independently verified both the original HXL1
+`boot.img` and its embedded 1,580,275-byte DTB SHA256 against
+the pinned original firmware evidence.
+
+- Embedded region at original boot.img file offset `0x3240000`
+- Region digest `a6104cdba11e0cd3d6ddaba6819098ab01f0dc0e8e7fd333137c88ad07d9d0ce`
+- Begins with FDT magic `d00dfeed`, **not** a top-level `QCDT`
+  or Android DT table magic in this original boot image
+- Four structurally plausible *FDT version 17 header*
+  candidates, exactly concatenated without gaps or extra
+  bytes:
+
+| Candidate | DTB-region offset | Total bytes | SHA256 |
+|---|---:|---:|---|
+| 1 | `0x0` | 528520 | `b3aeb34a66528accde7ff21e1739224aa89a327595b99ea781bf4eb7b195b422` |
+| 2 | `0x81088` | 528516 | `d68acf630e4473bcc0341d83055f8308ccdaeb745f779e93d335ec58e7fec0d6` |
+| 3 | `0x10210c` | 523066 | `b463d63283610c577a1d0ad9c003d323dee6a79bb30e408c739110d45ba8d57f` |
+| 4 | `0x181c46` | 173 | `0bd849a7ed78287c8d0214ffeb56b3980a4379190a7e147adbfa063c9d712f0c` |
+
+The fourth candidate is unusually short (173 bytes), but a short
+valid header is **not enough evidence** that it is an optional
+overlay, placeholder, invalid DTB or something selected by ABL.
+
+### New verification gate: FDT complete token streams and root identifiers
+
+`tools/y2q_stock_fdt_semantic_audit.py`
+reads only exact hash-pinned original firmware,
+verifies candidate headers and bounds, parses nested FDT
+node/property tokens, checks whether the stream terminates
+correctly, and records root `compatible`/`model` strings
+where safely available. Its 10 regression tests are
+committed but not yet tested in the owner's WSL.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools/test_y2q_stock_fdt_semantic_audit.py
+python3 tools/y2q_stock_fdt_semantic_audit.py
+cat ~/s20-artifacts/hxl1-research/stock-fdt-semantic-audit.md
+```
+
+A nonzero exit status will preserve a JSON/Markdown report
+and identify a structurally invalid candidate rather than
+silently promoting it to a verified runtime tree.
+No flashing, modification of original artifacts,
+root invocation or physical kernel address inference occurs.
+
+**Stage 4 remains OPEN**: no bootloader-selected
+device tree, applied overlay state, kernel physical
+load base or final entry-point handoff has been
+established.
+
+---
+
 ## October 10, 07:46 UTC — original HXL1 boot header and embedded components independently verified
 
 The owner ran the repaired Android boot v2 parser on the actual
