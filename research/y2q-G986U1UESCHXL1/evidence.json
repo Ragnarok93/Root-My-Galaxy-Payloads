@@ -744,5 +744,21 @@
       "Do not add unsupported target into support/targets-v3.json"
     ],
     "evidenceCertainty": "Public CVE applies to upstream Linux 4.19 range. Vendor backport and exact handset exploitability unknown. Kernel compile does not unlock bootloader."
+  },
+  "hxl1GhostLockSourceScan": {
+    "ownerReportedAt": "2026-10-10",
+    "tool": "tools/y2q_research_toolchain.py scan",
+    "candidateFile": "/home/main/s20-artifacts/hxl1-research/candidate.json",
+    "commandSucceeded": true,
+    "statusMessage": "RESEARCH SCAN COMPLETE",
+    "classification": "REVIEW_REQUIRED_POSSIBLE_UNFIXED_CODE_PATH",
+    "sourceType": "original reconstructed audited Samsung stock 11-layer kernel source",
+    "kernelRelease": "4.19.113-27095354",
+    "evidenceLimit": "Only terminal success and classification were owner-provided, not full candidate.json; source heuristic examines whether remove_waiter references current but not waiter->task and whether futex proxy lock path exists. Not semantic validation or actual live kernel exploit test.",
+    "semanticCVEApplicabilityConfirmed": false,
+    "bootBinaryCrossCheckedInCandidate": false,
+    "deviceTestedForCVE": false,
+    "rootGranted": false,
+    "safeNextTask": "Review full remove_waiter() implementation against upstream commit, inspect original extracted kernel.bin for symbols/BTF, and preserve strict non-deployability until validated."
   }
 }
