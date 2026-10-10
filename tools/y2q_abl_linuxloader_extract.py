@@ -47,22 +47,29 @@ def identify_pe(blob: bytes) -> dict | None:
     if len(blob) < 0x90 or blob[:2] != b"MZ":
         return None
     pe = struct.unpack_from("<I", blob, 0x3c)[0]
-    if not (0x40 <= pe <= min(len(blob) - 0x60, 0x800)):
+    # e_lfanew is a file-relative offset, not limited to a 0x800-byte DOS stub.
+    # Original HXL1 LinuxLoader stores a valid AArch64 PE header at 0xe58.
+    # Bound all subsequent reads to the input bytes instead of inventing a
+    # maximum DOS stub length.
+    if not (0x40 <= pe <= len(blob) - 24):
         return None
     if blob[pe:pe + 4] != b"PE\x00\x00":
         return None
     machine, sections, _, _, _, opt_size, _ = struct.unpack_from("<HHIIIHH", blob, pe + 4)
     opt = pe + 24
-    if machine != 0xAA64 or not 1 <= sections <= 96 or opt_size < 0x70 or opt + opt_size > len(blob):
+    if (machine != 0xAA64 or not 1 <= sections <= 96
+            or opt_size < 0x70 or opt + opt_size > len(blob)
+            or opt + opt_size + sections * 40 > len(blob)):
         return None
     if struct.unpack_from("<H", blob, opt)[0] != 0x20B:
         return None
-    if opt + 0x40 > len(blob) or opt + opt_size + sections * 40 > len(blob):
+    if opt + 0x40 > len(blob):
         return None
     return {
         "architecture": "AArch64 PE32+",
         "coffMachine": "0xaa64",
         "sectionCount": sections,
+        "dosPeHeaderOffset": hex(pe),
         "entryPointRva": hex(struct.unpack_from("<I", blob, opt + 0x10)[0]),
         "preferredImageBase": hex(struct.unpack_from("<Q", blob, opt + 0x18)[0]),
         "sizeOfImage": struct.unpack_from("<I", blob, opt + 0x38)[0],
