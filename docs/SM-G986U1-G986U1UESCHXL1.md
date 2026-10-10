@@ -3905,6 +3905,75 @@ modifications are authorized by this diagnostic.
 
 ---
 
+## October 10, 04:11 UTC — physical HXL1 futex-PI baseline confirmed
+
+The owner ran the committed Phase 2 WSL orchestrator
+`python3 tools/run_y2q_futex_smoke.py` with an
+installed Android NDK r30 at
+`/home/main/opt/android-ndk-r30`.
+The Python runner's **7/7 automated tests passed**
+(0.016 s), and the Android executable built
+successfully as an **AArch64 64-bit PIE** with
+Android dynamic linker `/system/bin/linker64`.
+
+**Original binary SHA-256:**
+`e7506a3f5ef3f323e278b83ec353354298f7f1c74a6972efbddd3f5b70c54412`
+
+The orchestrator's strict stock HXL1 device, UID 2000,
+kernel and SELinux checks succeeded. On-device output:
+
+```text
+IDENTITY=EXACT_STOCK_HXL1_ADB_SHELL
+CHECK=WAIT_VALUE_MISMATCH STATUS=PASS rc=-1 errno=11
+CHECK=WAKE_NO_WAITERS STATUS=PASS rc=0 errno=0
+CHECK=LOCK_PI_UNCONTENDED STATUS=PASS lock_rc=0 owner_matches=1 unlock_rc=0 unlock_errno=0 unlocked_zero=1
+CHECK=TRYLOCK_PI_UNCONTENDED STATUS=PASS lock_rc=0 owner_matches=1 unlock_rc=0 unlock_errno=0 unlocked_zero=1
+RESULT=PASS_BASIC_FUTEX_PI_SYSCALLS_ONLY
+NOTE=NOT_GHOSTLOCK_NOT_EXPLOIT_NOT_KERNELSU_NOT_ROOT
+```
+
+The runner reported **`RESULT=SAFE_PI_PREREQUISITES_VERIFIED_NOT_ROOT`**,
+removed the staged executable and saved a host-side
+JSON evidence report at
+`/home/main/s20-artifacts/y2q-futex-pi-smoke-20261010T041101Z.json`.
+
+| Physical-device gate | Result |
+|---|---|
+| Exact HXL1 Android/firmware identity | Pass |
+| Ordinary `FUTEX_WAIT_PRIVATE` on mismatched word | Immediate `EAGAIN`; pass |
+| `FUTEX_WAKE_PRIVATE` with no waiters | Return zero; pass |
+| Fresh-word `FUTEX_LOCK_PI_PRIVATE` and owner unlock | Pass |
+| Fresh-word `FUTEX_TRYLOCK_PI_PRIVATE` and owner unlock | Pass |
+| No-root staged file cleanup | Pass |
+| GhostLock PI-requeue/proxy waiter error path | **Not exercised** |
+| Exploit/privilege escalation | **Not demonstrated** |
+| Module loader / KernelSU hooks | **Not verified** |
+| Matching GitHub Actions run | **Not independently checked** |
+
+**Interpretation:** This verifies a useful physical
+prerequisite: a stock `u:r:shell:s0` caller can
+issue normal futex wait/wake and uncontended
+priority-inheritance lock operations on exact
+`G986U1UESCHXL1`. It does **not** establish the
+CVE-2026-43499 PI-requeue path is reachable or
+exploitable, and says nothing about protected
+kernel text, trusted module signing, KernelSU
+ABI/hook integration or temporary root.
+
+**Next bounded offline research task:** map the
+original Samsung `kernel/futex.c` PI requeue and
+`kernel/locking/rtmutex.c` proxy-lock return/error
+paths, annotate error/waiter cleanup invariants,
+and compare to a known-fixed upstream implementation
+on a disposable test kernel. Keep this source-level
+and instrumented-lab work separate from the stock
+handset; do not attempt a live requeue/error-path
+race or treat a kernel crash as progress toward root.
+A separate authorized module loading and Linux 4.19
+KernelSU hooking compatibility gate still remains.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
