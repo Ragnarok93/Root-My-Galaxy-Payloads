@@ -425,6 +425,32 @@
       ],
       "kernelBuildRetried": false,
       "nextStep": "Verify isolated bin/python2 symlink and run build_samsung_stock_kernel.py --execute --python2 with fresh -02 log/report; investigate secgetspf independently if still reported."
+    },
+    "secondImageBuildAttempt": {
+      "date": "2026-10-09",
+      "result": "FAILED missing Qualcomm Clang 10 binary in separate compiler route",
+      "imageBuilt": false,
+      "source": "/home/main/src/samsung-y2q-hxl1-stock",
+      "output": "/home/main/src/samsung-y2q-hxl1-config-clang18",
+      "logs": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-build-02.log",
+      "report": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-report-02.json",
+      "python2IssueResolved": true,
+      "python2": "isolated CPython 2.7.18",
+      "passedCompilerArgument": "REAL_CC=/usr/lib/llvm-18/bin/clang",
+      "observedBlockingCommand": "/home/main/src/samsung-y2q-hxl1-stock/toolchain/llvm-arm-toolchain-ship/10.0/bin/clang",
+      "failedObject": "scripts/mod/empty.o",
+      "hostWorkContinued": [
+        "scripts/selinux/genheaders/genheaders",
+        "scripts/selinux/mdp/mdp"
+      ],
+      "suspectedCause": "Top-level Samsung Makefile later assigns CC from CFP_CC at approximately line 795, not REAL_CC, so hard-coded missing Qualcomm Clang 10 compiler is still selected",
+      "implementedRemedy": "Pass both REAL_CC and CFP_CC to same selected Clang via make command-line overrides, preserving unmodified Samsung source",
+      "remainingDiagnostics": [
+        "secgetspf not found (vendor helper; fatality undetermined)",
+        "arch/arm64 assembler broken .inst warning"
+      ],
+      "retargetedFirmwareImage": false,
+      "bootloaderUnlocked": false
     }
   }
 }
