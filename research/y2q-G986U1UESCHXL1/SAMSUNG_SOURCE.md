@@ -901,6 +901,103 @@ next failure (if any) should be assessed from `-03.log`.
 The Clang 18 / GCC 13 pairing remains a compatibility
 experiment rather than Samsung's factory Clang 10.0.6 / GCC 4.9 build.
 
+## October 9: third Image build — Clang chose native host assembler
+
+The owner tested the guarded third build with
+`REAL_CC=/usr/lib/llvm-18/bin/clang` and
+`CFP_CC=/usr/lib/llvm-18/bin/clang`. The old Qualcomm Clang
+path and Python 2 blockers were resolved, but Make failed during
+`scripts/mod/empty.o` with:
+
+```text
+/usr/bin/as: unrecognized option '-EL'
+clang: error: assembler command failed with exit code 1
+```
+
+This means Clang's external assembler route selected the native host
+`/usr/bin/as` rather than the GNU ARM64 cross assembler
+`/usr/bin/aarch64-linux-gnu-as`. The warning about broken `.inst`
+handling and the missing optional `secgetspf` persisted, but neither
+was the fatal diagnostic in this attempt.
+
+The build tool now has an **opt-in** `--external-arm64-as` mode
+that does not modify the original Samsung source or generated
+`.config`. It verifies the external assembler selected by Clang
+using a non-compiling `-###` probe with flags:
+
+- `--target=aarch64-linux-gnu`
+- `-no-integrated-as`
+- `-B/usr/bin/aarch64-linux-gnu-`
+- `-EL`
+
+The `-B` argument is a **tool-prefix path** so the external driver
+can resolve `aarch64-linux-gnu-as` instead of native `as`. A passing
+probe verifies the exact intended ARM64 assembler path appears in
+the compiler driver output. The tool also passes
+`KCFLAGS=--target=aarch64-linux-gnu -B/usr/bin/aarch64-linux-gnu-`
+and a matching `KAFLAGS` in the Make command; these apply only
+to generated build commands, not source/defconfig contents.
+`--verbose` prints `V=1` compiler invocations into the build log
+for diagnosis if the next incompatibility appears.
+
+Verify the cross assembler exists:
+
+```bash
+command -v aarch64-linux-gnu-as
+aarch64-linux-gnu-as --version | head -1
+```
+
+Then use **new** log/report filenames for the fourth stock-only test.
+First run a dry-run that checks the assembler's Clang route:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --external-arm64-as \
+  --verbose \
+  --jobs 2
+```
+
+If dry run confirms an AArch64 assembler and finishes successfully:
+
+```bash
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --external-arm64-as \
+  --verbose \
+  --jobs 2 \
+  --execute \
+  --log ~/s20-artifacts/samsung-hxl1-image-clang18-build-04.log \
+  --json ~/s20-artifacts/samsung-hxl1-image-clang18-report-04.json
+```
+
+If Make fails, send:
+
+```bash
+grep -nE 'error:|fatal error:|Error [0-9]+|No such file|unrecognized option' \
+  ~/s20-artifacts/samsung-hxl1-image-clang18-build-04.log | head -80
+tail -n 85 ~/s20-artifacts/samsung-hxl1-image-clang18-build-04.log
+```
+
+This is an experimental **off-device** stock-kernel compatibility
+build. Nothing is signed, flashed, booted, or installed onto
+the locked Galaxy S20+.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
