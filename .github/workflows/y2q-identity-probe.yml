@@ -38,6 +38,8 @@ on:
       - 'tools/test_run_y2q_futex_smoke.py'
       - 'tools/y2q_qemu_lab.py'
       - 'tools/test_y2q_qemu_lab.py'
+      - 'tools/y2q_rtmutex_fix_audit.py'
+      - 'tools/test_y2q_rtmutex_fix_audit.py'
       - 'research/y2q-G986U1UESCHXL1/qemu_lab_init.c'
       - 'research/y2q-G986U1UESCHXL1/evidence.json'
       - 'docs/SM-G986U1-G986U1UESCHXL1.md'
@@ -56,8 +58,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate read-only research tooling and source ZIP fixtures
         run: |
-          python3 -m py_compile tools/verify_s20plus_firmware.py tools/inspect_samsung_source.py tools/audit_samsung_kernel_layers.py tools/assemble_samsung_stock_kernel.py tools/preflight_samsung_stock_build.py tools/configure_samsung_stock_kernel.py tools/compare_samsung_kernel_configs.py tools/build_samsung_stock_kernel.py tools/prepare_samsung_vdso_compat.py tools/summarize_samsung_kernel_build.py tools/y2q_research_toolchain.py tools/assess_y2q_root_candidate.py tools/y2q_export_table_audit.py tools/test_y2q_futex_pi_smoke.py tools/run_y2q_futex_smoke.py tools/test_run_y2q_futex_smoke.py tools/y2q_qemu_lab.py tools/test_y2q_qemu_lab.py
-          python3 -m unittest -v tools/test_inspect_samsung_source.py tools/test_audit_samsung_kernel_layers.py tools/test_assemble_samsung_stock_kernel.py tools/test_preflight_samsung_stock_build.py tools/test_configure_samsung_stock_kernel.py tools/test_compare_samsung_kernel_configs.py tools/test_build_samsung_stock_kernel.py tools/test_prepare_samsung_vdso_compat.py tools/test_summarize_samsung_kernel_build.py tools/test_y2q_research_toolchain.py tools/test_assess_y2q_root_candidate.py tools/test_y2q_export_table_audit.py tools/test_y2q_futex_pi_smoke.py tools/test_run_y2q_futex_smoke.py tools/test_y2q_qemu_lab.py
+          python3 -m py_compile tools/verify_s20plus_firmware.py tools/inspect_samsung_source.py tools/audit_samsung_kernel_layers.py tools/assemble_samsung_stock_kernel.py tools/preflight_samsung_stock_build.py tools/configure_samsung_stock_kernel.py tools/compare_samsung_kernel_configs.py tools/build_samsung_stock_kernel.py tools/prepare_samsung_vdso_compat.py tools/summarize_samsung_kernel_build.py tools/y2q_research_toolchain.py tools/assess_y2q_root_candidate.py tools/y2q_export_table_audit.py tools/test_y2q_futex_pi_smoke.py tools/run_y2q_futex_smoke.py tools/test_run_y2q_futex_smoke.py tools/y2q_qemu_lab.py tools/test_y2q_qemu_lab.py tools/y2q_rtmutex_fix_audit.py tools/test_y2q_rtmutex_fix_audit.py
+          python3 -m unittest -v tools/test_inspect_samsung_source.py tools/test_audit_samsung_kernel_layers.py tools/test_assemble_samsung_stock_kernel.py tools/test_preflight_samsung_stock_build.py tools/test_configure_samsung_stock_kernel.py tools/test_compare_samsung_kernel_configs.py tools/test_build_samsung_stock_kernel.py tools/test_prepare_samsung_vdso_compat.py tools/test_summarize_samsung_kernel_build.py tools/test_y2q_research_toolchain.py tools/test_assess_y2q_root_candidate.py tools/test_y2q_export_table_audit.py tools/test_y2q_futex_pi_smoke.py tools/test_run_y2q_futex_smoke.py tools/test_y2q_qemu_lab.py tools/test_y2q_rtmutex_fix_audit.py
       - name: Install or find Android NDK
         shell: bash
         run: |
