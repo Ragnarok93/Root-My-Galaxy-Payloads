@@ -385,3 +385,23 @@ sed -n '/## Previously omitted BootLinux pseudocode tail/,/## Still unknown/p' \
 ```
 
 **Additional high-value static input**: the four 32-bit OEM fallback words at Ghidra PE addresses `0x000b2210..0x000b221f` can be read with REA `read-bytes` (16 bytes, original authenticated PE) to resolve *fallback offsets* without a live device or blind scan. That **still would not establish the firmware runtime `BaseMemory` value**. Once the remaining tail is observed, follow any final kernel branch/ExitBootServices callee and its register setup, separately distinguishing static values from runtime state. Stage 4 remains OPEN.
+
+
+### 2026-10-10: one-command evidence continuation with static OEM values
+
+A narrow operator wrapper `tools/run_y2q_hxl1_stage4_placement.sh` was added to run eight offline regressions, authenticate and extract the existing original `BootLinux` **last 180 pseudocode lines**, and issue precisely two new native REA/Ghidra static-memory reads against SHA256-pinned original `LinuxLoader-HXL1.efi`:
+
+1. `rea read-bytes ... 0xb2210 --length 16`: captures all four contiguous 32-bit OEM fallback offset/size words referenced by `DAT_000b2210`, `DAT_000b2214`, `DAT_000b2218`, `DAT_000b221c`.
+2. `rea read-bytes ... 0x32a4c8 --length 4`: captures the **static-image** value of bootloader KASLR state, not the runtime randomized value.
+
+Every result is retained in REA's original JSON Evidence envelope, and the wrapper verifies Ghidra provider, input SHA256, exact query address/length and operation before printing bytes. It does **not** query the physical phone, launch the EFI, modify any firmware, or reuse an unverified output. The original full provider data is under `~/s20-artifacts/hxl1-research/abl-linuxloader/`.
+
+Single next command:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_stage4_placement.sh
+```
+
+The current Stage 4 proof obligation is to interpret the original BootLinux tail and identify its actual final kernel branch target/registers and which of the two demonstrated placement branches can execute. A PE RVA, static firmware initialized word, or UEFI variable name is NOT a valid numerical `kernel_phys_load` without its runtime value and correct address domain. **Bootloader unlock, actual privilege elevation, GhostLock viability, and KernelSU are still not demonstrated.**
