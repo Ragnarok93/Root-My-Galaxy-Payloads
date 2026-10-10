@@ -4649,6 +4649,77 @@ to complete the read-only feasibility assessment.
 
 ---
 
+## October 10, 06:02 UTC — locked HXL1 confirmed; NOT a GhostLock prerequisite
+
+The owner provided a **read-only live phone identity and security
+report** on the original SM-G986U1/y2q hardware:
+
+| Observable | Owner-reported value |
+|---|---|
+| `ro.product.model` | `SM-G986U1` |
+| Build | `TP1A.220624.014.G986U1UESCHXL1` |
+| `uname -r` | `4.19.113-27095354` |
+| `getenforce` | `Enforcing` |
+| ADB process | UID 2000, `u:r:shell:s0` |
+| `ro.boot.verifiedbootstate` | `green` |
+| `ro.boot.flash.locked` | `1` |
+| `ro.boot.vbmeta.device_state` | `locked` |
+| `ro.boot.warranty_bit` | `0` |
+| `ro.boot.bootloader` | `G986U1UESCHXL1` |
+| `ro.oem_unlock_supported` | no value returned |
+
+**Corrected architectural distinction:** An unlocked bootloader
+is **not** required to research or attempt to demonstrate
+a local *runtime* Linux kernel vulnerability like GhostLock.
+The kernel is already executing; the alleged bug path is
+in its RT-mutex code. The bootloader lock constrains
+ordinary persistent boot-image modifications and is not
+a blanket bar to all runtime kernel vulnerabilities.
+
+Nevertheless, neither source-level CVE patterns nor successful
+basic futex PI tests establish a working vulnerability
+trigger, kernel read/write/control, credentials, or runtime
+root. **KernelSU is a separate engineering milestone**:
+root in user space is not equivalent to the ability to
+insert an unsigned module while
+`CONFIG_MODULE_SIG_FORCE=y`, nor does it create the missing
+`CONFIG_KPROBES` / `CONFIG_FUNCTION_TRACER` hook backends.
+An independently proven kernel primitive might support a
+different loader or non-module integration, but no such
+design is yet validated. Samsung KDP/RKP/DEFEX protections
+and SELinux enforcement remain material unknowns.
+
+### Correct research tracks and proof gates
+
+| Track | Evidence now | Next independent proof |
+|---|---|---|
+| **A. GhostLock on locked stock HXL1** | Exact original kernel hash/source with ownership mismatch; published fix audit passed | Safe isolated reproduction of the specific post-enqueue proxy-lock rollback/error cleanup; instrumented evidence of what task state is affected |
+| **B. Kernel privilege primitive** | No such primitive seen on phone or matching VM | Independently verify whether a controlled vulnerability effect could produce a constrained read/write or privilege transition despite hardening |
+| **C. KernelSU integration** | Module framework and export/CRC mapping researched; sig force, no KPROBES/function tracer; existing v3.2.5 late-load fork not ported to 4.19 | A specific compatible interception/hook implementation and trusted/valid runtime loading or kernel-resident path, with evidence |
+| **D. Persistence** | Stock locked green Verified Boot | Separate authorization/verified boot path, or explicitly mark persistence unsupported |
+| **E. Custom-kernel alternative** | Bootloader locked | Optional contingency only; NOT a prerequisite for tracks A/B |
+
+**Immediate next lab priority:** the owner’s *existing*
+isolated ARM64 KASAN QEMU setup can be extended to
+capture a **controlled RT-mutex cleanup invariant**
+using an upstream-based lab model with matching
+HXL1 source semantics, with source/patch provenance
+recorded. Do not equate the upstream 4.19.325 VM
+with the exact running Samsung 4.19.113 firmware;
+do not attempt unstable race/requeue experiments
+on the physical phone. Preserve the already verified
+plain/KASAN baseline Images and use separate
+guest or patch build output directories.
+
+**Decision rule:** A locked bootloader alone can NEVER
+be used here as proof that GhostLock runtime research
+is impossible. Conversely, positive source-audit
+results can NEVER be used as proof of working root.
+The status remains **runtime effect unverified,
+temporary root unverified, late KernelSU unverified**.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
