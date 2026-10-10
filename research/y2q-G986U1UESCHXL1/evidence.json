@@ -2000,15 +2000,53 @@
     "status": {
       "implementationCommitted": true,
       "unitTestsRunByOwner": false,
-      "qemuInstalledByOwner": false,
-      "officialSourceDownloadedByOwner": false,
-      "upstreamArm64KernelBuiltByOwner": false,
-      "guestBootedByOwner": false,
+      "qemuInstalledByOwner": true,
+      "officialSourceDownloadedByOwner": true,
+      "upstreamArm64KernelBuiltByOwner": true,
+      "guestBootedByOwner": true,
       "kasanImageBuiltByOwner": false,
       "cvePathReproduced": false,
       "phoneRootVerified": false,
-      "productionSupportApproved": false
+      "productionSupportApproved": false,
+      "plainBootSuccessful": true
     },
-    "interpretation": "Boot-only generic upstream Linux 4.19 ARM64 lab prerequisite; cannot validate Samsung HXL1 CVE semantics, kernel ABI, KernelSU hooks or device loading, and is not a GhostLock trigger."
+    "interpretation": "Confirmed owner physical WSL 4.19.325 upstream ARM64 Image compile, QEMU virt/cortex-a57 1024MiB boot, guest AArch64 and immediate EAGAIN futex check, clean shutdown. This does not emulate Samsung kernel board/protections, or prove GhostLock/KernelSU/root.",
+    "ownerUpstreamBootEvidence": {
+      "reportedAt": "2026-10-10T04:56:05Z",
+      "evidence": "owner WSL2 terminal transcript, local upstream linux-4.19.325 archive build and QEMU boot",
+      "upstreamKernel": "Linux 4.19.325",
+      "compiler": "aarch64-linux-gnu-gcc version 13.3.0 (Ubuntu 24.04.1)",
+      "outputKernelImage": "/home/main/s20-artifacts/qemu-lab/kernel-build/arch/arm64/boot/Image",
+      "outputKernelImageSha256": "bd1176222b44d47576f95ffbff3f3ab5e38bf370e5b8216b888d2c4d1873b12a",
+      "guestInitSha256": "8cb61ef869e855fdd450bd191a0a535330140ea3f5595df2fa9f955053e062af",
+      "initramfsSha256": "2c8e76cad504663380358c4854aa3a86d867c0c635a85b0ea9a6a4de82ef00fc",
+      "plainKernelKasanEnabled": false,
+      "qemuCommandOptions": {
+        "machine": "virt",
+        "cpu": "cortex-a57",
+        "smp": 1,
+        "ramMiB": 1024,
+        "directKernelBoot": true,
+        "noNetwork": true,
+        "noDiskImage": true
+      },
+      "bootEvidence": [
+        "RMG_QEMU_LAB_BEGIN: isolated ARM64 VM, boot-only diagnostics",
+        "RMG_QEMU_LAB_KERNEL=4.19.325",
+        "RMG_QEMU_LAB_MACHINE=aarch64",
+        "RMG_QEMU_LAB_FUTEX=PASS_BASIC_WAIT_EAGAIN_ONLY",
+        "RMG_QEMU_LAB_COMPLETE=PASS_BOOT_ONLY_NOT_GHOSTLOCK",
+        "[    1.383573] reboot: Power down",
+        "[PASS_BOOT_ONLY]"
+      ],
+      "qemuBootLog": "/home/main/s20-artifacts/qemu-lab/qemu-boot-20261010T045524Z.log",
+      "qemuBootJson": "/home/main/s20-artifacts/qemu-lab/qemu-boot-20261010T045524Z.json",
+      "cleanShutdown": true,
+      "guestCveReproductionTested": false,
+      "samsungRuntimeEmulated": false,
+      "rootOnPhoneVerified": false,
+      "status": "PASS_BOOT_ONLY",
+      "next": "Build a separate KASAN + DEBUG_RT_MUTEXES upstream 4.19 ARM64 VM under a new out-of-tree output directory, then verify boot; no Samsung exploit or kernel module loading."
+    }
   }
 }
