@@ -1012,51 +1012,51 @@ Before user WSL execution, a review of the synthetic PE test fixture identified 
 
 ## 2026-10-10 — Correct GetRamPartitions callback control flow: conditional path beyond RET
 
-Owner's original XBL \`EnvDxe-HXL1.efi\` static SHA256:
-\`9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670\`.
+Owner's original XBL `EnvDxe-HXL1.efi` static SHA256:
+`9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670`.
 
-The owner ran the new HXL1 helper batch on branch commit \`e2391e7\`. The result was
+The owner ran the new HXL1 helper batch on branch commit `e2391e7`. The result was
 **659/659 offline regression tests passed**. Eight targeted Ghidra imports matched
 the original firmware code bytes and four exact cross-reference queries succeeded.
 
-**Important correction to the former \`post-callback\` attribution**: the
-original ARM64 callback at \`0x1f74\` has more than one return path. Its
-instruction at \`0x1fc4\` is **\`B.LS 0x1fe8\`**. Thus the observed
-\`RET 0x1fe4\` terminates one path, but it does NOT terminate the whole
-callback. Ghidra also returned a **direct xref from \`0x1fc4\` to \`0x1fe8\`**,
-source \`ev_0364c3969b0141542868654eead76c370067a9f3bdbb6a2742757c8f7253ac13\`.
-The older \`rea-envdxe-helper-batch.md\` statement that \`0x1ff0\` is
+**Important correction to the former `post-callback` attribution**: the
+original ARM64 callback at `0x1f74` has more than one return path. Its
+instruction at `0x1fc4` is **`B.LS 0x1fe8`**. Thus the observed
+`RET 0x1fe4` terminates one path, but it does NOT terminate the whole
+callback. Ghidra also returned a **direct xref from `0x1fc4` to `0x1fe8`**,
+source `ev_0364c3969b0141542868654eead76c370067a9f3bdbb6a2742757c8f7253ac13`.
+The older `rea-envdxe-helper-batch.md` statement that `0x1ff0` is
 "post-callback" is superseded by this control-flow evidence.
 
-The reachable continuation contains \`BL 0x2618\` from \`0x1ff0\` and
-\`BL 0x52cc\` from \`0x2004\`. Its original readback at \`0x1fe8\` is 96 bytes,
-REA ID \`ev_82d33ba361603eee3747156c00aa702abd65e54d66cb0a2a063ee03c26dc2d98\`.
-The first 128 bytes at \`0x1f74\` were independently verified (REA ID
-\`ev_6a66ef27ac31a519264d0da98627f24a5d4c7770cb9916ff0056da4600fd7dde\`).
-The windows overlap by 12 bytes and together cover \`[0x1f74,0x2048)\`.
+The reachable continuation contains `BL 0x2618` from `0x1ff0` and
+`BL 0x52cc` from `0x2004`. Its original readback at `0x1fe8` is 96 bytes,
+REA ID `ev_82d33ba361603eee3747156c00aa702abd65e54d66cb0a2a063ee03c26dc2d98`.
+The first 128 bytes at `0x1f74` were independently verified (REA ID
+`ev_6a66ef27ac31a519264d0da98627f24a5d4c7770cb9916ff0056da4600fd7dde`).
+The windows overlap by 12 bytes and together cover `[0x1f74,0x2048)`.
 
 Disassembly of original bytes indicates a meaningful ABI translation:
-the helper at \`0x52cc\` iterates **72-byte / \`0x48\`** internal records,
-while reachable callback instructions \`0x1fe8\`/\`0x1fec\` compute a temporary
-buffer size of **72 × count**, \`0x2030\`/\`0x2038\` copy one 64-bit field,
-and \`0x203c\`/\`0x2040\` copy the second with source postincrement
-\`0x48\` and output postincrement \`0x10\`. This reconciles the internal
-72-byte data with the 16-byte \`Base, AvailableLength\` entries consumed
+the helper at `0x52cc` iterates **72-byte / `0x48`** internal records,
+while reachable callback instructions `0x1fe8`/`0x1fec` compute a temporary
+buffer size of **72 × count**, `0x2030`/`0x2038` copy one 64-bit field,
+and `0x203c`/`0x2040` copy the second with source postincrement
+`0x48` and output postincrement `0x10`. This reconciles the internal
+72-byte data with the 16-byte `Base, AvailableLength` entries consumed
 by the original LinuxLoader. **Only the static instruction pattern is verified**;
 the runtime count, contents and successful registration remain unmeasured.
 
 The next pass is implemented in
-\`tools/y2q_hxl1_envdxe_callback_cfg.py\` and
-\`tools/run_y2q_hxl1_envdxe_callback_cfg.sh\`:
+`tools/y2q_hxl1_envdxe_callback_cfg.py` and
+`tools/run_y2q_hxl1_envdxe_callback_cfg.sh`:
 it reuses the previously verified original 128-byte and 96-byte imports,
-requests **only 20 new Ghidra bytes at \`0x2048\`**, and assembles a bounded
-\`[0x1f74,0x205c)\` static graph. It verifies every discovered reachable
+requests **only 20 new Ghidra bytes at `0x2048`**, and assembles a bounded
+`[0x1f74,0x205c)` static graph. It verifies every discovered reachable
 branch, call, return, raw record-copy opcode and source/import evidence.
-\`0x205c\` is an already observed neighboring Ghidra function entry,
+`0x205c` is an already observed neighboring Ghidra function entry,
 **not** proof of the complete callback's function extent. Fail-closed
 validation rejects changes to branch *conditions* even when their targets
 remain unchanged. Eight previously existing test modules (659 tests) plus
-729 additional byte-/bit-level provenance/CFG regressions give **1388
+730 additional byte-/bit-level provenance/CFG regressions give **1389
 tests expected** for this pass; that full suite and the new 20-byte REA
 query have **not yet been executed on owner's WSL host**.
 
@@ -1064,6 +1064,8 @@ query have **not yet been executed on owner's WSL host**.
     git pull --ff-only
     bash tools/run_y2q_hxl1_envdxe_callback_cfg.sh
 
-Report: \`~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-getram-full-cfg.md\`.
+Report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-getram-full-cfg.md`.
 The S20+ need not be connected. No boot-time physical RAM value, selected
 kernel base, KASLR state, GhostLock exploitation, KernelSU or root is proven.
+
+After the conditional loop-back correction in the **synthetic test fixture** (not the production firmware parser), GitHub Actions run [38070524299](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38070524299) completed **SUCCESS** on commit `bd7f4c8`. This is CI fixture coverage only; the author's 20-byte original HXL1 Ghidra read is still required to promote the actual full callback CFG.
