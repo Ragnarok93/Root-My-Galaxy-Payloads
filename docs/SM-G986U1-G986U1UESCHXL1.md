@@ -3548,6 +3548,89 @@ the HXL1 profile remains outside production support.
 
 ---
 
+## October 10: physical S20+ ADB shell tracing permission results
+
+The owner executed the planned **read-only** `adb shell`
+command on the original `G986U1UESCHXL1` firmware.
+The returned shell identity is:
+
+```text
+uid=2000(shell) gid=2000(shell)
+groups include 3012(readtracefs)
+context=u:r:shell:s0
+getenforce: Enforcing
+/proc/sys/kernel/perf_event_paranoid: -1
+/proc/sys/kernel/unprivileged_bpf_disabled: 0
+/sys/kernel/tracing: drwxr-xr-x root readtracefs
+/sys/kernel/debug/tracing: drwxr-xr-x root readtracefs
+```
+
+**Interpretation and limits:**
+
+- The ADB shell is **not root** and runs in an
+  enforcing SELinux domain. Do not treat the
+  `readtracefs` group as blanket permission
+  to change tracing state.
+- `perf_event_paranoid=-1` removes
+  Linux's usual `perf_event_paranoid` restrictions,
+  but other controls (notably SELinux on Android)
+  can still deny particular `perf_event_open`
+  calls. See
+  [Linux perf security guidance](https://www.kernel.org/doc/html/latest/admin-guide/perf-security.html)
+  and the
+  [Android init perf permission logic](https://android.googlesource.com/platform/system/core/+/refs/tags/android-11.0.0_r3/init/security.cpp).
+- `unprivileged_bpf_disabled=0` means this
+  **sysctl** does not globally prohibit
+  unprivileged BPF; it does **not** prove
+  Android shell can load BPF programs,
+  attach tracepoints, or access privileged
+  BPF program types.
+- Both tracefs directory paths were listed
+  successfully. The available events,
+  their format files, tracefs mounting details,
+  and actual event-read permissions
+  have **not** yet been assessed.
+  Directory listings and GID membership
+  are distinct from authorization to
+  enable tracing or install new probes.
+
+### Optional final observation-only event listing
+
+Inspect only existing event names and one scheduler
+tracepoint format. Do **not** modify `tracing_on`,
+`set_event`, `events/*/enable`, perf/sysctl values,
+or load BPF programs.
+
+```bash
+adb shell '
+for root in /sys/kernel/tracing /sys/kernel/debug/tracing; do
+  echo "=== $root ==="
+  ls -ldZ "$root" 2>&1
+  ls -lZ "$root/available_events" "$root/events/sched/sched_switch/format" 2>&1
+  if [ -r "$root/available_events" ]; then
+    echo "-- scheduler/locking event names --"
+    grep -E "^(sched:|futex:|lock:|workqueue:)" "$root/available_events" | head -n 40
+  fi
+  if [ -r "$root/events/sched/sched_switch/format" ]; then
+    echo "-- scheduler format excerpt --"
+    sed -n "1,20p" "$root/events/sched/sched_switch/format"
+  fi
+  if [ -r "$root/available_events" ]; then break; fi
+done
+'
+```
+
+Further trace/event checks are for **non-destructive
+diagnostics only**, not a root or payload
+trigger. Current KernelSU v3.2.5 Samsung fallback
+needs kprobes/kretprobes, absent from this HXL1
+configuration. Signature enforcement, locked
+bootloader, Samsung RKP/KDP/DEFEX, and lack of
+runtime GhostLock exploitation remain separate
+unresolved gates. Keep HXL1 research-only.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
