@@ -2400,7 +2400,7 @@
         "number": 4,
         "category": "physical load address",
         "state": "OPEN",
-        "basis": "ARM64 header text_offset=0x80000; original HXL1 BL handoff load remains unverified"
+        "basis": "Original exact HXL1 BL TAR/MD5 archive SHA256 pinned; 3 real bootloader ELF components SHA256 and headers recovered. Kernel physical load / register handoff still not verified."
       },
       {
         "number": 5,
@@ -2438,7 +2438,7 @@
     "workingKernelSu": false,
     "verifiedStockIdentity": true,
     "verifiedStockOriginalSourceHashes": true,
-    "nextOwnerAction": "BL archive from original exact G986U1UESCHXL1 firmware is verified (SHA-256 f6048fb5...). Safely extract only abl.elf.lz4/xbl.elf.lz4/xbl_config.elf.lz4 for off-device analysis and verify ELF program headers; no kernel physical handoff proved. Keep Stage 4 OPEN.",
+    "nextOwnerAction": "Verify owner extracted original HXL1 ABL (ELF32 ARM), XBL (ELF64 AArch64), atypical XBL_CONFIG (ELF64 ARM). Run 10 host-only bootloader ELF parser tests and hash pinned ELF audit, then pursue independent kernel handoff through original AP image/DTB and BL analysis; do not mistake XBL physical segment addresses for Linux kernel base.",
     "noPhoneChanges": true,
     "noCrossDeviceOffsets": true,
     "noPrematureSupportFeedRegistration": true,
@@ -2783,7 +2783,7 @@
     }
   },
   "hxl1Stage4BootloaderDiscovery": {
-    "observedAt": "2026-10-10T07:20:55Z",
+    "observedAt": "2026-10-10T07:24:34Z",
     "commandScope": "find /mnt/c/Users $HOME/Downloads -maxdepth 6 under G986 filename patterns",
     "matches": [
       "/mnt/c/Users/Admin/Downloads/SM-G986U.zip"
@@ -2791,7 +2791,7 @@
     "classification": "Matches the known Samsung open-source release wrapper filename, containing source TAR/ZIP revisions, not normally a firmware BL image.",
     "existingKnownWrapperSha256": "940fe6bbcfe3dcd372ad662dd24b56e0a3ba1a965666b04051fe9941bab4986d",
     "foundCopySha256JustVerified": false,
-    "matchingOriginalBLDiscovered": false,
+    "matchingOriginalBLDiscovered": true,
     "potentialOtherSources": "Exact full stock firmware ZIP may reside outside searched directories or have a filename that does not match BL*G986* / *G986*.zip; source-only SM-G986U.zip is not a BL archive.",
     "physicalLoadAddressVerified": false,
     "windowsSourceArchive": {
@@ -2803,7 +2803,7 @@
       "bootloaderPhysicalLoadProved": false
     },
     "physicalKernelLoadAddressVerified": false,
-    "status": "ORIGINAL_FIRMWARE_BL_ARCHIVE_FOUND_AND_ARCHIVE_SHA256_MEASURED; HANDOFF_OPEN",
+    "status": "ABL_XBL_XBL_CONFIG_EXTRACTED_WITH_FACTORY_ELF_HEADERS; ORIGINAL_KERNEL_PHYSICAL_HANDOFF_OPEN",
     "exactFirmwareFolder": "/mnt/c/Users/Admin/Downloads/SAMFW.COM_SM-G986U1_XAA_G986U1UESCHXL1_fac",
     "archive": {
       "path": "BL_G986U1UESCHXL1_G986U1UESCHXL1_MQB90638722_REV00_user_low_ship_MULTI_CERT.tar.md5",
@@ -2859,9 +2859,93 @@
         "sizeBytes": 68536429
       }
     ],
-    "nextEvidenceAction": "Read-only pin-guarded extraction of ABL/XBL/XBL_CONFIG from verified archive; classify ELF and note paddr/vaddr are BOOTLOADER PROGRAM HEADER ADDRESSES, NOT ORIGINAL ANDROID KERNEL PHYSICAL LOAD ADDRESS. Study boot handoff via original firmware only when independently supported.",
-    "stockBootloaderImagesExtracted": false,
+    "nextEvidenceAction": "Run repo hash-pinned read-only ELF parser and tests against already-extracted three original BL binaries. Then use original boot.img, BL string/code analysis and target device tree to investigate physical load handoff; no direct kernel physical base from BL ELF PT_LOAD/entry fields.",
+    "stockBootloaderImagesExtracted": true,
     "originalFactoryPhysicalKernelEntryVerified": false,
-    "deviceFlashed": false
+    "deviceFlashed": false,
+    "imageAudit": {
+      "source": "Owner WSL GNU tar/lz4, sha256sum, file, readelf -h and readelf -lW",
+      "verifiedBLArchiveSha256": "f6048fb50cd83741951552866c4dcf26e6165b0a67a232b81028c266bef22d6b",
+      "outputRoot": "/home/main/s20-artifacts/hxl1-research/bl-stock",
+      "images": [
+        {
+          "name": "abl.elf",
+          "sha256": "6d717ef96e7355d72db1ac167ef1b74ff6ef33d22a8bfc08affc62f9cabcdeef",
+          "elfClass": "ELF32",
+          "elfMachine": "EM_ARM",
+          "elfType": "EXEC",
+          "entry": "0x9fa00000",
+          "programHeaders": 3,
+          "sectionHeaders": 0,
+          "executablePtLoad": {
+            "start": "0x9fa00000",
+            "endExclusive": "0x9fc20000",
+            "fileSize": "0x220000",
+            "memorySize": "0x220000",
+            "permissionFlags": "RWE"
+          }
+        },
+        {
+          "name": "xbl.elf",
+          "sha256": "78d1bff9ef5c2aa626652390c112f0bf81869bb1f9a05fcd8a8e3dfff8f8b357",
+          "elfClass": "ELF64",
+          "elfMachine": "EM_AARCH64",
+          "elfType": "EXEC",
+          "entry": "0x148157a8",
+          "programHeaders": 15,
+          "sectionHeaders": 0,
+          "entryLoad": {
+            "start": "0x14815000",
+            "endExclusive": "0x148764b0",
+            "permissionFlags": "R E"
+          },
+          "otherPtLoad": {
+            "start": "0x9fc00000",
+            "endExclusive": "0x9fe70000",
+            "permissionFlags": "RWE"
+          }
+        },
+        {
+          "name": "xbl_config.elf",
+          "sha256": "757fc6ef87134283d37fa4ee57f5180e3849107e216f48f379323ce473f40d7f",
+          "elfClass": "ELF64",
+          "elfMachine": "EM_ARM",
+          "elfType": "EXEC",
+          "entry": "0x148d0000",
+          "programHeaders": 6,
+          "sectionHeaders": 0,
+          "anomaly": "ELF64 class combined with EM_ARM; do not treat as a conventional AArch64 executable without further proof"
+        }
+      ],
+      "bootloaderSegmentsOverlap": {
+        "imagePair": "abl.elf + xbl.elf",
+        "imageARegion": "0x9fa00000..0x9fc20000",
+        "imageBRegion": "0x9fc00000..0x9fe70000",
+        "sharedRange": "0x9fc00000..0x9fc20000",
+        "sharedLengthBytes": 131072,
+        "significance": "Separate boot images can reuse address ranges at different stages. Overlap does not prove both segments co-resident or reveal Linux physical handoff."
+      },
+      "elfEntryPointChecks": {
+        "abl": "INSIDE_EXECUTABLE_PT_LOAD",
+        "xbl": "INSIDE_EXECUTABLE_PT_LOAD",
+        "xblConfig": "NOT_YET_CHECKED"
+      },
+      "reportCaptures": {
+        "abrHeaders": "/home/main/s20-artifacts/hxl1-research/bl-stock/abl.elf-elf-header.txt",
+        "xblHeaders": "/home/main/s20-artifacts/hxl1-research/bl-stock/xbl.elf-elf-header.txt",
+        "xblConfigHeaders": "/home/main/s20-artifacts/hxl1-research/bl-stock/xbl_config.elf-elf-header.txt",
+        "ablProgramHeaders": "/home/main/s20-artifacts/hxl1-research/bl-stock/abl-program-headers.txt",
+        "xblProgramHeaders": "/home/main/s20-artifacts/hxl1-research/bl-stock/xbl-program-headers.txt"
+      },
+      "handoffProven": false,
+      "externalPhoneTouch": false
+    },
+    "ownerParser": {
+      "tool": "tools/y2q_stock_bl_elf_audit.py",
+      "tests": "tools/test_y2q_stock_bl_elf_audit.py",
+      "ci": ".github/workflows/y2q-identity-probe.yml",
+      "state": "COMMITTED; NOT YET OWNER-EXECUTED",
+      "output": "/home/main/s20-artifacts/hxl1-research/bl-stock-elf-audit.{json,md}"
+    }
   }
 }
