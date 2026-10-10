@@ -76,7 +76,6 @@ class TestWslFutexRunner(unittest.TestCase):
                 ("uname", "-r"): runner.EXPECTED_KERNEL,
                 ("getconf", "PAGESIZE"): runner.EXPECTED_PAGE_SIZE,
                 ("id", "-u"): "2000",
-                ("id", "-ru"): "2000",
                 ("getenforce",): "Enforcing",
             }
             return command_result(mapping[tuple(args[4:])] + "\n")
@@ -126,8 +125,8 @@ class TestWslFutexRunner(unittest.TestCase):
                     called.append(list(args))
                     if args[-3:-1] == ["test", "-e"]:
                         return command_result(returncode=1)
-                    if args[-2:] and len(args) >= 4 and args[3] == "shell" \
-                            and args[-1].startswith("/data/local/tmp/"):
+                    if len(args) == 5 and args[3] == "shell" \
+                            and args[4].startswith("/data/local/tmp/"):
                         return command_result(
                             f"RESULT={expected_status}\n",
                             returncode=0 if success else 4
