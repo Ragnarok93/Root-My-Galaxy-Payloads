@@ -59,7 +59,7 @@ class VdsoCompatTests(unittest.TestCase):
             stock, dest = self.fixture(temporary)
             (stock / module.VDSO).write_text("no legacy macro calls\n")
             with patch.object(module, "source_gate"):
-                with self.assertRaisesRegex(ValueError, "expected 3 precise matches"):
+                with self.assertRaisesRegex(ValueError, "expected 3 exact matches"):
                     module.plan(stock, dest, stock / "audit.json")
             self.assertFalse(dest.exists())
 
