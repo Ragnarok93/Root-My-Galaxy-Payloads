@@ -210,7 +210,7 @@ MODIFICATIONS=[
     ("pahole_false_root",lambda q:q[2].__setitem__("rootVerified",True),"factory offsets"),
     ("pahole_missing_type",lambda q:q[2]["types"].pop("rt_mutex"),"type presence"),
     ("pahole_extra_type",lambda q:q[2]["types"].__setitem__("task_struct",{}),"type presence"),
-    ("pahole_wrong_count",lambda q:q[2]["types"]["rt_mutex"]["objectsChecked"].__setitem__ if False else q[2]["types"]["rt_mutex"].__setitem__("objectsChecked",76),"type presence/count"),
+    ("pahole_wrong_count",lambda q:q[2]["types"]["rt_mutex"].__setitem__("objectsChecked",76),"type presence/count"),
     ("pahole_overcount",lambda q:q[2]["types"]["rt_mutex_waiter"].__setitem__("completeDefinitionsFound",78),"type presence/count"),
     ("pahole_wrong_present",lambda q:q[2]["types"]["rt_mutex"].__setitem__("completeDefinitionsFound",1),"type presence/count"),
     ("rtmutex_wrong_fw",lambda q:q[3].__setitem__("firmware","OTHER"),"RT-mutex source"),
