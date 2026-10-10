@@ -2,6 +2,8 @@
 """Read-only v2 Android boot header parser regression tests."""
 from __future__ import annotations
 import importlib.util
+import hashlib
+from unittest import mock
 from pathlib import Path
 import struct
 import tempfile
@@ -75,6 +77,95 @@ class BootHeaderTests(unittest.TestCase):
             file.write_bytes(b"wrong")
             with self.assertRaisesRegex(audit.AuditError, "SHA256"):
                 audit.pinned(file, "0"*64)
+
+    def test_only_boot_img_needed_for_declared_header_and_embedded_pin_checks(self):
+        boot = fake_boot()
+        kernel, ramdisk, dtb = boot[4096:4112], boot[8192:8200], boot[12288:12300]
+        pins = {"boot.img": hashlib.sha256(boot).hexdigest(),
+                "kernel.bin": hashlib.sha256(kernel).hexdigest(),
+                "ramdisk.img": hashlib.sha256(ramdisk).hexdigest(),
+                "dtb.img": hashlib.sha256(dtb).hexdigest()}
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "boot.img").write_bytes(boot)
+            with (mock.patch.object(audit, "PINS", pins),
+                  mock.patch.object(audit, "EXPECTED_BOOT_BYTES", len(boot))):
+                report = audit.analyze(root)
+            self.assertTrue(report["originalBootImageHashVerified"])
+            self.assertFalse(report["originalFileHashesVerified"])
+            for component in ("kernel", "ramdisk", "dtb"):
+                record = report["payloadComparisons"][component]
+                self.assertEqual(record["referenceFileStatus"], "MISSING_OPTIONAL")
+                self.assertIsNone(record["referenceEqualsImageRegion"])
+                self.assertTrue(record["embeddedRegionMatchesPinnedSha256"])
+            self.assertIn("MISSING_OPTIONAL", audit.markdown(report))
+
+    def test_present_optional_file_matches_embedded_region(self):
+        boot = fake_boot()
+        payloads = {"kernel.bin": boot[4096:4112],
+                    "ramdisk.img": boot[8192:8200],
+                    "dtb.img": boot[12288:12300]}
+        pins = {"boot.img": hashlib.sha256(boot).hexdigest(),
+                **{name: hashlib.sha256(blob).hexdigest()
+                   for name, blob in payloads.items()}}
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "boot.img").write_bytes(boot)
+            (root / "ramdisk.img").write_bytes(payloads["ramdisk.img"])
+            with (mock.patch.object(audit, "PINS", pins),
+                  mock.patch.object(audit, "EXPECTED_BOOT_BYTES", len(boot))):
+                report = audit.analyze(root)
+            self.assertEqual(report["separateArtifactAvailability"]["ramdisk.img"],
+                             "PRESENT_PIN_VERIFIED")
+            self.assertTrue(report["payloadComparisons"]["ramdisk"]["referenceEqualsImageRegion"])
+            self.assertIsNone(report["payloadComparisons"]["dtb"]["referenceEqualsImageRegion"])
+
+    def test_tampered_present_optional_file_fails_closed(self):
+        boot = fake_boot()
+        pins = {"boot.img": hashlib.sha256(boot).hexdigest(),
+                "kernel.bin": hashlib.sha256(boot[4096:4112]).hexdigest(),
+                "ramdisk.img": hashlib.sha256(boot[8192:8200]).hexdigest(),
+                "dtb.img": hashlib.sha256(boot[12288:12300]).hexdigest()}
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "boot.img").write_bytes(boot)
+            (root / "ramdisk.img").write_bytes(b"tampered")
+            with (mock.patch.object(audit, "PINS", pins),
+                  mock.patch.object(audit, "EXPECTED_BOOT_BYTES", len(boot))):
+                with self.assertRaisesRegex(audit.AuditError, "SHA256 mismatch"):
+                    audit.analyze(root)
+
+    def test_embedded_mismatch_is_reported_without_fabricating_agreement(self):
+        boot = fake_boot()
+        pins = {"boot.img": hashlib.sha256(boot).hexdigest(),
+                "kernel.bin": "0" * 64,
+                "ramdisk.img": hashlib.sha256(boot[8192:8200]).hexdigest(),
+                "dtb.img": hashlib.sha256(boot[12288:12300]).hexdigest()}
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "boot.img").write_bytes(boot)
+            with (mock.patch.object(audit, "PINS", pins),
+                  mock.patch.object(audit, "EXPECTED_BOOT_BYTES", len(boot))):
+                report = audit.analyze(root)
+            self.assertFalse(report["payloadComparisons"]["kernel"]
+                             ["embeddedRegionMatchesPinnedSha256"])
+            self.assertIsNone(report["payloadComparisons"]["kernel"]
+                              ["referenceEqualsImageRegion"])
+
+    def test_symlinked_optional_file_fails_closed(self):
+        boot = fake_boot()
+        pins = {"boot.img": hashlib.sha256(boot).hexdigest(),
+                "kernel.bin": hashlib.sha256(boot[4096:4112]).hexdigest(),
+                "ramdisk.img": hashlib.sha256(boot[8192:8200]).hexdigest(),
+                "dtb.img": hashlib.sha256(boot[12288:12300]).hexdigest()}
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "boot.img").write_bytes(boot)
+            (root / "ramdisk.img").symlink_to(root / "does_not_exist")
+            with (mock.patch.object(audit, "PINS", pins),
+                  mock.patch.object(audit, "EXPECTED_BOOT_BYTES", len(boot))):
+                with self.assertRaisesRegex(audit.AuditError, "symlinked"):
+                    audit.analyze(root)
 
     def test_report_does_not_claim_runtime_handoff(self):
         source = SCRIPT.read_text()
