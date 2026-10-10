@@ -75,6 +75,8 @@ REQUIRED_CFG_CALLS={
 }
 REQUIRED_XREF_SITES={
     "allocate-pool":{"0x2624","0x2638"},
+    # The pool-type-4 wrapper shares the same authenticated 0x25d8 window.
+    "boot-services-data-wrapper":{"0x2624","0x2638"},
     "free-pool":{"0x2050"},
     "bounded-string-length":{"0x3c60","0x3c74"},
 }
