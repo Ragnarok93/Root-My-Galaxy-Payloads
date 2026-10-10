@@ -4396,6 +4396,76 @@ load KernelSU or alter the physical S20+.
 
 ---
 
+## October 10, 05:40 UTC — bounded PI guest PASS; host exit-code regression fixed
+
+The owner ran the new single-thread, non-contended futex-PI
+guest **against the previously built and verified upstream Linux
+4.19.325 KASAN + DEBUG_RT_MUTEXES kernel Image**. The guest init
+and ramdisk were rebuilt independently; there was **no kernel
+recompilation or physical Samsung phone modification**.
+
+Owner-reported results:
+
+```text
+[kernel] configuration KASAN+DEBUG_RT_MUTEXES=True
+RMG_QEMU_LAB_KERNEL=4.19.325
+RMG_QEMU_LAB_MACHINE=aarch64
+RMG_QEMU_LAB_FUTEX=PASS_BASIC_WAIT_EAGAIN_ONLY
+RMG_QEMU_LAB_FUTEX_WAKE=PASS_ZERO_WAITERS
+RMG_QEMU_LAB_FUTEX_PI_LOCK=PASS_UNCONTENDED
+RMG_QEMU_LAB_FUTEX_PI_TRYLOCK=PASS_UNCONTENDED
+RMG_QEMU_LAB_COMPLETE=PASS_BOUNDED_PI_NOT_GHOSTLOCK
+[    6.901210] reboot: Power down
+[PASS_BOUNDED_PI]
+```
+
+Guest init SHA-256:
+`b06b8c0ebb26ec63760559db707abb72986c5e8d807a0f4e8268c4f75524fe5a`
+
+Guest initramfs SHA-256:
+`cfb016cdf37731cc73d9ccc827fda74a1adeaa71dbff5a0d881ca7b372fa6d68`
+
+Saved local files:
+
+- `~/s20-artifacts/qemu-lab-pi/qemu-boot-20261010T054017Z.log`
+- `~/s20-artifacts/qemu-lab-pi/qemu-boot-20261010T054017Z.json`
+
+**Regression found during the same run:** the existing
+Python test suite returned `9/10` (one failure) because
+`tools/y2q_qemu_lab.py` produced correct
+`[PASS_BOUNDED_PI]` and JSON `status=PASS_BOUNDED_PI`
+but its final `boot()` return expression treated **only**
+`PASS_BOOT_ONLY` as success. Thus the real lab execution
+also ended with a nonzero Python exit status even
+though QEMU passed and shut down cleanly.
+
+**Correction:** `boot()` now returns zero for both
+`PASS_BOOT_ONLY` and `PASS_BOUNDED_PI`. The added
+regression tests verify a bounded-PI pass returns
+zero, that KASAN BUG/nonzero QEMU exits remain
+failures, and that an incomplete marker sequence
+cannot be accepted.
+
+No new kernel or initramfs build is necessary
+to verify the **host-side** correction:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools/test_y2q_qemu_lab.py
+```
+
+The owner has **not yet rerun** the regression
+suite after this correction, so this is
+`FIX_COMMITTED_VALIDATION_PENDING`, not a
+claimed clean test run. Successful healthy PI
+locking in the instrumented *upstream* VM
+does not demonstrate a GhostLock trigger,
+UAF, Samsung exploit, KernelSU module-load
+capability or root on the handset.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
