@@ -664,3 +664,23 @@ External format references: https://github.com/linux-msm/xbltools and https://wo
 Output: ~/s20-artifacts/hxl1-research/xbl-rampartition/original-xbl-envdxe-fv.md . If a candidate module is found, next verify its uncompressed original PE's callsites and protocol installation. If not, use the reported FV/gzip counts to choose one *different* compression/layout path, not another generic scan.
 
 Current limits: original ABL protocol ABI and static ARM64 kernel handoff verified; exact XBL provider, boot-time RAM partitions, BaseMemory, runtime KASLR, numerical kernel physical entry, GhostLock viability and KernelSU remain unverified.
+
+## 2026-10-10 13:53 — original EnvDxe executable located in XBL gzip firmware volume
+
+The owner ran **tools/run_y2q_hxl1_xbl_envdxe_fv_probe.sh** at commit d6d84a0; **13/13 regressions passed**, original XBL SHA256 and ELF pins passed. These are actual HXL1 original-firmware observations, not synthetic fixture data:
+
+- Original **xbl.elf** SHA256 78d1bff9ef5c2aa626652390c112f0bf81869bb1f9a05fcd8a8e3dfff8f8b357; 4,194,304 bytes; one direct, validated FV (0 recognized AArch64 PEs), one CRC-checked gzip member starting at original ELF file offset **0xc6488**.
+- Decompressed gzip contains one nested valid FV, **93 AArch64 PE32+ executables** recognized by original FV/FFS walker. **EnvDxe** has FFS GUID **90a49afd-422f-08ae-9611-e788d3804845**, extracted PE SHA256 **9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670**, and original `EFI_RAMPARTITION` GUID in PE file bytes at offset **0xd118**. Original PE includes `EnvDxe` and `RamPartition` strings. This is **CANDIDATE_BINARY_CONTAINS_PROTOCOL_GUID**, not confirmed protocol-registration code.
+- **DisplayDxe** at FFS GUID 4138022f-06c7-4f79-9c94-7e33b511a4e7 / PE SHA256 facaa8938acd61d1f9d06434504268c139cf02d8378f78d673c38a550f1174c0 contains `RamPartition` string only, no GUID; lower priority.
+- Original **xbl_config.elf** SHA256 757fc6ef87134283d37fa4ee57f5180e3849107e216f48f379323ce473f40d7f; no direct FV, gzip stream or EnvDxe candidate.
+- The original xbl outer FV includes an unhandled GUID-defined section e9... that does not invalidate the independently decompressed and verified EnvDxe. Do not infer the provider is globally exhaustive based on this subset parser.
+
+**Next distinct evidence gate, no phone involvement:** tools/y2q_hxl1_extract_envdxe.py recovers only this original EnvDxe PE from pinned XBL and exact gzip offset; requires the exact original FFS GUID, recovered PE SHA256, GUID content at 0xd118, and a valid AArch64 PE32+ header; writes one artifact EnvDxe-HXL1.efi (no executable run), provenance manifest and static PE file-offset-to-RVA mapping. tools/run_y2q_hxl1_envdxe_rea_xrefs.sh first reads back **16 bytes** from the PE's *actual REA/Ghidra static import address*, requiring exact original GUID bytes and original PE digest; only then calls REA `xrefs` once on that validated address, caching authenticated evidence. A byte mismatch is a **HARD STOP**: Ghidra import bases can differ from PE preferred image base, and zero xrefs must never be taken as proof of no installer at an unverified address.
+
+Operator command:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_envdxe_rea_xrefs.sh
+
+Outputs in ~/s20-artifacts/hxl1-research/xbl-rampartition/: EnvDxe-HXL1.efi, original-envdxe-hxl1.md, rea-envdxe-ram-guid-xrefs-audit.md (if verified). **No device memory accessed, no firmware writes, no root attempt.** The RAM-partition provider function and its installer remain unverified until the actual code references, decompilation and call pattern are corroborated. Even a proven installer cannot supply boot-time RAM values from the firmware binary alone. Physical Linux kernel entry, GhostLock viability and KernelSU remain open.
