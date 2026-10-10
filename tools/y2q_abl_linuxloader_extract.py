@@ -81,7 +81,10 @@ class Walker:
     def tick(self):
         self.visited_objects += 1
         if self.visited_objects > MAX_OBJECTS:
-            raise ExtractError("Firmware container object limit exceeded")
+            raise ExtractError(
+                f"Firmware container object limit exceeded: "
+                f"visited={self.visited_objects}, volumes={len(self.fv_headers)}, "
+                f"last_notes={self.notes[-4:]}")
 
     def add_pe(self, payload: bytes, trace: list[str], ui: str, file_guid: str) -> None:
         info = identify_pe(payload)
@@ -106,7 +109,7 @@ class Walker:
             header_len = struct.unpack_from("<H", data, fv_base + 0x30)[0]
             if not (0x38 <= header_len <= 0x10000 and
                     header_len <= length <= MAX_FV_BYTES and
-                    length <= len(data) - fv_base):
+                    length <= len(data) - fv_base and data[fv_base + 0x37] == 2):
                 continue
             volume = data[fv_base:fv_base + length]
             path = trace + [f"FV@0x{fv_base:x} length=0x{length:x}"]
@@ -119,9 +122,16 @@ class Walker:
         while cursor + 24 <= len(blob):
             self.tick()
             head = blob[cursor:cursor + 24]
+            # A firmware volume is erased beyond its final FFS file, commonly
+            # with megabytes of 0xff padding. The old code consumed this
+            # *eight bytes at a time*, exhausting MAX_OBJECTS before reaching
+            # the loader on the original 4 MiB Samsung ABL image.
+            # Erased space is an end-of-files marker, NOT another FFS object.
             if head in (b"\xff" * 24, b"\x00" * 24):
-                cursor += 8
-                continue
+                self.notes.append(
+                    f"FFS erased/free tail at {trace[-1]}+0x{cursor:x} "
+                    f"remaining=0x{len(blob) - cursor:x}")
+                break
             fsize = u24(blob, cursor + 20)
             header_size = 24
             if fsize == 0xFFFFFF:
@@ -130,9 +140,11 @@ class Walker:
                 fsize = struct.unpack_from("<Q", blob, cursor + 24)[0]
                 header_size = 32
             if fsize < header_size or fsize > len(blob) - cursor:
-                self.notes.append(f"Bad FFS header at {trace[-1]}+0x{cursor:x}")
-                cursor += 8
-                continue
+                # Do not skip thousands of forged headers in invalid/free
+                # bytes, or silently declare an unrelated PE as LinuxLoader.
+                self.notes.append(f"Bad FFS header at {trace[-1]}+0x{cursor:x}, "
+                                  f"size={fsize}, remaining={len(blob) - cursor}")
+                break
             file_guid = str(UUID(bytes_le=blob[cursor:cursor + 16]))
             ftype = blob[cursor + 18]
             path = trace + [f"FFS[{file_guid}] type=0x{ftype:x} offset=0x{cursor:x}"]
@@ -208,7 +220,8 @@ class Walker:
         if len(qualified) != 1:
             raise ExtractError(f"Expected one LinuxLoader AArch64 PE; got {len(qualified)} "
                                f"(all AArch64 PEs={len(self.identified)}, "
-                               f"valid FVs={len(self.fv_headers)}; notes={self.notes[:8]})")
+                               f"valid FVs={len(self.fv_headers)}, "
+                               f"objects={self.visited_objects}; notes={self.notes[:8]})")
         return qualified[0]
 
 
@@ -222,7 +235,33 @@ def run(source: Path, dest: Path, *, pinned_hash: str = ORIGINAL_ABL_SHA256,
     if len(raw) != pinned_size or digest(raw) != pinned_hash:
         raise ExtractError("Original stock ABL SHA256/size mismatch; stop")
     walker = Walker()
-    entry = walker.extract(raw)
+    try:
+        entry = walker.extract(raw)
+    except ExtractError as exc:
+        # Failed extraction still yields a bounded layer-by-layer diagnostic,
+        # but never writes an unverified loader executable.
+        dest.mkdir(parents=True, exist_ok=True)
+        diagnosis = {
+            "status": "NO_VERIFIED_LINUXLOADER",
+            "sourceSha256": digest(raw),
+            "sourceBytes": len(raw),
+            "failure": str(exc),
+            "firmwareVolumesFound": len(walker.fv_headers),
+            "firmwareVolumeTraces": walker.fv_headers[:32],
+            "aarch64PeCount": len(walker.identified),
+            "aarch64PeMetadata": [
+                {"info": x["info"], "fileGuid": x["fileGuid"],
+                 "ui": x["ui"], "trace": x["trace"]}
+                for x in walker.identified[:32]
+            ],
+            "objectsInspected": walker.visited_objects,
+            "diagnosticNotes": walker.notes[:64],
+            "physicalKernelLoadVerified": False,
+            "phoneModified": False,
+        }
+        diagnostic = dest / "linuxloader-extraction-diagnostics.json"
+        diagnostic.write_text(json.dumps(diagnosis, indent=2) + "\n")
+        raise ExtractError(f"{exc}; diagnostics: {diagnostic}") from exc
     dest.mkdir(parents=True, exist_ok=True)
     binary = dest / "LinuxLoader-HXL1.efi"
     if binary.exists():
