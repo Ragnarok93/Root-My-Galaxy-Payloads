@@ -302,3 +302,30 @@ cat ~/s20-artifacts/hxl1-research/abl-linuxloader/rea-stage4-seed-audit.md
 **Then** choose 1–3 concrete REA-reported analyzed string addresses with strong Android boot-loader relevance. Use the fork's exact `rea xrefs /absolute/path/LinuxLoader-HXL1.efi ADDRESS --provider ghidra --json`, `rea function ... PROCEDURE`, `rea decompile ... PROCEDURE`, and `rea trace-native-values ... PROCEDURE` on discovered enclosing functions. Record exact evidence IDs and input SHA256; do not infer original runtime execution from pseudocode. Use source-linked instructions and actual AArch64 function argument/register flow to determine image placement and the final branch/jump. The EFI's `entryPointRva=0x1000` and `preferredImageBase=0x0` are **EFI executable** metadata, not Linux physical kernel addresses.
 
 **Stage 4 physical kernel placement remains OPEN**, even though the REA/Ghidra toolchain stage is COMPLETE.
+
+
+## 2026-10-10 11:27 — first real stock LinuxLoader Ghidra string evidence
+
+Owner ran the focused offline saved-evidence auditor at head `2392e93`. **7 of 8 tests passed**; `test_forged_memory_address_rejected` failed because `analyze()` converted a malformed provider coordinate into `UNVERIFIED_EVIDENCE` instead of propagating the intended hard-stop exception. The real HXL1 seed audit nonetheless ran successfully and showed:
+
+- Original `LinuxLoader-HXL1.efi` SHA256 remains `5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003`. Static Ghidra string search `bootimg` = **0**, `kernel` = **39**, `dtb` = **85**.
+- Observed high-relevance debug string `Kernel Load Address: 0x%x\\n` at Ghidra **`0xbc48c`**, source Evidence `ev_951e9be7f91edd05e7f2bea964ae25ee373dc31f86fd7255cb93ba066c82f6af`.
+- Observed `KERNEL SIZE : %lx, KERNEL END ADDERSS: %lx DT_LoadAddr: %lx` at **`0xbce52`**; adjacent `Kernel is overlapped with DT` `0xbce90`, allocation failure `Not Enough space left to load kernel image` `0xbcca0`, and `KernelBaseAddr` `0xbd490`.
+- Observed `Best match DTB tags ...` at Ghidra **`0xbd674`** and `Exact DTB match found. DTBO search is not required` `0xbd7c4`. Related appends/board DTB selection messages strongly support actual **DTB selection logic** in this LinuxLoader, but **do not yet establish which DTB or its actual runtime physical destination**. Both DTB strings are from Ghidra Evidence `ev_59baeb3c4338999aacf0622efd2699688c849088f74d1f84249a99ef44bcc66a`.
+
+These are original PE **analysis data/string addresses** (not bootloader physical addresses or executable function entrypoints). The print format alone does not give the value printed at runtime. There is no extracted kernel base/physical handoff from this log.
+
+**Test fix** commit `f4356a4`: malformed Ghidra analysis addresses now throw `CorruptEvidenceLocation` from the offline parser and halt the full audit, while legitimately missing/foreign evidence remains explicitly marked unverified. All eight regression cases require owner/CI rerun.
+
+**Targeted next REA step**: `tools/run_y2q_hxl1_stage4_xrefs.sh` invokes only three provenance-checked exact-source `rea xrefs` queries on original loader string addresses `0xbc48c` (kernel load), `0xbce52` (kernel/DT boundary) and `0xbd674` (best DTB match). The script uses the already configured native REA 6.3.0/Ghidra 12.1.4 toolchain and verified PE hash, reuses previously authenticated xref JSON, and writes source analysis addresses and provider evidence IDs to `rea-stage4-xrefs-audit.md`. `tools/y2q_linuxloader_rea_stage4_xrefs.py` validates the target SHA256, Ghidra provider, exact query address and source string prior to reporting references; **10 synthetic tests** added. No guessed function names, runtime address calculation, firmware re-extraction, or device changes.
+
+Single requested WSL command:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -q tools/test_y2q_linuxloader_rea_stage4_seeds.py tools/test_y2q_linuxloader_rea_stage4_xrefs.py
+bash tools/run_y2q_hxl1_stage4_xrefs.sh
+```
+
+Next stage *after* obtaining real xref **source** instruction addresses: resolve enclosing functions, follow printer arguments with REA decompiler/def-use, inspect kernel Image/boot-v2 placement logic and final ARM64 handoff. **Do not conflate a print-format-string, EFI PE image base 0x0, or EFI entry RVA 0x1000 with a verified kernel physical address.** Stage 4 still OPEN.
