@@ -2364,5 +2364,83 @@
     },
     "nextRecommended": "Prioritize isolated runtime reachability/correctness evidence for the identified RT-mutex rollback path using non-destructive VM instrumentation and pinned HXL1 source parity; separately evaluate 4.19-compatible root/KSU mechanisms and mitigations. Never treat locked bootloader alone as a GhostLock no-go.",
     "riskPolicy": "Do not run crash-prone CVE PoC/race on primary phone. Keep branch research-only and no production support until privilege, loading and recovery evidence exists."
+  },
+  "hxl1NineStagePortReadiness": {
+    "prioritySetAt": "2026-10-10T06:07:28Z",
+    "directive": "Finish Root My Galaxy firmware-to-target porting guide stages before additional broad GhostLock or QEMU exploration",
+    "sourceGuide": "docs/PORTING.md",
+    "targetGuide": "docs/SM-G986U1-G986U1UESCHXL1.md",
+    "scanner": "tools/y2q_porting_readiness.py",
+    "scannerTests": "tools/test_y2q_porting_readiness.py",
+    "scannerState": "committed, owner has not yet executed",
+    "scannerOutputs": [
+      "/home/main/s20-artifacts/hxl1-research/port-readiness.json",
+      "/home/main/s20-artifacts/hxl1-research/port-readiness.md"
+    ],
+    "nineStages": [
+      {
+        "number": 1,
+        "category": "firmware identity",
+        "state": "COMPLETE",
+        "basis": "owner physical stock y2q / HXL1 / uname 4.19.113-27095354 and locked Verified Boot"
+      },
+      {
+        "number": 2,
+        "category": "extraction and provenance",
+        "state": "COMPLETE_EXTRACTED_INPUTS",
+        "basis": "pinned boot.img/kernel.bin/config.gz SHA256 and Samsung source 40 final overlays; booted kernel memory equivalence not independently read"
+      },
+      {
+        "number": 3,
+        "category": "stock symbols and structure",
+        "state": "PARTIAL",
+        "basis": "original recovered ELF/nm and selected raw instruction correlations complete; 4.19 structure layout and embedded BTF availability not yet independently established"
+      },
+      {
+        "number": 4,
+        "category": "physical load address",
+        "state": "OPEN",
+        "basis": "ARM64 header text_offset=0x80000; original HXL1 BL handoff load remains unverified"
+      },
+      {
+        "number": 5,
+        "category": "firmware runtime/slide assumptions",
+        "state": "OPEN",
+        "basis": "no target-specific validated slide, original P0 fingerprints, waiter overlap or trace worker return offset"
+      },
+      {
+        "number": 6,
+        "category": "native target and binary",
+        "state": "OPEN",
+        "basis": "identity-only ARM64 research diagnostic exists; no src/targets/y2q-G986U1UESCHXL1 target header or firmware-specific root payload"
+      },
+      {
+        "number": 7,
+        "category": "KernelSU exact 4.19 compatibility",
+        "state": "BLOCKED",
+        "basis": "SIG_FORCE=y, KPROBES=n, FUNCTION_TRACER=n, Samsung RKP/KDP/DEFEX protections; no matching loader/hook implementation"
+      },
+      {
+        "number": 8,
+        "category": "app support feed",
+        "state": "BLOCKED",
+        "basis": "no hardware root validation or exact firmware safe matching; y2q must remain absent from release feed"
+      },
+      {
+        "number": 9,
+        "category": "retention and recovery",
+        "state": "DEFERRED",
+        "basis": "retain original hashes/reports; no physical recovery and root release signoff"
+      }
+    ],
+    "releaseReady": false,
+    "workingExploit": false,
+    "workingKernelSu": false,
+    "verifiedStockIdentity": true,
+    "verifiedStockOriginalSourceHashes": true,
+    "nextOwnerAction": "Run python3 -m unittest -v tools/test_y2q_porting_readiness.py then python3 tools/y2q_porting_readiness.py and provide report; check whether exact HXL1 BL archive is retained",
+    "noPhoneChanges": true,
+    "noCrossDeviceOffsets": true,
+    "noPrematureSupportFeedRegistration": true
   }
 }
