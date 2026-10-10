@@ -1047,5 +1047,24 @@
       }
     },
     "recoveredSymbolsProvisional": true
+  },
+  "hxl1GhostLockWaiterLifecycleReview": {
+    "ownerReportedAt": "2026-10-10",
+    "source": "read-only ripgrep excerpt of original Samsung HXL1 kernel/futex.c",
+    "lines": {
+      "requeuePiWakeFutexDeclaration": "1817-1832",
+      "topWaiterTaskPid": "1906: vpid = task_pid_vnr(top_waiter->task)",
+      "topWaiterTaskPassedToAtomic": "1907: futex_lock_pi_atomic(..., top_waiter->task, ...)",
+      "requeueProxyLock": "2156-2158: rt_mutex_start_proxy_lock(&pi_state->pi_mutex, this->rt_waiter, this->task)",
+      "successBranch": "2159-2170: ret == 1 causes requeue_pi_wake_futex and continue",
+      "failureBranch": "2171-2186: nonzero non-success ret clears this->pi_state, calls put_pi_state and breaks"
+    },
+    "corroboratesDifferentWaiterTaskArgument": true,
+    "waiterTaskFieldInitializationEstablished": false,
+    "waiterEnqueuedBeforeRollbackEstablished": false,
+    "completeTaskBlocksOnRtMutexLogicReviewed": false,
+    "originalKernelSourceBugCorrelationVerified": true,
+    "deviceRuntimeExploitabilityVerified": false,
+    "next": "Read bounded rtmutex.c task_blocks_on_rt_mutex and rt_mutex_dequeue definitions plus futex.c requeue_pi_wake_futex body; establish where waiter->task is initialized and rollback conditions, without runtime crash PoC."
   }
 }
