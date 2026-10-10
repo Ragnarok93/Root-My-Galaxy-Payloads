@@ -196,6 +196,46 @@ def references(folder:Path,label:str,addr:str)->dict:
             "runtimeCallerObserved":False}
 
 
+def slot_bounded_edges(entries:list[dict])->list[dict]:
+    """Do not attribute a neighbor's branch to an overlapping 128-byte window.
+
+    The first three provisional upper bounds are the next function pointer in
+    ascending executable-address order. The final pointer's provisional end
+    is one instruction after its final observed RET in its current 128-byte
+    window. These are observation bounds, NOT Ghidra-established function
+    extents and not proof of control-flow reachability.
+    """
+    ordered=sorted(entries,key=lambda e:int(e["originalCode"]["staticAddress"],16))
+    for index,item in enumerate(ordered):
+        raw=item["originalCode"]
+        start=int(raw["staticAddress"],16)
+        if index+1<len(ordered):
+            stop=int(ordered[index+1]["originalCode"]["staticAddress"],16)
+            source="next-protocol-method-entry"
+        else:
+            rets=[int(edge["instructionAddress"],16) for edge in raw["edges"]
+                  if edge["mnemonicClass"]=="RET" and
+                  int(edge["instructionAddress"],16)>=start]
+            if not rets:
+                raise ExtractionError("Final EFI RAM callback has no observed return boundary")
+            stop=max(rets)+4
+            source="last-observed-ret-in-128-byte-window"
+        if stop<=start or stop>start+raw["size"] or stop%4:
+            raise ExtractionError("Invalid provisional method window attribution limit")
+        own=[e for e in raw["edges"]
+             if start<=int(e["instructionAddress"],16)<stop]
+        overlap=[e for e in raw["edges"] if int(e["instructionAddress"],16)>=stop]
+        item["boundedInterpretation"]={
+            "entry":hex(start),"exclusiveUpperBound":hex(stop),
+            "boundarySource":source,
+            "inRegionControlFlow":own,
+            "overlappingNeighborInstructionsNotAttributed":overlap,
+            "boundaryIsVerifiedGhidraFunctionEnd":False,
+            "dynamicCallGraphProven":False,
+        }
+    return entries
+
+
 def report(folder:Path,allow_missing:bool=True)->dict:
     parent=authenticated_parent(folder)
     entries=[]
@@ -212,9 +252,10 @@ def report(folder:Path,allow_missing:bool=True)->dict:
                         "protocolOffset":hex(index*8),
                         "originalCode":src,"ghidraCode":imported,
                         "allEdgesAreStatic":True})
+    slot_bounded_edges(entries)
     callback=next(e for e in entries if e["role"]=="get-ram-partitions")
     targets=[edge["directBranchTarget"]
-             for edge in callback["originalCode"]["edges"]
+             for edge in callback["boundedInterpretation"]["inRegionControlFlow"]
              if edge["mnemonicClass"]=="BL"]
     if GET_RAM_CALL_TARGET not in targets:
         raise ExtractionError("Original GetRamPartitions AArch64 BL 0x52cc not established")
@@ -267,12 +308,18 @@ def markdown(report:dict)->str:
                str(item["ghidraCode"] is not None),""]
         if item["ghidraCode"] is not None:
             rows+=["REA evidence: "+item["ghidraCode"]["evidenceId"],""]
-        rows+=["| Instruction | Class | Static target |",
+        bounded=item["boundedInterpretation"]
+        rows+=["Provisional method interval: ["+bounded["entry"]+","+
+               bounded["exclusiveUpperBound"]+")",
+               "Bound established by: "+bounded["boundarySource"],
+               "This is NOT a validated Ghidra function extent.","",
+               "| Instruction | Class | Static target |",
                "|---|---|---|"]
-        for edge in src["edges"]:
+        for edge in bounded["inRegionControlFlow"]:
             rows+=["| "+edge["instructionAddress"]+" | "+edge["mnemonicClass"]+
                    " | "+str(edge["directBranchTarget"])+" |"]
-        rows+=[""]
+        rows+=["","Overlapping window instructions NOT attributed to this method: "+
+               str(len(bounded["overlappingNeighborInstructionsNotAttributed"])),""]
     rows+=["## Follow direct ARM64 BL 0x1fa4 -> 0x52cc",""]
     for callee in report["directCalleeCode"]:
         code=callee["code"]
@@ -338,9 +385,9 @@ def main()->int:
         print("[ORIGINAL AARCH64]",item["role"],code["staticAddress"],
               "edges",len(code["edges"]),
               "Ghidra match",item["ghidraCode"] is not None)
-        for edge in code["edges"]:
+        for edge in item["boundedInterpretation"]["inRegionControlFlow"]:
             if edge["mnemonicClass"]=="BL":
-                print("  [BL]",edge["instructionAddress"],edge["directBranchTarget"])
+                print("  [BL OWN PROVISIONAL INTERVAL]",edge["instructionAddress"],edge["directBranchTarget"])
     for item in value["directCalleeCode"]:
         print("[BL TARGET ORIGINAL EXECUTABLE]",item["label"],
               item["code"]["staticAddress"],
