@@ -1628,6 +1628,59 @@
         },
         "status": "HXL1 original tracing/BPF inventory complete for basic observation vs kernel function interception; observe-only features cannot be equated with KernelSU hooking or privilege.",
         "nextGate": "If useful, inspect non-root device-side accessible tracefs paths and perf/BPF sysctls (no writes); prioritize legitimate loader/hook feasibility or stop-go decision instead of more offline config scans."
+      },
+      "ownerNonRootRuntimeObservation": {
+        "observedAt": "2026-10-10",
+        "device": "SM-G986U1",
+        "firmware": "G986U1UESCHXL1",
+        "transport": "adb shell (not root; read-only)",
+        "identity": {
+          "uid": 2000,
+          "gid": 2000,
+          "principal": "shell",
+          "selinuxContext": "u:r:shell:s0",
+          "supplementaryReadtracefsGroup": {
+            "name": "readtracefs",
+            "gid": 3012
+          }
+        },
+        "selinux": "Enforcing",
+        "sysctls": {
+          "/proc/sys/kernel/perf_event_paranoid": "-1",
+          "/proc/sys/kernel/unprivileged_bpf_disabled": "0"
+        },
+        "tracefsDirectories": [
+          {
+            "path": "/sys/kernel/tracing",
+            "listing": "drwxr-xr-x 6 root readtracefs 0 1969-12-31 18:00",
+            "observed": true
+          },
+          {
+            "path": "/sys/kernel/debug/tracing",
+            "listing": "drwxr-xr-x 6 root readtracefs 0 1969-12-31 18:00",
+            "observed": true
+          }
+        ],
+        "interpretation": {
+          "perfEventParanoid": "-1 removes perf-event-paranoid restrictions, but SELinux and other access controls may still restrict perf_event_open",
+          "unprivilegedBpfDisabled": "0 means sysctl itself does not disable unprivileged BPF, not that user can load BPF programs",
+          "readtracefs": "supplementary group observed; directory listing allowed; individual file read and event attachment not yet verified",
+          "tracefs": "two paths accessible by ls -ld, but directory identity (same mount vs distinct) not assessed",
+          "selinux": "enforcing; privileged root transition, untrusted module loading and protected code modifications remain unverified",
+          "kernelSu": "no demonstrated hook backend on this no-kprobes/no-function-tracer kernel"
+        },
+        "nextReadOnlyChecks": [
+          "List tracefs mount and mode/SELinux contexts for available_events and a handful of known event/format files only.",
+          "Check whether relevant existing scheduler/futex/lock event definitions are readable; no event enable, BPF attach, sysctl writes or tracing_on changes.",
+          "Maintain separation between observation and exploit/root/KernelSU feasibility."
+        ],
+        "tracingFileContentsReadVerified": false,
+        "traceEventsAttachVerified": false,
+        "bpfProgramLoadVerified": false,
+        "perfEventOpenVerified": false,
+        "moduleLoadVerified": false,
+        "rootVerified": false,
+        "productionSupportAllowed": false
       }
     }
   }
