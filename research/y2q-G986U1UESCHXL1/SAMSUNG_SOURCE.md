@@ -1560,6 +1560,65 @@ The device remains locked and untouched. A successful `Image`
 would still be unsigned, untested on hardware, and unflashable on
 the current locked bootloader.
 
+## October 9: ninth attempt reaches ARM64 built-in archive, blocked by unclassified warning
+
+The ninth Clang18 + two-patch compatibility-source Image attempt progressed
+past both previously fatal warning categories
+(`-Wpointer-sign` and `-Wunused-but-set-variable`) and reached
+`arch/arm64/kernel/built-in.a`. The owner provided the output of a
+keyword `grep` and `tail -n 90`. The **only fatal wrapper location** shown was:
+
+```text
+('error, forbidden warning:', 'main.c:720')
+make[2]: *** [.../scripts/Makefile.build:338: init/main.o] Error 1
+```
+
+The **original Clang warning at init/main.c:720** was not included in the
+supplied excerpt, because it occurs before the last 90 lines and the grep
+searched for `error:`, not `warning:`. We must **not infer** a Clang
+warning class or add another global `-Wno-...` flag yet.
+
+### Read-only root cause extraction, no recompilation
+
+Pull the branch, then run the new source-neutral diagnostic tool on
+the **already existing ninth log**, which finds the compiler warning
+by matching Samsung's fatal file:line marker to preceding Clang
+warnings, even when `-j2` interleaves output:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/summarize_samsung_kernel_build.py \
+  --log ~/s20-artifacts/samsung-hxl1-image-clang18-build-09.log
+```
+
+As a manual cross-check, read the earlier portion of the original full
+build log (not the pasted tail extract):
+
+```bash
+sed -n '52,69p' ~/s20-artifacts/samsung-hxl1-image-clang18-build-09.log
+
+grep -n -B 12 -A 3 'forbidden warning' \
+  ~/s20-artifacts/samsung-hxl1-image-clang18-build-09.log | head -65
+```
+
+After seeing the exact Clang message and its `[-W...]` category,
+evaluate whether the fix should be a source-level compatibility patch,
+a compiler-version match, or a narrowly scoped opt-in flag. The long-term
+preferred reference is Samsung's original **Clang 10.0.6** toolchain;
+the current Clang 18 build is experimental and must not be assumed
+equivalent.
+
+For **future** failures, the builder also includes `failureSummary` in
+its existing JSON build report, preserving the original verbose log.
+That summarization doesn't override the Make return code and doesn't
+alter the kernel build, source tree, or configuration.
+
+**No tenth compilation has been started.** The original audited Samsung
+kernel source and the generated `.config` remain unchanged. The source-copy
+still contains only the two approved upstream VDSO compatibility patches.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
