@@ -956,3 +956,50 @@ Next command (host-only; S20+ need not be attached):
     bash tools/run_y2q_hxl1_envdxe_method_arm64_trace.sh
 
 After 319/319 genuine regression passes, the runner should proceed to the five original-PE/Ghidra 128-byte windows, two bounded Ghidra xref requests and `rea-envdxe-four-method-arm64.md` report. CI is wired but no remote workflow result has yet been observed for the corrective commit. The *original* 0x52cc target was previously a verified ARM64 branch displacement only, not yet authenticated by the new 128-byte imported-Ghidra comparison.
+
+
+## 2026-10-10 16:33 — All 319/319 tests PASS, four original protocol methods and 0x52cc callee bytes confirmed
+
+Owner executed `bash tools/run_y2q_hxl1_envdxe_method_arm64_trace.sh` on the existing branch after pulling `87ba7c6`; **319/319 offline tests passed**. Exact original EnvDxe PE SHA256 remained `9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670`.
+
+**Five authenticated original PE+REA/Ghidra 128-byte executable windows**, each original importer bytes match and have evidence IDs:
+- Method at `0x1ee8`, original 128 SHA256 `dd9600c842574a8624d0da2796ed4fef56630041d22db8fa2221d9c6a9ff412a`, REA `ev_c779ca8c03fa9208cf232330fbd8cd1d796faaabcf9899f1ffd904ca7a46be53`.
+- Method at `0x1f0c`, SHA256 `e6547b34aaaf6acd08a3e2497bbece0e6c592faf2f5c0404fd4fcaf8e7c187bf`, REA `ev_d10282f4eefa9e483d046bf019802432d41b49cc7cf3959bfe18e63886827f2f`.
+- Method at `0x1f28`, SHA256 `0bbe8c8075b4464989130c4b071f7949ad26031b8b261909ae97f0dca1c36330`, REA `ev_3487e94781c2ed595a9e00761266764be422443eee7f8922b5e7f66a8dea0909`.
+- GetRamPartitions method `0x1f74`, SHA256 `77285b827eb1034b298d58295cbe8c35fe639f9dc2df42a4cdc23d7504079491`, REA `ev_6a66ef27ac31a519264d0da98627f24a5d4c7770cb9916ff0056da4600fd7dde`.
+- Direct callback helper at `0x52cc`, SHA256 `7c99a2255a08f2f56e605f28d6c090684617f7403d0d89127daf26ee272a98df`, REA `ev_1d39e17755374d270cee24913551aa813216cc811d73b40193eeb0b529c5b0a6`.
+
+Additional verified xrefs: target `0x1f74` **1 reference** (`ev_124a8a3079e66382689f374ad36af5cf41613b241e1e32b129f75a189c5e2693`), target `0x52cc` **2 references** (`ev_64dd5d9c50f6060801506c06b848e540252e430abc28f02e7cdf385574af5847`). User report stored as `rea-envdxe-four-method-arm64.md`.
+
+### Mandatory correction: 128-byte windows overlap and cannot be treated as function boundaries
+
+The initial output erroneously *displayed* `0x1f40 -> 0x5740` as part of method 0x1ee8 **and** 0x1f0c, and displayed `0x1fa4 -> 0x52cc` as part of both method 0x1f28 and callback 0x1f74. It also displayed `0x1ff0 -> 0x2618` under GetRamPartitions even though the latter's observed `RET` is at `0x1fe4`. Those are **overlapping 128-byte raw-window artifacts**, not verified shared function bodies.
+
+Corrected `slot_bounded_edges` makes conservative, PROVISIONAL intervals based on the next higher authenticated EFI protocol method entry and callback's last observed return:
+- method-08: `[0x1ee8,0x1f0c)`; **does not own** 0x1f40;
+- method-10: `[0x1f0c,0x1f28)`; **does not own** 0x1f40;
+- method-20: `[0x1f28,0x1f74)`; **owns** 0x1f40 BL to 0x5740, **does not own** 0x1fa4;
+- GetRamPartitions: `[0x1f74,0x1fe8)`; **owns** 0x1fa4 BL to 0x52cc and observed RET 0x1fe4; **does not own** 0x1ff0 BL to 0x2618.
+
+These are **provisional attribution bounds, not Ghidra-confirmed function extents**. Underlying original PE code SHA256/byte and xref evidence is unchanged. Five new tests directly enforce correct attribution and rejection when no terminal return exists. The helper 128-byte window independently encodes direct BL `0x5340 -> 0x3c3c`, branches `0x52f4 -> 0x5398` and `0x532c -> 0x5388`, and requires examination of its continuation.
+
+### Next combined host-only batch
+
+`tools/y2q_hxl1_envdxe_helper_batch.py`, `tools/test_y2q_hxl1_envdxe_helper_batch.py` and `tools/run_y2q_hxl1_envdxe_helper_batch.sh` validate eight original static code windows in ONE pass:
+- `0x52cc` length 224 through helper tail below known next routine `0x53b0`;
+- `0x3c3c` length 128 (direct BL from helper at 0x5340);
+- `0x5740` length 128 (direct BL from preceding EFI method at 0x1f40);
+- `0x2618` length 128 (direct BL from **post-GetRamPartitions** code at 0x1ff0, not part of callback);
+- `0x5388` length 40 and `0x5398` length 24 (helper's distinct observed local branch targets, both ending at 0x53b0);
+- `0x1fe8` length 96 (separate post-callback code);
+- `0x81f4` length 128 (previously verified source instruction referencing SMEM accessor, separate lead, NOT a known function entry).
+
+Four bounded Ghidra xref queries: `0x3c3c`, `0x5740`, `0x2618`, `0x1fe8`. Each window is original-executable PE SHA-gated and optional Ghidra-readback matched. An existing completed but corrupted result fails closed; failed partial evidence is preserved. The source analyzer requires parent original method attribution and 0x52cc original 128-byte prefix corroboration, and differentiates original evidence from live execution.
+
+Previous 319 tested cases + 5 new method-ownership regression tests + 334 new helper-batch cases = **658 independent offline test cases**, over twice the previous 319. All tools and CI wiring pushed to original feature branch but **NOT yet executed on WSL2**, so avoid claiming a successful 658 pass. Read-only, no S20+ connection:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_envdxe_helper_batch.sh
+
+Report path: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-helper-batch.md`. This continues the original firmware's GetRamPartitions ABI tracing. It does **not** establish a live BaseMemory, boot-time KASLR, physical kernel entry, GhostLock vulnerability, root or KernelSU.
