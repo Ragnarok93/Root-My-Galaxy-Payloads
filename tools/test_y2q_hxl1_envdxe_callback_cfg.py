@@ -237,5 +237,117 @@ for address in cfg.REQUIRED_BRANCHES:
                 f"test_branch_opcode_{address:04x}_bit_{bit:02d}",mk(address,bit))
 
 
+
+# The missing 0x2048..0x205c Ghidra window supplies exactly twenty bytes.
+# Independently test all 160 bits: even a one-bit discrepancy must fail closed.
+def tail_record(blob:bytes):
+    return {
+        "operation":"read_bytes",
+        "parameters":{"address":"0x2048","length":20},
+        "evidence_id":"ev_tail_synthetic",
+        "normalized_result":{
+            "address":"0x2048","requested_bytes":20,
+            "returned_bytes":20,"complete":True,
+            "bytes_hex":blob.hex(),
+        },
+    }
+
+
+class CallbackTailProvenanceTests(unittest.TestCase):
+    def setUp(self):
+        self.folder=Path(tempfile.mkdtemp())
+        self.addCleanup(__import__("shutil").rmtree,self.folder)
+        self.original=bytes(range(20))
+        self.imported=bytearray(self.original)
+
+    def check_tail(self):
+        with patch.object(cfg,"original_window",return_value={
+                "bytesHex":self.original.hex(),"sha256":"fake_hash"
+             }):
+            with patch.object(cfg,"evidence_json",
+                              return_value=tail_record(bytes(self.imported))):
+                return cfg.validate_tail(self.folder)
+
+    def test_exact_twenty_original_bytes_are_accepted(self):
+        self.assertTrue(self.check_tail()["originalBytesMatchGhidra"])
+
+    def test_reject_wrong_operation(self):
+        x=tail_record(self.original)
+        x["operation"]="analyze_function"
+        with patch.object(cfg,"original_window",return_value={
+                "bytesHex":self.original.hex(),"sha256":"fake_hash"
+            }),patch.object(cfg,"evidence_json",return_value=x):
+            with self.assertRaisesRegex(ExtractionError,"disagrees"):
+                cfg.validate_tail(self.folder)
+
+    def test_reject_short_read(self):
+        x=tail_record(self.original)
+        x["normalized_result"]["returned_bytes"]=19
+        with patch.object(cfg,"original_window",return_value={
+                "bytesHex":self.original.hex(),"sha256":"fake_hash"
+            }),patch.object(cfg,"evidence_json",return_value=x):
+            with self.assertRaisesRegex(ExtractionError,"disagrees"):
+                cfg.validate_tail(self.folder)
+
+
+for byte_at in range(20):
+    for bit in range(8):
+        def make(byte_index,bit_index):
+            def test(self):
+                self.imported[byte_index]^=1<<bit_index
+                with self.assertRaisesRegex(ExtractionError,"disagrees"):
+                    self.check_tail()
+            return test
+        setattr(CallbackTailProvenanceTests,
+                f"test_exact_tail_byte_{byte_at:02d}_bit_{bit}",make(byte_at,bit))
+
+
+# The first and second saved Ghidra windows overlap by 12 bytes.
+# Guard each of the 96 original overlapping bits, independent of the
+# current entire-PE SHA and separate 20-byte final tail read.
+class CallbackOverlapProvenanceTests(unittest.TestCase):
+    def setUp(self):
+        self.folder=Path(tempfile.mkdtemp())
+        self.addCleanup(__import__("shutil").rmtree,self.folder)
+        self.raw=raw_fixture()
+        self.cont=bytearray(CONT)
+
+    def check_overlap(self):
+        def source(folder,address,size):
+            if address==hex(cfg.BASE) and size==cfg.END-cfg.BASE:
+                return {"bytesHex":self.raw.hex(),"sha256":"synthetic"}
+            if address=="0x1f74" and size==128:
+                return {"bytesHex":ENTRY.hex()}
+            if address=="0x1fe8" and size==96:
+                return {"bytesHex":bytes(self.cont).hex()}
+            raise ValueError((address,size))
+        with patch.object(cfg,"original_window",side_effect=source):
+            with patch.object(cfg,"imported_window",return_value={
+                    "evidenceId":"ev_a"}):
+                with patch.object(cfg,"imported_code",return_value={
+                        "evidenceId":"ev_b"}):
+                    with patch.object(cfg,"validate_tail",return_value={
+                            "evidenceId":"ev_c"}):
+                        return cfg.full_bytes(self.folder)
+
+    def test_real_12_byte_overlap_matches(self):
+        value,proof=self.check_overlap()
+        self.assertEqual(len(value),232)
+        self.assertTrue(proof["continuousOriginalAndImportedCoverage"])
+
+
+for byte_at in range(12):
+    for bit in range(8):
+        def make(byte_index,bit_index):
+            def test(self):
+                self.cont[byte_index]^=1<<bit_index
+                with self.assertRaisesRegex(ExtractionError,
+                                            "continuation differs"):
+                    self.check_overlap()
+            return test
+        setattr(CallbackOverlapProvenanceTests,
+                f"test_overlap_byte_{byte_at:02d}_bit_{bit}",make(byte_at,bit))
+
+
 if __name__=="__main__":
     unittest.main()
