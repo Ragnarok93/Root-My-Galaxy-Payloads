@@ -140,14 +140,17 @@ for file in abl.elf xbl.elf xbl_config.elf; do
   printf '\n=== %s ===\n' "$file"
   sha256sum "$OUT/$file"
   file "$OUT/$file"
-  readelf -h "$OUT/$file" 2>&1 | head -n 32
+  readelf -h "$OUT/$file" > "$OUT/$file-elf-header.txt" 2>&1
+  sed -n '1,32p' "$OUT/$file-elf-header.txt"
 done
 
 echo "=== ABL program headers (bootloader segments, not kernel load address) ==="
-readelf -lW "$OUT/abl.elf" 2>&1 | head -n 75
+readelf -lW "$OUT/abl.elf" > "$OUT/abl-program-headers.txt" 2>&1
+sed -n '1,75p' "$OUT/abl-program-headers.txt"
 
 echo "=== XBL program headers (bootloader segments) ==="
-readelf -lW "$OUT/xbl.elf" 2>&1 | head -n 65
+readelf -lW "$OUT/xbl.elf" > "$OUT/xbl-program-headers.txt" 2>&1
+sed -n '1,65p' "$OUT/xbl-program-headers.txt"
 ```
 
 Interpret the output as *file format and executable
