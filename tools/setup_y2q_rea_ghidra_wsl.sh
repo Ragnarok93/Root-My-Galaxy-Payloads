@@ -160,7 +160,7 @@ fi
 # files from the already-downloaded official SHA256-pinned ZIP; no re-extract.
 if [[ "$candidate" == "$TARGET" && -f "$ARCHIVE" ]]; then
   ROOT_REPO="$(cd "$(dirname "$0")/.." && pwd)"
-  python3 -m unittest -q tools/test_y2q_repair_ghidra_executable_modes.py
+  ( cd "$ROOT_REPO" && python3 -m unittest -q tools/test_y2q_repair_ghidra_executable_modes.py )
   python3 "$ROOT_REPO/tools/y2q_repair_ghidra_executable_modes.py" \
     --ghidra "$candidate" --archive "$ARCHIVE" \
     --output "$OUT/ghidra-executable-mode-audit.json"
@@ -186,7 +186,26 @@ if node scripts/rea.mjs doctor --provider ghidra --json \
   2> "$OUT/rea-ghidra-doctor-errors.txt"; then
   echo "[PASS] Ghidra provider doctor succeeded"
 else
-  echo "[BLOCKED] Ghidra provider still reports a prerequisite/compatibility issue"
+  echo "[BLOCKED] REA's actual Ghidra doctor detected:"
+  python3 - "$OUT/rea-ghidra-doctor.json" <<'PY'
+import json,sys
+try:
+    report=json.load(open(sys.argv[1]))
+except (ValueError,OSError) as exc:
+    print("[ERROR] Could not parse doctor JSON:",exc)
+else:
+    for item in report.get("scope_checks", []):
+        if item.get("ok") is False:
+            print("[FAIL]",item.get("name"),item.get("classification"),
+                  item.get("detail"),item.get("remediation"))
+    for provider in report.get("providerInspections", []):
+        if provider.get("id")!="ghidra":
+            continue
+        for item in provider.get("checks", []):
+            if item.get("ok") is False:
+                print("[PROVIDER FAIL]",item.get("name"),item.get("code"),
+                      item.get("detail"),item.get("remediation"))
+PY
   echo "[DOCTOR] $OUT/rea-ghidra-doctor.json"
   echo "[STDERR] $OUT/rea-ghidra-doctor-errors.txt"
   exit 2
