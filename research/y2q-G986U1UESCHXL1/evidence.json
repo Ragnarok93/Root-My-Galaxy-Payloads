@@ -1318,7 +1318,7 @@
         "Loaded-stock-kernel signature enforcement requires accepted signing key",
         "Samsung __rticdata and __kdp_ro are protected-data annotations; no write access established"
       ],
-      "status": "export namespace and table bounds identified; CRC decode and validation pending",
+      "status": "Stock export names, targets, GPL/ordinary entry parity and direct CRC semantics source-verified; independent deployed-kernel validation, signing and module loading unresolved",
       "ownerExecutedAuditAt": "2026-10-10",
       "ownerOriginalAuditOutput": {
         "status": "read-only provisional symbol and CRC audit; NO module-load approval",
@@ -1478,6 +1478,22 @@
           "Module signing and Samsung RKP/DEFEX constraints remain active",
           "Export presence does not establish a compatible KernelSU implementation"
         ]
+      },
+      "ownerSourceVerification": {
+        "testResult": "5/5 tests passed in owner WSL2 before source-aware auditor enhancement",
+        "exactSamsungAssembledSource": {
+          "exportHeader": "include/linux/export.h:27-38",
+          "directMacro": ".long __crc_##sym when CONFIG_MODULE_REL_CRCS not defined",
+          "moduleLoader": "kernel/module.c:1346-1349",
+          "directLoaderExpr": "crcval = *crc",
+          "selectedByConfig": "CONFIG_MODULE_REL_CRCS absent (not defined) in original config.gz"
+        },
+        "sourceCorroboration": "confirmed; raw 4-byte LE values are source-consistent direct CRC words",
+        "independentCompiledFirmwareCrcValidation": false,
+        "moduleSigningAccepted": false,
+        "testsPassed": 5,
+        "newAuditOption": "--source-dir ~/src/samsung-y2q-hxl1-stock",
+        "scope": "read-only offline analysis only"
       }
     }
   }
