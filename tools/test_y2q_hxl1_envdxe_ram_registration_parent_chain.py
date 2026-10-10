@@ -101,7 +101,7 @@ class RealUpstreamContractTests(unittest.TestCase):
             record.pop("physicalBaseMemoryMeasured")
             return record
         with patch.object(downstream,"prior_audit",side_effect=tamper):
-            with self.assertRaisesRegex(ExtractionError,"without runtime"):
+            with self.assertRaisesRegex(ExtractionError,"schema missing field: physicalBaseMemoryMeasured"):
                 downstream.original_registration(self.up.folder)
 
     def test_bad_genuine_provider_pseudocode_fails_from_real_chain(self):
