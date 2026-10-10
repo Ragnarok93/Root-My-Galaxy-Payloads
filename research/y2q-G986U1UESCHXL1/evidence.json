@@ -665,6 +665,23 @@
       "nextAction": "Run read-only tools/summarize_samsung_kernel_build.py --log ~/s20-artifacts/samsung-hxl1-image-clang18-build-09.log; retain original log, do not invent suppression flag; exact diagnostics around marker via sed -n '55,68p' original log",
       "kernelImageBuilt": false,
       "phoneModified": false
+    },
+    "ninthImageWarningClassification": {
+      "reportingDate": "2026-10-09",
+      "log": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-build-09.log",
+      "classifier": "tools/summarize_samsung_kernel_build.py",
+      "warningCount": 6,
+      "forbiddenCount": 1,
+      "source": "/home/main/src/samsung-y2q-hxl1-vdso-ias-compat/init/main.c",
+      "sourceLine": 720,
+      "sourceColumn": 60,
+      "warningCategory": "-Wformat",
+      "warningText": "format specifies type 'unsigned long' but the argument has type 'u64' (aka 'unsigned long long')",
+      "logLine": 62,
+      "wrapperFatalLine": 64,
+      "assessment": "Specific printf-family specifier / vararg type mismatch. Do not suppress global -Wformat: preserves meaningful checks. Need owner-provided exact statement around line 720 to select minimal type-correct source fix.",
+      "nextInspectionCommand": "nl -ba ~/src/samsung-y2q-hxl1-vdso-ias-compat/init/main.c | sed -n '711,728p'",
+      "caution": "Do not mutate original Samsung source or two-patch compatibility tree without generating a separately verified new copy/manifest. No tenth build yet."
     }
   }
 }
