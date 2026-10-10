@@ -3686,6 +3686,131 @@ mistaken for a new KernelSU hook backend.
 
 ---
 
+## Phase 2: benign futex-PI ARM64 prerequisite diagnostic
+
+**Purpose:** answer only whether an unrooted stock
+`SM-G986U1` with exact firmware `G986U1UESCHXL1`
+can perform *ordinary, uncontended* futex and
+futex-PI syscalls. This does **not** attempt
+CVE-2026-43499, futex requeue, deadlock-chain
+creation, a race, kernel memory changes or root.
+
+The new source is
+`research/y2q-G986U1UESCHXL1/futex_pi_smoke.c`.
+Its first gate requires the exact Samsung model,
+`y2q` device, bootloader build, fingerprint,
+`4.19.113-27095354` running kernel release,
+locked flash and vbmeta properties, 4096-byte pages,
+and an ordinary **ADB shell** UID/EUID 2000.
+It refuses other device/firmware/root contexts.
+
+The diagnostic performs five bounded checks once:
+
+1. `FUTEX_WAIT_PRIVATE` against an intentionally
+   mismatched value: should return **EAGAIN immediately**;
+   it **never blocks on the WAIT call**.
+2. `FUTEX_WAKE_PRIVATE` with no waiters: expect zero
+   woken.
+3. `FUTEX_LOCK_PI_PRIVATE` on a fresh, unlocked,
+   thread-private word: expect success and current
+   thread ownership.
+4. `FUTEX_UNLOCK_PI_PRIVATE` for the acquired word:
+   expect successful unlock/reset.
+5. `FUTEX_TRYLOCK_PI_PRIVATE` and
+   `FUTEX_UNLOCK_PI_PRIVATE` on another fresh word:
+   expect success and reset.
+
+Only one thread/process is used; **there are no
+contended locks, PI requeue operations, repeated
+races, user-visible sysctl modifications, BPF
+attachments, privilege adjustments, or kernel modules**.
+PI lock/unlock must be correctly paired, as required
+by [futex(2)](https://man7.org/linux/man-pages/man2/futex.2.html).
+
+### Build and artifact
+
+The existing
+`.github/workflows/y2q-identity-probe.yml`
+runs `tools/test_y2q_futex_pi_smoke.py`,
+cross-compiles the new tool with Android API 33,
+and uploads artifact named
+`y2q-HXL1-futex-pi-smoke-NOT-ROOT`. Download
+the artifact from the successful workflow run
+of the **investigation branch**, not from an
+old job or another repository.
+The ZIP contains a single executable
+`y2q-HXL1-futex-pi-smoke`.
+
+The local equivalent build command is:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools/test_y2q_futex_pi_smoke.py
+
+# Requires Android NDK r30 for Linux and ANDROID_NDK_HOME.
+bash research/y2q-G986U1UESCHXL1/build_futex_pi_smoke.sh
+```
+
+Do **not** confuse this diagnostic executable
+with the project's inert shared library,
+KernelSU `ksud`, an unsigned `.ko`,
+or a GhostLock exploit.
+
+### Controlled unrooted S20+ test
+
+After obtaining the built executable locally,
+point `BIN` to it. For example, if you built
+through the NDK:
+
+```bash
+BIN=~/src/Root-My-Galaxy-Payloads/research/y2q-G986U1UESCHXL1/build/y2q-HXL1-futex-pi-smoke
+file "$BIN"
+sha256sum "$BIN"
+adb shell getprop ro.boot.bootloader
+adb shell id
+
+# Staging under /data/local/tmp is the ONLY device file write.
+adb push "$BIN" /data/local/tmp/y2q-HXL1-futex-pi-smoke
+adb shell chmod 700 /data/local/tmp/y2q-HXL1-futex-pi-smoke
+
+# A host-side deadline protects against an unexpected system hang.
+timeout --signal=TERM --kill-after=2s 10s \
+  adb shell /data/local/tmp/y2q-HXL1-futex-pi-smoke
+
+# Remove staging file after collecting the result.
+adb shell rm -f /data/local/tmp/y2q-HXL1-futex-pi-smoke
+```
+
+**Run as normal `adb shell`, not `su`.**
+If the host deadline fires, collect the exit code
+and stop rather than retrying repeatedly.
+
+Expected terminal labels:
+
+- `RESULT=PASS_BASIC_FUTEX_PI_SYSCALLS_ONLY` /
+  exit 0: ordinary, uncontended futex-PI
+  operations work; **not vulnerability/root proof**.
+- `RESULT=INCONCLUSIVE_PI_UNAVAILABLE` /
+  exit 3: a PI operation failed with an unavailable/
+  permission/unsupported error; report its errno.
+- `RESULT=FAIL_STANDARD_FUTEX` or
+  `RESULT=FAIL_PI_SEMANTICS` / exit 4:
+  unexpected behavior; do not continue on device.
+- `RESULT=REFUSED_*` / exit 2:
+  guard rejected environment; **do not bypass**.
+
+CI/build and device results must be recorded
+independently; **not verified until output
+from a successful run is supplied**. This stage
+does not inspect the PI requeue/error lifecycle,
+so success does not establish the previously
+identified GhostLock path's reachability or
+exploitability. Do not automate stress/races
+or attempt KernelSU insertion on this basis.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
