@@ -4466,6 +4466,41 @@ capability or root on the handset.
 
 ---
 
+## October 10, 05:43 UTC — post-fix QEMU lab regression: 11/11 PASS
+
+The owner pulled the fix through `fd23e81` and reran
+`python3 -m unittest -v tools/test_y2q_qemu_lab.py`.
+
+**Verified output:** `Ran 11 tests in 0.067s`, `OK`,
+`Test exit code: 0`.
+
+The fix to `tools/y2q_qemu_lab.py` now returns exit zero
+for both `PASS_BOOT_ONLY` and `PASS_BOUNDED_PI`.
+The test suite independently verifies that mocked
+KASAN BUG, kernel panic, nonzero QEMU exit, and
+missing PI success markers remain failures.
+Those **mocked kernel error messages in unit-test stdout
+are test fixtures**, not crashes in the owner's running
+KASAN guest. The real QEMU `PASS_BOUNDED_PI` run
+was verified separately at 05:40 UTC.
+
+**Current verified stage:** upstream Linux 4.19.325
+ARM64 baseline boot + KASAN/`DEBUG_RT_MUTEXES` boot +
+bounded healthy PI operations on the instrumented guest +
+post-fix host regression suite **all PASS**. No kernel
+exploit, vulnerable PI-requeue error-path reproduction,
+temporary privilege escalation, on-phone kernel module
+load or KernelSU integration has been demonstrated.
+
+**Next offline gate:** compare HXL1 RT-mutex waiter
+cleanup invariants to the relevant *fixed* upstream
+implementation; record version provenance explicitly.
+Do not infer stock-device exploitability from QEMU's
+upstream 4.19.325 guest or test a destabilizing
+requeue/race on the primary handset.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
