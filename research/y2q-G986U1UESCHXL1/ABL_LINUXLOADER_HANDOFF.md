@@ -183,3 +183,45 @@ bash tools/analyze_y2q_hxl1_linuxloader_rea.sh
 If `doctor --provider ghidra` reports missing Ghidra, install/configure a supported Ghidra from an official distribution, then re-run the REA command. Do not substitute a different provider silently, and do not claim any decompilation or AArch64 handoff result before analyzing the recovered genuine PE.
 
 **Stage 4 remains OPEN**: identifying the original LinuxLoader executable and its PE file format does not prove physical Linux load/entry, DTB selection, runtime vulnerability reachability or KernelSU.
+
+
+## 2026-10-10 WSL2 confirmation: real LinuxLoader now recovered and *validated*
+
+The owner ran both previous regression suites against commit `62ef218`: **24/24 PASS**, and the real SHA-pinned original HXL1 LinuxLoader passed dual-independent-FV-decoder integrity, FFS GUID/UI, and AArch64 PE32+ validation:
+
+```text
+[VERIFIED EFI] /home/main/s20-artifacts/hxl1-research/abl-linuxloader/LinuxLoader-HXL1.efi
+coffMachine=0xaa64; optionalHeaderMagic=0x20b; e_lfanew=0xe58
+coffSectionCount=3; coffOptionalHeaderSize=240
+entryPointRva=0x1000; preferredImageBase=0x0
+fileBytes=3575808; sizeOfImage=3575808
+sha256=5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003
+```
+
+Note: synthetic fixture under `/tmp/tmppid3o0kv/` had `entryPointRva=0x120` and image base `0x100000`. **These are fixture values; NEVER use them for real HXL1.** The *real* EFI's PE entry-point RVA `0x1000` is an EFI application program entry, **not** the Linux kernel's physical entry address.
+
+### Remaining host-only REA toolchain failure (do not re-extract firmware)
+
+Owner's REA checkout exists at `~/src/rea`, but original WSL2 `node --version` prints **v18.19.1** while `npm --version` prints **11.19.0** from the **Windows npm executable**. During `npm ci`, that Windows npm invoked `C:\\WINDOWS\\system32\\cmd.exe` and Windows Node `v24.21.0` using a `\\\\wsl.localhost\\Ubuntu-24.04\\...` UNC current-directory path, leading to `Cannot find module 'C:\\Windows\\install.js'`, ESBuild postinstall failure and absent package build. Direct `node scripts/rea.mjs doctor` used the old Linux Node 18 and failed importing `package.json` due to JSON import attribute support.
+
+**This is a mismatched host toolchain, NOT a PE or Ghidra failure.** Neither the REA checkout nor 3.6 MB verified loader needs cloning or re-extraction.
+
+The new opt-in `tools/bootstrap_y2q_rea_wsl.sh`:
+1. Requires the **existing REA checkout** (no duplicate git clone, no reset/rebase);
+2. on Linux, clones the **tag-pinned nvm v0.40.3** only if missing, activates native Linux **Node 24.11+** via `nvm install 24` and `nvm alias default 24`;
+3. verifies **both** `node` and `npm` resolve under `~/.nvm/versions/node/...` before running any npm install scripts;
+4. rebuilds the **existing REA fork** using `npm ci --no-audit --no-fund` (replaces broken Windows-produced `node_modules`) and `npm run build`;
+5. saves REA `providers` and `doctor --provider ghidra` reports under the local HXL1 loader research folder. A missing Ghidra is an explicit **next prerequisite**, never treated as proof of a loader problem.
+
+The companion `tools/analyze_y2q_hxl1_linuxloader_rea.sh` now loads native nvm Node when running noninteractively so the same original WSL2 Windows npm/Node issue cannot silently return.
+
+**Next command (already has original loader, no unpacking):**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/bootstrap_y2q_rea_wsl.sh
+bash tools/analyze_y2q_hxl1_linuxloader_rea.sh
+```
+
+If REA's Ghidra doctor reports unmet prerequisites, REA's docs require an **existing official Ghidra 12.1.x** and compatible **64-bit full JDK 21+**, with `GHIDRA_INSTALL_DIR` and, if needed, `JAVA_HOME` set to actual Linux installation paths. No REA installer downloads Ghidra. REA's native Ghidra provider can then follow the original Android boot image parsing and kernel placement control flow. Stage 4 stays **OPEN** until original-loader code/dataflow actually proves a physical kernel load/handoff.
