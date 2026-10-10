@@ -100,6 +100,14 @@ def main() -> int:
         raise ValueError("Normal export and CRC table lengths do not match PREL32 expectations")
 
     gpl_crc = symbols.get("__start___kcrctab_gpl", (None, "U"))[0]
+    gpl_crc_end = symbols.get("__stop___kcrctab_gpl", (None, "U"))[0]
+    if (gpl_end - gpl_begin) % 8:
+        raise ValueError("GPL export table has a non-integral PREL32 entry count")
+    if (gpl_crc is not None and gpl_crc != crc_end:
+        raise ValueError("GPL CRC table must begin where normal CRC table ends")
+    if gpl_crc_end is not None and gpl_crc is not None:
+        if (gpl_crc_end - gpl_crc) != ((gpl_end - gpl_begin) // 8) * 4:
+            raise ValueError("GPL export count and GPL CRC slot count disagree")
     result = {
         "status": "read-only provisional symbol and CRC audit; NO module-load approval",
         "firmware": "G986U1UESCHXL1",
@@ -110,6 +118,15 @@ def main() -> int:
         "normalCrcSlots": crc_span // 4,
         "gplExports": (gpl_end - gpl_begin) // 8,
         "gplCrcStartPresent": gpl_crc is not None,
+        "gplCrcEndPresent": gpl_crc_end is not None,
+        "gplCrcSlots": (gpl_crc_end - gpl_crc) // 4 if gpl_crc is not None and gpl_crc_end is not None else None,
+        "crcInterpretationNote": (
+            "The absent CONFIG_MODULE_REL_CRCS config entry does not independently "
+            "validate CRC encoding. Stock 4.19 module.c uses IS_ENABLED(CONFIG_MODULE_REL_CRCS): "
+            "when undefined, it reads the 32-bit CRC slot directly. Values "
+            "reported with the absolute assumption remain provisional until "
+            "Samsung's exact source and a known independent CRC are checked."
+        ),
         "symbols": [],
     }
     for name in args.names:
@@ -157,6 +174,7 @@ def main() -> int:
             raw_crc_slot = raw[raw_off(slot_va, 4):raw_off(slot_va, 4) + 4]
             item["crcSlotVA"] = f"{slot_va:#x}"
             item["crcSlotRawHex"] = raw_crc_slot.hex()
+            item["crcSlotLittleEndianU32"] = f"0x{struct.unpack('<I', raw_crc_slot)[0]:08x}"
             if options["CONFIG_MODULE_REL_CRCS"] == "n":
                 item["candidateCrc"] = f"0x{struct.unpack('<I', raw_crc_slot)[0]:08x}"
             elif options["CONFIG_MODULE_REL_CRCS"] == "y":
@@ -169,7 +187,12 @@ def main() -> int:
                 except ValueError:
                     item["crcCaveat"] = "Relative CRC reference outside raw Image; cannot decode offline"
             else:
-                item["crcCaveat"] = "Exact MODULE_REL_CRCS config absent; raw entry only"
+                item["candidateCrcAssumingAbsolute"] = item["crcSlotLittleEndianU32"]
+                item["crcCaveat"] = (
+                    "MODULE_REL_CRCS entry absent, not explicitly disabled in provided "
+                    "config.gz; absolute interpretation follows upstream 4.19 "
+                    "IS_ENABLED fallback but still needs exact-source/CRC cross-check"
+                )
         if not item["nameMatches"]:
             raise ValueError(f"STOP: PREL32 name mismatch {name}: found {resolved_name}")
         if target_symbol is not None and not item["kallsymsValueMatches"]:
