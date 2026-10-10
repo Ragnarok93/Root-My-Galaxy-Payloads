@@ -5,6 +5,8 @@ Android 13, `uname -r = 4.19.113-27095354`, security patch
 2025-01-01. The bootloader is locked, Android SELinux enforcing,
 and the existing Shizuku/ADB identity probe ran as `uid=2000`.
 
+**Nine-stage porting map:** [SM-G986U1 HXL1 adaptation](../../docs/SM-G986U1-G986U1UESCHXL1.md) follows `docs/PORTING.md` section-by-section and records completed input-evidence gates and open Linux 4.19 / KernelSU / feed milestones.
+
 **Current deliverable:** a *read-only/offline source triage and
 non-executable payload candidate manifest*, not a working root exploit.
 No root was achieved, no bootloader lock state changed, and no KernelSU
