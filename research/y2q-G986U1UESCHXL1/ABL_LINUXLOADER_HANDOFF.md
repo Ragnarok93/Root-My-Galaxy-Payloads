@@ -474,3 +474,36 @@ bash tools/run_y2q_hxl1_stage4_handoff_sources.sh
 ```
 
 **Stage 4 status:** Final original bootloader kernel handoff *static code path* is now **IDENTIFIED**; numerical `kernel_phys_load` for GhostLock/KernelSU remains **UNVERIFIED**, as do the runtime UEFI/fallback branch and real BaseMemory/KASLR/selected DTB. This evidence neither demonstrates a practical escalation nor unlocks the phone or installs KernelSU.
+
+
+
+## 2026-10-10 — physical S20+ connected via ADB; transition to live read-only evidence
+
+The owner reported a real Galaxy S20+ connected to Ubuntu WSL2 with functioning ADB transport. No new device property, physical RAM address, root privilege, kernel trace or DTB read has yet been reported from this ADB session. The previously recovered original **HXL1 ABL LinuxLoader** static control transfer and its OEM fallback constants are the *reference model*, not observed runtime values:
+
+- ARM64 UEFI branch: (KernelBaseAddr + 0x80000) + (runtime KASLR state << 15).
+- ARM64 fallback branch: (BaseMemory | 0x80000) + (runtime KASLR state << 15).
+- Final direct ARM64 transfer after successful boot-services exit is through local_190 (with DTB at local_178); this is firmware static code, not a measurement of the booted system.
+- Kernel boot offset 0x80000, fallback 0x05600000 region size, and initial KASLR sentinel 0x40 are **not** a numerical runtime kernel physical address.
+
+**New HXL1-specific read-only collector**: tools/y2q_live_adb_boot_probe.py. It uses the already known exact-HXL1 identity gates from the project's futex smoke-test runner: SM-G986U1, y2q, G986U1UESCHXL1, exact Android 13 fingerprint, Linux 4.19.113-27095354, locked boot/vbmeta state and UID 2000. It aborts **before optional device probing** if any identity check fails. No root, test binary, futex action, Shizuku API, reboot, flashing, or device write is invoked.
+
+It reads only allowlisted getprop values and ordinary readable kernel/device-tree locations: /proc/cmdline, /proc/bootconfig, /proc/iomem, /proc/device-tree/chosen/bootargs, /sys/firmware/devicetree/base/chosen/bootargs, DT root model from both exposures, and read-only kptr_restrict/dmesg_restrict. It does not dump an entire property namespace or a raw DTB; potentially identifying bootargs and seed/key-like tokens are redacted before persistence. Permission denials and missing files are first-class results, not evidence of address zero. Nonzero /proc/iomem ranges are still not conclusive evidence of the original BootLinux jump's physical target.
+
+**Operator commands (with physical phone authorized for USB debugging):**
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    adb devices -l
+    python3 -m unittest -q tools/test_y2q_live_adb_boot_probe.py
+    python3 tools/y2q_live_adb_boot_probe.py
+
+With more than one authorized ADB device:
+
+    python3 tools/y2q_live_adb_boot_probe.py --serial YOUR_ADB_SERIAL
+
+The serial is used only for command routing, never written in the report. Outputs are stored in a new UTC-timestamped subdirectory below ~/s20-artifacts/hxl1-research/live-adb/, with owner-only mode on report files. Inspect the resulting live-boot-evidence.md. Re-running uses a distinct UTC directory rather than overwriting previous evidence.
+
+If stock Android denies /proc/iomem or hides the device-tree bootargs, document the absence and continue the already-targeted **static provenance** investigation of FUN_0001f018 (BaseMemory), FUN_00020838 (KASLR source), and FUN_0001e868 (UEFI boot-services shutdown) using tools/run_y2q_hxl1_stage4_handoff_sources.sh. Do not interpret WSL2 host /proc/iomem as phone memory, do not attempt to read /dev/mem, and do not bypass Android security protections just to force a value.
+
+**Still not verified:** firmware variable branch actually selected, per-boot BaseMemory, KASLR value, matching DTB, numerical physical kernel entry, usable exploit primitive, root or KernelSU. The device probe is observational only.
