@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+"""Synthetic nested-UEFI regressions for the pinned HXL1 LinuxLoader extractor."""
+from __future__ import annotations
+
+import lzma
+from pathlib import Path
+import struct
+import tempfile
+import unittest
+from uuid import UUID
+
+from tools import y2q_abl_linuxloader_extract as abl
+
+
+def section(kind, body):
+    size = 4 + len(body)
+    assert size < 0xffffff
+    return size.to_bytes(3, "little") + bytes([kind]) + body
+
+
+def pack_sections(*items):
+    result = bytearray()
+    for item in items:
+        result.extend(item)
+        result.extend(b"\x00" * ((-len(result)) % 4))
+    return bytes(result)
+
+
+def ffs(guid, typ, payload):
+    header = bytearray(24)
+    header[:16] = UUID(guid).bytes_le
+    header[18] = typ
+    header[20:23] = (len(payload) + 24).to_bytes(3, "little")
+    header[23] = 7
+    return bytes(header) + payload
+
+
+def volume(files):
+    header_len = 0x48
+    body = bytearray()
+    for entry in files:
+        body.extend(entry)
+        body.extend(b"\xff" * ((-len(body)) % 8))
+    total = abl.aligned(header_len + len(body) + 0x20, 8)
+    image = bytearray(b"\xff" * total)
+    image[:16] = b"\x00" * 16
+    image[0x10:0x20] = UUID("8c8ce578-8a3d-4f1c-9935-896185c32dd3").bytes_le
+    struct.pack_into("<Q", image, 0x20, total)
+    image[0x28:0x2c] = b"_FVH"
+    struct.pack_into("<H", image, 0x30, header_len)
+    image[0x37] = 2
+    image[header_len:header_len + len(body)] = body
+    return bytes(image)
+
+
+def pe():
+    image = bytearray(0x300)
+    image[:2] = b"MZ"
+    struct.pack_into("<I", image, 0x3c, 0x80)
+    image[0x80:0x84] = b"PE\x00\x00"
+    struct.pack_into("<HHIIIHH", image, 0x84, 0xaa64, 1, 0, 0, 0, 0xf0, 2)
+    struct.pack_into("<H", image, 0x98, 0x20b)
+    struct.pack_into("<I", image, 0x98 + 0x10, 0x120)
+    struct.pack_into("<Q", image, 0x98 + 0x18, 0x100000)
+    struct.pack_into("<I", image, 0x98 + 0x38, 0x3000)
+    return bytes(image)
+
+
+def fake_abl():
+    ui = section(0x15, "LinuxLoader\x00".encode("utf-16-le"))
+    inner = volume([ffs(str(abl.LOADER_GUID), 0x09,
+                        pack_sections(ui, section(0x10, pe())))])
+    fvsec = section(0x17, inner)
+    zipped = lzma.compress(fvsec, format=lzma.FORMAT_ALONE)
+    guided = abl.LZMA_GUID + struct.pack("<HH", 24, 1) + zipped
+    outer = volume([ffs("9e21fd93-9c72-4c15-8c4b-e77f1db2d792",
+                        0x0b, section(0x02, guided))])
+    return b"\x00" * 0x3000 + outer + b"\x00" * 128
+
+
+class ExtractionTests(unittest.TestCase):
+    def test_nested_qualcomm_lzma_fv_linuxloader(self):
+        walker = abl.Walker()
+        entry = walker.extract(fake_abl())
+        self.assertEqual(entry["image"], pe())
+        self.assertEqual(entry["info"]["coffMachine"], "0xaa64")
+        self.assertEqual(len(walker.fv_headers), 2)
+        self.assertTrue(any("LZMA" in part for part in entry["trace"]))
+        self.assertEqual(entry["ui"], "LinuxLoader")
+
+    def test_corrupted_original_rejected(self):
+        data = fake_abl()
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "abl.elf"
+            source.write_bytes(data)
+            with self.assertRaisesRegex(abl.ExtractError, "SHA256/size mismatch"):
+                abl.run(source, Path(temp) / "out")
+
+    def test_pinned_synthetic_original_extracted(self):
+        data = fake_abl()
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "abl.elf"
+            source.write_bytes(data)
+            out = Path(temp) / "out"
+            result = abl.run(source, out, pinned_hash=abl.digest(data),
+                             pinned_size=len(data))
+            self.assertEqual((out / "LinuxLoader-HXL1.efi").read_bytes(), pe())
+            self.assertFalse(result["kernelPhysicalAddressVerified"])
+            self.assertFalse(result["androidKernelHandoffIdentified"])
+
+    def test_wrong_architecture_pe_rejected(self):
+        wrong = bytearray(pe())
+        struct.pack_into("<H", wrong, 0x84, 0x8664)
+        self.assertIsNone(abl.identify_pe(wrong))
+
+    def test_bad_sections_fail_without_inventing_loader(self):
+        damaged = bytearray(fake_abl())
+        damaged[0x3000 + 0x28:0x3000 + 0x2c] = b"bad!"
+        with self.assertRaisesRegex(abl.ExtractError, "Expected one LinuxLoader"):
+            abl.Walker().extract(bytes(damaged))
+
+    def test_no_device_or_firmware_modification_paths(self):
+        source = Path(abl.__file__).read_text()
+        for token in ("subprocess.run(", "adb shell", "fastboot flash", "setresuid("):
+            self.assertNotIn(token, source)
+
+
+if __name__ == "__main__":
+    unittest.main()
