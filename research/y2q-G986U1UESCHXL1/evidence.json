@@ -2438,7 +2438,7 @@
     "workingKernelSu": false,
     "verifiedStockIdentity": true,
     "verifiedStockOriginalSourceHashes": true,
-    "nextOwnerAction": "Run seven read-only Clang18 object-inventory regression tests and pinned-object scanner, then confirm provisional type availability with pahole. Never transplant upstream QEMU or provisional modern-toolchain layouts into target.h without original firmware corroboration.",
+    "nextOwnerAction": "Run python3 -m unittest -v tools/test_y2q_dwarf_type_presence.py and python3 tools/y2q_dwarf_type_presence.py; inspect actual reported definitions and any ambiguous tool outputs, rather than treating exit code alone as type presence.",
     "noPhoneChanges": true,
     "noCrossDeviceOffsets": true,
     "noPrematureSupportFeedRegistration": true,
@@ -2765,6 +2765,21 @@
       "fullTargetLayoutVerified": false,
       "rootPayloadVerified": false,
       "next": "Survey already-built Samsung source objects for RT-mutex types, if emitted. Do not infer a type is absent from the kernel based on one compilation unit."
+    },
+    "ownerRtmutexTypeSearch20261010": {
+      "observedAt": "2026-10-10T07:06:59Z",
+      "command": "pahole -C \"$type\" \"$obj\" >/dev/null 2>&1; if exit 0 print FOUND",
+      "observed": "Near-identical FOUND listing for rt_mutex_waiter and rt_mutex across most of the 72 DWARF-bearing Clang18 partial objects, including init/main.o",
+      "contradictsEarlier": "Owner's direct pahole -C rt_mutex_waiter and rt_mutex on init/main.o printed type not found.",
+      "assessment": "NOT VALIDATED - false-positive risk because success exit status alone does not verify printed complete named definition; some pahole versions can exit 0 for missing types",
+      "evidenceStatus": "REQUIRES_OUTPUT_VERIFICATION",
+      "typePresentConfirmedForAnyFile": false,
+      "verifiedTypeCount": null,
+      "fix": "tools/y2q_dwarf_type_presence.py",
+      "tests": "tools/test_y2q_dwarf_type_presence.py",
+      "state": "COMMITTED_NOT_YET_EXECUTED_ON_OWNER_WSL",
+      "fixMethod": "Check actual stdout for complete struct type declaration and stderr for 'type not found', not exit status alone; restrict to AArch64 ELF objects with pinned .config; no numeric offsets generated",
+      "physicalDeviceModified": false
     }
   },
   "hxl1Stage4BootloaderDiscovery": {
