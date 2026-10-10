@@ -4570,6 +4570,85 @@ support gates separately before any device changes.
 
 ---
 
+## October 10, 05:56 UTC — RT-mutex fix-source audit verified, KernelSU feasibility is next blocker
+
+The owner pulled commit `a9dfa91` then ran both new offline
+`tools/test_y2q_rtmutex_fix_audit.py` and
+`tools/y2q_rtmutex_fix_audit.py`.
+
+**Unit tests:** 5/5 PASS; 0.008 seconds; no failures.
+
+**Audit:** four reported passes:
+
+```text
+[PASS] original Samsung source: SHA-256 matched 2/2
+[PASS] ownership published diff expected edits
+[PASS] followup published diff expected edits
+[PASS] Samsung source ownership/rollback indicator coverage
+```
+
+The WSL audit wrote:
+
+- `~/s20-artifacts/hxl1-research/rtmutex-fix-review/audit.json`
+- `~/s20-artifacts/hxl1-research/rtmutex-fix-review/audit.md`
+
+These are **source heuristics with pinned input hashes**, not
+a device runtime trigger or comprehensive patch proof.
+The source comparison milestone is now complete for
+the currently recorded scope. Do not automatically
+assign the follow-up regression (CVE-2026-53163)
+to Samsung's pre-fix Linux 4.19.
+
+### Next independent go/no-go: KernelSU feasibility on locked HXL1
+
+Revisit the **already recorded** HXL1 KernelSU/ABI audits.
+No further QEMU rebuild or generic futex syscall smoke test
+will resolve these requirements.
+
+| Gate | Existing HXL1 evidence | State |
+|---|---|---|
+| Existing stock kernel module framework | `CONFIG_MODULES=y` | Present |
+| Normal unsigned module insertion | `CONFIG_MODULE_SIG_FORCE=y`, accepted signing trust not established | Blocked/unverified |
+| KernelSU kprobe/kretprobe fallback | `CONFIG_KPROBES=n` | Not available as currently implemented |
+| ftrace function-entry fallback | `CONFIG_FUNCTION_TRACER=n` | Not available as currently implemented |
+| KSU v3.2.5 Samsung patch on 4.19 | Project fork only demonstrated on other kernel branches; no working 4.19 hook backend identified | Unsupported/unverified |
+| RKP/KDP/DEFEX compatibility | Enabled in exact stock `config.gz`, dynamic effects not validated | Open |
+| Usable exact-module ABI | PREL32 export names and CRCs verified, but no independently matching stock module signature/trusted key or full ABI validation | Incomplete |
+| Live-device KernelSU/module load | No successful test | Not demonstrated |
+
+The exact owner-supplied original Samsung module metadata
+has already been extensively audited using
+`tools/y2q_export_table_audit.py`, so it should **not**
+be treated as an unexplored gate. Export names and CRC
+values are not substitutes for a module signed with an
+accepted key, an authorized kernel-image loading path,
+and a function-hook mechanism compatible with the
+exact deployed kernel.
+
+**Recommended decision procedure:**
+
+1. Identify a **legitimate, owner-authorized loading route**
+   with evidence: an accepted signing key for a target-stock
+   module, or an authorized custom-kernel boot procedure.
+   Neither route is established for this locked HXL1 phone.
+2. Independently verify a KernelSU integration backend for
+   Linux `4.19.113-27095354` under its compiled hook
+   configuration and Samsung hardening, not by inferring
+   support from a different device or kernel.
+3. Only after both are established, evaluate non-destructive,
+   narrowly scoped integration checks on a spare/test phone,
+   while keeping production-support publication disabled.
+4. If neither legitimate loader nor functioning hook backend
+   exists, record a **NO-GO for deployable KernelSU on stock
+   locked HXL1**, irrespective of this CVE's source presence.
+
+**Do not conflate source-level CVE evidence with kernel
+code execution or a viable root/KernelSU deployment path.**
+No new device-side vulnerability/race attempt is necessary
+to complete the read-only feasibility assessment.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
