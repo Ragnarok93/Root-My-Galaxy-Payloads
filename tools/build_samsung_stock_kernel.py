@@ -15,6 +15,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from preflight_samsung_stock_build import run as source_preflight_run
@@ -108,17 +109,18 @@ def check_comparison(comparison, output):
 def check_arm64_external_assembler(compiler, prefix):
     """Inspect Clang's external AArch64 assembler selection without compiling.
 
-    Clang's -B option accepts a tool-prefix (not just a directory), e.g.
-    -B/usr/bin/aarch64-linux-gnu-, which selects the cross-as executable
-    when vendor Kbuild supplies -no-integrated-as.
+    Include the vendor's real --prefix=/usr/bin/ and -no-integrated-as
+    options. Clang may prioritize the host-prefix as /usr/bin/as even
+    when a cross-as prefix is supplied with -B. Never trust a simplified
+    driver-only test without Samsung's extra compiler flags.
     """
     assembler = Path(prefix + "as")
     if not assembler.is_file() or not os.access(assembler, os.X_OK):
         raise ValueError("AArch64 GNU assembler not executable: " + str(assembler))
     probe = [
         str(compiler), "--target=aarch64-linux-gnu",
-        "-no-integrated-as", "-B" + prefix, "-EL", "-###",
-        "-x", "assembler", "-c", "/dev/null", "-o", "/dev/null",
+        "--prefix=/usr/bin/", "-no-integrated-as", "-EL", "-B" + prefix,
+        "-###", "-x", "c", "-c", "/dev/null", "-o", "/dev/null",
     ]
     try:
         process = subprocess.run(
@@ -128,11 +130,75 @@ def check_arm64_external_assembler(compiler, prefix):
     except (OSError, subprocess.TimeoutExpired) as error:
         raise ValueError("could not inspect Clang assembler command: " + str(error)) from error
     output = process.stdout + process.stderr
-    if process.returncode or str(assembler) not in output:
-        raise ValueError("Clang did not select cross ARM64 assembler " + str(assembler) +
-                         "; inspect: " + output[-900:])
+    intended_invocation = '"' + str(assembler) + '"'
+    selected_cross_as = any(
+        line.strip().startswith(intended_invocation)
+        for line in output.splitlines()
+    )
+    if process.returncode or not selected_cross_as:
+        raise ValueError(
+            "Samsung's --prefix=/usr/bin/ still routes the external assembler "
+            "away from " + str(assembler) +
+            "; use --integrated-arm64-as instead. Clang driver: " + output[-600:]
+        )
     return {"assembler": str(assembler), "clangDryRun": probe,
             "outputExcerpt": output[-1200:]}
+
+
+def check_arm64_integrated_assembler(compiler):
+    """Prove Clang can emit a real ELF64 AArch64 object with vendor-like flags.
+
+    The later -integrated-as cancels Samsung's earlier -no-integrated-as,
+    so the LLVM AArch64 integrated assembler is used instead of /usr/bin/as.
+    Both tests write only to a disposable temporary directory.
+    """
+    base = [
+        str(compiler), "--target=aarch64-linux-gnu",
+        "--prefix=/usr/bin/", "-no-integrated-as", "-EL",
+        "-integrated-as",
+    ]
+    explain = base + ["-###", "-x", "c", "-c", "/dev/null", "-o", "/dev/null"]
+    try:
+        driver = subprocess.run(
+            explain, capture_output=True, text=True, timeout=15, check=False
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ValueError("Clang ARM64 integrated assembler inspection failed: " + str(error)) from error
+    text = driver.stdout + driver.stderr
+    emit_obj = any(
+        '"-cc1"' in line and '"-emit-obj"' in line
+        and '"-triple"' in line and "aarch64" in line
+        and '"-no-integrated-as"' not in line
+        for line in text.splitlines()
+    )
+    external_as = any(line.lstrip().startswith('"/usr/bin/as"')
+                      for line in text.splitlines())
+    if driver.returncode != 0 or not emit_obj or external_as:
+        raise ValueError("Clang did not select integrated AArch64 object emission: " +
+                         text[-900:])
+    with tempfile.TemporaryDirectory(prefix="samsung-y2q-ias-probe-") as folder:
+        obj = Path(folder) / "probe.o"
+        command = base + ["-x", "c", "-c", "-", "-o", str(obj)]
+        try:
+            result = subprocess.run(
+                command, input="int samsung_y2q_assembler_probe(void) { return 1; }\n",
+                capture_output=True, text=True, timeout=20, check=False
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise ValueError("Clang ARM64 test-object compile failed: " + str(error)) from error
+        if result.returncode != 0 or not obj.is_file():
+            raise ValueError("Clang failed disposable ARM64 object compile: " +
+                             (result.stdout + result.stderr)[-800:])
+        with obj.open("rb") as stream:
+            elf = stream.read(20)
+        if (len(elf) != 20 or elf[:4] != b"\\x7fELF" or elf[4] != 2
+                or elf[5] != 1 or elf[18:20] != b"\\xb7\\x00"):
+            raise ValueError("Clang assembler probe did not produce little-endian ELF64 AArch64")
+    return {"mode": "clang-integrated-aarch64",
+            "driverInspect": explain, "actualObjectCompiled": True,
+            "validatedElfMachine": "EM_AARCH64 (183)",
+            "vendorPrefixReplicated": "/usr/bin/",
+            "driverExcerpt": text[-900:]}
 
 
 def plan(args):
@@ -187,8 +253,12 @@ def plan(args):
         raise ValueError("source preflight failed before Image compatibility build")
 
     assembler_probe = None
+    if getattr(args, "external_arm64_as", False) and getattr(args, "integrated_arm64_as", False):
+        raise ValueError("choose one assembler mode: --external-arm64-as OR --integrated-arm64-as")
     if getattr(args, "external_arm64_as", False):
         assembler_probe = check_arm64_external_assembler(compiler, cross_prefix)
+    if getattr(args, "integrated_arm64_as", False):
+        assembler_probe = check_arm64_integrated_assembler(compiler)
     if args.execute and args.log is None:
         raise ValueError("--execute requires --log outside the source and output directories")
     log = valid_external_path(source, output, args.log) if args.log else None
@@ -212,11 +282,13 @@ def plan(args):
         "CONFIG_BUILD_ARM64_DT_OVERLAY=y",
     ]
     if assembler_probe:
-        # Clang's external-assembler search otherwise falls back to /usr/bin/as
-        # (host x86-64); vendor Kbuild passes -EL, which that tool rejects.
-        # KCFLAGS applies to target C; KAFLAGS applies to target .S, both
-        # keeping Samsung source and the generated stock .config unchanged.
-        extra = "--target=aarch64-linux-gnu -B" + cross_prefix
+        # KCFLAGS is appended to target C flags, KAFLAGS to assembler flags.
+        # The explicit trailing -integrated-as must override vendor Kbuild's
+        # -no-integrated-as; this avoids --prefix=/usr/bin/ choosing native as.
+        if getattr(args, "integrated_arm64_as", False):
+            extra = "--target=aarch64-linux-gnu -integrated-as"
+        else:
+            extra = "--target=aarch64-linux-gnu -B" + cross_prefix
         cmd.extend(["KCFLAGS=" + extra, "KAFLAGS=" + extra])
     if getattr(args, "verbose", False):
         cmd.append("V=1")
@@ -284,7 +356,9 @@ def main():
     parser.add_argument("--clang", type=Path, default=Path("/usr/bin/clang"))
     parser.add_argument("--gcc-prefix", default="/usr/bin/aarch64-linux-gnu-")
     parser.add_argument("--external-arm64-as", action="store_true",
-                        help="Probe AArch64 cross-as and route Clang external assembler with KCFLAGS/KAFLAGS")
+                        help="Experimental external GNU assembler: fail closed if Samsung --prefix selects /usr/bin/as")
+    parser.add_argument("--integrated-arm64-as", action="store_true",
+                        help="Probe Clang's integrated AArch64 assembler with vendor flags and test ELF, then override KCFLAGS/KAFLAGS")
     parser.add_argument("--verbose", action="store_true",
                         help="Log complete Make/compiler commands (V=1)")
     parser.add_argument("--jobs", type=int, default=2)
