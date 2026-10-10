@@ -2438,7 +2438,7 @@
     "workingKernelSu": false,
     "verifiedStockIdentity": true,
     "verifiedStockOriginalSourceHashes": true,
-    "nextOwnerAction": "Run eight checksum-pinned Android boot header v2 parser regression tests and factory boot.img audit for nominal component addresses and independently extracted payload bytes. Avoid equating factory header load addresses with actual runtime BL handoff.",
+    "nextOwnerAction": "Pull Stage4 v2 audit fix; run 13 local regression tests and hash-guarded original boot.img parser even if optional ramdisk.img is absent. Distinguish original embedded SHA agreement and intended header address from actual runtime physical handoff.",
     "noPhoneChanges": true,
     "noCrossDeviceOffsets": true,
     "noPrematureSupportFeedRegistration": true,
@@ -2783,7 +2783,7 @@
     }
   },
   "hxl1Stage4BootloaderDiscovery": {
-    "observedAt": "2026-10-10T07:32:41Z",
+    "observedAt": "2026-10-10T07:39:47Z",
     "commandScope": "find /mnt/c/Users $HOME/Downloads -maxdepth 6 under G986 filename patterns",
     "matches": [
       "/mnt/c/Users/Admin/Downloads/SM-G986U.zip"
@@ -2859,7 +2859,7 @@
         "sizeBytes": 68536429
       }
     ],
-    "nextEvidenceAction": "Inspect original SHA256-pinned Android boot.img v2 header kernel_addr/ramdisk_addr/tags_addr/dtb_addr, verify packing against original extracted kernel.bin/ramdisk.img/dtb.img. Treat all header addresses as declared targets, not necessarily actual ABL runtime handoff. ABL grep -n8 yielded no matches; not proof of encryption.",
+    "nextEvidenceAction": "Run 13 regression tests for v2 boot-header parser and execute fixed stock-boot-v2-audit against pinned boot.img; absent extracted ramdisk/dtb is optional. Report embedded SHA match separately from external file match. Stage 4 handoff remains OPEN.",
     "stockBootloaderImagesExtracted": true,
     "originalFactoryPhysicalKernelEntryVerified": false,
     "deviceFlashed": false,
@@ -3022,7 +3022,32 @@
       "ci": ".github/workflows/y2q-identity-probe.yml",
       "status": "COMMITTED; NOT YET OWNER-EXECUTED",
       "output": "/home/main/s20-artifacts/hxl1-research/stock-boot-v2-audit.{json,md}",
-      "runtimeAddressVerified": false
+      "runtimeAddressVerified": false,
+      "ownerFirstExecutionAt": "2026-10-10T07:39:47Z",
+      "pulledThrough": "6f21b73",
+      "ownerOriginalTests": {
+        "passed": 8,
+        "total": 8,
+        "errors": 0,
+        "failed": 0,
+        "durationSeconds": 0.005
+      },
+      "firstOriginalFirmwareExecution": {
+        "status": "STOPPED_BEFORE_ANALYSIS",
+        "reason": "Required individually extracted ramdisk.img absent at /home/main/s20-artifacts/ramdisk.img; this is a helper prerequisite error, not an original boot.img hash/header failure.",
+        "missingPath": "/home/main/s20-artifacts/ramdisk.img",
+        "reportProduced": false,
+        "declaredBootHeaderAddressesObserved": false
+      },
+      "fixCommitted": {
+        "code": "tools/y2q_stock_boot_v2_audit.py",
+        "tests": "tools/test_y2q_stock_boot_v2_audit.py",
+        "behavior": "Require original boot.img pinned SHA256; missing separately extracted kernel/ramdisk/dtb files do not block parsing; verify the embedded region against each previously pinned digest, report optional-file absence distinctly, and reject SHA mismatch for any optional file actually present.",
+        "addedRegressionTests": 5,
+        "expectedTotalRegressionTests": 13,
+        "status": "COMMITTED; AWAITING_OWNER_VERIFICATION",
+        "output": "/home/main/s20-artifacts/hxl1-research/stock-boot-v2-audit.{json,md}"
+      }
     }
   }
 }
