@@ -191,8 +191,8 @@ def check_arm64_integrated_assembler(compiler):
                              (result.stdout + result.stderr)[-800:])
         with obj.open("rb") as stream:
             elf = stream.read(20)
-        if (len(elf) != 20 or elf[:4] != b"\\x7fELF" or elf[4] != 2
-                or elf[5] != 1 or elf[18:20] != b"\\xb7\\x00"):
+        if (len(elf) != 20 or elf[:4] != b"\x7fELF" or elf[4] != 2
+                or elf[5] != 1 or elf[18:20] != b"\xb7\x00"):
             raise ValueError("Clang assembler probe did not produce little-endian ELF64 AArch64")
     return {"mode": "clang-integrated-aarch64",
             "driverInspect": explain, "actualObjectCompiled": True,
