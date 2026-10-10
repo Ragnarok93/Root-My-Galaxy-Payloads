@@ -109,6 +109,9 @@ A fix on the same investigation branch now:
 - **Rejects any present but checksum-mismatching secondary file**
   and rejects symlinks; does not declare unexpected embedded
   payload hashes to be equivalent.
+- Writes the report but exits nonzero if **any embedded component**
+  differs from the prior checksum pin; the report distinguishes that
+  actual evidence mismatch from absent optional secondary files.
 - Adds five regression cases (13 expected total tests);
   owner must run them before the fix is considered proven.
 
