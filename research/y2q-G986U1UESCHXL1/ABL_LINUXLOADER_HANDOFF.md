@@ -783,3 +783,23 @@ Three new grounded functions need original SHA256-authenticated REA/Ghidra dossi
     bash tools/run_y2q_hxl1_envdxe_ram_table_input_trace.sh
 
 Report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-ram-table-input-trace.md`. It will preserve full source function pseudocode and evidence IDs. The actual kernel physical load address, runtime KASLR slide and root exploit remain **UNVERIFIED**, regardless of static address constants.
+
+
+## 2026-10-10 14:56 — SMEM usable RAM partition item #402 identified in authentic XBL EnvDxe
+
+The owner executed `bash tools/run_y2q_hxl1_envdxe_ram_table_input_trace.sh` at commit `383f18a`. All **16/16 synthetic tests PASS**. In the original SHA256-pinned `EnvDxe-HXL1.efi` PE (`9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670`) the following specific REA/Ghidra static observations have been verified:
+
+- `FUN_000053b0` (evidence `ev_a8306fc1926b94396bfbc973686d0f596380e9a6abe0a6fc98f7a1b029b11f6e`) invokes `FUN_00007d08(..., 0x192, &local_24,...)` to obtain shared-memory data, then `FUN_00005288(piVar1, param_10)` checks its layout/version. `0x192` = decimal 402, and a publicly published Qualcomm rampart.h defines `SMEM_USABLE_RAM_PARTITION_TABLE 402`. This is an independently corroborated **static shared-memory table identifier**, not a live RAM table. Source: https://www.mail-archive.com/u-boot@lists.denx.de/msg564611.html .
+- A Ghidra xrefs query of original `FUN_00005560` returned exactly **one** reference instruction `0x2064` (evidence `ev_488f21c6cbea40876162cea5864bccd27ebd0cce17992b7b86cb8e17486117cd`). It remains to inspect the function containing this instruction before claiming startup execution.
+- Original `FUN_000023b0` (evidence `ev_8364d6cc9d69f009700adf42c74d84ddba130ebe24058a3899e83850a7d87442`) invokes an indirect method from `DAT_0000d328 + 0x80` using the GUID pointer `&DAT_0000d2e8` and interface pointer `&DAT_0000d178`. The **UEFI 64-bit BootServices offset +0x80 corresponds to InstallProtocolInterface**, not InstallMultipleProtocolInterfaces (+0x148), if DAT_0000d328 is the EFI_BOOT_SERVICES pointer. This call's GUID data differs in static **address** from the already verified EFI_RAMPARTITION GUID at `0xd118`; do not claim the GUID **value** is different until the original 16 bytes at `0xd2e8` are read and compared. External reference: https://www.lightbulbone.com/posts/2018/03/uefi-ninja/ and https://uefi.org/specs/UEFI/2.10/07_Services_Boot_Services.html .
+- `FUN_000020ac` (evidence `ev_f30bb26959450f72b6241d10f16cf7fac5ca8e8ff881908484cb8c2930695cb3`) calls `FUN_00004ecc` and conditionally copies a config field to `DAT_0000d320 +0x20`; it is not yet proven to register any protocol or supply RAM partitions.
+
+**Next narrow read-only REA audit committed:** `tools/y2q_hxl1_envdxe_smem402_protocol.py` and `tools/run_y2q_hxl1_envdxe_smem402_protocol.sh`. The tool re-verifies all previous original SHA256/evidence and reads exactly **16 bytes at Ghidra 0xd2e8**, then decodes its EFI GUID and compares its bytes to the validated RAM protocol GUID at `0xd118`. It also decompiles exactly three original, callsite-grounded functions: `0x2064` (original sole RAM-table initializer reference), `0x5288` (SMEM RAM table header/format validation called by `0x53b0`), and `0x7d08` (shared-memory accessor called with item 402). These target addresses are **original static PE addresses**, not Linux kernel physical addresses. Original SHA256, requested REA operations, Ghidra provider, function body inclusion and imported GUID read length/identity are required before a PASS. Even if `0xd2e8` matches the RAM GUID, registration still requires verifying boot-services pointer provenance/callback. If it differs, this branch is a different EFI protocol and we should not mislabel it as the RAM installer. 14 new synthetic tests and CI checks are included.
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_envdxe_smem402_protocol.sh
+
+Report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-smem402-protocol.md`.
+
+**Explicitly unresolved:** whether and where the original XBL registers EFI_RAMPARTITION, the runtime SMEM table content, numerical BaseMemory, boot-time KASLR and kernel physical load, GhostLock exploit applicability and privilege escalation, and KernelSU installation. No ADB needed or used in this host-only stage.
