@@ -215,7 +215,8 @@ def main():
         if args.execute:
             info = execute_build(info)
         if report:
-            report.open("x", encoding="utf-8").write(json.dumps(info, indent=2) + "\n")
+            with report.open("x", encoding="utf-8") as handle:
+                handle.write(json.dumps(info, indent=2) + "\n")
             print("Saved build report:", report)
         if args.execute:
             print("Make status:", info["status"])
