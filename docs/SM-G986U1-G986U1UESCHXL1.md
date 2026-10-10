@@ -77,6 +77,60 @@ does not close Stage 3.
 
 ---
 
+## October 10, 07:39 UTC — fix missing separately extracted ramdisk prerequisite in boot v2 audit
+
+Owner pulled through `6f21b73` and ran the original
+`tools/test_y2q_stock_boot_v2_audit.py`: **8/8 tests PASS**.
+The first actual HXL1 analysis then returned
+`[STOP] missing original artifact: /home/main/s20-artifacts/ramdisk.img`
+without writing the report.
+
+This is **an overly strict audit-tool input prerequisite, not
+evidence of missing ramdisk data inside the verified original
+`boot.img` or of corrupt firmware**. The original boot.img v2
+contains a header-declared ramdisk region, and the
+`ramdisk.img` SHA256 was already recorded in the
+evidence manifest.
+
+A fix on the same investigation branch now:
+
+- **Requires exact HXL1 `boot.img` SHA256** and validates
+  the boot image size and all v2 region bounds.
+- Treats individually saved `kernel.bin`,
+  `ramdisk.img`, and `dtb.img` as optional
+  secondary comparison files.
+- Checks every **embedded** component's bytes against
+  the prior evidence manifest's independently pinned digest,
+  even if that component has no separate saved file.
+- Reports separately `MISSING_OPTIONAL`,
+  `PRESENT_PIN_VERIFIED`, `embeddedRegionMatchesPinnedSha256`,
+  and `referenceEqualsImageRegion` (null if absent),
+  rather than conflating an absent file with a mismatch.
+- **Rejects any present but checksum-mismatching secondary file**
+  and rejects symlinks; does not declare unexpected embedded
+  payload hashes to be equivalent.
+- Adds five regression cases (13 expected total tests);
+  owner must run them before the fix is considered proven.
+
+Run from WSL:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools/test_y2q_stock_boot_v2_audit.py
+python3 tools/y2q_stock_boot_v2_audit.py
+cat ~/s20-artifacts/hxl1-research/stock-boot-v2-audit.md
+```
+
+**The first failed run produced no header addresses.**
+Do not report `kernel_addr`, `dtb_addr`,
+the packed ramdisk hash, or the Stage 4 kernel physical
+load handoff as known until owner output confirms those
+facts. An original Android boot header address is
+only a declaration, not measured memory behavior.
+
+---
+
 ## October 10, 07:32 UTC — 10/10 original BL ELF tests pass; investigate original boot.img v2 next
 
 The owner ran `tools/test_y2q_stock_bl_elf_audit.py` and reported
