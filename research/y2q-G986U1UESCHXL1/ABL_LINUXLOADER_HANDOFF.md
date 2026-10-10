@@ -329,3 +329,26 @@ bash tools/run_y2q_hxl1_stage4_xrefs.sh
 ```
 
 Next stage *after* obtaining real xref **source** instruction addresses: resolve enclosing functions, follow printer arguments with REA decompiler/def-use, inspect kernel Image/boot-v2 placement logic and final ARM64 handoff. **Do not conflate a print-format-string, EFI PE image base 0x0, or EFI entry RVA 0x1000 with a verified kernel physical address.** Stage 4 still OPEN.
+
+
+## 2026-10-10 11:48 — exact Ghidra xref sources recovered from original LinuxLoader
+
+Owner ran `tools/run_y2q_hxl1_stage4_xrefs.sh` after pulling commit `c8cc910`; **all 18 Stage 4 seed/xref offline regressions PASS**. Exact original `LinuxLoader-HXL1.efi` SHA256 remained `5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003`. All three direct REA 6.3.0/Ghidra 12.1.4 xref responses independently passed the original binary, source string, query-coordinate and Ghidra-provider checks:
+
+| Observed diagnostic | Original string address | Source instruction of reference | REA xref evidence ID |
+|---|---|---|---|
+| `Kernel Load Address: 0x%x` | `0xbc48c` | **`0x2178c`** | `ev_eb0ce01cac500bff8b624037fb0f3ffd3e30eebbb649c5143706d34cb98b429e` |
+| `KERNEL SIZE : ... DT_LoadAddr...` | `0xbce52` | **`0x216e8`** | `ev_9d11fbe5c2c90b206f319ab27318b944c5d9a0f532f0f47b205c825c810d14f6` |
+| `Best match DTB tags ...` | `0xbd674` | **`0x24e18`** | `ev_3a63aab316e4fed9c64a086991569a2b105d50c700d1f445b2e759d88ea564bd` |
+
+Each string had **exactly one** verified reference. The first two xref source instructions are only `0xa4` bytes apart; that does NOT prove they are in the same Ghidra function or that the address printed is a physical Linux load address. The reference to DTB matching is further away and must be independently bound to a function.
+
+**Next direct analysis:** The REA fork's exact Ghidra Java bridge `resolveProcedure` calls `FunctionManager.getFunctionContaining` when given an interior memory address, so `rea function <original EFI> 0x2178c --provider ghidra --json`, etc, can directly retrieve the **enclosing function**. Its `analyze_function` operation returns the function body ranges, decompiler pseudocode, Ghidra assembly and native HighFunction/p-code def-use evidence. `tools/run_y2q_hxl1_stage4_functions.sh` runs exactly **three** such calls on the original xref source instructions, reuses existing validated function dossiers and stops if any output does not authenticate. `tools/y2q_linuxloader_rea_stage4_functions.py` confirms PE hash and original reference, direct Ghidra provider, source-to-function membership and function entry membership in full Ghidra body ranges; saves both full evidence JSONs and a readable `rea-stage4-functions-audit.md`, including any shared function entrypoints. Seven offline regression fixtures added, with execution on owner's host still pending.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_stage4_functions.sh
+```
+
+**Engineering limit:** Function and p-code recovery is not evidence of actual execution, runtime physical Linux load, factory ABI, unlocked bootloader, or KernelSU. Next review original Ghidra pseudocode and value-flow provenance before proposing any address.
