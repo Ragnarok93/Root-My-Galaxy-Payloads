@@ -133,6 +133,9 @@ int main(int argc, char **argv) {
     describe();
     if (check_identity() != 0) return 2;
 
+    /* Independent on-device limit, even if the host ADB connection stalls. */
+    alarm(6);
+
     uint32_t wait_word __attribute__((aligned(4))) = 1;
     int rc = do_futex(&wait_word, FUTEX_WAIT_PRIVATE, 0);
     int error = (rc == -1) ? errno : 0;
