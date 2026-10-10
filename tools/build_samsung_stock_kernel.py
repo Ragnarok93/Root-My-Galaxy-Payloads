@@ -201,6 +201,54 @@ def check_arm64_integrated_assembler(compiler):
             "driverExcerpt": text[-900:]}
 
 
+# Allow only this observed Clang 18 extension diagnostic in Samsung's old
+# cgroup structs; do NOT bypass scripts/gcc-wrapper.py or all warnings.
+CGROUP_WARNING = "-Wgnu-variable-sized-type-not-at-end"
+CGROUP_SUPPRESSION = "-Wno-gnu-variable-sized-type-not-at-end"
+
+
+def check_cgroup_layout_warning_compat(compiler):
+    """Prove an explicitly named Clang warning appears then is suppressed.
+
+    Compile no kernel files. Syntax-check only a disposable input string that
+    has the same flexible-array-containing member layout as cgroup-defs.h.
+    Other warning categories remain visible/fatal to Samsung's wrapper.
+    """
+    sample = (
+        "struct tail { int count; int flexible[]; };\\n"
+        "struct wrapper { struct tail embedded; int after; };\\n"
+    )
+    base = [
+        str(compiler), "--target=aarch64-linux-gnu",
+        "-Wall", "-Werror=unknown-warning-option", "-fsyntax-only",
+        "-x", "c", "-",
+    ]
+
+    def check(extra):
+        try:
+            return subprocess.run(
+                base[:-4] + extra + base[-4:],
+                input=sample, capture_output=True, text=True,
+                timeout=15, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise ValueError("Clang warning compatibility probe failed: " + str(error)) from error
+
+    baseline = check([CGROUP_WARNING])
+    baseline_text = baseline.stdout + baseline.stderr
+    suppressed = check([CGROUP_WARNING, CGROUP_SUPPRESSION])
+    suppressed_text = suppressed.stdout + suppressed.stderr
+    if baseline.returncode != 0 or CGROUP_WARNING not in baseline_text:
+        raise ValueError("baseline Clang does not exhibit expected cgroup GNU-extension warning: " +
+                         baseline_text[-600:])
+    if suppressed.returncode != 0 or CGROUP_WARNING in suppressed_text:
+        raise ValueError("Clang did not suppress precisely the cgroup GNU-extension warning: " +
+                         suppressed_text[-600:])
+    return {"warning": CGROUP_WARNING, "suppression": CGROUP_SUPPRESSION,
+            "diagnosticObservedBefore": True, "diagnosticAbsentAfter": True,
+            "sourceFilesChanged": False}
+
+
 def plan(args):
     source = args.source_dir.expanduser().resolve()
     output = args.output_dir.expanduser().absolute()
@@ -259,6 +307,11 @@ def plan(args):
         assembler_probe = check_arm64_external_assembler(compiler, cross_prefix)
     if getattr(args, "integrated_arm64_as", False):
         assembler_probe = check_arm64_integrated_assembler(compiler)
+    cgroup_warning_probe = None
+    if getattr(args, "suppress_cgroup_layout_warning", False):
+        if not getattr(args, "integrated_arm64_as", False):
+            raise ValueError("--suppress-cgroup-layout-warning requires --integrated-arm64-as")
+        cgroup_warning_probe = check_cgroup_layout_warning_compat(compiler)
     if args.execute and args.log is None:
         raise ValueError("--execute requires --log outside the source and output directories")
     log = valid_external_path(source, output, args.log) if args.log else None
@@ -289,7 +342,13 @@ def plan(args):
             extra = "--target=aarch64-linux-gnu -integrated-as"
         else:
             extra = "--target=aarch64-linux-gnu -B" + cross_prefix
-        cmd.extend(["KCFLAGS=" + extra, "KAFLAGS=" + extra])
+        cflags = extra
+        if cgroup_warning_probe:
+            # Suppress one specific Clang 18 diagnostic that Clang 10 did
+            # not emit. Samsung's fatal-warning wrapper still sees all other
+            # warnings; the original cgroup data structures stay unchanged.
+            cflags += " " + CGROUP_SUPPRESSION
+        cmd.extend(["KCFLAGS=" + cflags, "KAFLAGS=" + extra])
     if getattr(args, "verbose", False):
         cmd.append("V=1")
     cmd.extend(["-j" + str(args.jobs), "Image"])
@@ -308,6 +367,7 @@ def plan(args):
         "flashable": False,
         "compilerRouting": {"REAL_CC": str(compiler), "CFP_CC": str(compiler)},
         "crossAssemblerProbe": assembler_probe,
+        "cgroupLayoutWarningCompatibilityProbe": cgroup_warning_probe,
         "note": "Experimental Clang18/GCC13 stock Image compatibility build with CFP compiler override, not a Samsung factory-identical binary.",
     }, report
 
@@ -359,6 +419,8 @@ def main():
                         help="Experimental external GNU assembler: fail closed if Samsung --prefix selects /usr/bin/as")
     parser.add_argument("--integrated-arm64-as", action="store_true",
                         help="Probe Clang's integrated AArch64 assembler with vendor flags and test ELF, then override KCFLAGS/KAFLAGS")
+    parser.add_argument("--suppress-cgroup-layout-warning", action="store_true",
+                        help="Opt-in single Clang 18 -Wno-gnu-variable-sized-type-not-at-end; requires integrated ARM64 assembler and diagnostic probe")
     parser.add_argument("--verbose", action="store_true",
                         help="Log complete Make/compiler commands (V=1)")
     parser.add_argument("--jobs", type=int, default=2)
