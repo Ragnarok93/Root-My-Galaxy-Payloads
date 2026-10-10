@@ -43,9 +43,9 @@ class SourceFunctionEvidenceTests(unittest.TestCase):
         with patch.object(mod, "LOADER_SHA256", self.sha):
             return mod.audit(self.folder)
 
-    def test_all_three_source_functions_are_authenticated(self):
+    def test_all_four_source_functions_are_authenticated(self):
         result = self.run_audit()
-        self.assertEqual(len(result["functions"]), 3)
+        self.assertEqual(len(result["functions"]), 4)
         self.assertTrue(all(x["status"] == "VERIFIED_STATIC_FUNCTION"
                             for x in result["functions"]))
         self.assertFalse(result["kernelPhysicalBaseMeasured"])
@@ -98,6 +98,23 @@ class SourceFunctionEvidenceTests(unittest.TestCase):
         self.write(label, doc)
         result = self.run_audit()
         self.assertEqual(result["functions"][0]["status"], "FUNCTION_NOT_VERIFIED")
+
+    def test_ram_partition_reader_belongs_to_exact_efi(self):
+        report = self.run_audit()
+        reader = report["functions"][3]
+        self.assertEqual(reader["label"], "ram-partition-reader")
+        self.assertEqual(reader["requestedAddress"], "0x1eca0")
+        self.assertEqual(reader["status"], "VERIFIED_STATIC_FUNCTION")
+        self.assertFalse(report["kernelPhysicalBaseMeasured"])
+
+    def test_ram_partition_reader_wrong_body_is_refused(self):
+        label = "ram-partition-reader"
+        doc = self.read(label)
+        doc["normalized_result"]["procedure"]["body"]["ranges"] = [
+            {"start": "0x1ecb0", "end": "0x1ecb4"}]
+        self.write(label, doc)
+        result = self.run_audit()
+        self.assertEqual(result["functions"][3]["status"], "FUNCTION_NOT_VERIFIED")
 
     def test_no_pseudocode_means_unverified(self):
         label = "kaslr-initializer"
