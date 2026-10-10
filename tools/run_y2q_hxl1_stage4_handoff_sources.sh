@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# HXL1: prove original static handoff, then decompile only 3 source routines.
+# HXL1: authenticate original handoff and decompile exact RAM partition reader.
+# Reuses already-authenticated base-memory, PRNG and ExitBootServices dossiers.
 # Original firmware integrity is SHA256-pinned; no phone operations.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -11,11 +12,12 @@ PIN=5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003
 echo "=== Regression tests: original HXL1 handoff and supporting sources ==="
 python3 -m unittest -q \
   tools/test_y2q_linuxloader_rea_stage4_handoff.py \
-  tools/test_y2q_linuxloader_rea_stage4_sources.py
+  tools/test_y2q_linuxloader_rea_stage4_sources.py \
+  tools/test_y2q_linuxloader_rea_ram_partition_chain.py
 
 echo "=== Authenticate real HXL1 handoff and firmware fallback values ==="
 python3 tools/y2q_linuxloader_rea_stage4_handoff.py --out "$OUT"
-cat "$OUT/rea-stage4-handoff-static.md"
+# Full original handoff proof remains saved; no duplicate printing.
 
 [[ -f "$EFI" && ! -L "$EFI" && -f "$REA" ]] || {
   echo "[STOP] Missing genuine HXL1 LinuxLoader or REA fork" >&2; exit 2;
@@ -63,5 +65,6 @@ ram-partition-reader 0x1eca0
 FUNCTIONS
 
 python3 tools/y2q_linuxloader_rea_stage4_sources.py --out "$OUT"
-cat "$OUT/rea-stage4-source-functions.md"
+python3 tools/y2q_linuxloader_rea_ram_partition_chain.py --out "$OUT"
+sed -n '/^## ram-partition-reader/,/^## What this does NOT prove/p' "$OUT/rea-stage4-source-functions.md"
 echo "[LIMIT] Static function code; boot-time physical kernel load still unmeasured"
