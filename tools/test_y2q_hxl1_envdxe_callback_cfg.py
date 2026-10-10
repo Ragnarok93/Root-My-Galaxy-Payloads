@@ -38,7 +38,11 @@ assert ENTRY[-12:]==CONT[:12]
 
 def raw_fixture():
     # Ending body is unverified synthetic filler solely for CFG unit tests.
-    data=ENTRY+CONT[12:]+(struct.pack("<I",0xd65f03c0)*5)
+    # Synthetic loop-back at 0x2048: B.LO 0x2030; the five real tail
+    # words remain unknown until the 20-byte original Ghidra read. Without
+    # a loop edge, the body's 0x2030..0x2040 copy is (correctly) unreachable.
+    loop=struct.pack("<I",0x54ffff43)
+    data=ENTRY+CONT[12:]+loop+(struct.pack("<I",0xd65f03c0)*4)
     assert len(data)==cfg.END-cfg.BASE
     return data
 
@@ -74,6 +78,14 @@ class CallbackContinuationTests(unittest.TestCase):
                 },
             )):
                 return cfg.analyze(self.folder)
+
+    def test_synthetic_loop_back_edge_keeps_copy_body_reachable(self):
+        out=cfg.bounded_cfg(self.raw)
+        destinations={x["pc"]:x["target"]
+                      for x in out["reachableDirectBranches"]}
+        self.assertEqual(destinations["0x2048"],"0x2030")
+        self.assertIn("0x2030",out["reachableInstructionAddresses"])
+        self.assertIn("0x2040",out["reachableInstructionAddresses"])
 
     def test_branch_bypasses_return_into_continuation(self):
         x=self.audit()
