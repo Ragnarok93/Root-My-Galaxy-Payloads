@@ -133,6 +133,83 @@ class PortTests(unittest.TestCase):
                 with self.assertRaisesRegex(port.GateError, "production support feed"):
                     port.analyze(data, artifacts, vendor, repo)
 
+    def test_stage4_manifest_verified_does_not_claim_physical_handoff(self):
+        with tempfile.TemporaryDirectory() as td:
+            data, artifacts, vendor, repo = self.fixture(Path(td))
+            data["hxl1Stage4BootloaderDiscovery"] = {
+                "archive": {
+                    "sha256": "f6048fb50cd83741951552866c4dcf26e6165b0a67a232b81028c266bef22d6b",
+                    "fileEntriesCount": 27,
+                },
+                "ownerBootloaderElfAuditVerified": {
+                    "regression": {"passed": 10},
+                    "artifactIntegrity": "[PASS] original ELF and hashes",
+                },
+                "followupBootImageV2Audit": {
+                    "regression": {"passed": 13},
+                    "bootImageIntegrity": "PRESENT_PIN_VERIFIED",
+                    "embeddedComponents": {
+                        "kernel": {"checksumPinMatch": True},
+                        "ramdisk": {"checksumPinMatch": True},
+                        "dtb": {"checksumPinMatch": True},
+                    },
+                },
+                "followupFdtStructureAndRootIdentity": {
+                    "regression": {"passed": 10},
+                    "bootAndEmbeddedDtbSha256Verified": True,
+                    "contiguousCompleteRegionCoverage": True,
+                    "allFdtStructuresPass": True,
+                    "candidates": [{"tokenStatus": "PASS"} for _ in range(4)],
+                },
+            }
+            with mock.patch.object(port, "STOCK_HASHES", self.expected_sources):
+                report = port.analyze(data, artifacts, vendor, repo)
+            stage4 = report["gates"][3]
+            self.assertEqual(stage4["state"], "OPEN")
+            self.assertNotIn("Locate matching HXL1 BL archive", stage4["nextProof"])
+            self.assertIn("selected DTB", stage4["nextProof"])
+            self.assertIn("BL/ELF verified=True", stage4["evidence"])
+            manifest = report["factoryStage4EvidenceFromManifest"]
+            self.assertTrue(manifest["ownerManifestVerifiesExactHxl1BL"])
+            self.assertTrue(manifest["ownerManifestVerifiesBootV2AndEmbeddedPayloads"])
+            self.assertTrue(manifest["ownerManifestVerifiesFourFdtTokenStreams"])
+            self.assertFalse(manifest["actualKernelPhysicalLoadVerified"])
+            self.assertFalse(manifest["runtimeSelectedDtbVerified"])
+            self.assertIn("Actual physical Linux kernel handoff: **NOT VERIFIED**",
+                          port.summary(report))
+            self.assertEqual(report["completedStages"], [1, 2])
+
+    def test_stage4_manifest_incomplete_or_mismatched_is_not_promoted(self):
+        data = {"hxl1Stage4BootloaderDiscovery": {
+            "archive": {"sha256": "0" * 64, "fileEntriesCount": 27},
+            "ownerBootloaderElfAuditVerified": {
+                "regression": {"passed": 10},
+                "artifactIntegrity": "[PASS] untrusted",
+            },
+            "followupBootImageV2Audit": {
+                "regression": {"passed": 13},
+                "bootImageIntegrity": "PRESENT_PIN_VERIFIED",
+                "embeddedComponents": {
+                    "kernel": {"checksumPinMatch": True},
+                    "ramdisk": {"checksumPinMatch": False},
+                    "dtb": {"checksumPinMatch": True},
+                },
+            },
+            "followupFdtStructureAndRootIdentity": {
+                "regression": {"passed": 10},
+                "bootAndEmbeddedDtbSha256Verified": True,
+                "contiguousCompleteRegionCoverage": True,
+                "allFdtStructuresPass": True,
+                "candidates": [{"tokenStatus": "PASS"} for _ in range(3)],
+            },
+        }}
+        report = port.stage4_factory_evidence(data)
+        self.assertFalse(report["ownerManifestVerifiesExactHxl1BL"])
+        self.assertFalse(report["ownerManifestVerifiesBootV2AndEmbeddedPayloads"])
+        self.assertFalse(report["ownerManifestVerifiesFourFdtTokenStreams"])
+        self.assertFalse(report["actualKernelPhysicalLoadVerified"])
+        self.assertFalse(report["runtimeSelectedDtbVerified"])
+
     def test_does_not_compile_or_touch_phone(self):
         source = SCRIPT.read_text()
         for term in (
