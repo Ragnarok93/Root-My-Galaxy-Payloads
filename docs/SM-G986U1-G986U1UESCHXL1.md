@@ -124,7 +124,7 @@ AOSP reference:
 ### Next: classify the original embedded DTB data, without extracting or guessing RAM placement
 
 The checksum-verified original DTB occupies
-`[0x3240000, 0x33c1ca3)` inside `boot.img`
+`[0x3240000, 0x33c1cf3)` inside `boot.img`
 (the ending address is exclusive). A new read-only
 `tools/y2q_stock_dtb_inventory.py` verifies both
 `boot.img` and the full embedded DTB digest, examines
