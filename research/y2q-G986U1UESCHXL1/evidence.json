@@ -1246,6 +1246,79 @@
     },
     "moduleLoadVerified": false,
     "deviceRootVerified": false,
-    "supportFeedAllowed": false
+    "supportFeedAllowed": false,
+    "ownerVerifiedExportAt": "2026-10-10",
+    "offlineStockExportAudit": {
+      "source": "Owner read-only nm and Samsung source rg on reconstructed HXL1 stock Image",
+      "normalKsymtab": {
+        "startVA": "0xffffff800a4e70e0",
+        "stopVA": "0xffffff800a4f58f8",
+        "bytes": 59416,
+        "entrySizeHypothesis": 8,
+        "count": 7427
+      },
+      "gplKsymtab": {
+        "startVA": "0xffffff800a4f58f8",
+        "stopVA": "0xffffff800a4ffe10",
+        "bytes": 42264,
+        "entrySizeHypothesis": 8,
+        "count": 5283
+      },
+      "normalKcrctab": {
+        "startVA": "0xffffff800a4ffe10",
+        "stopVA": "0xffffff800a50721c",
+        "bytes": 29708,
+        "entrySize": 4,
+        "count": 7427
+      },
+      "layout": "Ordinary 8-byte PREL32 table count matches ordinary 4-byte CRC table count exactly; GPL CRC start not yet collected.",
+      "exports": {
+        "commit_creds": {
+          "section": "normal",
+          "entryVA": "0xffffff800a4e96a0",
+          "index": 1208
+        },
+        "init_task": {
+          "section": "normal",
+          "entryVA": "0xffffff800a4ed340",
+          "index": 3148
+        },
+        "module_layout": {
+          "section": "normal",
+          "entryVA": "0xffffff800a4ef528",
+          "index": 4233
+        },
+        "prepare_kernel_cred": {
+          "section": "normal",
+          "entryVA": "0xffffff800a4f0ff0",
+          "index": 5090
+        },
+        "system_unbound_wq": {
+          "section": "gpl",
+          "entryVA": "0xffffff800a4fdfd8",
+          "index": 4316
+        }
+      },
+      "decodedRawExportEntriesValidated": false,
+      "sourceProvenance": {
+        "selinuxState": "security/selinux/hooks.c:108 struct selinux_state selinux_state __rticdata;",
+        "selinuxStateDeclaration": "security/selinux/include/security.h:104,122 define and declare struct selinux_state",
+        "selinuxEnforcing": "security/selinux/hooks.c:209 int selinux_enforcing __kdp_ro;",
+        "selinuxEnforcingNv": "0xffffff800a4dd200 provisional VA recovered by nm",
+        "selinuxStateRecoveredNm": "U selinux_state - unresolved reconstruction artifact; despite presence in exact vendor source, raw bytes/section and deployed RAM layout unverified"
+      },
+      "moduleSymversRecovered": false,
+      "rawCrcValuesValidated": false,
+      "originalKernelModuleAbiEstablished": false,
+      "auditTool": "tools/y2q_export_table_audit.py",
+      "auditToolExecutedOnOwnerOriginalImage": false,
+      "constraints": [
+        "Kallsyms addresses not runtime KASLR values",
+        "CRC encoding mode not yet confirmed from exact CONFIG_MODULE_REL_CRCS",
+        "Loaded-stock-kernel signature enforcement requires accepted signing key",
+        "Samsung __rticdata and __kdp_ro are protected-data annotations; no write access established"
+      ],
+      "status": "export namespace and table bounds identified; CRC decode and validation pending"
+    }
   }
 }
