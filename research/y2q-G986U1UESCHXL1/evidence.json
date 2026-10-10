@@ -816,8 +816,26 @@
     "rootGranted": false,
     "moduleLoadVerified": false,
     "publicationAllowed": false,
-    "nextResearch": "Verify original retained boot.img/kernel.bin against recorded hashes, identify exact stock kernel binary format and inspect read-only disassembly/source correspondence; avoid crash-oriented reproduction until recovery plan is established.",
-    "originalExtractedKernelByteCorrelationScope": "Three selected function-entry 64-byte windows plus corresponding source/disassembly semantics; not full Image source-byte equivalence or running-memory identity"
+    "nextResearch": "Verify exact function-state semantics for waiters on positive/error return and mapping of observed PI struct operands to Samsung stock layouts; retain no-run/no-root gates.",
+    "originalExtractedKernelByteCorrelationScope": "Three 64-byte entry windows and four exact critical instruction words, all equal; no independent live kernel memory read",
+    "sourceAndOriginalExtractedBinaryBugLogicVerified": true,
+    "successfulProxyLockCleanupConcern": {
+      "status": "source-and-ELF-visible potentially incorrect cleanup control flow; not classified as separate confirmed exploitable CVE",
+      "sourceEvidence": [
+        "rtmutex.c:1756-1757 __rt_mutex_start_proxy_lock returns 1 on immediate successful acquisition",
+        "rtmutex.c:1797-1806 wrapper checks if (unlikely(ret)) then remove_waiter, including ret==1",
+        "futex.c:2159-2170 outer requeue code treats ret==1 as success"
+      ],
+      "binaryEvidence": [
+        "rt_mutex_start_proxy_lock 0xffffff8008147d44 calls try_to_take_rt_mutex",
+        "0xffffff8008147d48: cbz w0, 0xffffff8008147d7c",
+        "0xffffff8008147d4c: mov w21,#1",
+        "0xffffff8008147d58: bl remove_waiter; original raw 4 bytes 17000094 match recovered ELF"
+      ],
+      "upstreamRelevantAdvisory": "https://lists.openwall.net/linux-cve-announce/2026/06/25/20",
+      "importantDistinction": "CVE-2026-53163 vulnerability ranges are new backport branches and do not list Linux 4.19. Similar-looking cleanup condition in vendor 4.19 requires separate review and does not inherit newer CVE assignment automatically.",
+      "confirmedRuntimeCrash": false
+    }
   },
   "originalFirmwareBinaryVerification": {
     "ownerReportedAt": "2026-10-10",
@@ -967,7 +985,7 @@
           "Disassembly demonstrates wrong-task access in original extracted firmware but not reachability, UAF triggering or root."
         ],
         "disassemblyScopeCaveat": "The compare covered 64 bytes after each symbol entry. The mrs SP_EL0 at remove_waiter+0x34 and add #0x8c8 at +0x38 were inside this validated window; str xzr [x20,#0x8f8] at remove_waiter+0x68 was visible in the reconstructed ELF disassembly but lies outside the already direct-byte-matched 64-byte window. Verify that exact raw ARM64 instruction separately before calling it raw-byte-correlated.",
-        "piBlockedOnRawInstructionBytesDirectlyCompared": false,
+        "piBlockedOnRawInstructionBytesDirectlyCompared": true,
         "nextDirectByteLocations": [
           {
             "symbol": "remove_waiter",
@@ -993,7 +1011,39 @@
             "instruction": "bl remove_waiter",
             "validatedInFirst64Bytes": false
           }
-        ]
+        ],
+        "ownerReportedDirectInstructionAuditAt": "2026-10-10",
+        "directInstructionVerification": [
+          {
+            "label": "current via SP_EL0",
+            "va": "0xffffff8008147de8",
+            "littleEndianBytes": "144138d5",
+            "rawEqualsRecovered": true,
+            "instruction": "mrs x20, SP_EL0"
+          },
+          {
+            "label": "current pi_lock",
+            "va": "0xffffff8008147dec",
+            "littleEndianBytes": "95222391",
+            "rawEqualsRecovered": true,
+            "instruction": "add x21, x20, #0x8c8"
+          },
+          {
+            "label": "clear current blocked_on",
+            "va": "0xffffff8008147e1c",
+            "littleEndianBytes": "9f7e04f9",
+            "rawEqualsRecovered": true,
+            "instruction": "str xzr, [x20, #0x8f8]"
+          },
+          {
+            "label": "proxy calls remove_waiter",
+            "va": "0xffffff8008147d58",
+            "littleEndianBytes": "17000094",
+            "rawEqualsRecovered": true,
+            "instruction": "bl remove_waiter"
+          }
+        ],
+        "directEvidenceConfidence": "All four original kernel.bin instruction words correspond byte-for-byte to recovered ELF; does not prove booted handset RAM equality."
       }
     },
     "recoveredSymbolsProvisional": true
