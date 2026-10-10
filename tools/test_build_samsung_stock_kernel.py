@@ -173,8 +173,8 @@ class ImageBuildPlanTests(unittest.TestCase):
                     return Driver()
                 target = Path(command[-1])
                 target.write_bytes(
-                    b"\\x7fELF" + bytes([2, 1, 1]) + bytes(11)
-                    + b"\\xb7\\x00" + bytes(32)
+                    b"\x7fELF" + bytes([2, 1, 1]) + bytes(11)
+                    + b"\xb7\x00" + bytes(32)
                 )
                 return Compiler()
             with patch.object(module.subprocess, "run", side_effect=call):
@@ -202,11 +202,11 @@ class ImageBuildPlanTests(unittest.TestCase):
             args.integrated_arm64_as = True
             args.verbose = True
             unchanged = (makefile.read_bytes(), config.read_bytes())
-            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \\
-                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \\
-                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \\
-                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \\
-                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"), \\
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \
+                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \
+                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \
+                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"), \
                  patch.object(module, "check_arm64_integrated_assembler",
                               return_value={"mode": "clang-integrated-aarch64", "actualObjectCompiled": True}):
                 result, _ = module.plan(args)
@@ -220,10 +220,10 @@ class ImageBuildPlanTests(unittest.TestCase):
             args, _, makefile, config = self.setup_case(temp)
             args.integrated_arm64_as = True
             args.external_arm64_as = True
-            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \\
-                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \\
-                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \\
-                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \\
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \
+                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \
+                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \
                  patch.object(module, "find_python2", return_value="/opt/legacy/python2"):
                 with self.assertRaisesRegex(ValueError, "choose one assembler mode"):
                     module.plan(args)
