@@ -837,3 +837,30 @@ The audit uses exact original PE SHA256, earlier REA evidence IDs, readback leng
 Output: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-ram-registration-callback.md`.
 
 This resolves provider-side **registration source code**, not runtime table contents, selected device DRAM base, ABL per-boot KASLR, kernel physical entry, GhostLock exploit reliability, Samsung RKP/KDP/DEFEX restrictions, or KernelSU deployment. Nothing currently makes the HXL1 Root My Galaxy research profile installable.
+
+
+## October 10, 2026 15:30 — 45 regression PASS, real report-schema gate defect corrected
+
+Owner executed `tools/run_y2q_hxl1_envdxe_ram_registration_callback.sh` after pulling `cae2c98`. **45/45 synthetic tests passed in 0.144 s**, then **before performing the first new Ghidra query**, the stage aborted with:
+
+    [STOP] Prior static evidence was promoted without runtime proof
+
+This is an **audit implementation defect**, not indication that RAM was read at runtime or that a root primitive was obtained. The new code checked `previous.get("numericRuntimeRamBaseMeasured") is not False` against the direct output from `y2q_hxl1_envdxe_smem402_protocol.audit`. That key belongs to the **grandparent** `y2q_hxl1_envdxe_ram_table_input_trace.audit`, not the direct previous report, whose actual keys are:
+
+- `efiRamProtocolRegistrationProven: False`
+- `ramProtocolImplementationRegistrationConfirmed: False`
+- `physicalBaseMemoryMeasured: False`
+- `runtimeSmemTableContentsObserved: False`
+- `kernelPhysicalLoadVerified: False`
+
+Python dict `.get` returned `None` for the missing `numericRuntimeRamBaseMeasured` key; `None is not False` triggered the false-positive abort. Source code was fixed to check **all five actual direct parent fields**, preserving fail-closed semantics when a required field is missing or `True`.
+
+The earlier suite mocked the entire prior report and therefore did not catch upstream schema drift. To prevent recurrence, the repaired tests now include an **actual full prior `smem402_protocol.audit` execution using synthetic original REA evidence**; only its still-earlier input report is stubbed. The downstream registration check consumes that **real immediately upstream result**, including the absence of grandparent-only keys. Additional regressions assert failure on actual boot-time observation flags and invalid original registration callsite pseudocode. Total suite grew from **45 to 57 tests** across three suites; all are in the CI workflow.
+
+Run the corrected host-only stage again:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_envdxe_ram_registration_callback.sh
+
+The first new actual Ghidra query will read the original 48-byte protocol interface at static `0xd1d0`, then eight authentic bounded xref queries, and optionally decompile the original `GetRamPartitions` callback at slot `+0x18` when a valid static address exists. **No runtime physical RAM, KASLR, GhostLock exploitation, KernelSU or root has been proven.** The user's S20+ is not required for this offline test.
