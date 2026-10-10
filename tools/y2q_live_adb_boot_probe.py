@@ -227,9 +227,17 @@ def main() -> int:
         selected = choose(args.serial)
         report = collect(selected)
         folder = args.out / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        folder.mkdir(parents=True,exist_ok=False)
-        (folder/"live-boot-evidence.json").write_text(json.dumps(report,indent=2)+"\n")
-        (folder/"live-boot-evidence.md").write_text(markdown(report))
+        folder.mkdir(parents=True, exist_ok=False, mode=0o700)
+        # Reports can contain non-unique memory-map addresses and build
+        # arguments; protect all host-side evidence from other local users.
+        json_report = folder / "live-boot-evidence.json"
+        md_report = folder / "live-boot-evidence.md"
+        with json_report.open("x") as sink:
+            sink.write(json.dumps(report, indent=2) + "\n")
+        with md_report.open("x") as sink:
+            sink.write(markdown(report))
+        json_report.chmod(0o600)
+        md_report.chmod(0o600)
     except (Stop, OSError, ValueError) as e:
         print("[STOP]", redact(str(e)), file=sys.stderr)
         return 2
