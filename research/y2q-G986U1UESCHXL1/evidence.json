@@ -1787,5 +1787,59 @@
         "tracingFileContentsReadScope": "sched_switch format only"
       }
     }
+  },
+  "hxl1FutexPiSmoke": {
+    "stage": "phase2-basic-futex-pi-prerequisite-smoke",
+    "firmware": "G986U1UESCHXL1",
+    "device": "SM-G986U1",
+    "kernel": "4.19.113-27095354",
+    "source": "research/y2q-G986U1UESCHXL1/futex_pi_smoke.c",
+    "buildScript": "research/y2q-G986U1UESCHXL1/build_futex_pi_smoke.sh",
+    "ciWorkflow": ".github/workflows/y2q-identity-probe.yml",
+    "tests": "tools/test_y2q_futex_pi_smoke.py",
+    "githubArtifactName": "y2q-HXL1-futex-pi-smoke-NOT-ROOT",
+    "design": {
+      "firmwareIdentityGuard": "Strict matches on model, device, bootloader, fingerprint, kernel release, locked boot flags, ADB-shell UID/EUID=2000 and 4096-byte pages; refusal on mismatch",
+      "operations": [
+        "FUTEX_WAIT_PRIVATE with mismatched value; immediate EAGAIN",
+        "FUTEX_WAKE_PRIVATE with no waiters; expect zero",
+        "FUTEX_LOCK_PI_PRIVATE on fresh zero word; expect owner TID",
+        "FUTEX_UNLOCK_PI_PRIVATE by its owner; expect reset to zero",
+        "FUTEX_TRYLOCK_PI_PRIVATE on separate fresh word; expect owner TID and successful unlock"
+      ],
+      "risksLimitedBy": [
+        "single thread",
+        "single pass",
+        "no contention",
+        "no thread races",
+        "no priority changes",
+        "no PI requeue, FUTEX_CMP_REQUEUE_PI, FUTEX_WAIT_REQUEUE_PI",
+        "no root/SELinux changes",
+        "no kernel memory access, tracing activation, modules, or boot flash"
+      ],
+      "hostTestBuild": "RMG_HOST_TEST macro only for host CI builds; compile-time rejected when __ANDROID__ defined",
+      "resultCodes": {
+        "0": "PASS_BASIC_FUTEX_PI_SYSCALLS_ONLY",
+        "2": "REFUSED_IDENTITY_MISMATCH / usage error",
+        "3": "INCONCLUSIVE_PI_UNAVAILABLE",
+        "4": "FAIL_STANDARD_FUTEX / FAIL_PI_SEMANTICS"
+      },
+      "executionNotes": "adb push artifact into /data/local/tmp, chmod 700 and run as uid 2000 under external time limit, then remove staged file; never run with su"
+    },
+    "status": {
+      "sourceCommitted": true,
+      "buildScriptCommitted": true,
+      "regressionTestsCommitted": true,
+      "ciWired": true,
+      "ciBuildPassed": false,
+      "androidArtifactExistsVerified": false,
+      "hostUnitTestsPassed": false,
+      "deviceSmokeRunVerified": false,
+      "ghostLockTriggered": false,
+      "rootVerified": false,
+      "moduleLoadVerified": false,
+      "publicationAllowed": false
+    },
+    "gateInterpretation": "A passing basic futex-PI smoke test shows ordinary syscall availability only. It neither exercises PI requeue/error paths nor indicates GhostLock exploitable or KernelSU bootloader/ABI/kernel hook feasibility."
   }
 }
