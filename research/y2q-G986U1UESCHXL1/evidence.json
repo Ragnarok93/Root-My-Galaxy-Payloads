@@ -1299,7 +1299,7 @@
           "index": 4316
         }
       },
-      "decodedRawExportEntriesValidated": false,
+      "decodedRawExportEntriesValidated": true,
       "sourceProvenance": {
         "selinuxState": "security/selinux/hooks.c:108 struct selinux_state selinux_state __rticdata;",
         "selinuxStateDeclaration": "security/selinux/include/security.h:104,122 define and declare struct selinux_state",
@@ -1318,7 +1318,96 @@
         "Loaded-stock-kernel signature enforcement requires accepted signing key",
         "Samsung __rticdata and __kdp_ro are protected-data annotations; no write access established"
       ],
-      "status": "export namespace and table bounds identified; CRC decode and validation pending"
+      "status": "export namespace and table bounds identified; CRC decode and validation pending",
+      "ownerExecutedAuditAt": "2026-10-10",
+      "ownerOriginalAuditOutput": {
+        "status": "read-only provisional symbol and CRC audit; NO module-load approval",
+        "script": "tools/y2q_export_table_audit.py",
+        "sha256Verified": true,
+        "recoveredBase": "0xffffff8008080000",
+        "config": {
+          "CONFIG_HAVE_ARCH_PREL32_RELOCATIONS": "y",
+          "CONFIG_MODVERSIONS": "y",
+          "CONFIG_MODULE_REL_CRCS": "absent in extracted config.gz (not explicitly n)",
+          "CONFIG_MODULE_SIG_FORCE": "y"
+        },
+        "checkedExports": [
+          {
+            "name": "commit_creds",
+            "export": "normal",
+            "index": 1208,
+            "entryVA": "0xffffff800a4e96a0",
+            "symbolVA": "0xffffff80080e8534",
+            "crcSlotVA": "0xffffff800a5010f0",
+            "crcRawHex": "794fccf2",
+            "rawCrcSlotAsLittleEndianU32": "0xf2cc4f79"
+          },
+          {
+            "name": "prepare_kernel_cred",
+            "export": "normal",
+            "index": 5090,
+            "entryVA": "0xffffff800a4f0ff0",
+            "symbolVA": "0xffffff80080e8b8c",
+            "crcSlotVA": "0xffffff800a504d98",
+            "crcRawHex": "5caf6fb8",
+            "rawCrcSlotAsLittleEndianU32": "0xb86faf5c"
+          },
+          {
+            "name": "init_task",
+            "export": "normal",
+            "index": 3148,
+            "entryVA": "0xffffff800a4ed340",
+            "symbolVA": "0xffffff800ac2f9c0",
+            "crcSlotVA": "0xffffff800a502f40",
+            "crcRawHex": "e2bd0572",
+            "rawCrcSlotAsLittleEndianU32": "0x7205bde2"
+          },
+          {
+            "name": "module_layout",
+            "export": "normal",
+            "index": 4233,
+            "entryVA": "0xffffff800a4ef528",
+            "symbolVA": "0xffffff800819979c",
+            "crcSlotVA": "0xffffff800a504034",
+            "crcRawHex": "758162b6",
+            "rawCrcSlotAsLittleEndianU32": "0xb6628175"
+          },
+          {
+            "name": "system_unbound_wq",
+            "export": "gpl-only",
+            "index": 4316,
+            "entryVA": "0xffffff800a4fdfd8",
+            "symbolVA": "0xffffff800ac1e708",
+            "crcSlotVA": "0xffffff800a50b58c",
+            "crcRawHex": "3246c1d4",
+            "rawCrcSlotAsLittleEndianU32": "0xd4c14632"
+          }
+        ],
+        "testedEntries": 5,
+        "decodedNamesMatchedAll": true,
+        "addressMatchesAll": true,
+        "crcSlotsLocatedAll": true,
+        "crcInterpretationConfirmed": false,
+        "independentStockModuleCrcCheckCompleted": false,
+        "kernelSignatureRequirementStillEnforced": true,
+        "hardwareKernelSuLoaded": false
+      },
+      "gplKcrctab": {
+        "startVA": "0xffffff800a50721c",
+        "stopVA": "0xffffff800a50c4a8",
+        "bytes": 21132,
+        "slots": 5283,
+        "gplExportCount": 5283,
+        "countsMatch": true
+      },
+      "rawCrcSlotsExtracted": true,
+      "recoveredStockModuleSymvers": false,
+      "auditScriptUpdatedToDistinguishConditionalAbsoluteCrc": true,
+      "remaining": [
+        "Check Samsung HXL1 kernel/module.c and include/linux/export.h for MODULE_REL_CRCS and CRC runtime dereference",
+        "Compare at least one CRC against independent known-valid stock module metadata before treating reconstructed CRCs as finalized",
+        "No module signature trust or KernelSU 4.19 hooks/loader validated"
+      ]
     }
   }
 }
