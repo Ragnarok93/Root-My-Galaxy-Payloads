@@ -8,6 +8,17 @@ OUT="$HOME/s20-artifacts/hxl1-research/abl-linuxloader"
 REA_SOURCE="$HOME/src/rea"
 mkdir -p "$OUT"
 
+# WSL bash may inherit Windows npm and system Node 18. A bootstrap-installed
+# Linux nvm is not necessarily loaded in noninteractive shells, so activate
+# it here without changing this repo, Windows, or global system Node.
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+  export NVM_DIR="$HOME/.nvm"
+  # shellcheck source=/dev/null
+  . "$NVM_DIR/nvm.sh"
+  nvm use 24 >/dev/null 2>&1 || true
+  hash -r
+fi
+
 if [ ! -f "$OUT/LinuxLoader-HXL1.efi" ]; then
   echo "=== Reuse existing verified 2-decoder ABL section evidence (no re-unpack) ==="
   python3 -m unittest -q tools/test_y2q_hxl1_cached_linuxloader.py
