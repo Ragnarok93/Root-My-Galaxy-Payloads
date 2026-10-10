@@ -2400,7 +2400,7 @@
         "number": 4,
         "category": "physical load address",
         "state": "OPEN",
-        "basis": "Original exact HXL1 BL TAR/MD5 SHA256 pinned; 3 matching ELF components and 10/10 bootloader-audit tests passed on owner WSL; header v2 follow-up ready. Actual kernel physical handoff still OPEN."
+        "basis": "Actual original HXL1 BL archive checksum pinned and ABL/XBL/XBL_CONFIG ELF tests 10/10 passed. Original boot.img v2 tests 13/13 passed, kernel/ramdisk/DTB embedded SHA pins match, nominal kernel_addr=0x8000, dtb_addr=0x1f00000. Runtime BL physical kernel placement still OPEN."
       },
       {
         "number": 5,
@@ -2438,7 +2438,7 @@
     "workingKernelSu": false,
     "verifiedStockIdentity": true,
     "verifiedStockOriginalSourceHashes": true,
-    "nextOwnerAction": "Pull Stage4 v2 audit fix; run 13 local regression tests and hash-guarded original boot.img parser even if optional ramdisk.img is absent. Distinguish original embedded SHA agreement and intended header address from actual runtime physical handoff.",
+    "nextOwnerAction": "Analyze exact checksum-verified DTB payload embedded inside original stock boot.img to classify FDT/QCDT and identify memory/reserved-memory data, separately from original BL ELF PT_LOAD, while preserving physical handoff as OPEN.",
     "noPhoneChanges": true,
     "noCrossDeviceOffsets": true,
     "noPrematureSupportFeedRegistration": true,
@@ -2783,7 +2783,7 @@
     }
   },
   "hxl1Stage4BootloaderDiscovery": {
-    "observedAt": "2026-10-10T07:39:47Z",
+    "observedAt": "2026-10-10T07:46:30Z",
     "commandScope": "find /mnt/c/Users $HOME/Downloads -maxdepth 6 under G986 filename patterns",
     "matches": [
       "/mnt/c/Users/Admin/Downloads/SM-G986U.zip"
@@ -2803,7 +2803,7 @@
       "bootloaderPhysicalLoadProved": false
     },
     "physicalKernelLoadAddressVerified": false,
-    "status": "ABL_XBL_XBL_CONFIG_EXTRACTED_WITH_FACTORY_ELF_HEADERS; ORIGINAL_KERNEL_PHYSICAL_HANDOFF_OPEN",
+    "status": "ORIGINAL_BL_AND_ANDROID_BOOT_V2_VERIFIED; LINUX_PHYSICAL_HANDOFF_OPEN",
     "exactFirmwareFolder": "/mnt/c/Users/Admin/Downloads/SAMFW.COM_SM-G986U1_XAA_G986U1UESCHXL1_fac",
     "archive": {
       "path": "BL_G986U1UESCHXL1_G986U1UESCHXL1_MQB90638722_REV00_user_low_ship_MULTI_CERT.tar.md5",
@@ -2859,7 +2859,7 @@
         "sizeBytes": 68536429
       }
     ],
-    "nextEvidenceAction": "Run 13 regression tests for v2 boot-header parser and execute fixed stock-boot-v2-audit against pinned boot.img; absent extracted ramdisk/dtb is optional. Report embedded SHA match separately from external file match. Stage 4 handoff remains OPEN.",
+    "nextEvidenceAction": "Use pinned original boot.img embedded DTB region (offset 0x3240000 length 1580275) for read-only device tree format and memory map inventory. Do not assume kernel_addr 0x8000 describes effective Qualcomm ABL physical handoff; AOSP base plus offset conventions may apply.",
     "stockBootloaderImagesExtracted": true,
     "originalFactoryPhysicalKernelEntryVerified": false,
     "deviceFlashed": false,
@@ -3020,7 +3020,7 @@
       "script": "tools/y2q_stock_boot_v2_audit.py",
       "tests": "tools/test_y2q_stock_boot_v2_audit.py",
       "ci": ".github/workflows/y2q-identity-probe.yml",
-      "status": "COMMITTED; NOT YET OWNER-EXECUTED",
+      "status": "OWNER_EXECUTED_ALL_13_TESTS_PASS_AND_EXACT_ORIGINAL_BOOT_IMAGE_AUDIT_PASS",
       "output": "/home/main/s20-artifacts/hxl1-research/stock-boot-v2-audit.{json,md}",
       "runtimeAddressVerified": false,
       "ownerFirstExecutionAt": "2026-10-10T07:39:47Z",
@@ -3047,7 +3047,65 @@
         "expectedTotalRegressionTests": 13,
         "status": "COMMITTED; AWAITING_OWNER_VERIFICATION",
         "output": "/home/main/s20-artifacts/hxl1-research/stock-boot-v2-audit.{json,md}"
-      }
+      },
+      "ownerVerifiedAt": "2026-10-10T07:46:30Z",
+      "gitPullStatus": "Already up to date",
+      "regression": {
+        "passed": 13,
+        "total": 13,
+        "errors": 0,
+        "failures": 0,
+        "elapsedSeconds": 0.012
+      },
+      "bootImageIntegrity": "PRESENT_PIN_VERIFIED",
+      "bootImageHeader": {
+        "headerVersion": 2,
+        "pageSize": 4096,
+        "board": "SRPSH29C012",
+        "declaredAddresses": {
+          "kernelAddr": "0x8000",
+          "ramdiskAddr": "0x2000000",
+          "secondAddr": "0x0",
+          "tagsAddr": "0x1e00000",
+          "dtbAddr": "0x1f00000"
+        },
+        "addressInterpretation": "Exact boot.img header values only. May reflect base/offset or firmware-loader conventions. NOT proof of Linux physical runtime load base, entry point or KASLR.",
+        "kernelPhysicalHandoffVerified": false
+      },
+      "embeddedComponents": {
+        "kernel": {
+          "fileOffset": "0x1000",
+          "sizeBytes": 51957772,
+          "checksumPinMatch": true,
+          "standalone": "PRESENT_PIN_VERIFIED",
+          "bytesMatchStandalone": true
+        },
+        "ramdisk": {
+          "fileOffset": "0x318f000",
+          "sizeBytes": 724388,
+          "checksumPinMatch": true,
+          "standalone": "MISSING_OPTIONAL",
+          "bytesMatchStandalone": null
+        },
+        "second": {
+          "fileOffset": "0x3240000",
+          "sizeBytes": 0,
+          "checksumPinMatch": null,
+          "standalone": "NOT_APPLICABLE"
+        },
+        "dtb": {
+          "fileOffset": "0x3240000",
+          "sizeBytes": 1580275,
+          "checksumPinMatch": true,
+          "standalone": "MISSING_OPTIONAL",
+          "bytesMatchStandalone": null
+        }
+      },
+      "outputs": [
+        "/home/main/s20-artifacts/hxl1-research/stock-boot-v2-audit.json",
+        "/home/main/s20-artifacts/hxl1-research/stock-boot-v2-audit.md"
+      ],
+      "noPhoneAccess": true
     }
   }
 }
