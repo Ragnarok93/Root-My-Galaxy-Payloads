@@ -377,7 +377,8 @@ def boot(args: argparse.Namespace) -> int:
     }, indent=2) + "\n")
     print("\n".join(trace.splitlines()[-25:]))
     print(f"[{status}] Logs: {log}  Report: {report}")
-    return 0 if status == "PASS_BOOT_ONLY" else 3
+    # Both the original boot check and the extended bounded-PI guest are successes.
+    return 0 if status in ("PASS_BOOT_ONLY", "PASS_BOUNDED_PI") else 3
 
 
 def main() -> int:
