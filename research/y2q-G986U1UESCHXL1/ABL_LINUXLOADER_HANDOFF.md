@@ -405,3 +405,72 @@ bash tools/run_y2q_hxl1_stage4_placement.sh
 ```
 
 The current Stage 4 proof obligation is to interpret the original BootLinux tail and identify its actual final kernel branch target/registers and which of the two demonstrated placement branches can execute. A PE RVA, static firmware initialized word, or UEFI variable name is NOT a valid numerical `kernel_phys_load` without its runtime value and correct address domain. **Bootloader unlock, actual privilege elevation, GhostLock viability, and KernelSU are still not demonstrated.**
+
+
+## 2026-10-10 12:32: Actual static ARM64 boot handoff and OEM fallback constants identified
+
+Owner ran `tools/run_y2q_hxl1_stage4_placement.sh` at `403106e`; all **8/8** placement regression tests passed. All **16** original stock `BootLinux` placement anchors verified. The complete final **180 lines** of original, Ghidra-decompiled `FUN_00020a60` (970 pseudocode lines) were recovered from previously authenticated REA JSON **without rerunning analysis**.
+
+### The final actual *static* control-transfer site is no longer unknown
+
+On successful return from `FUN_0001e868()` (UEFI boot-services shutdown helper), BootLinux calls `FUN_0001e9b8()`, `FUN_0002d878(1)`, then dispatches:
+
+```c
+pcVar22 = local_178;         // computed device-tree destination
+pcVar24 = local_190;         // computed kernel load/entry destination
+if (local_130 == '\0') {
+    (*local_190)(local_178, local_1c0,
+                 (longlong)local_190 - local_1c0, 0);
+} else if (uVar23 == 0) {
+    (*local_190)(0, 0, local_178);
+} else {
+    // firmware-mediated 32-bit mode handoff after state setup:
+    pcVar24 = (code *)*DAT_00346b38;
+    FUN_0007a024(local_108, local_b8, 0x50);
+    lVar13 = (*pcVar24)(local_108);
+}
+```
+
+The *function-pointer target is exactly* the **same computed `local_190` destination** that receives the kernel decompression or copy. Thus static handoff structure is confirmed; the separate hypothesis of "unknown final jump" is **CLOSED**. This does NOT demonstrate that this branch executed on the original handset at runtime, or that the numerical kernel physical address is known. Keep `kernel_phys_load` UNSET.
+
+### Exactly four little-endian firmware fallback words and initial KASLR state
+
+Original REA Ghidra `read-bytes` on SHA256-pinned stock EFI:
+
+- `0xb2210`, length 16, bytes **`00000800000060050000c00300800000`**, complete, Evidence `ev_4870f8749a2b7c9173591ed0aa49e4fa7be3de0a8b5216923e8f107f1962b95e`. As four little-endian `uint32`:
+  - `DAT_000b2210 = 0x00080000` (ARM64 fallback kernel offset, **512 KiB**).
+  - `DAT_000b2214 = 0x05600000` (ARM64 fallback memory region size, **86 MiB**).
+  - `DAT_000b2218 = 0x03c00000` (alternate-image region size, **60 MiB**).
+  - `DAT_000b221c = 0x00008000` (alternate-image fallback kernel offset, **32 KiB**).
+- `0x32a4c8`, length 4, bytes **`40000000`**, complete, Evidence `ev_d90aeaf7759363f9b26daf64c0752bc59f286df23ddab01c207acfad87dc32cc`, original **`DAT_0032a4c8 = 0x40`**. This is the static initial KASLR sentinel, **not the runtime random choice**. `FUN_00020838` initializes it during boot and BootLinux masks it to 6 bits in the sentinel branch before computing `KASLRValue << 15`.
+
+Original base-memory/KernelBaseAddr branch equations, conditional on actual OEM boot parameters:
+
+```text
+UEFI variable branch (ARM64): KernelEntry = KernelBaseAddr + 0x80000 + (KASLRValue << 15)
+Fallback branch (ARM64):      KernelEntry = (BaseMemory | 0x80000) + (KASLRValue << 15)
+Firmware region upper end:    BaseMemory + 0x05600000  (fallback ARM64)
+```
+
+The **bitwise OR** on fallback is a deliberate verbatim representation of original decompilation; do not silently turn it into `+` unless independently proven equal for the specific runtime BaseMemory. Valid final entry must still satisfy loader's kernel/ramdisk/DT space checks.
+
+### Next actionable proof: dynamic inputs' origin, not another loader scan
+
+The new original-EFI evidence-gated `tools/y2q_linuxloader_rea_stage4_handoff.py` cross-checks verified BootLinux source, the original shutdown-before-jump code ordering, the **three** conditional transfer forms, and both REA `read_bytes` results against the exact SHA256 pinned AArch64 EFI. It documents two distinct classifications: static transfer proven, numeric boot-time entry **unmeasured**. Ten synthetic regressions include tampered constants, wrong REA target and call-graph ordering.
+
+`tools/run_y2q_hxl1_stage4_handoff_sources.sh` then performs only three targeted, cached REA 6.3.0/Ghidra 12.1.4 decompilations on known *original call targets*, preserving full provenance:
+1. **`FUN_0001f018` / `0x1f018`** — source that computes `local_1c0` (`BaseMemory`).
+2. **`FUN_00020838` / `0x20838`** — KASLR initialization from static `0x40` sentinel.
+3. **`FUN_0001e868` / `0x1e868`** — UEFI shutdown helper that gates final jump.
+
+`tools/y2q_linuxloader_rea_stage4_sources.py` verifies SHA256, Ghidra provider, original query address, and real Ghidra function body membership, and publishes `rea-stage4-source-functions.md` plus original full Evidence JSONs. Eight additional synthetic tests cover wrong provider/digest/query/body and unavailable p-code. No device commands or firmware changes.
+
+**Next owner command**:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_stage4_handoff_sources.sh
+```
+
+**Stage 4 status:** Final original bootloader kernel handoff *static code path* is now **IDENTIFIED**; numerical `kernel_phys_load` for GhostLock/KernelSU remains **UNVERIFIED**, as do the runtime UEFI/fallback branch and real BaseMemory/KASLR/selected DTB. This evidence neither demonstrates a practical escalation nor unlocks the phone or installs KernelSU.
