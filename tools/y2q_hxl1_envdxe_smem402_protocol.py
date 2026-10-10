@@ -159,6 +159,7 @@ def audit(folder: Path) -> dict:
                                "SMEM_USABLE_RAM_PARTITION_TABLE"},
         "originalCandidateInstallationGuid": guid,
         "originalSourceFunctions": originals,
+        "efiRamProtocolRegistrationProven": False,
         "ramProtocolImplementationRegistrationConfirmed": False,
         "runtimeSmemTableContentsObserved": False,
         "physicalBaseMemoryMeasured": False,
