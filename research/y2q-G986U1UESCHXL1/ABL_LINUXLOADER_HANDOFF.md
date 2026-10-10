@@ -638,3 +638,29 @@ bash tools/run_y2q_hxl1_xbl_ram_guid_locator.sh
 ```
 
 Output: `~/s20-artifacts/hxl1-research/xbl-rampartition/original-xbl-rampartition-guid.md`. If a genuine 16-byte little-endian GUID is present within an original XBL ELF load segment, investigate the containing firmware module/actual registration xrefs. If absent, perform only a *targeted* firmware-volume/decompression inspection for the named provider driver, not a repeat of broad DTB/FDT/image surveys. Root/KernelSU remain absent; physical kernel load remains unverified.
+
+
+## 2026-10-10 13:45 — original XBL RAM GUID absent in raw files, next targeted DXE inspection
+
+Owner ran the previously committed tools/run_y2q_hxl1_xbl_ram_guid_locator.sh. All **10 synthetic regressions passed**. Both original stock files passed existing SHA256/ELF identity pins, but the exact EFI_RAMPARTITION GUID 5172ffb5-4253-7d51-c641-a701f973103c had **0 literal matches in each file**, in both EFI little-endian and canonical binary form.
+
+- xbl.elf: SHA256 78d1bff9ef5c2aa626652390c112f0bf81869bb1f9a05fcd8a8e3dfff8f8b357; 0 literal GUID matches.
+- xbl_config.elf: SHA256 757fc6ef87134283d37fa4ee57f5180e3849107e216f48f379323ce473f40d7f; 0 literal GUID matches.
+
+This rules out those **literal byte sequences in the original packed ELFs**, not the provider's existence in nested/compressed volumes, a separately embedded XBL_CORE, or a constructed GUID. Do not repeat identical raw-GUID scans.
+
+**Next bounded original-firmware step:** tools/y2q_hxl1_xbl_envdxe_fv_probe.py. The existing validated ABL UEFI FV/FFS/GUID-LZMA Walker is reused to inspect the already-pinned original XBL bytes. An additional strictly bounded gzip candidate decoder validates CRC/stream end before accepting an internal FV. Inspected EFI PE payloads are classified only for the exact RAM protocol GUID or related EnvDxe/RamPartition/EFI_RAMPARTITION strings; FFS/UI identification and each accepted PE's hash and FV trace are retained. No EFI executables are written to disk, no phone connection or device modification is involved, and no value is promoted to a runtime physical base.
+
+**Important limitation:** Raw ELF GUID absence, no valid FV, or no qualifying gzip member is **not** proof that Samsung's original DXE provider is missing. Tiano, alternate vendor compression, raw XBL_CORE layout, or protocol GUID construction may require a separate targeted investigation. A decoded matching GUID proves only a candidate until actual registration function/xrefs are shown.
+
+External format references: https://github.com/linux-msm/xbltools and https://worthdoingbadly.com/qcomxbl/ . Other Qualcomm models' gzip layout is a research lead, not a demonstrated HXL1 fact.
+
+13 synthetic tests and the branch CI workflow now cover the focused inspector. Operator command:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_xbl_envdxe_fv_probe.sh
+
+Output: ~/s20-artifacts/hxl1-research/xbl-rampartition/original-xbl-envdxe-fv.md . If a candidate module is found, next verify its uncompressed original PE's callsites and protocol installation. If not, use the reported FV/gzip counts to choose one *different* compression/layout path, not another generic scan.
+
+Current limits: original ABL protocol ABI and static ARM64 kernel handoff verified; exact XBL provider, boot-time RAM partitions, BaseMemory, runtime KASLR, numerical kernel physical entry, GhostLock viability and KernelSU remain unverified.
