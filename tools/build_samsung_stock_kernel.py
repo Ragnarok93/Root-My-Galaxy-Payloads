@@ -215,8 +215,8 @@ def check_cgroup_layout_warning_compat(compiler):
     Other warning categories remain visible/fatal to Samsung's wrapper.
     """
     sample = (
-        "struct tail { int count; int flexible[]; };\\n"
-        "struct wrapper { struct tail embedded; int after; };\\n"
+        "struct tail { int count; int flexible[]; };\n"
+        "struct wrapper { struct tail embedded; int after; };\n"
     )
     base = [
         str(compiler), "--target=aarch64-linux-gnu",
