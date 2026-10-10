@@ -2,8 +2,8 @@
 
 **Status: RESEARCH ONLY — NOT ROOTED, NOT INSTALLABLE, NOT IN SUPPORT FEED.**
 
-This document specializes [PORTING.md](PORTING.md) for the owner's US unlocked
-Galaxy S20+ (`SM-G986U1`, `y2q`, Snapdragon 865/Qualcomm Kona) on Samsung
+This document specializes [PORTING.md](PORTING.md) for the owner's US carrier-unlocked
+(**OEM bootloader still locked**) Galaxy S20+ (`SM-G986U1`, `y2q`, Snapdragon 865/Qualcomm Kona) on Samsung
 Android 13 firmware `G986U1UESCHXL1`. It describes **which porting steps
 are supported by existing evidence**, which must be re-derived for Linux
 `4.19.113`, and the sequencing/gates before there can be any supported
@@ -22,6 +22,84 @@ kernel compilation errors to perform the firmware-to-profile audit.
 - [Audited Samsung kernel source investigation](../research/y2q-G986U1UESCHXL1/SAMSUNG_SOURCE.md)
 - [Support feed selection limitations](../support/README.md)
 - [KernelSU module constraints and Samsung adaptations](../kernelsu/README.md)
+
+## Current porting priority — nine-stage HXL1 gate audit (October 10)
+
+**This project prioritizes completing the original Root My Galaxy
+firmware-to-payload porting workflow, NOT beginning another round of
+generic GhostLock or QEMU testing.** The root payload cannot be
+considered ported merely because the CVE ownership error is
+visible in stock source. Locked Verified Boot does not prevent
+research into a runtime CVE, but an installed KernelSU module and
+persisted kernel modifications are separate milestones.
+
+### Snapshot of the actual PORTING.md stages
+
+| Stage | Current evidence | Precise missing work |
+|---|---|---|
+| **1 — firmware** | COMPLETE: owner-proven S20+ y2q HXL1 identity and stock security state | None unless build changes |
+| **2 — stock extraction** | COMPLETE for retained original hashes and audited Samsung source overlays | Do not infer live RAM equals extracted boot image |
+| **3 — symbols/layout** | PARTIAL: recovered ELF+NM, raw correlating RT-mutex instructions, source-fix audit passed | independently verified HXL1 legacy 4.19 struct layouts and BTF status |
+| **4 — physical loading** | OPEN: ARM64 text_offset=0x80000 known, physical Qualcomm BL handoff unknown | provenance-pinned original HXL1 BL archive + independent kernel physical load derivation |
+| **5 — runtime/slide** | OPEN: known read-only tracefs metadata; slide and memory-dependent constants unverified | exact-HXL1 runtime assumptions, not other-device P0/trace constants |
+| **6 — target** | OPEN: inert identity probe is available, no validated y2q exploit target header | native target and output after dependencies from 3–5 are established |
+| **7 — KernelSU** | BLOCKED: force-signed modules, no kprobe/function tracer, Samsung hardening | independently demonstrated compatible 4.19 code and authorized loader/kernel execution |
+| **8 — app/feed** | BLOCKED: no supported y2q release, intentionally absent from feed | exact-firmware app guarding and full owner hardware validation |
+| **9 — retention** | DEFERRED: original research artifacts retained | independently tested recovery and release verification before cleanup |
+
+### Reproducible read-only gate checker
+
+`tools/y2q_porting_readiness.py` implements a **live audit** of
+these nine stages. It checks the original HXL1
+`boot.img`, `kernel.bin` and `config.gz` against pinned SHA-256
+values, validates both original Samsung RT-mutex/futex
+source SHA-256s, locates the existing recovered stock ELF/NM,
+searches for *fully bounded raw BTF candidate headers* in the
+original kernel Image, and refuses if the unverified HXL1
+profile appears in `support/targets-v3.json`.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 -m unittest -v tools/test_y2q_porting_readiness.py
+
+python3 tools/y2q_porting_readiness.py
+
+cat ~/s20-artifacts/hxl1-research/port-readiness.md
+```
+
+This generates `port-readiness.json` and `port-readiness.md`
+**outside the repository source and stock kernel source**,
+without modifying the phone or building a native exploit.
+`COMPLETE` on the device identity or extraction stages means
+exactly those provenance gates passed; it is not a deployable
+payload. Until the owner executes this new tool, the
+new-script results are **unverified**.
+
+The first next practical input after the gate report is the
+**exact original HXL1 BL archive** (if retained). Safe discovery:
+
+```bash
+find "$HOME/s20-artifacts" "$HOME/src" -maxdepth 4 \
+  -type f \( -iname 'BL*G986*' -o -iname 'sboot.bin*' \) -print
+```
+
+Do not replace an unknown BL handoff with the unrelated
+6.1-era Samsung reference's physical address. The structure
+layout work remains independent if the BL is not available.
+Likewise, *absence of an embedded raw BTF header* does not
+preclude reconstructing field layouts from exact source and
+verified binary information; it simply removes one convenient
+source of layout metadata.
+
+Historical sections further down retain their original
+investigation timestamps and may say “pending” for early
+tasks that subsequent owner tests completed. This snapshot
+and the generated gate checker provide the latest working
+porting-stage classification.
+
+---
 
 ## October 10: first original-source GhostLock scan completed
 
