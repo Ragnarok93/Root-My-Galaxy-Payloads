@@ -49,3 +49,30 @@ Repair commits beginning `b92289e`:
 - Added a synthetic 1 MiB erased-FV regression and a fail-closed no-loader diagnostic regression, bringing the tests to **8 expected**, to be verified against the owner's WSL2 checkout; synthetic tests do not establish original ABL extraction.
 
 Do not attempt PE disassembly unless `LinuxLoader-HXL1.efi` exists and has passed the PE verification. If the repaired parser fails, use its exact diagnostic layers to refine real input format handling, rather than repeat FDT/strings surveys.
+
+## Original HXL1 ABL inner FV is now independently decoded — 2026-10-10
+
+The owner ran commit `4636439`: all **8 previous synthetic tests passed** and the real original ABL hash matched. The repaired parser **successfully traversed both firmware volumes and decompressed the GUID-LZMA section**:
+
+- Original ABL SHA256: `6d717ef96e7355d72db1ac167ef1b74ff6ef33d22a8bfc08affc62f9cabcdeef`, size **4,194,304**.
+- Outer FV at original ABL file offset `0x3000`, `0x220000` bytes.
+- Outer FFS GUID `9e21fd93-9c72-4c15-8c4b-e77f1db2d792`, type `0x0b`; GUID-defined LZMA section `ee4e5898-3914-4259-9d6e-dc7bd79403cf`.
+- LZMA decoded section: **6,889,864** bytes. Its volume-image section `0x17` contains an inner FV at nested offset `0x0`, with length `0x692180` (**6,889,856** bytes).
+- Traversal finished after 20 objects, no runaway erased-space loop, and two accepted firmware volumes. **Zero AArch64 PE candidates** passed our custom `identify_pe` validator. This is a remaining **internal FFS / executable section interpretation gap**, not a missing LZMA layer.
+- The zero-PE diagnostic did not record the individual inner FFS names, sizes or section types, so it cannot yet determine if a valid PE was rejected, nested differently, or represented as a TE image. No loader output was generated.
+
+**Targeted repair:** the native parser now retains per-FFS and per-section provenance, UI names, section header prefixes and hash, rejected PE32 and TE signatures, and supports EFI no-compression wrapping. All errors preserve a JSON diagnostic; the tool still refuses to fabricate a loader. Added 2 synthetic tests, so the revised suite has **10 tests** (awaiting owner run).
+
+**Independent production-quality fallback:** `tools/recover_y2q_hxl1_linuxloader.sh` pins/checks the original ABL hash, runs the native extractor, and if needed installs PyPI `uefi-firmware==1.16` into a private host venv. It uses upstream `uefi-firmware-parser -b -e` to extract nested Qualcomm FVs independently. It promotes a file to `LinuxLoader-HXL1.efi` **only if** it is an AArch64 PE32+ section within the decoded FFS folder matching the exact LinuxLoader GUID. Ambiguous or absent outputs remain unverified with JSON diagnostics; no other .efi is guessed.
+
+**Next exact command (single recovery pass):**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/recover_y2q_hxl1_linuxloader.sh
+```
+
+If the native decoder fails, the tool reports all verified inner files and sections before running the independent decoder, so even a failure yields targeted evidence rather than another FDT or strings survey. Results stay local under `~/s20-artifacts/hxl1-research/abl-linuxloader/` and no bootloader code is executed.
+
+Physical Linux kernel handoff, actual DTB selection, factory ABI and live exploitability all remain UNVERIFIED.
