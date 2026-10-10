@@ -52,7 +52,8 @@ No Samsung kernel rebuild is needed for the Android NDK library. None
 of these operations attempts kernel exploitation, privilege escalation,
 KernelSU loading, or flash modification.
 
-See [the HXL1 research instructions](research/y2q-G986U1UESCHXL1/ROOT_PAYLOAD_RESEARCH.md)
+Start with the [nine-stage HXL1 firmware-to-profile adaptation](docs/SM-G986U1-G986U1UESCHXL1.md)
+and [the HXL1 research instructions](research/y2q-G986U1UESCHXL1/ROOT_PAYLOAD_RESEARCH.md)
 for command examples, evidence requirements, reference-repository
 differences and outstanding vulnerability/recovery gates.
 
