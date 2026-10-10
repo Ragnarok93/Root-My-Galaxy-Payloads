@@ -810,6 +810,97 @@ The tool will still reject modified source/config checksums or
 preexisting `Image` outputs. More errors may emerge after the missing
 Python 2 dependency is resolved; the resulting logs will identify them.
 
+## October 9: second stock Image attempt — CFP compiler routing discrepancy
+
+After installing the isolated `python2` interpreter, the owner's
+Clang 18 compatibility build progressed beyond the Python 2
+failure, compiling part of the host-side SELinux support, before
+hitting:
+
+```text
+CC      scripts/mod/empty.o
+.../toolchain/llvm-arm-toolchain-ship/10.0/bin/clang:No such file or directory
+Is your PATH set correctly?
+```
+
+This occurred **despite** passing
+`REAL_CC=/usr/lib/llvm-18/bin/clang`, strongly suggesting a
+separate compiler route. The Samsung Makefile inspection previously
+found:
+
+- Line 373: `REAL_CC = $(srctree)/toolchain/llvm-arm-toolchain-ship/10.0/bin/clang`
+- Line 394: `CC = $(PYTHON) $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)`
+- Line 795: `CC = $(srctree)/scripts/gcc-wrapper.py $(CFP_CC)`
+
+The later `CFP_CC` wrapper selection is a plausible reason that
+`REAL_CC` alone did not replace Samsung's original, unavailable
+compiler. The guarded build tool now passes **both**
+`REAL_CC=<selected Clang>` and `CFP_CC=<selected Clang>` on the
+Make command line, without modifying any files in the Samsung
+source tree. Exact Makefile control-flow is still being validated.
+
+To inspect the relevant variable definitions on the owner's actual
+stock source:
+
+```bash
+grep -nE 'CFP_CC|REAL_CC|secgetspf|scripts/gcc-wrapper.py' \
+  ~/src/samsung-y2q-hxl1-stock/Makefile | head -70
+sed -n '775,805p' ~/src/samsung-y2q-hxl1-stock/Makefile
+```
+
+The warning `secgetspf: No such file or directory` remains.
+Other published Samsung kernel Makefiles invoke it in a
+`$(shell secgetspf ...)` feature-version check; absence produces
+a diagnostic but does not necessarily stop the kernel Make target.
+Do not install a dummy helper or change Samsung security configs.
+
+The second failed Image build is retained in:
+
+- `~/s20-artifacts/samsung-hxl1-image-clang18-build-02.log`
+- `~/s20-artifacts/samsung-hxl1-image-clang18-report-02.json`
+
+### Third guarded off-device build (both compiler routes)
+
+The isolated Python 2.7.18 prefix is already installed. Pull the
+updated utility and first validate the plan; it should print
+**both** `REAL_CC` and `CFP_CC` pointing to Clang 18.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --jobs 2
+```
+
+If the dry run succeeds:
+
+```bash
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --jobs 2 --execute \
+  --log ~/s20-artifacts/samsung-hxl1-image-clang18-build-03.log \
+  --json ~/s20-artifacts/samsung-hxl1-image-clang18-report-03.json
+```
+
+No stock source changes, boot image, signing or flashing. The
+next failure (if any) should be assessed from `-03.log`.
+The Clang 18 / GCC 13 pairing remains a compatibility
+experiment rather than Samsung's factory Clang 10.0.6 / GCC 4.9 build.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
