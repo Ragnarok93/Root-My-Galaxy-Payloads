@@ -36,7 +36,9 @@ node -e 'process.exit(process.platform==="linux"&&Number(process.versions.node.s
 }
 
 echo "=== Re-check saved original Ghidra search seeds ==="
-python3 -m unittest -q tools/test_y2q_linuxloader_rea_stage4_seeds.py
+python3 -m unittest -q \
+  tools/test_y2q_linuxloader_rea_stage4_seeds.py \
+  tools/test_y2q_linuxloader_rea_stage4_xrefs.py
 python3 tools/y2q_linuxloader_rea_stage4_seeds.py --out "$OUT"
 python3 - "$OUT" <<'PY'
 import sys
