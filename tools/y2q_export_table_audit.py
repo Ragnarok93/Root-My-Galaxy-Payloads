@@ -12,6 +12,7 @@ import argparse
 import gzip
 import hashlib
 import json
+import re
 from pathlib import Path
 import struct
 import sys
@@ -47,11 +48,44 @@ def parse_nm(path: Path) -> dict[str, tuple[int | None, str]]:
             symbols[tokens[1]] = (None, "U")
     return symbols
 
+def check_stock_source_crc(source_dir: Path) -> dict[str, str]:
+    """Confirm source direct-vs-relative CRC logic; never assert compiled-device parity."""
+    export_h = source_dir / "include/linux/export.h"
+    module_c = source_dir / "kernel/module.c"
+    export = export_h.read_text(encoding="utf-8")
+    module = module_c.read_text(encoding="utf-8")
+    branch = re.search(
+        r"#if\s+defined\(CONFIG_MODULE_REL_CRCS\)(.*?)#else(.*?)#endif",
+        export, re.S,
+    )
+    if branch is None:
+        raise ValueError("Samsung export.h lacks expected relative-vs-direct CRC guard")
+    if not re.search(r"\.long\s+__crc_", branch.group(2)):
+        raise ValueError("Samsung export.h lacks expected direct CRC word")
+    if not re.search(r"\.long\s+__crc_.*?-\s*\.", branch.group(1)):
+        raise ValueError("Samsung export.h lacks expected relative CRC word")
+    loader = re.search(
+        r"if\s*\(\s*IS_ENABLED\(CONFIG_MODULE_REL_CRCS\)\s*\)\s*"
+        r"crcval\s*=\s*resolve_rel_crc\(crc\)\s*;\s*else\s*"
+        r"crcval\s*=\s*\*crc\s*;",
+        module,
+    )
+    if loader is None:
+        raise ValueError("Samsung module.c lacks expected direct/relative CRC resolution")
+    return {
+        "exportHeader": str(export_h),
+        "moduleLoader": str(module_c),
+        "directCrcSourceBranchVerified": "true",
+        "note": "Source-level semantics only; source-to-device compiler/ABI parity not independently validated",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--kernel-bin", type=Path, required=True)
     parser.add_argument("--nm", type=Path, required=True)
     parser.add_argument("--config-gz", type=Path, required=True)
+    parser.add_argument("--source-dir", type=Path, help="Verify Samsung CRC source branches (read-only)")
     parser.add_argument("--names", nargs="+", default=list(DEFAULT_NAMES))
     args = parser.parse_args()
 
@@ -67,6 +101,7 @@ def main() -> int:
     keys = ("CONFIG_HAVE_ARCH_PREL32_RELOCATIONS", "CONFIG_MODULE_REL_CRCS",
             "CONFIG_MODVERSIONS", "CONFIG_MODULE_SIG_FORCE")
     options = {key: config_option(config, key) for key in keys}
+    source_crc = check_stock_source_crc(args.source_dir) if args.source_dir else None
 
     def address(name: str) -> int:
         item = symbols.get(name)
@@ -119,6 +154,7 @@ def main() -> int:
         "inputKernelSha256": sha,
         "reconstructedVirtualBase": f"{base:#x}",
         "config": options,
+        "sourceCrcVerification": source_crc,
         "normalExports": normal_span // 8,
         "normalCrcSlots": crc_span // 4,
         "gplExports": (gpl_end - gpl_begin) // 8,
@@ -193,11 +229,17 @@ def main() -> int:
                     item["crcCaveat"] = "Relative CRC reference outside raw Image; cannot decode offline"
             else:
                 item["candidateCrcAssumingAbsolute"] = item["crcSlotLittleEndianU32"]
-                item["crcCaveat"] = (
-                    "MODULE_REL_CRCS entry absent, not explicitly disabled in provided "
-                    "config.gz; absolute interpretation follows upstream 4.19 "
-                    "IS_ENABLED fallback but still needs exact-source/CRC cross-check"
-                )
+                if source_crc is not None:
+                    item["sourceConsistentDirectCrc"] = item["crcSlotLittleEndianU32"]
+                    item["crcCaveat"] = (
+                        "Absent MODULE_REL_CRCS selects Samsung source's direct CRC branch; "
+                        "compiled-firmware equivalence and independent CRC comparison remain unverified"
+                    )
+                else:
+                    item["crcCaveat"] = (
+                        "MODULE_REL_CRCS entry absent; direct CRC interpretation requires "
+                        "Samsung exact-source semantics verification (--source-dir)"
+                    )
         if not item["nameMatches"]:
             raise ValueError(f"STOP: PREL32 name mismatch {name}: found {resolved_name}")
         if target_symbol is not None and not item["kallsymsValueMatches"]:
