@@ -117,7 +117,7 @@ class PlacementAnalysisTests(unittest.TestCase):
     def test_report_explicitly_disclaims_actual_physical_address(self):
         result=self.check()
         md=placement.render(result)
-        self.assertIn("not Linux physical", md)
+        self.assertIn("Neither the exact runtime physical base", md)
         self.assertIn("KernelBaseAddr",md)
         self.assertIn("Previously omitted",md)
 
