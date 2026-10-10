@@ -142,3 +142,34 @@ Diagnostics: `CVE-2026-43499 primitive present (remove_waiter@0xc7db4 still uses
 - Stage 3 **PARTIAL**; Stage 4 **OPEN**; Stage 7 KernelSU **BLOCKED**; **no executable profile** and no app/support registration.
 
 **Recommended next independent evidence step:** compare the upstream image-relative `remove_waiter` location against the recovered stock `vmlinux-stock.nm` `_text` and `remove_waiter` symbol delta. This checks the extractor's index/representation assumptions without suggesting a runtime address or executing the vulnerability. Preserve exact source and ELF/image provenance. Any mismatch is an artifact or parser problem requiring investigation, not evidence for a guessed adjustment.
+
+## Independent symbol-to-original-Image cross-check — owner WSL2, 2026-10-10
+
+The owner used the original verified stock HXL1 Image and its own recovered stock NM to independently recalculate the exact `remove_waiter` delta reported by the isolated GhostLock analyzer:
+
+| Source | Original observation |
+|---|---|
+| Stock recovered NM `_text` | `0xffffff8008080000` |
+| Stock recovered NM `remove_waiter` | `0xffffff8008147db4` |
+| Difference `remove_waiter - _text` | `0xc7db4` |
+| Isolated upstream GhostLock disassembly offset | `0xc7db4` |
+| Pinned original `kernel.bin` bytes | `51957772` |
+| SHA256 of the original 64 bytes at `0xc7db4` | `4428228c0bd3bb7bb6d742b9f43b28f0ff2316fc458fcd36a1aab59991b124c4` |
+
+**Result: owner-confirmed static symbol delta and sample hash match.** These two symbols are reconstructed **virtual addresses** from the factory image, not a kernel physical RAM load or a running KASLR mapping. The sample digest proves consistency with the same local file, not exploit reachability.
+
+The new tool `tools/y2q_ghostlock_static_audit.py` makes this check reproducible and fail-closed. It verifies the original pinned `kernel.bin` SHA256 and byte count, ARM64 header signature, recovered `_text` and `remove_waiter` symbols and delta, the pinned 64-byte function sample, the upstream report's exact release, unverified-family declaration, absent BTF layout, and expected static primitive text. It **rejects** any non-unset physical load or `/proc/iomem`-derived diagnostics. It produces JSON and Markdown **research-only** reports and never communicates with the device.
+
+The companion `tools/test_y2q_ghostlock_static_audit.py` passed **12/12 isolated local synthetic-fixture tests** when authored, covering identity success and fail-closed cases. These do not replace a run against the owner's pinned original files.
+
+### Reproduce on WSL2
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools/test_y2q_ghostlock_static_audit.py
+python3 tools/y2q_ghostlock_static_audit.py
+cat ~/s20-artifacts/hxl1-research/ghostlock-symbol-crosscheck.md
+```
+
+**Evidence classification:** `PASS_STATIC_SYMBOL_AND_IMAGE_CORRELATION_ONLY`. Do **not** promote Stage 3 beyond **PARTIAL**, Stage 4 beyond **OPEN**, or GhostLock/KernelSU beyond **BLOCKED** based on this check. No payload or production profile is generated.
