@@ -77,6 +77,66 @@ does not close Stage 3.
 
 ---
 
+## October 10, 08:09 UTC — four FDT token streams validated (10/10 PASS); stale Stage 4 report corrected
+
+The owner pulled through `633e85d` and ran the
+`tools/test_y2q_stock_fdt_semantic_audit.py` tests:
+**10/10 PASS**. The exact original pinned `boot.img`
+and embedded DTB checksum gates passed again.
+Every one of the four contiguous FDT v17 candidates
+passes token-stream structural checks with no gap in
+the original embedded `dtb` region.
+
+| Candidate | Original root model | Root compatible | Nodes | Properties | Result |
+|---|---|---|---:|---:|---|
+| 1 | Qualcomm Technologies, Inc. kona v2.1 SoC | `qcom,kona` | 3268 | 15719 | PASS |
+| 2 | Qualcomm Technologies, Inc. kona v2 SoC | `qcom,kona` | 3268 | 15719 | PASS |
+| 3 | Qualcomm Technologies, Inc. kona v1 SoC | `qcom,kona` | 3230 | 15464 | PASS |
+| 4 | (not present/readable) | (not present/readable) | 1 | 2 | PASS |
+
+**Interpretation:** This is a checksum-verified array of three
+large root-identified Kona revision trees and one structurally
+valid 173-byte minimal FDT. The fourth tree's purpose and the
+actual bootloader-selected DTB are NOT established by
+offline format analysis alone. Do not infer that
+the fourth is a corrupt, dummy, or selected tree.
+Root compatible metadata `qcom,kona` does not prove
+which revision is active on the owner's running phone.
+
+The owner re-ran `tools/y2q_porting_readiness.py`:
+Stage 1 COMPLETE, Stage 2 COMPLETE, Stage 3 PARTIAL,
+Stage 4 OPEN, Stage 5 OPEN, Stage 6 OPEN, Stage 7 BLOCKED,
+Stage 8 BLOCKED, Stage 9 DEFERRED. The tool's
+Stage 4 next-proof wording incorrectly still asked
+to "Locate matching HXL1 BL archive" even though
+the exact original BL archive is already SHA256-pinned
+and its three selected ELF images audited.
+The tool and tests have now been updated to reflect
+the existing owner-confirmed original BL, boot v2,
+and FDT audit evidence **without** promoting Stage 4
+to COMPLETE or inventing Linux runtime addresses.
+
+### Next non-destructive evidence gate
+
+Determine the effective, **identity-level** device-tree
+model and compatible string reported by the running phone,
+if readable through ordinary ADB or Shizuku shell; it
+may help distinguish the three Kona revision descriptions,
+but still does not establish physical Linux
+loading or a root exploitation route.
+
+Keep kernel, bootloader, DTB and source artifact hashes,
+and preserve the full reports. Re-run the updated
+`tools/test_y2q_porting_readiness.py` tests
+and `tools/y2q_porting_readiness.py` to generate a
+corrected current summary.
+
+No phone writing, firmware flashing, KernelSU
+module loading, root transition or support-feed
+publication has been attempted in this phase.
+
+---
+
 ## October 10, 07:54 UTC — 10/10 DTB inventory PASS, four contiguous original FDT blobs
 
 The owner ran all **10 read-only DTB header-inventory unit tests**
