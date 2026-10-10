@@ -152,6 +152,32 @@ class ExtractionTests(unittest.TestCase):
             self.assertEqual(info["status"], "NO_VERIFIED_LINUXLOADER")
             self.assertFalse(info["physicalKernelLoadVerified"])
 
+    def test_nested_fv_keeps_real_section_and_ffs_file_provenance(self):
+        walker = abl.Walker()
+        entry = walker.extract(fake_abl())
+        self.assertEqual(entry["ui"], "LinuxLoader")
+        self.assertTrue(any(
+            record["fileGuid"] == str(abl.LOADER_GUID)
+            and record["fileType"] == "0x09"
+            for record in walker.ffs_files))
+        self.assertTrue(any(
+            item["sectionType"] == "0x10"
+            and item["ui"] == "LinuxLoader"
+            for item in walker.sections))
+        self.assertFalse(walker.unrecognized_executable_sections)
+
+    def test_malformed_pe_records_rejection_and_signature(self):
+        wrong = bytearray(pe())
+        struct.pack_into("<H", wrong, 0x84, 0x8664)
+        w = abl.Walker()
+        w.add_pe(bytes(wrong), ["SECTION[0x10]"], "LinuxLoader",
+                 str(abl.LOADER_GUID))
+        self.assertEqual(w.identified, [])
+        self.assertEqual(len(w.unrecognized_executable_sections), 1)
+        record = w.unrecognized_executable_sections[0]
+        self.assertEqual(record["signature"], "MZ")
+        self.assertEqual(record["fileGuid"], str(abl.LOADER_GUID))
+
     def test_no_device_or_firmware_modification_paths(self):
         source = Path(abl.__file__).read_text()
         for token in ("subprocess.run(", "adb shell", "fastboot flash", "setresuid("):
