@@ -3811,6 +3811,100 @@ or attempt KernelSU insertion on this basis.
 
 ---
 
+## Phase 2 WSL automation: one Python command for benign futex-PI diagnostic
+
+`tools/run_y2q_futex_smoke.py` automates the prior
+manual build/artifact download, strict preflight,
+ADB push, **one-time** unrooted run, clean removal,
+and JSON result capture. The diagnostic itself has
+an **independent six-second `alarm(6)`** in case
+the host-side ADB connection stalls. The host runner
+uses a default 12-second subprocess deadline.
+
+After pulling the investigation branch:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 -m py_compile tools/run_y2q_futex_smoke.py
+python3 -m unittest -v tools/test_run_y2q_futex_smoke.py \
+  tools/test_y2q_futex_pi_smoke.py
+
+# Confirm exactly one S20+ in state "device":
+adb devices
+
+# Full automated flow (does not request root or exploit CVE-2026-43499):
+python3 tools/run_y2q_futex_smoke.py
+```
+
+The runner obtains the executable in this order:
+(1) reuse a local `research/y2q-G986U1UESCHXL1/build/y2q-HXL1-futex-pi-smoke`
+if already present;
+(2) if `gh` exists, download a **successful GitHub Actions artifact matching the exact local Git HEAD**
+from `y2q-identity-probe.yml`;
+(3) try a local NDK build if installed under
+`ANDROID_NDK_HOME` or a recognized SDK/NDK path.
+It refuses a stale CI artifact by default.
+
+To require a fresh CI-matching executable:
+
+```bash
+# Requires GitHub CLI installed and logged in.
+gh auth status
+python3 tools/run_y2q_futex_smoke.py --source actions
+```
+
+Or to build with the local Android NDK:
+
+```bash
+export ANDROID_NDK_HOME=/path/to/android-sdk/ndk/30.0.16248370
+python3 tools/run_y2q_futex_smoke.py --source local
+```
+
+Or to use an executable you already downloaded
+and extracted manually from the successful workflow:
+
+```bash
+python3 tools/run_y2q_futex_smoke.py \
+  --binary /path/to/y2q-HXL1-futex-pi-smoke
+```
+
+The `--preflight-only` flag validates the binary,
+single ADB device, firmware identity, locked
+boot state, kernel release, page size, UID=2000
+and enforcing SELinux **without uploading/executing**:
+
+```bash
+python3 tools/run_y2q_futex_smoke.py --preflight-only
+```
+
+If there are multiple attached ADB devices,
+pass `--serial SERIAL`. The runner validates
+ELF64 little-endian AArch64 PIE header, computes
+SHA-256, refuses a pre-existing staged path,
+performs only `adb push`/`chmod 700`/one
+`adb shell` execution, and removes the exact
+sha256-suffixed path using a `finally` cleanup.
+It saves output to a timestamped file:
+
+`~/s20-artifacts/y2q-futex-pi-smoke-YYYYMMDDTHHMMSSZ.json`
+
+A successful ordinary-futex-PI result ends with
+`RESULT=SAFE_PI_PREREQUISITES_VERIFIED_NOT_ROOT`.
+This is **not** a demonstration of the vulnerable
+PI-requeue route, privilege escalation, module
+loading or KernelSU functionality. Do not retry
+a failing/hung test repeatedly.
+
+**Status:** source and workflow wiring committed;
+host tests, CI artifact publication and live
+S20+ behavior must be verified in the owner's WSL
+terminal. No root/security settings or boot image
+modifications are authorized by this diagnostic.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
