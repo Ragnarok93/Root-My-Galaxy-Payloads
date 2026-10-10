@@ -142,7 +142,8 @@ def main() -> int:
     p.add_argument("--out",type=Path,default=home/"abl-linuxloader/LinuxLoader-HXL1.unclassified.pe")
     args=p.parse_args()
     try:
-        result=recover(args.abl,args.diagnostics,args.independent_unpacked,args.out)
+        result=recover(args.abl,args.diagnostics,args.independent_unpacked,args.out,
+                       abl_sha=ORIGINAL_ABL_SHA256, abl_size=ORIGINAL_ABL_BYTES)
         if result["peHeader"]["strictAarch64Pe32PlusVerified"]:
             # Keep the old unclassified copy for audit continuity. Publish a
             # correctly named EFI only after independent original-byte
