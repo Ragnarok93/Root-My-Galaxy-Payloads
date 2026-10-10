@@ -23,6 +23,87 @@ kernel compilation errors to perform the firmware-to-profile audit.
 - [Support feed selection limitations](../support/README.md)
 - [KernelSU module constraints and Samsung adaptations](../kernelsu/README.md)
 
+## October 10, 06:34 UTC — QEMU objects are not Samsung debug provenance
+
+The owner searched both `~/s20-artifacts` and `~/src`
+for `vmlinux`, `rtmutex.o` and `futex.o` and found
+**only six files in the two upstream Linux 4.19.325
+QEMU build directories**:
+
+- `~/s20-artifacts/qemu-lab/kernel-build/{vmlinux,kernel/futex.o,kernel/locking/rtmutex.o}`
+- `~/s20-artifacts/qemu-lab-kasan/kernel-build/{vmlinux,kernel/futex.o,kernel/locking/rtmutex.o}`
+
+These are valid reference/debugging objects for an
+upstream QEMU control, but **not source-equivalent or
+ABI-equivalent to the original Samsung 4.19.113 HXL1
+kernel**. It would be incorrect to use their
+pahole/DWARF offsets for `src/targets/y2q-G986U1UESCHXL1/target.h`.
+
+The search for regular files named `clang` or `clang-10`
+under `$HOME`, `/opt` and `/usr/local` at depth seven
+returned no matches. The predicate `-type f`
+skips symlinks and the roots do not include `/usr/bin`
+or `/usr/lib/llvm-*`. Therefore this is not
+evidence that no Clang compiler is installed;
+previous preflight identified system Clang18 and NDK
+Clang21, whereas Samsung's original build identified
+Clang10.0.6.
+
+The Windows Samsung source wrapper
+`/mnt/c/Users/Admin/Downloads/SM-G986U.zip`
+**now independently matches** the original pinned
+SHA-256:
+`940fe6bbcfe3dcd372ad662dd24b56e0a3ba1a965666b04051fe9941bab4986d`.
+It is **source**, not the HXL1 BL firmware archive.
+The physical Qualcomm kernel load address remains open.
+
+### Next precise stage-3 checks (read-only)
+
+```bash
+# Resolve real system toolchain binaries and versions, including symlinks.
+for tool in clang clang-10 llvm-readelf llvm-objdump aarch64-linux-gnu-gcc; do
+  resolved="$(command -v "$tool" 2>/dev/null || true)"
+  if [ -n "$resolved" ]; then
+    printf '%s => %s => %s\n' "$tool" "$resolved" "$(readlink -f "$resolved")"
+    "$tool" --version 2>&1 | head -n 1
+  else
+    echo "$tool: unavailable on PATH"
+  fi
+done
+
+# Check whether either upstream-QEMU *reference* vmlinux has DWARF.
+for image in \
+  "$HOME/s20-artifacts/qemu-lab/kernel-build/vmlinux" \
+  "$HOME/s20-artifacts/qemu-lab-kasan/kernel-build/vmlinux"; do
+  echo "=== $image ==="
+  readelf -SW "$image" | grep -E '(\.debug_info|\.debug_abbrev|\.BTF|\.symtab)' || true
+done
+
+# Inspect existing original Samsung source toolchain path without building.
+SAMSUNG="$HOME/src/samsung-y2q-hxl1-stock"
+ls -ld "$SAMSUNG/toolchain/llvm-arm-toolchain-ship/10.0/bin/clang" \
+  2>&1 || true
+```
+
+A `.debug_info` section in the upstream-QEMU control
+may help calibrate `pahole`/DWARF diagnostics,
+but cannot close HXL1 Stage 3. Genuine HXL1
+compiled layouts need source+config+compiler provenance
+and independent original firmware binary corroboration;
+absence of a Clang10 binary does not justify fabricating
+layouts or reusing a QEMU object.
+
+The original Image disassembly already offers selected
+*independent displacement anchors* for the target:
+`current->pi_lock` at `0x8c8` and
+`current->pi_blocked_on` at `0x8f8` were observed
+in exact-stock instructions. Those anchors cover
+those specific accesses only, not every
+`task_struct` field, a whole waiter layout or a
+working exploit. Stage 3 remains PARTIAL.
+
+---
+
 ## October 10, 06:28 UTC — Stage 3 layout/debug metadata verified; exact ABI remains open
 
 The owner pulled `9736ae7` and ran the source/debug inventory:
