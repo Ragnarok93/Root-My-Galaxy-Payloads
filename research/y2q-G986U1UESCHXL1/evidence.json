@@ -1840,6 +1840,38 @@
       "moduleLoadVerified": false,
       "publicationAllowed": false
     },
-    "gateInterpretation": "A passing basic futex-PI smoke test shows ordinary syscall availability only. It neither exercises PI requeue/error paths nor indicates GhostLock exploitable or KernelSU bootloader/ABI/kernel hook feasibility."
+    "gateInterpretation": "A passing basic futex-PI smoke test shows ordinary syscall availability only. It neither exercises PI requeue/error paths nor indicates GhostLock exploitable or KernelSU bootloader/ABI/kernel hook feasibility.",
+    "wslAutomation": {
+      "addedAt": "2026-10-10",
+      "source": "tools/run_y2q_futex_smoke.py",
+      "unitTests": "tools/test_run_y2q_futex_smoke.py",
+      "invocation": "python3 tools/run_y2q_futex_smoke.py",
+      "sourceModes": {
+        "auto": "Reuse existing local binary, else obtain matching-HEAD successful GitHub Actions artifact via gh, else build with detected Android NDK",
+        "actions": "Download matching branch/checkout HEAD from GitHub Actions through gh (no stale CI artifact fallback)",
+        "local": "Cross-compile with installed Android NDK",
+        "explicit": "--binary PATH to a prebuilt ARM64 ELF"
+      },
+      "preflight": [
+        "Validate ELF64 little-endian ET_DYN EM_AARCH64 with size bounds and SHA256",
+        "Exactly one online ADB device or --serial; pin all adb commands to the chosen serial",
+        "Match device model, device codename, exact bootloader and fingerprint, locked flash and vbmeta, kernel release, page size, UID 2000 and SELinux enforcing",
+        "Abort before file upload on mismatch"
+      ],
+      "run": [
+        "Refuse to overwrite pre-existing uniquely sha256-suffixed /data/local/tmp staged path",
+        "ADB push and chmod 700 only",
+        "One non-root run using 12-second host deadline and 6-second on-device alarm",
+        "Remove staged file with adb rm in finally even after failures",
+        "Save JSON report under ~/s20-artifacts"
+      ],
+      "stage": "Implemented; CI/phone execution not yet confirmed",
+      "hostTestsPassed": false,
+      "ciBuildPassed": false,
+      "artifactDownloadedVerified": false,
+      "deviceRunVerified": false,
+      "exploitTested": false,
+      "rootVerified": false
+    }
   }
 }
