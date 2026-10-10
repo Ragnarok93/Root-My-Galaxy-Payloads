@@ -1997,7 +1997,7 @@
       "noCvePiRequeue": true,
       "noKernelSU": true,
       "boundedPiGuestEnhancement": {
-        "stage": "Committed, not tested on owner's guest yet",
+        "stage": "Owner VM PASS_BOUNDED_PI verified; Python exit mismatch corrected at commit 33de264, regression rerun pending",
         "source": "research/y2q-G986U1UESCHXL1/qemu_lab_init.c",
         "wrapper": "tools/y2q_qemu_lab.py",
         "tests": "tools/test_y2q_qemu_lab.py",
@@ -2010,8 +2010,8 @@
         "hostGuestIsolation": "No device/ADB/kernel text modifications, no PI requeue or contention, one PID1 process and 10-second in-guest alarm",
         "preserveWorkingLab": "Use new output ~/s20-artifacts/qemu-lab-pi for guest initramfs; boot --kernel-image ~/s20-artifacts/qemu-lab-kasan/kernel-build/arch/arm64/boot/Image reuses original preserved KASAN Image",
         "expectedResult": "PASS_BOUNDED_PI",
-        "testsRun": false,
-        "liveGuestExecuted": false,
+        "testsRun": true,
+        "liveGuestExecuted": true,
         "smartphoneExecuted": false,
         "cvePathTriggered": false
       }
@@ -2034,7 +2034,11 @@
       "kasanFlagsIndependentlyObservedFromOwner": true,
       "kasanBootLogErrorRegexMatches": false,
       "boundedFutexPiSourceCommitted": true,
-      "boundedFutexPiTestRunByOwner": false
+      "boundedFutexPiTestRunByOwner": true,
+      "boundedFutexPiQemuPassVerified": true,
+      "hostUnitTestsPassed": false,
+      "exitCodeRegressionFixCommitted": true,
+      "exitCodeRegressionFixRerunVerified": false
     },
     "interpretation": "Both baseline and KASAN+DEBUG_RT_MUTEXES upstream Linux 4.19.325 ARM64 VM boots verified by owner. KASAN runtime fault-detection sensitivity and Samsung GhostLock path remain untested. No evidence of phone rooting/module loading/KernelSU.",
     "ownerUpstreamBootEvidence": {
@@ -2146,6 +2150,40 @@
       "searchedLogPattern": "kasan|BUG:|kernel panic|Oops:",
       "grepReturnedMatchingLines": false,
       "interpretation": "The compiled instrumented kernel configuration has all five requested flags enabled and the saved QEMU boot log grep found no KASAN, panic or Oops matches. This is not a runtime KASAN fault-detection self-test and does not reproduce the Samsung CVE."
+    },
+    "ownerBoundedPiGuestEvidence": {
+      "observedAt": "2026-10-10T05:40:33Z",
+      "source": "Owner WSL2 terminal output of tests plus ARM64 QEMU bounded PI diagnostic",
+      "hostUnitTests": {
+        "passed": 9,
+        "total": 10,
+        "failed": [
+          "test_bounded_pi_reuses_preserved_kasan_kernel_without_build"
+        ],
+        "failureCause": "QEMU lab host boot() returned exit 3 for PASS_BOUNDED_PI despite labeling and JSON reporting success; commit 33de264 fixes this; regression rerun after fix pending"
+      },
+      "guestSource": "research/y2q-G986U1UESCHXL1/qemu_lab_init.c",
+      "guestImageReuse": "/home/main/s20-artifacts/qemu-lab-kasan/kernel-build/arch/arm64/boot/Image",
+      "existingInstrumentedImageUntouched": true,
+      "guestInitSha256": "b06b8c0ebb26ec63760559db707abb72986c5e8d807a0f4e8268c4f75524fe5a",
+      "guestInitramfsSha256": "cfb016cdf37731cc73d9ccc827fda74a1adeaa71dbff5a0d881ca7b372fa6d68",
+      "report": "/home/main/s20-artifacts/qemu-lab-pi/qemu-boot-20261010T054017Z.json",
+      "log": "/home/main/s20-artifacts/qemu-lab-pi/qemu-boot-20261010T054017Z.log",
+      "kernelConfig": "KASAN+DEBUG_RT_MUTEXES=True",
+      "guestMarkers": [
+        "RMG_QEMU_LAB_FUTEX=PASS_BASIC_WAIT_EAGAIN_ONLY",
+        "RMG_QEMU_LAB_FUTEX_WAKE=PASS_ZERO_WAITERS",
+        "RMG_QEMU_LAB_FUTEX_PI_LOCK=PASS_UNCONTENDED",
+        "RMG_QEMU_LAB_FUTEX_PI_TRYLOCK=PASS_UNCONTENDED",
+        "RMG_QEMU_LAB_COMPLETE=PASS_BOUNDED_PI_NOT_GHOSTLOCK",
+        "[PASS_BOUNDED_PI]"
+      ],
+      "qemuCleanShutdown": true,
+      "guestResult": "PASS_BOUNDED_PI",
+      "status": "Guest passed all four checks with clean QEMU shutdown; host orchestrator return-code bug identified and fixed in GitHub; updated unit tests not yet rerun by owner.",
+      "guestCvePathTriggered": false,
+      "guestKasanBugObserved": false,
+      "galaxyS20RootVerified": false
     }
   }
 }
