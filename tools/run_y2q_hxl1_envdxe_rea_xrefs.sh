@@ -38,6 +38,43 @@ node -e 'process.exit(process.platform==="linux" && Number(process.versions.node
   exit 2
 }
 
+# A PE's preferred base may not equal the actual Ghidra import base.
+# Read the GUID from the exact computed address first, fail closed on mismatch.
+GUID_VA="$(python3 - "$OUT" <<'PY'
+import sys
+from pathlib import Path
+from tools.y2q_hxl1_envdxe_rea_xrefs import source_info
+print(source_info(Path(sys.argv[1]))["preferredAddress"])
+PY
+)"
+if [[ ! "$GUID_VA" =~ ^0x[[:xdigit:]]+$ ]]; then
+  echo "[STOP] Original EnvDxe GUID has no trustworthy PE import coordinate" >&2
+  exit 2
+fi
+READBACK="$OUT/rea-envdxe-ram-guid-import-read.json"
+if [[ ! -e "$READBACK" ]]; then
+  echo "[GHIDRA] Corroborating exact 16 GUID bytes at imported address $GUID_VA"
+  PARTIAL="$OUT/rea-envdxe-ram-guid-import-read.partial.json"
+  if [[ -e "$PARTIAL" ]]; then
+    echo "[STOP] Previous incomplete imported-GUID read: $PARTIAL" >&2
+    exit 2
+  fi
+  if ! node "$REA" read-bytes "$EFI" "$GUID_VA" --length 16 \
+       --provider ghidra --json > "$PARTIAL" \
+       2> "$OUT/rea-envdxe-ram-guid-import-read-stderr.txt"; then
+    echo "[STOP] Ghidra import GUID read failed; inspect partial JSON and stderr" >&2
+    exit 2
+  fi
+  mv "$PARTIAL" "$READBACK"
+fi
+python3 - "$OUT" <<'PY'
+import sys
+from pathlib import Path
+from tools.y2q_hxl1_envdxe_rea_xrefs import readback_info
+item=readback_info(Path(sys.argv[1]))
+print("[VERIFIED IMPORTED GUID]",item["importedGuidAddress"],item["evidenceId"])
+PY
+
 if [[ -e "$EVIDENCE" ]]; then
   if python3 tools/y2q_hxl1_envdxe_rea_xrefs.py \
        --out "$OUT" --verify-only >/dev/null 2>&1; then
@@ -48,17 +85,6 @@ if [[ -e "$EVIDENCE" ]]; then
     exit 2
   fi
 else
-  GUID_VA="$(python3 - "$OUT" <<'PY'
-import sys
-from pathlib import Path
-from tools.y2q_hxl1_envdxe_rea_xrefs import source_info
-print(source_info(Path(sys.argv[1]))["preferredAddress"])
-PY
-)"
-  if [[ ! "$GUID_VA" =~ ^0x[[:xdigit:]]+$ ]]; then
-    echo "[STOP] Original EnvDxe GUID has no trustworthy PE import coordinate" >&2
-    exit 2
-  fi
   echo "[GHIDRA] One exact original EnvDxe RAM GUID xrefs query at $GUID_VA"
   TMP="$OUT/rea-envdxe-ram-guid-xrefs.partial.json"
   if [[ -e "$TMP" ]]; then
