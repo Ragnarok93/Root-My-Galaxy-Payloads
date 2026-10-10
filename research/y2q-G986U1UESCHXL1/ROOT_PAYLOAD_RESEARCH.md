@@ -149,3 +149,149 @@ reproducibility. Build-10 reached `arch/arm64/mm/cache.o` before
 stopping for a **separate compilation failure** (the pasted tail
 does not contain the underlying diagnostic). The present
 root-feasibility path does **not** depend on resolving that build.
+
+
+## October 10: dedicated HXL1 research toolchain, no full kernel rebuild
+
+The device-specific pipeline is `tools/y2q_research_toolchain.py`.
+It reuses **existing audited source/identity/CVE triage helpers**.
+Neither the original Samsung source tree nor a Clang18-rebuilt kernel
+is a prerequisite for compiling the **standalone Android NDK
+identity diagnostic**. Source triage still requires the original
+verified Samsung source.
+
+The work is deliberately split into stages that cannot mistake a
+generated file for a working root method:
+
+| Stage | Output | What it actually proves |
+|---|---|---|
+| `references` | Local reference matrix | Comparison of published GhostLock projects, none claimed HXL1-compatible |
+| `scan` | `candidate.json` | Exact identity + source provenance + heuristic CVE review |
+| `build-probe` | ARM64 `.so` + SHA-256 manifest | Native Android diagnostic library compiles for API 33 and checks exact y2q/HXL1 |
+| `bundle` | Write-once deterministic ZIP | Reproducible research artifact bound to one candidate manifest and binary hash |
+| Root exploit development | **Blocked** | No HXL1 kernel primitive, root chain or KernelSU loader validated |
+
+The original Root-My-Galaxy Android application already has an
+Investigation workflow, device snapshot, and Shizuku shell access,
+but **support feed schema v3 matches truncated numeric kernel
+versions and model**, insufficient for this unverified 4.19 target.
+Do not add HXL1 to `support/targets-v3.json`, change the Android
+app's production payload selector, or expose a root action for
+this device yet.
+
+### Run the exact offline source/evidence scan
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+mkdir -p ~/s20-artifacts/hxl1-research
+
+python3 tools/y2q_research_toolchain.py references
+
+python3 tools/y2q_research_toolchain.py scan \
+  --evidence research/y2q-G986U1UESCHXL1/evidence.json \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --stock-source ~/src/samsung-y2q-hxl1-stock \
+  --output ~/s20-artifacts/hxl1-research/candidate.json
+```
+
+Optionally append `--boot-img /verified/original/boot.img`
+and `--kernel-bin /verified/original/kernel.bin` *only when
+those extracted files actually exist on WSL*. Both SHA-256 values
+must match the firmware previously recorded in `evidence.json`.
+Do not confuse an offline matching firmware image with a proven
+live-boot-partition byte-for-byte dump.
+
+The scan will describe the vendor `remove_waiter()` branch
+classification. A pattern that resembles the public 2026 UAF
+is a **review signal**, not proof that Android userspace can
+reproduce a safe entry condition or that kernel protections can
+be overcome. The report explicitly blocks exploit publication.
+
+### Compile a firmware-locked, read-only ARM64 probe library
+
+Requires an **Android NDK** installed in WSL. This is not the
+Samsung kernel Clang18 toolchain and does not run Make on
+any kernel sources.
+
+```bash
+export ANDROID_NDK_HOME="$HOME/android-ndk-r27d"  # adjust to actual installed path
+
+python3 tools/y2q_research_toolchain.py build-probe \
+  --scan-report ~/s20-artifacts/hxl1-research/candidate.json \
+  --ndk "$ANDROID_NDK_HOME" \
+  --output ~/s20-artifacts/hxl1-research/y2q-G986U1UESCHXL1-identity-diagnostic.so \
+  --manifest ~/s20-artifacts/hxl1-research/binary.json
+```
+
+The new native library exports `rmg_y2q_probe_status()`,
+`rmg_y2q_probe_euid()`, `rmg_y2q_probe_firmware()`, and
+`rmg_y2q_probe_kind()`. It contains **no constructor,
+kernel exploitation, root operation, module loader, ptrace
+manipulation, or writes to the phone**. Its return code 0
+means only that the device properties and running kernel match
+the exact research profile.
+
+The build checks for Linux ARM64 API33 Clang and validates the
+result as ELF64 little-endian ET_DYN for AArch64. It records
+the exact source checksum, scan-report checksum, binary
+SHA-256, and non-deployability flags. Existing files cannot
+be silently overwritten.
+
+The separate existing
+`research/y2q-G986U1UESCHXL1/identity_probe.c` standalone
+program has already been device-tested as ADB shell uid 2000;
+this new `.so` is a future app-integration building block,
+not an additional hardware root test.
+
+### Create a reproducible review package
+
+```bash
+python3 tools/y2q_research_toolchain.py bundle \
+  --scan-report ~/s20-artifacts/hxl1-research/candidate.json \
+  --library ~/s20-artifacts/hxl1-research/y2q-G986U1UESCHXL1-identity-diagnostic.so \
+  --manifest ~/s20-artifacts/hxl1-research/binary.json \
+  --output ~/s20-artifacts/hxl1-research/y2q-HXL1-diagnostics.zip
+
+sha256sum ~/s20-artifacts/hxl1-research/y2q-HXL1-diagnostics.zip
+```
+
+The ZIP carries only source-analysis JSON, manifest,
+a diagnostic library and disclaimer. **It is not an
+installable exploit, does not grant root, and never enters the
+production support feed.**
+
+### GhostLock comparison notes (no cross-device offset reuse)
+
+- [Linux CVE-2026-43499](https://www.cve.org/CVERecord?id=CVE-2026-43499)
+  documents `remove_waiter()` proxy-lock rollback, and fixes
+  in supported kernel families. The reported kernel version
+  4.19 predates the disclosure, but vendor-specific backports,
+  booted-binary differences and runtime exploitability remain
+  to be verified.
+- [CyberMeowfia original research](https://github.com/NebuSec/CyberMeowfia/tree/main/IonStack/CVE-2026-43499)
+  is a source-level reference; its default target files are not
+  Samsung HXL1 profiles.
+- [ccp-p Qualcomm 4.19 adaptation](https://github.com/ccp-p/ghostlock-cve-2026-43499-4.19-k40)
+  targets a Redmi K40/4.19.157 kernel. Kernel generation similarity
+  helps select research questions but **does not justify importing
+  its addresses, stack layouts, or runtime assumptions**.
+- [GhostLock 4.19 adapter](https://github.com/XiaoBaiLovesStirring/ghostlock-k419-adapter)
+  targets a separate 4.19.152-perf+ vendor build. Its stack
+  feasibility script makes simplifying assumptions and must
+  not be taken as an HXL1 validation result.
+- [GhostLock-Galaxy](https://github.com/wxxsfxyzm/GhostLock-Galaxy)
+  demonstrates an ADB/Shizuku shell execution route on
+  Fold6 6.1.145, not this Galaxy S20+ kernel.
+- [Samsung GhostLock research](https://github.com/Meowkis/ghostlock-samsung-research)
+  provides evidence-traceable offsets on S23 Ultra, not
+  values that can be reused on HXL1.
+
+**Blocking next decision:** examine the `scan` classification and
+manually compare the original HXL1 `rtmutex.c` implementation
+with the upstream vulnerability fix. If the original firmware
+contains an affected implementation, independently determine
+which non-destructive runtime prerequisites can actually be
+validated on the owner's phone. Never infer that a kernel
+address, arbitrary read/write capability, working root shell,
+or persistent KernelSU integration exists from this toolchain.
