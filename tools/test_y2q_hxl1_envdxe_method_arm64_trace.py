@@ -20,7 +20,7 @@ from tools.y2q_hxl1_extract_envdxe import ExtractionError
 
 
 def image():
-    pe=bytearray([i%256 for i in range(0x5000)])
+    pe=bytearray([i%256 for i in range(0x6000)])
     pe[:2]=b"MZ"
     struct.pack_into("<I",pe,0x3c,0x80)
     pe[0x80:0x84]=b"PE\0\0"
@@ -28,7 +28,7 @@ def image():
     struct.pack_into("<H",pe,0x80+20,0xf0)
     sec=0x80+24+0xf0
     pe[sec:sec+8]=b".text\0\0\0"
-    struct.pack_into("<IIII",pe,sec+8,0x4000,0x1000,0x4000,0x400)
+    struct.pack_into("<IIII",pe,sec+8,0x5000,0x1000,0x5000,0x400)
     struct.pack_into("<I",pe,sec+36,0x60000020)
     offset=0x400+(0x1f74-0x1000)+0x30
     struct.pack_into("<I",pe,offset,0x94000cca)
@@ -130,6 +130,36 @@ class FourMethodProvenanceTests(unittest.TestCase):
                        "rawWord":"0x94000cca","mnemonicClass":"BL",
                        "directBranchTarget":"0x52cc",
                        "runtimeExecutionObserved":False},calls)
+
+    def test_synthetic_section_includes_all_five_observed_code_windows(self):
+        """Regression: the fifth, 0x52cc, was beyond the former 0x5000 RVA limit."""
+        sec=0x80+24+0xf0
+        virtual_size,rva,raw_size,file_offset=struct.unpack_from(
+            "<IIII",self.pe,sec+8)
+        self.assertEqual(rva,0x1000)
+        self.assertEqual(raw_size,0x5000)
+        self.assertEqual(virtual_size,0x5000)
+        self.assertGreaterEqual(len(self.pe),file_offset+raw_size)
+        for label,_,at in list(mod.EXPECTED_SLOTS)+[
+                (name,-1,addr) for name,addr in mod.ADDITIONAL_CODE_LEADS]:
+            with self.subTest(label=label,at=at):
+                value=int(at,16)
+                self.assertGreaterEqual(value,rva)
+                self.assertLessEqual(value+mod.WINDOW,rva+raw_size)
+                mapped=self.window(at)
+                self.assertEqual(mapped["staticAddress"],at)
+                self.assertEqual(len(bytes.fromhex(mapped["bytesHex"])),mod.WINDOW)
+
+    def test_callee_rejected_if_executable_section_ends_before_0x52cc(self):
+        """Ensure real analyzer mapping stays fail-closed if the section is short."""
+        sec=0x80+24+0xf0
+        struct.pack_into("<IIII",self.pe,sec+8,0x4000,0x1000,0x4000,0x400)
+        self.file.write_bytes(self.pe)
+        with self.assertRaisesRegex(ExtractionError,"does not uniquely map"):
+            self.window("0x52cc")
+        # All four method pointers remain inside the smaller original fixture.
+        for _,_,at in mod.EXPECTED_SLOTS:
+            self.assertEqual(self.window(at)["staticAddress"],at)
 
     def test_fifth_direct_callee_window_is_proven_in_same_pass(self):
         result=self.full()
@@ -255,8 +285,8 @@ def param(k,v):
 def result(k,v):
     return lambda rec:rec["normalized_result"].__setitem__(k,v)
 
-# 34 distinct REA provenance failures per real protocol method, plus one valid
-# case-insensitive byte comparison. Four slots independently => 140 tests.
+# 35 distinct negative REA provenance mutations for each of five real
+# targets (four original EFI method slots and the direct 0x52cc callee).
 CASE_MUTATIONS=(
  ("wrong_operation_xrefs", operation("xrefs"),"query mismatch"),
  ("wrong_operation_function", operation("analyze_function"),"query mismatch"),
