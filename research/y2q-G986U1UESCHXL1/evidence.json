@@ -816,7 +816,7 @@
     "rootGranted": false,
     "moduleLoadVerified": false,
     "publicationAllowed": false,
-    "nextResearch": "Verify exact function-state semantics for waiters on positive/error return and mapping of observed PI struct operands to Samsung stock layouts; retain no-run/no-root gates.",
+    "nextResearch": "Source/firmware control flow sufficiently reviewed for task mismatch; verify ABI and recovered ELF/local symbol mapping, while leaving device-side exploitability and module gate open.",
     "originalExtractedKernelByteCorrelationScope": "Three 64-byte entry windows and four exact critical instruction words, all equal; no independent live kernel memory read",
     "sourceAndOriginalExtractedBinaryBugLogicVerified": true,
     "successfulProxyLockCleanupConcern": {
@@ -1065,7 +1065,7 @@
     "completeTaskBlocksOnRtMutexLogicReviewed": false,
     "originalKernelSourceBugCorrelationVerified": true,
     "deviceRuntimeExploitabilityVerified": false,
-    "next": "Read bounded rtmutex.c task_blocks_on_rt_mutex and rt_mutex_dequeue definitions plus futex.c requeue_pi_wake_futex body; establish where waiter->task is initialized and rollback conditions, without runtime crash PoC.",
+    "next": "Transition from source excerpts to non-destructive exact ABI/config and recovered-ELF symbol consistency checks; separately document 4.19 KernelSU feasibility and strong security enforcement.",
     "ownerFollowupAt": "2026-10-10",
     "sourceFileSha256": {
       "rtmutex": "36b187173cfb3934a5c9d51952bce58c2f41701d3585326f18cd3965e46a21f9",
@@ -1096,6 +1096,29 @@
       "Correlate pi-state instructions beyond previously verified sites",
       "No live UAF, kernel write or root demonstrated"
     ],
-    "status": "source waiter initialization and queue lifecycle confirmed; device exploitability and root remain unverified"
+    "status": "Source control flow from waiter initialization through post-enqueue error return and wrong-task rollback fully accounted for; original raw instruction correlation previously confirmed; runtime exploitability not demonstrated.",
+    "postEnqueueChainWalkOwnerSourceAt": "2026-10-10",
+    "postEnqueueChainWalkOwnerReport": {
+      "source": "Owner transcript of original Samsung HXL1 rtmutex.c lines 968–1009",
+      "ownerMissing": "if (!owner) return 0 at lines 968-969",
+      "ownerPiLock": "lines 971-986: adjust owner priority/chain data under owner->pi_lock",
+      "chainWalkEligibility": "lines 977-981: owner->pi_blocked_on or rt_mutex_cond_detect_deadlock(waiter,chwalk) sets chain_walk",
+      "skipWalk": "lines 992-993: if (!chain_walk || !next_lock) return 0",
+      "taskLifetimeGuard": "line 1000: get_task_struct(owner)",
+      "lockDrop": "line 1002: release lock->wait_lock before chain adjustment",
+      "errorPropagation": "lines 1004-1009: res=rt_mutex_adjust_prio_chain(owner,chwalk,lock,next_lock,waiter,task); reacquire wait_lock; return res",
+      "sourceBugConsequence": "This path is after line 953 waiter->task=task, line 962 enqueue, and line 964 task->pi_blocked_on=waiter. If the chain walk returns negative, rt_mutex_start_proxy_lock() removes waiter but remove_waiter incorrectly uses current to clear PI state.",
+      "completeRtMutexTaskBlocksPostEnqueueReturnReviewed": true,
+      "conformsToUpstreamAdvisory": true,
+      "officialReference": "https://lists.openwall.net/linux-cve-announce/2026/05/21/7",
+      "riskQualifications": [
+        "No measured nonzero return on the physical handset",
+        "No verified live UAF trigger or controlled kernel memory corruption",
+        "Loaded kernel RAM and runtime KASLR not independently validated",
+        "KernelSU module loading/root unverified"
+      ]
+    },
+    "sourceLevelPathForCveConfirmed": true,
+    "hardwareTriggerObserved": false
   }
 }
