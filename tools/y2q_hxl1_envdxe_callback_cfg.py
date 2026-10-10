@@ -9,6 +9,7 @@ The bounded CFG is a static approximation: it does not prove execution.
 from __future__ import annotations
 import argparse
 import json
+import re
 import struct
 from collections import deque
 from pathlib import Path
@@ -76,7 +77,9 @@ def validate_tail(folder:Path)->dict:
         not isinstance(obj,dict) or obj.get("address")!=hex(NEW_START) or
         obj.get("requested_bytes")!=NEW_SIZE or
         obj.get("returned_bytes")!=NEW_SIZE or obj.get("complete") is not True or
-        obj.get("bytes_hex")!=orig["bytesHex"]):
+        not isinstance(obj.get("bytes_hex"),str) or
+        re.fullmatch(r"[0-9a-fA-F]{40}",obj["bytes_hex"]) is None or
+        obj["bytes_hex"].lower()!=orig["bytesHex"]):
         raise ExtractionError("Original Ghidra callback final 20-byte tail disagrees with pinned PE")
     return {"evidenceId":ev["evidence_id"],"sha256":orig["sha256"],
             "originalBytesMatchGhidra":True}
