@@ -230,6 +230,69 @@ class ImageBuildPlanTests(unittest.TestCase):
             self.assertEqual(result["command"][-1], "Image")
             self.assertEqual((makefile.read_bytes(), config.read_bytes()), unchanged)
 
+    def test_cgroup_warning_probe_detects_and_suppresses_only_named_diagnostic(self):
+        with tempfile.TemporaryDirectory() as temp:
+            args, _, _, _ = self.setup_case(temp)
+            class Result:
+                returncode = 0
+                stdout = ""
+                stderr = ""
+            executed = []
+            def run(command, **kwargs):
+                executed.append((command, kwargs))
+                instance = Result()
+                if module.CGROUP_SUPPRESSION not in command:
+                    instance.stderr = "warning: cgroup struct [-Wgnu-variable-sized-type-not-at-end]"
+                return instance
+            with patch.object(module.subprocess, "run", side_effect=run):
+                result = module.check_cgroup_layout_warning_compat(args.clang)
+            self.assertTrue(result["diagnosticObservedBefore"])
+            self.assertTrue(result["diagnosticAbsentAfter"])
+            self.assertEqual(len(executed), 2)
+            self.assertIn(module.CGROUP_SUPPRESSION, executed[1][0])
+            self.assertIn("-fsyntax-only", executed[0][0])
+            self.assertNotIn("-w", executed[1][0])
+
+    def test_cgroup_warning_mode_requires_integrated_arm64_assembler(self):
+        with tempfile.TemporaryDirectory() as temp:
+            args, _, makefile, config = self.setup_case(temp)
+            args.suppress_cgroup_layout_warning = True
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \
+                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \
+                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \
+                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"):
+                with self.assertRaisesRegex(ValueError, "requires --integrated-arm64-as"):
+                    module.plan(args)
+
+    def test_cgroup_warning_compat_changes_only_c_compiler_flags(self):
+        with tempfile.TemporaryDirectory() as temp:
+            args, _, makefile, config = self.setup_case(temp)
+            args.integrated_arm64_as = True
+            args.suppress_cgroup_layout_warning = True
+            args.verbose = True
+            untouched = (makefile.read_bytes(), config.read_bytes())
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \
+                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \
+                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \
+                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"), \
+                 patch.object(module, "check_arm64_integrated_assembler",
+                              return_value={"mode": "clang-integrated-aarch64", "actualObjectCompiled": True}), \
+                 patch.object(module, "check_cgroup_layout_warning_compat",
+                              return_value={"suppression": module.CGROUP_SUPPRESSION}):
+                result, _ = module.plan(args)
+            cmd = result["command"]
+            self.assertIn("KCFLAGS=--target=aarch64-linux-gnu -integrated-as " +
+                          module.CGROUP_SUPPRESSION, cmd)
+            self.assertIn("KAFLAGS=--target=aarch64-linux-gnu -integrated-as", cmd)
+            self.assertNotIn("KAFLAGS=--target=aarch64-linux-gnu -integrated-as " +
+                             module.CGROUP_SUPPRESSION, cmd)
+            self.assertNotIn("-w", " ".join(cmd))
+            self.assertEqual(result["cgroupLayoutWarningCompatibilityProbe"]["suppression"],
+                             module.CGROUP_SUPPRESSION)
+            self.assertEqual((makefile.read_bytes(), config.read_bytes()), untouched)
+
     def test_assembler_modes_are_mutually_exclusive(self):
         with tempfile.TemporaryDirectory() as temp:
             args, _, makefile, config = self.setup_case(temp)
