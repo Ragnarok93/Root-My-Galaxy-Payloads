@@ -32,6 +32,7 @@ EXPECTED_SLOTS=(
     ("method-20",4,"0x1f28"),
 )
 EXPECTED_NONPOINTER=("0x10001","0x10001")
+ADDITIONAL_CODE_LEADS=(("callback-bl-callee", "0x52cc"),)
 CALLBACK_FIRST64_SHA="7d4e16e4b3402ff3959080b7ca298f46c5b9b963b6ddd59203a613948d0d12ef"
 GET_RAM_CALL_TARGET="0x52cc"
 MAX_REPORT_BYTES=1024*1024
@@ -217,6 +218,16 @@ def report(folder:Path,allow_missing:bool=True)->dict:
              if edge["mnemonicClass"]=="BL"]
     if GET_RAM_CALL_TARGET not in targets:
         raise ExtractionError("Original GetRamPartitions AArch64 BL 0x52cc not established")
+    direct_callees=[]
+    for label,at in ADDITIONAL_CODE_LEADS:
+        proof=original_window(folder,at)
+        name="rea-envdxe-method-window-"+label+".json"
+        imported=(imported_window(folder,label,at,proof)
+                  if (folder/name).exists() or (folder/name).is_symlink()
+                  else None)
+        direct_callees.append({"label":label,"fromVerifiedBlAt":"0x1fa4",
+                              "code":proof,"ghidraCode":imported,
+                              "functionExtentInferred":False})
     refs=[]
     for label,at in REFS:
         path=folder/("rea-envdxe-method-xrefs-"+label+".json")
@@ -227,7 +238,8 @@ def report(folder:Path,allow_missing:bool=True)->dict:
         "sha256PinnedEnvDxe":PE_SHA256,
         "originalInterfaceEvidenceId":
             parent["protocolInterfaceStructure"]["shaPinnedOriginalGhidraEvidenceId"],
-        "methods":entries,"verifiedGetRamPartitionsDirectCallee":GET_RAM_CALL_TARGET,
+        "methods":entries,"directCalleeCode":direct_callees,
+        "verifiedGetRamPartitionsDirectCallee":GET_RAM_CALL_TARGET,
         "additionalTargetedXrefs":refs,
         "livePhysicalMemoryObserved":False,
         "callbackRuntimeInvocationObserved":False,
@@ -261,6 +273,23 @@ def markdown(report:dict)->str:
             rows+=["| "+edge["instructionAddress"]+" | "+edge["mnemonicClass"]+
                    " | "+str(edge["directBranchTarget"])+" |"]
         rows+=[""]
+    rows+=["## Follow direct ARM64 BL 0x1fa4 -> 0x52cc",""]
+    for callee in report["directCalleeCode"]:
+        code=callee["code"]
+        rows+=["### "+callee["label"],"",
+               "Static PE address: "+code["staticAddress"],
+               "Original PE file offset: "+code["peFileOffset"],
+               "Executable section: "+code["sectionName"],
+               "128-byte SHA256: "+code["sha256"],
+               "Original bytes: "+code["bytesHex"],
+               "Ghidra import matches: "+str(callee["ghidraCode"] is not None)]
+        if callee["ghidraCode"] is not None:
+            rows+=["Ghidra REA evidence: "+callee["ghidraCode"]["evidenceId"]]
+        rows+=[""]
+        for edge in code["edges"]:
+            rows+=["- "+edge["instructionAddress"]+": "+edge["mnemonicClass"]+
+                   " => "+str(edge["directBranchTarget"])]
+        rows+=[""]
     rows+=["## Targeted static xrefs",""]
     for x in report["additionalTargetedXrefs"]:
         rows+=["- "+x["target"]+": "+str(x["count"])+
@@ -277,7 +306,8 @@ def markdown(report:dict)->str:
 def main()->int:
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out",type=Path,default=REPORT_DIR)
-    ap.add_argument("--verify",choices=[a for a,_,_ in EXPECTED_SLOTS]+[a for a,_ in REFS])
+    ap.add_argument("--verify",choices=[a for a,_,_ in EXPECTED_SLOTS]+
+                    [a for a,_ in ADDITIONAL_CODE_LEADS]+[a for a,_ in REFS])
     args=ap.parse_args()
     try:
         if args.verify:
@@ -286,6 +316,11 @@ def main()->int:
                 src=original_window(args.out,at)
                 imported=imported_window(args.out,label,at,src)
                 print("[METHOD VERIFIED]",label,at,imported["evidenceId"])
+            elif args.verify in (a for a,_ in ADDITIONAL_CODE_LEADS):
+                label,at=next(x for x in ADDITIONAL_CODE_LEADS if x[0]==args.verify)
+                src=original_window(args.out,at)
+                imported=imported_window(args.out,label,at,src)
+                print("[DIRECT CALLEE VERIFIED]",label,at,imported["evidenceId"])
             else:
                 label,at=next(x for x in REFS if x[0]==args.verify)
                 ref=references(args.out,label,at)
@@ -306,6 +341,10 @@ def main()->int:
         for edge in code["edges"]:
             if edge["mnemonicClass"]=="BL":
                 print("  [BL]",edge["instructionAddress"],edge["directBranchTarget"])
+    for item in value["directCalleeCode"]:
+        print("[BL TARGET ORIGINAL EXECUTABLE]",item["label"],
+              item["code"]["staticAddress"],
+              "Ghidra match",item["ghidraCode"] is not None)
     print("[REPORT]",args.out/"rea-envdxe-four-method-arm64.md")
     print("[LIMIT] Static interface and direct instructions; no runtime physical kernel or root")
     return 0
