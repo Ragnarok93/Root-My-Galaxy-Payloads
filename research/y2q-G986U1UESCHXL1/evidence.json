@@ -2438,7 +2438,7 @@
     "workingKernelSu": false,
     "verifiedStockIdentity": true,
     "verifiedStockOriginalSourceHashes": true,
-    "nextOwnerAction": "Run python3 -m unittest -v tools/test_y2q_dwarf_type_presence.py and python3 tools/y2q_dwarf_type_presence.py; inspect actual reported definitions and any ambiguous tool outputs, rather than treating exit code alone as type presence.",
+    "nextOwnerAction": "BL archive from original exact G986U1UESCHXL1 firmware is verified (SHA-256 f6048fb5...). Safely extract only abl.elf.lz4/xbl.elf.lz4/xbl_config.elf.lz4 for off-device analysis and verify ELF program headers; no kernel physical handoff proved. Keep Stage 4 OPEN.",
     "noPhoneChanges": true,
     "noCrossDeviceOffsets": true,
     "noPrematureSupportFeedRegistration": true,
@@ -2783,7 +2783,7 @@
     }
   },
   "hxl1Stage4BootloaderDiscovery": {
-    "observedAt": "2026-10-10T06:28:55Z",
+    "observedAt": "2026-10-10T07:20:55Z",
     "commandScope": "find /mnt/c/Users $HOME/Downloads -maxdepth 6 under G986 filename patterns",
     "matches": [
       "/mnt/c/Users/Admin/Downloads/SM-G986U.zip"
@@ -2801,6 +2801,67 @@
       "matchesPinnedSamsungSourceWrapper": true,
       "classification": "Official vendor source wrapper; not BL firmware archive",
       "bootloaderPhysicalLoadProved": false
-    }
+    },
+    "physicalKernelLoadAddressVerified": false,
+    "status": "ORIGINAL_FIRMWARE_BL_ARCHIVE_FOUND_AND_ARCHIVE_SHA256_MEASURED; HANDOFF_OPEN",
+    "exactFirmwareFolder": "/mnt/c/Users/Admin/Downloads/SAMFW.COM_SM-G986U1_XAA_G986U1UESCHXL1_fac",
+    "archive": {
+      "path": "BL_G986U1UESCHXL1_G986U1UESCHXL1_MQB90638722_REV00_user_low_ship_MULTI_CERT.tar.md5",
+      "sizeBytes": 92600434,
+      "sha256": "f6048fb50cd83741951552866c4dcf26e6165b0a67a232b81028c266bef22d6b",
+      "packageNameMatchesDeviceBuild": true,
+      "fileEntriesCount": 28,
+      "entries": [
+        "abl.elf.lz4",
+        "xbl.elf.lz4",
+        "xbl_config.elf.lz4",
+        "tz.mbn.lz4",
+        "hyp.mbn.lz4",
+        "devcfg.mbn.lz4",
+        "aop.mbn.lz4",
+        "cmnlib.mbn.lz4",
+        "cmnlib64.mbn.lz4",
+        "qupv3fw.elf.lz4",
+        "NON-HLOS.bin.lz4",
+        "dspso.bin.lz4",
+        "km4.mbn.lz4",
+        "storsec.mbn.lz4",
+        "sec.elf.lz4",
+        "bksecapp.mbn.lz4",
+        "tz_iccc.mbn.lz4",
+        "tz_hdm.mbn.lz4",
+        "apdp.mbn.lz4",
+        "msadp.mbn.lz4",
+        "uefi_sec.mbn.lz4",
+        "multi_image.mbn.lz4",
+        "quest.fv.lz4",
+        "testvector.fv.lz4",
+        "spunvm.bin.lz4",
+        "vbmeta.img.lz4",
+        "vaultkeeper.mbn.lz4"
+      ]
+    },
+    "companionFirmwarePackages": [
+      {
+        "name": "AP_G986U1UESCHXL1_G986U1UESCHXL1_MQB90638722_REV00_user_low_ship_MULTI_CERT_meta_OS13.tar.md5",
+        "sizeBytes": 8279715964
+      },
+      {
+        "name": "CP_G986U1UESCHXL1_CP28696989_MQB90638722_REV00_user_low_ship_MULTI_CERT.tar.md5",
+        "sizeBytes": 67543150
+      },
+      {
+        "name": "CSC_OYM_G986U1OYMCHXL1_MQB90638722_REV00_user_low_ship_MULTI_CERT.tar.md5",
+        "sizeBytes": 68556904
+      },
+      {
+        "name": "HOME_CSC_OYM_G986U1OYMCHXL1_MQB90638722_REV00_user_low_ship_MULTI_CERT.tar.md5",
+        "sizeBytes": 68536429
+      }
+    ],
+    "nextEvidenceAction": "Read-only pin-guarded extraction of ABL/XBL/XBL_CONFIG from verified archive; classify ELF and note paddr/vaddr are BOOTLOADER PROGRAM HEADER ADDRESSES, NOT ORIGINAL ANDROID KERNEL PHYSICAL LOAD ADDRESS. Study boot handoff via original firmware only when independently supported.",
+    "stockBootloaderImagesExtracted": false,
+    "originalFactoryPhysicalKernelEntryVerified": false,
+    "deviceFlashed": false
   }
 }
