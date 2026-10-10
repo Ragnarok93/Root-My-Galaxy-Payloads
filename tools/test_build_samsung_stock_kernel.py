@@ -143,7 +143,7 @@ class ImageBuildPlanTests(unittest.TestCase):
             class ProbeResult:
                 returncode = 0
                 stdout = ""
-                stderr = " \\"%s\\" \\"-EL\\"\n" % (prefix + "as")
+                stderr = (prefix + "as") + " -EL\\n"
             with patch.object(module.subprocess, "run", return_value=ProbeResult()) as run:
                 observed = module.check_arm64_external_assembler(args.clang, prefix)
                 self.assertEqual(observed["assembler"], prefix + "as")
