@@ -2258,9 +2258,10 @@
       "script": "tools/y2q_rtmutex_fix_audit.py",
       "tests": "tools/test_y2q_rtmutex_fix_audit.py",
       "outputExpected": "audit.json and audit.md, in owner report directory",
-      "state": "committed; owner has not yet executed",
+      "state": "Owner executed successfully, WSL 5/5 unit tests PASS and all source/diff audit checks PASS.",
       "sourceHashGate": true,
-      "noPhoneOrKernelMutation": true
+      "noPhoneOrKernelMutation": true,
+      "executedByOwner": true
     },
     "conclusions": {
       "sourceLevelWrongWaiterOwnershipCorroborated": true,
@@ -2268,7 +2269,36 @@
       "matchingSamsungRuntimeCorruptionDemonstrated": false,
       "actualGhostLockCveTriggered": false,
       "onPhoneRootVerified": false,
-      "kernelSuValidated": false
+      "kernelSuValidated": false,
+      "sourceComparisonStageComplete": true,
+      "runtimeErrorPathReachabilityVerified": false,
+      "verifiedModuleLoadPath": false,
+      "kernelSuHookBackendValidated": false
+    },
+    "ownerAuditExecution": {
+      "observedAt": "2026-10-10T05:56:15Z",
+      "source": "Owner WSL terminal transcript after git pull to a9dfa91",
+      "commandUnitTests": "python3 -m unittest -v tools/test_y2q_rtmutex_fix_audit.py",
+      "unitTests": {
+        "passed": 5,
+        "total": 5,
+        "failed": 0,
+        "errors": 0,
+        "durationSeconds": 0.008,
+        "status": "OK"
+      },
+      "commandAudit": "python3 tools/y2q_rtmutex_fix_audit.py",
+      "sourceHashVerification": "PASS original Samsung source: SHA-256 matched 2/2",
+      "firstReference": "PASS ownership published diff expected edits",
+      "followupReference": "PASS followup published diff expected edits",
+      "vendorSourceIndicators": "PASS Samsung source ownership/rollback indicator coverage",
+      "expectedReports": [
+        "/home/main/s20-artifacts/hxl1-research/rtmutex-fix-review/audit.json",
+        "/home/main/s20-artifacts/hxl1-research/rtmutex-fix-review/audit.md"
+      ],
+      "evidenceLimit": "Script's source indicator checks and changed-line recognition are heuristics, not semantic formal proof, validated runtime UAF, root or KernelSU.",
+      "sourceCodeExecutedOnPhone": false,
+      "status": "PASS_SOURCE_AUDIT_ONLY"
     }
   }
 }
