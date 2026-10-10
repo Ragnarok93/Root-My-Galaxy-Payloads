@@ -1029,6 +1029,51 @@ No experimental target goes to the production support feed.
 
 ---
 
+## October 10: futex waiter-lifecycle evidence from owner source search
+
+The owner's read-only `rg` in the original Samsung HXL1
+`kernel/futex.c` confirms:
+
+| Lines | Source observation |
+|---|---|
+| `1817–1832` | `requeue_pi_wake_futex` exists and documents waking an acquired proxy task |
+| `1906–1907` | `top_waiter->task` supplies both the PID and task passed to `futex_lock_pi_atomic` |
+| `2156–2158` | `rt_mutex_start_proxy_lock` receives the **waiter's** `this->rt_waiter` and `this->task` |
+| `2159–2170` | `ret == 1` is treated as successful acquisition and `requeue_pi_wake_futex` |
+| `2171–2186` | nonzero, nonsuccess `ret` drops PI-state reference and breaks requeue processing |
+
+These facts **corroborate the cross-task proxy-lock usage** that
+[CVE-2026-43499](https://lists.openwall.net/linux-cve-announce/2026/05/21/7)
+describes. They do **not** establish where `waiter->task` is
+first populated, that it is enqueued on each return path, or
+that an actual use-after-free can be reproduced safely.
+
+The initial command shown by the owner covered only
+`kernel/futex.c`. The earlier requested separate
+`rtmutex.c` waiter-initialization search was **not** included,
+so the task/queue lifecycle check remains open.
+
+### Next bounded read-only source inspection
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+rg -n -C 15 \
+  'task_blocks_on_rt_mutex\(|waiter->task[[:space:]]*=|rt_mutex_dequeue\(' \
+  ~/src/samsung-y2q-hxl1-stock/kernel/locking/rtmutex.c
+
+nl -ba ~/src/samsung-y2q-hxl1-stock/kernel/futex.c |
+  sed -n '1820,1848p;1890,1915p;2148,2188p'
+```
+
+Focus on **which task initializes the waiter, whether the
+waiter is actually enqueued, and which rollback paths may
+operate on an unqueued waiter**. No kernel crash tests or
+privilege-escalation payloads are part of this step.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
