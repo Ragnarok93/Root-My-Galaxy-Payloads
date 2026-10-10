@@ -194,7 +194,7 @@ def build_matrix(inventory:dict,partial:dict,dwarf:dict,rtmutex:dict,port:dict)-
                 for g in gates],
         },
         "decisions":{
-            "stage3":"PARTIAL",
+            "stage3":gates[2]["state"],
             "originalCompiledStructureOffsetsVerified":False,
             "compilerAbiEquivalentToFactoryProven":False,
             "originalRuntimeKernelPhysicalBaseMeasured":False,
@@ -278,7 +278,10 @@ def main()->int:
     artifacts=a.artifacts.expanduser().resolve()
     generated=a.build.expanduser().resolve()
     reference=a.references.expanduser().resolve()
-    out=a.output.expanduser().resolve()
+    requested=a.output.expanduser()
+    if requested.is_symlink() or requested.with_suffix(".md").is_symlink():
+        p.error("Refuse symlinked Stage-3 output targets")
+    out=requested.resolve()
     if out.suffix!=".json" or any(
         p==out or p in out.parents for p in (
             source, generated, ROOT/"src",ROOT/"support")
