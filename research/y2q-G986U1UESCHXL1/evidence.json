@@ -1997,7 +1997,7 @@
       "noCvePiRequeue": true,
       "noKernelSU": true,
       "boundedPiGuestEnhancement": {
-        "stage": "Owner VM PASS_BOUNDED_PI verified; Python exit mismatch corrected at commit 33de264, regression rerun pending",
+        "stage": "Owner verified both physical QEMU bounded-PI 4/4 pass and post-fix 11/11 host regression tests",
         "source": "research/y2q-G986U1UESCHXL1/qemu_lab_init.c",
         "wrapper": "tools/y2q_qemu_lab.py",
         "tests": "tools/test_y2q_qemu_lab.py",
@@ -2018,7 +2018,7 @@
     },
     "status": {
       "implementationCommitted": true,
-      "unitTestsRunByOwner": false,
+      "unitTestsRunByOwner": true,
       "qemuInstalledByOwner": true,
       "officialSourceDownloadedByOwner": true,
       "upstreamArm64KernelBuiltByOwner": true,
@@ -2036,9 +2036,9 @@
       "boundedFutexPiSourceCommitted": true,
       "boundedFutexPiTestRunByOwner": true,
       "boundedFutexPiQemuPassVerified": true,
-      "hostUnitTestsPassed": false,
+      "hostUnitTestsPassed": true,
       "exitCodeRegressionFixCommitted": true,
-      "exitCodeRegressionFixRerunVerified": false
+      "exitCodeRegressionFixRerunVerified": true
     },
     "interpretation": "Both baseline and KASAN+DEBUG_RT_MUTEXES upstream Linux 4.19.325 ARM64 VM boots verified by owner. KASAN runtime fault-detection sensitivity and Samsung GhostLock path remain untested. No evidence of phone rooting/module loading/KernelSU.",
     "ownerUpstreamBootEvidence": {
@@ -2180,10 +2180,41 @@
       ],
       "qemuCleanShutdown": true,
       "guestResult": "PASS_BOUNDED_PI",
-      "status": "Guest passed all four checks with clean QEMU shutdown; host orchestrator return-code bug identified and fixed in GitHub; updated unit tests not yet rerun by owner.",
+      "status": "Owner KASAN VM bounded-PI 4/4 pass; host exit-code bug fixed; post-fix unit tests 11/11 and exit code 0 now verified separately.",
       "guestCvePathTriggered": false,
       "guestKasanBugObserved": false,
-      "galaxyS20RootVerified": false
+      "galaxyS20RootVerified": false,
+      "hostUnitTestsAfterFix": {
+        "passed": 11,
+        "total": 11,
+        "failed": [],
+        "exitCode": 0,
+        "at": "2026-10-10T05:43:49Z"
+      }
+    },
+    "ownerPostFixRegression": {
+      "observedAt": "2026-10-10T05:43:49Z",
+      "ownerCommand": "python3 -m unittest -v tools/test_y2q_qemu_lab.py; echo \"Test exit code: $?\"",
+      "gitPulledHead": "fd23e81",
+      "passed": 11,
+      "failed": 0,
+      "errors": 0,
+      "hostExitCode": 0,
+      "durationSeconds": 0.067,
+      "positiveCases": [
+        "PASS_BOOT_ONLY classified as success",
+        "PASS_BOUNDED_PI classified as success",
+        "preserved KASAN Image reused without rebuild"
+      ],
+      "rejectionCases": [
+        "simulated kernel panic -> FAIL_BOOT (mocked)",
+        "simulated KASAN BUG -> FAIL_BOOT (mocked)",
+        "simulated nonzero QEMU exit -> FAIL_BOOT (mocked)",
+        "incomplete PI output -> FAIL_BOOT (mocked)"
+      ],
+      "mockedBootOutputNotActualVMCrash": true,
+      "actualQemuGuestBoundedPiPassedPreviously": true,
+      "status": "11/11 Python unit tests and command exit code zero verified from owner terminal output"
     }
   }
 }
