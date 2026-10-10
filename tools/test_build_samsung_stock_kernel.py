@@ -79,6 +79,37 @@ class ImageBuildPlanTests(unittest.TestCase):
         )
         return args, comparison, makefile, config
 
+    def test_python2_missing_is_reported_before_make(self):
+        with patch.object(module.shutil, "which", return_value=None):
+            with self.assertRaisesRegex(ValueError, "Install real Python 2.7"):
+                module.find_python2()
+
+    def test_python3_executable_is_not_accepted_as_python2(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            binary = Path(tmp) / "python2"
+            create_exe(binary)
+            class Version:
+                returncode = 0
+                stdout = "3.12"
+                stderr = ""
+            with patch.object(module.subprocess, "run", return_value=Version()):
+                with self.assertRaisesRegex(ValueError, "genuine Python 2.7"):
+                    module.find_python2(binary)
+
+    def test_python2_path_validates_real_27(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            binary = Path(tmp) / "python2"
+            create_exe(binary)
+            class Version:
+                returncode = 0
+                stdout = "2.7"
+                stderr = ""
+            with patch.object(module.subprocess, "run", return_value=Version()) as run:
+                self.assertEqual(module.find_python2(binary), str(binary))
+                self.assertEqual(run.call_args.args[0][0], str(binary))
+            with self.assertRaisesRegex(ValueError, "name an executable 'python2'"):
+                module.find_python2(Path(tmp) / "python2.7")
+
     def test_dry_run_uses_only_stock_image_target_and_does_not_modify_files(self):
         with tempfile.TemporaryDirectory() as temp:
             args, comparison, makefile, config = self.setup_case(temp)
@@ -86,7 +117,8 @@ class ImageBuildPlanTests(unittest.TestCase):
             with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \
                  patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \
                  patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \
-                 patch.object(module.shutil, "which", return_value="/usr/bin/python"):
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \
+                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"):
                 result, report_path = module.plan(args)
             self.assertEqual(result["command"][-1], "Image")
             self.assertIn("O=" + str(args.output_dir), result["command"])
@@ -129,7 +161,8 @@ class ImageBuildPlanTests(unittest.TestCase):
             with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \
                  patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \
                  patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \
-                 patch.object(module.shutil, "which", return_value="/usr/bin/python"):
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \
+                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"):
                 with self.assertRaisesRegex(ValueError, "requires --log"):
                     module.plan(args)
                 args.log = args.output_dir / "bad.log"
