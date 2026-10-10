@@ -230,6 +230,88 @@ class ImageBuildPlanTests(unittest.TestCase):
             self.assertEqual(result["command"][-1], "Image")
             self.assertEqual((makefile.read_bytes(), config.read_bytes()), unchanged)
 
+    def test_cross_linker_probe_checks_actual_aarch64_dso(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _, _, _ = self.setup_case(folder)
+            linker = Path(args.gcc_prefix + "ld")
+            invocation_list = []
+            class Outcome:
+                def __init__(self, stderr=""):
+                    self.returncode = 0
+                    self.stdout = ""
+                    self.stderr = stderr
+            def exec_probe(command, **kwargs):
+                invocation_list.append(command)
+                if "-###" in command:
+                    return Outcome(' "' + str(linker) + '" "-m" "aarch64linux"')
+                target = Path(command[-1])
+                target.write_bytes(
+                    b"\x7fELF" + bytes([2, 1, 1]) + bytes(9)
+                    + b"\x03\x00" + b"\xb7\x00" + bytes(32)
+                )
+                return Outcome()
+            with patch.object(module.subprocess, "run", side_effect=exec_probe):
+                validated = module.check_arm64_cross_linker(args.clang, linker)
+            self.assertEqual(validated["linker"], str(linker))
+            self.assertTrue(validated["actualSharedObjectLinked"])
+            self.assertIn("--prefix=/usr/bin/", invocation_list[0])
+            self.assertIn("--ld-path=" + str(linker), invocation_list[1])
+            self.assertIn(module.CROSS_LINKER_UNUSED_ARG_SUPPRESSION, invocation_list[1])
+
+    def test_cross_linker_probe_rejects_native_host_linker(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _, _, _ = self.setup_case(folder)
+            class BadDriver:
+                returncode = 0
+                stdout = ""
+                stderr = ' "/usr/bin/ld" "-m" "aarch64linux"'
+            with patch.object(module.subprocess, "run", return_value=BadDriver()):
+                with self.assertRaisesRegex(ValueError, "did not select requested ARM64"):
+                    module.check_arm64_cross_linker(args.clang, Path(args.gcc_prefix + "ld"))
+
+    def test_linker_override_is_scoped_and_preserves_all_build_fingerprints(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _, makefile, config = self.setup_case(folder)
+            args.integrated_arm64_as = True
+            args.cross_arm64_linker = True
+            args.suppress_cgroup_layout_warning = True
+            unchanged = (makefile.read_bytes(), config.read_bytes())
+            linker = Path(args.gcc_prefix + "ld")
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \
+                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \
+                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \
+                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"), \
+                 patch.object(module, "check_arm64_integrated_assembler",
+                              return_value={"mode": "clang-integrated-aarch64"}), \
+                 patch.object(module, "check_cgroup_layout_warning_compat",
+                              return_value={"suppression": module.CGROUP_SUPPRESSION}), \
+                 patch.object(module, "check_arm64_cross_linker",
+                              return_value={"linker": str(linker)}) as checked:
+                result, _ = module.plan(args)
+            checked.assert_called_once_with(args.clang, linker)
+            command = result["command"]
+            flags = next(x for x in command if x.startswith("KCFLAGS="))
+            asm_flags = next(x for x in command if x.startswith("KAFLAGS="))
+            self.assertIn("--ld-path=" + str(linker), flags)
+            self.assertIn(module.CROSS_LINKER_UNUSED_ARG_SUPPRESSION, flags)
+            self.assertIn(module.CGROUP_SUPPRESSION, flags)
+            self.assertNotIn("--ld-path=", asm_flags)
+            self.assertNotIn("-Wno-unused-command-line-argument", asm_flags)
+            self.assertEqual((makefile.read_bytes(), config.read_bytes()), unchanged)
+
+    def test_cross_linker_without_integrated_as_is_refused(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _, makefile, config = self.setup_case(folder)
+            args.cross_arm64_linker = True
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \
+                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \
+                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \
+                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"):
+                with self.assertRaisesRegex(ValueError, "requires --integrated-arm64-as"):
+                    module.plan(args)
+
     def test_cgroup_warning_probe_detects_and_suppresses_only_named_diagnostic(self):
         with tempfile.TemporaryDirectory() as temp:
             args, _, _, _ = self.setup_case(temp)
