@@ -1664,6 +1664,141 @@ format/argument correction in another audited source copy and
 run the next guarded off-device Image test. Avoid adjusting
 the user's already verified `.config`.
 
+## October 9: tenth experiment — exact ROPP format fix, three-patch isolated source
+
+The owner supplied both `init/main.c` versions at lines 711–728,
+confirming byte-for-byte identical stock and old two-patch
+compatibility source at the offending line:
+
+```c
+asm volatile("mov %0, xzr" : "=r" (ropp_master_key));
+pr_info("SYSREG, after zeroing out master key, mk=%lx\n", ropp_master_key);
+BUG_ON(0 != ropp_master_key);
+```
+
+The ninth build's `-Wformat` failure is **real and specific**:
+Clang 18 resolves `ropp_master_key` as `u64` (unsigned long long),
+whereas `%lx` expects unsigned long, even though both are 64-bit on
+ARM64. The right source correction is a format specifier that
+matches the explicit argument type. The changed line only is:
+
+```c
+pr_info("SYSREG, after zeroing out master key, mk=%llx\n",
+        (unsigned long long)ropp_master_key);
+```
+
+The patcher writes it as **one line**. The preceding zeroing
+instruction, following `BUG_ON`, ROPP/CFP hypervisor calls and
+security configuration are **unmodified**. Do not disable
+`-Wformat` or change the audited original source.
+
+### Source provenance and updated guarded patcher
+
+The existing `tools/prepare_samsung_vdso_compat.py` now supports
+`--init-format-fix`. This opt-in produces a **new source-copy
+directory** from the original Samsung source and applies precisely
+the two upstream VDSO fixes (three plus one textual replacements)
+and the one-line local `init/main.c` correction (one replacement).
+
+The existing
+`~/src/samsung-y2q-hxl1-vdso-ias-compat` **continues to contain
+only the two upstream fixes**. It must not be edited or overwritten.
+The three-patch copy gets schema-2
+`.samsung-vdso-compat.json` with all original/patched file
+SHA-256s, patch provenance, and whole-tree SHA-256s.
+`tools/build_samsung_stock_kernel.py` accepts both
+**precisely validated** manifest variants (2/3 patches) and rejects
+any unexpected file mutation.
+
+Run:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+df -h ~/src
+
+# Preflight: read original Samsung source, verify exact five replacements.
+python3 tools/prepare_samsung_vdso_compat.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --compat-source-dir ~/src/samsung-y2q-hxl1-vdso-ias-format-compat \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --init-format-fix
+
+# Only after DRY RUN PASSED:
+python3 tools/prepare_samsung_vdso_compat.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --compat-source-dir ~/src/samsung-y2q-hxl1-vdso-ias-format-compat \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --init-format-fix \
+  --execute
+```
+
+If the destination already exists, the patcher refuses to overwrite
+it; never replace the old two-patch directory.
+
+### Tenth Image compatibility build
+
+With the new three-patch source directory created, first dry-run the
+same Clang18/GCC13 compiler settings that reached the ARM64 kernel
+archive in the ninth attempt:
+
+```bash
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --compat-source-dir ~/src/samsung-y2q-hxl1-vdso-ias-format-compat \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --integrated-arm64-as \
+  --suppress-cgroup-layout-warning \
+  --cross-arm64-linker \
+  --suppress-legacy-core-warnings \
+  --verbose \
+  --jobs 2
+```
+
+Only if it prints `DRY RUN PASSED`:
+
+```bash
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --compat-source-dir ~/src/samsung-y2q-hxl1-vdso-ias-format-compat \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --integrated-arm64-as \
+  --suppress-cgroup-layout-warning \
+  --cross-arm64-linker \
+  --suppress-legacy-core-warnings \
+  --verbose \
+  --jobs 2 \
+  --execute \
+  --log ~/s20-artifacts/samsung-hxl1-image-clang18-build-10.log \
+  --json ~/s20-artifacts/samsung-hxl1-image-clang18-report-10.json
+```
+
+For any failure, use the new auto-generated `failureSummary`
+in the JSON report or:
+
+```bash
+python3 tools/summarize_samsung_kernel_build.py \
+  --log ~/s20-artifacts/samsung-hxl1-image-clang18-build-10.log
+
+grep -nE 'error:|forbidden warning|fatal error:|Error [0-9]+|No such file' \
+  ~/s20-artifacts/samsung-hxl1-image-clang18-build-10.log | head -100
+```
+
+This is a **compiler compatibility experiment only**. The original
+G986U1UESCHXL1 source tree and recorded kernel config remain
+unchanged; the currently locked S20+ cannot simply be flashed
+with any experimental output.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
