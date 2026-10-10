@@ -50,3 +50,14 @@ The `--analysis` pass **must be classified as upstream heuristic results, not ac
 ### Decision
 
 Use GhostLock upstream source as an **independent analysis baseline**, not an executable 4.19 profile. Preserve existing Root-My-Galaxy-Payloads read-only tools for original firmware provenance and source/binary correlation. Stage 3 remains PARTIAL; Stage 4 OPEN; Stage 7 KernelSU BLOCKED; support feed disabled.
+
+## Owner WSL2 build attempt, 2026-10-10 — host toolchain gate only
+
+- Successfully cloned the upstream repository and detached HEAD at audited `9cdc4acbc283a1d1c84a3eb10379f7c9a960fb02`.
+- Host `rustc --version` and `cargo --version` both reported **1.75.0** (Ubuntu system toolchain).
+- Both `cargo test --manifest-path tools/extract_rs/Cargo.toml` and `cargo build --release --manifest-path tools/extract_rs/Cargo.toml` stopped at manifest parsing: `feature edition2024 is required`.
+- No binary was built; the subsequent extractor command exited **127** because `build/extract/release/ghostlock-extract` did not exist.
+- **Classification:** `HOST_RUST_TOO_OLD` — not a GhostLock source compile failure, firmware format failure, primitive analysis, or 4.19 incompatibility verdict.
+- Verified upstream `tools/extract_rs/Cargo.toml` requires `rust-version = "1.97.1"` and `edition = "2024"`. Rust 1.97.1 was officially published 2026-07-16 (https://blog.rust-lang.org/2026/07/16/Rust-1.97.1/).
+
+**Next action:** install 1.97.1 with `rustup` alongside the system Rust, use `rustup run 1.97.1 cargo test` and `rustup run 1.97.1 cargo build --release` without changing the upstream manifest, then run the exact original `kernel.bin` + original `vmlinux-stock.nm` `--analysis` path with host-only logs. Do not infer vulnerability or physical addresses from a build passing.
