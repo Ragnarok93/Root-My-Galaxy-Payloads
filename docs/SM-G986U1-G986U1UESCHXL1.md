@@ -23,6 +23,94 @@ kernel compilation errors to perform the firmware-to-profile audit.
 - [Support feed selection limitations](../support/README.md)
 - [KernelSU module constraints and Samsung adaptations](../kernelsu/README.md)
 
+## October 10, 06:28 UTC — Stage 3 layout/debug metadata verified; exact ABI remains open
+
+The owner pulled `9736ae7` and ran the source/debug inventory:
+**6/6 unit tests passed** (0.018 seconds); the original firmware
+and audited source hashes matched. All seven declaration locations
+were found in the original reconstructed HXL1 source:
+
+- `task_struct`: `include/linux/sched.h:821`
+- `rt_mutex_waiter`: `kernel/locking/rtmutex_common.h:27`
+- `rt_mutex`: `include/linux/rtmutex.h:30`
+- `file_operations`: `include/linux/fs.h:1778`
+- `page`: `include/linux/mm_types.h:70`
+- `cred`: `include/linux/cred.h:146`
+- `configfs_buffer`: `fs/configfs/file.c:45`
+
+Exact IKCONFIG reports `CONFIG_DEBUG_INFO=y`,
+`CONFIG_CC_IS_CLANG=y`, `CONFIG_ARM64=y` and
+`CONFIG_64BIT=y`. `CONFIG_DEBUG_INFO_DWARF4=n` and
+`CONFIG_DEBUG_INFO_SPLIT=n`. It has no recorded
+`CONFIG_DEBUG_INFO_BTF` or RANDSTRUCT setting.
+
+**Crucially, the reconstructed stock analysis ELF contains no
+`.debug_*` or `.BTF` section**, and the earlier original
+raw `kernel.bin` scan found no bounded raw BTF candidate.
+These findings do not exclude original DWARF files generated
+by Samsung's build: unstripped `vmlinux` or original
+`.o` debug objects may exist separately. Our reconstructed ELF
+cannot invent these structures after stripping. Six original
+symbol names are recovered and present, but the numeric offsets
+of complete configured objects are **still unverified**.
+Stage 3 remains PARTIAL.
+
+### Immediate next off-device layout provenance checks
+
+1. Locate an original or previous HXL1 compilation object tree
+   *before* doing another full kernel build.
+2. If any `vmlinux`/`rtmutex.o`/`futex.o` candidate exists,
+   record path, sha256, `file`, and DWARF sections
+   (e.g. `readelf -SW`). An object produced by experimental
+   Clang18 is a **comparison-only** candidate, not the actual
+   factory Clang10 layout.
+3. Find a verified matching Clang 10.0.6 toolchain for the
+   precise source/config before treating `pahole` layout
+   output as build-equivalent. The owner previously had
+   modern Clang18 / NDK Clang21 only; the genuine Qualcomm
+   shipped toolchain has not been located.
+4. Keep all offsets provisional until both original-source
+   compilation choices and independent exact kernel disassembly
+   anchors agree. In particular, no copied `task_struct`,
+   `rt_mutex_waiter` or `file_operations` constants from
+   other targets are acceptable as HXL1.
+
+Use these bounded WSL file searches; they only list paths:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+find "$HOME/s20-artifacts" "$HOME/src" -type f \
+  \( -name vmlinux -o -name rtmutex.o -o -name futex.o \) \
+  -print 2>/dev/null | head -n 80
+
+find "$HOME" /opt /usr/local -maxdepth 7 -type f \
+  \( -name 'clang-10' -o -name 'clang' \) \
+  -print 2>/dev/null | head -n 60
+```
+
+If any vmlinux/object candidate appears, do **not** trust
+its numeric offsets yet; the next step is toolchain/ELF
+provenance inspection.
+
+### Stage 4 search result: source ZIP, not original BL
+
+The owner's Windows path search found only
+`/mnt/c/Users/Admin/Downloads/SM-G986U.zip`.
+This is the same **filename** as the earlier Samsung
+open-source wrapper, whose audited historical SHA-256
+was `940fe6bbcfe3dcd372ad662dd24b56e0a3ba1a965666b04051fe9941bab4986d`.
+The current Windows copy's bytes have **not** been
+hash-verified yet; do not claim it is the same file
+until `sha256sum` matches. That ZIP is expected to
+contain vendor source archives and incremental source
+updates, **not** Samsung's BL firmware archive.
+No matching original HXL1 BL was found within the
+limited file search. Physical kernel load address
+remains OPEN, but lack of a BL archive alone does
+not prevent continuing independent Stage 3 work.
+
+---
+
 ## October 10, 06:18 UTC — nine-stage port checker verified on original HXL1 files
 
 The owner pulled commit 19e9336 and executed
