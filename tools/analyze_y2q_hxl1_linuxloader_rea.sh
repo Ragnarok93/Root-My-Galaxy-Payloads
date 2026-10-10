@@ -8,9 +8,11 @@ OUT="$HOME/s20-artifacts/hxl1-research/abl-linuxloader"
 REA_SOURCE="$HOME/src/rea"
 mkdir -p "$OUT"
 
-echo "=== Reuse existing verified 2-decoder ABL section evidence ==="
-python3 -m unittest -q tools/test_y2q_hxl1_cached_linuxloader.py
-python3 tools/y2q_hxl1_cached_linuxloader.py
+if [ ! -f "$OUT/LinuxLoader-HXL1.efi" ]; then
+  echo "=== Reuse existing verified 2-decoder ABL section evidence (no re-unpack) ==="
+  python3 -m unittest -q tools/test_y2q_hxl1_cached_linuxloader.py
+  python3 tools/y2q_hxl1_cached_linuxloader.py
+fi
 
 python3 - "$OUT" <<'PY'
 from pathlib import Path
