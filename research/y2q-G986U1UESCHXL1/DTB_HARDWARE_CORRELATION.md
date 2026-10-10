@@ -64,3 +64,34 @@ The previous broad `pahole` exit-code-only loop produced false positives. No ver
 5. Keep Stage 4 physical handoff `OPEN`, Stage 3 `PARTIAL`, Stage 7 KernelSU `BLOCKED`, and publication disabled.
 
 No firmware was flashed, no device files were written, no module was loaded, and no privilege escalation was attempted in this stage.
+
+## Follow-up: exact decoded root properties, v2.1/v2 differences, and fourth FDT
+
+Owner's latest offline read used the four SHA256-verified candidate DTB files extracted from the original pinned `boot.img`.
+
+### Root property inventories
+
+- Candidates 1 and 2 have the same seven root property names: `#address-cells`, `#size-cells`, `compatible`, `interrupt-parent`, `model`, `qcom,board-id`, and `qcom,msm-id`.
+- Candidate 3 has those seven properties plus `dtbo-version` at root. Presence does not establish an applied overlay.
+- Candidate 4 has exactly two root properties, `qcom,rtic-id` and `MP_DATA`, and no child nodes. In `dtc` output: `qcom,rtic-id = <0x01>`; `MP_DATA` contains 13 hexadecimal 32-bit cells (52 bytes). Its semantics remain **unknown**; do not treat these cells as physical addresses, exploit parameters, or proof of a selected DTB.
+
+### Candidate 1 versus candidate 2
+
+The full `dtc -I dtb -O dts` textual diff contains **23 diff lines with only three changed property values**:
+
+| Location/property | Candidate 1, Kona v2.1 | Candidate 2, Kona v2.0 |
+|---|---|---|
+| Root `model` | `Qualcomm Technologies, Inc. kona v2.1 SoC` | `Qualcomm Technologies, Inc. kona v2 SoC` |
+| Root `qcom,msm-id` | `<0x164 0x20001>` | `<0x164 0x20000>` |
+| KGSL GPU node `qcom,chipid` | `<0x6050002>` | `<0x6050001>` |
+
+The `0x06050002` variant is identified by the public upstream Adreno 6xx catalog as Adreno 650, e.g. Linux `drivers/gpu/drm/msm/adreno/a6xx_catalog.c` (https://gbmc.googlesource.com/linux/+/7c1a9408ce5f34ded5a85db81cf80e0975901685/drivers/gpu/drm/msm/adreno/a6xx_catalog.c). The original vendor driver path may be different; independent device runtime GPU chip-ID verification remains optional.
+
+This is a **decoded textual equivalence** of the two complete FDTs except these three property values. It does not assert identical raw bytes, bootloader-selected FDT, DT overlay state, or bootloader/kernel physical handoff.
+
+**Conclusions unchanged:** `CANDIDATE_1_STATIC_SOC_REVISION_MATCH`; Stage 4 **OPEN**, Stage 3 **PARTIAL**, KernelSU **BLOCKED**, support publication **DISABLED**.
+
+### Next safely bounded verification
+
+- If readable with ordinary ADB shell, collect only public KGSL GPU model/chip identity attributes under `/sys/class/kgsl/kgsl-3d0/`. Missing or SELinux-blocked attributes are valid outcomes; don't attempt privilege bypass.
+- Stop repeating checksum-pinned base/root candidate parsing unless the original input changes. Prioritize boot handoff documentation from the original BL image in an offline, read-only setting; do not equate ABL/XBL ELF entry points with Linux kernel load.
