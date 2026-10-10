@@ -8,6 +8,10 @@ OUT="$HOME/s20-artifacts/hxl1-research/abl-linuxloader"
 REA_SOURCE="$HOME/src/rea"
 mkdir -p "$OUT"
 
+echo "=== Reuse existing verified 2-decoder ABL section evidence ==="
+python3 -m unittest -q tools/test_y2q_hxl1_cached_linuxloader.py
+python3 tools/y2q_hxl1_cached_linuxloader.py
+
 python3 - "$OUT" <<'PY'
 from pathlib import Path
 import hashlib,json,sys
@@ -33,15 +37,14 @@ else:
     target=out/"LinuxLoader-HXL1.unclassified.pe"
     if not target.is_file():
         raise SystemExit("[STOP] No recovered LinuxLoader section")
-    info=json.loads((out/"independent-uefi-recovery.json").read_text())
-    if info.get("status")!="LINUXLOADER_SECTION_RECOVERED_PE_ARCHITECTURE_UNVERIFIED":
-        raise SystemExit("[STOP] Missing section provenance")
-    matches=[x for x in info["matchingUefiLoaderFiles"]
-             if x["matchingFfsGuidInPath"] and x["verifiedUiName"]=="LinuxLoader"]
-    if len(matches)!=1:
-        raise SystemExit("[STOP] Matching LinuxLoader FFS/UI section not unique")
-    sha=info["candidateSha256"]
-    cls="EXACT_SECTION_PE_ARCHITECTURE_UNVERIFIED"
+    info=json.loads((out/"linuxloader-cached-correlation.json").read_text())
+    if (info.get("status")!="STOCK_HXL1_LINUXLOADER_SECTION_CORRELATED"
+            or info.get("sourceAblSha256")!=ORIGINAL_ABL_SHA256
+            or info.get("nativeDecoderSectionSha256")!=info.get("independentDecoderSectionSha256")
+            or info.get("verifiedUiName")!="LinuxLoader"):
+        raise SystemExit("[STOP] Cached original two-decoder provenance mismatch")
+    sha=info["independentDecoderSectionSha256"]
+    cls=info["classification"]
 if target.is_symlink() or hashlib.sha256(target.read_bytes()).hexdigest()!=sha:
     raise SystemExit("[STOP] Loader digest mismatch or symlink")
 (out/"rea-loader-target.txt").write_text(str(target)+"\n")
