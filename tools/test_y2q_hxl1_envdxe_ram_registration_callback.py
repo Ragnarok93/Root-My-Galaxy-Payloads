@@ -67,7 +67,12 @@ class OriginalProtocolXrefAndCallbackTests(unittest.TestCase):
 
     def overall(self):
         with patch.object(mod,"prior_audit",return_value=self.previous):
-            return mod.audit(self.folder)
+            with patch.object(mod,"original_code",return_value={
+                    "coordinate":"0x3420", "fileOffset":"0x900",
+                    "sectionName":".text", "bytesSha256":"ab"*32,
+                    "bytesHex":"01"*64, "originalEnvDxeSha256":mod.PE_SHA256,
+                    "length":64, "execSectionVerified":True}):
+                return mod.audit(self.folder)
 
     def test_eight_distinct_source_xrefs_in_one_pass(self):
         outcome=self.overall()
@@ -76,6 +81,32 @@ class OriginalProtocolXrefAndCallbackTests(unittest.TestCase):
                           for x in outcome["targetedOriginalXrefs"]],
                          ["0xd1d0","0xd1e8","0x205c","0x53b0",
                           "0x5430","0x5288","0x7d08","0x23b0"])
+
+    def test_static_callback_bytes_proof_retained_alongside_function(self):
+        report=self.overall()
+        self.assertEqual(report["originalCallbackExecutableBytes"]["coordinate"],"0x3420")
+        self.assertEqual(report["originalCallbackExecutableBytes"]["sectionName"],".text")
+        self.assertIsNone(report["originalCallbackGhidraReadback"])
+
+    def test_missing_ghidra_callback_dossier_must_not_block_report(self):
+        (self.folder/mod.CALLBACK_EVIDENCE).unlink()
+        self.assertFalse(self.overall()["staticCallbackFunctionIdentified"])
+        report=self.overall()
+        self.assertIsNone(report["staticCallbackFunction"])
+        self.assertTrue(report["originalCallbackExecutableBytes"]["execSectionVerified"])
+        self.assertEqual(report["ghidraFunctionAnalysisLimitation"]["status"],
+                         "GHIDRA_CALLBACK_FUNCTION_NOT_ANALYZED")
+
+    def test_saved_partial_callback_error_preserved_in_report(self):
+        (self.folder/mod.CALLBACK_EVIDENCE).unlink()
+        (self.folder/"rea-envdxe-ram-protocol-callback-function.partial.json").write_text(
+            '{"error":"decompiler failed"}')
+        report=self.overall()
+        limitation=report["ghidraFunctionAnalysisLimitation"]
+        self.assertEqual(limitation["status"],
+                         "PREVIOUS_GHIDRA_CALLBACK_ANALYSIS_FAILED_OR_PARTIAL")
+        self.assertEqual(len(limitation["files"]),1)
+        self.assertIn("decompiler failed",mod.markdown(report))
 
     def test_combined_register_and_callback_categories_separate(self):
         outcome=self.overall()
