@@ -72,6 +72,64 @@ support-feed entry is authorized by this static finding.
 
 ---
 
+## October 10: owner-confirmed source locations (semantic review next)
+
+The owner shared the full `candidate.json` source-inspection summary.
+It confirms the original assembled stock tree passed the 40/40 overlay
+integrity check and that the scan recognized the following:
+
+| Code | Owner-observed location |
+|---|---|
+| `kernel/locking/rtmutex.c`: `remove_waiter()` | line **1068** |
+| `rt_mutex_start_proxy_lock()` | lines **1797–1806**, rollback calls `remove_waiter(lock, waiter)` |
+| Additional `remove_waiter()` caller | line **1912** |
+| `kernel/futex.c`: proxy-lock call | line **2156** |
+| Other internal proxy-lock use | line **2914** |
+
+SHA-256 of these source files respectively:
+`36b187173cfb3934a5c9d51952bce58c2f41701d3585326f18cd3965e46a21f9`
+and
+`493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5`.
+The scanner found `current` but no `waiter->task` reference
+inside `remove_waiter()`. **This is suggestive, not a semantic
+proof**: all branches, task-identity assumptions and callers must
+be checked.
+
+The [upstream CVE-2026-43499 description](https://lists.openwall.net/linux-cve-announce/2026/05/21/7)
+describes proxy-lock rollback with `waiter->task != current`.
+The [published Ubuntu backport](https://lists.ubuntu.com/archives/kernel-team/2026-July/169898.html)
+shows the three operations requiring task identity: the task
+`pi_lock`, clearing `pi_blocked_on`, and selecting the task for
+priority-chain adjustment. The vendor 4.19 code may use different
+names, function signatures and guards. Do **not** transplant a
+5.15 patch verbatim.
+
+**Use read-only, bounded source excerpts for the next review:**
+
+```bash
+nl -ba ~/src/samsung-y2q-hxl1-stock/kernel/locking/rtmutex.c |
+  sed -n '1060,1145p;1792,1815p;1875,1920p'
+
+nl -ba ~/src/samsung-y2q-hxl1-stock/kernel/futex.c |
+  sed -n '2138,2185p'
+```
+
+Record which task owns the waiter in each call, which `pi_lock`
+is held during a waiter dequeue, which task receives
+`pi_blocked_on = NULL`, and which task enters
+`rt_mutex_adjust_prio_chain()`. If these cannot be established,
+the result stays `REVIEW_REQUIRED`.
+
+The `bootArtifactChecks` object was **empty** in the owner's first
+scan: original firmware hashes are in `evidence.json`, but the
+scan did not independently verify original `boot.img` or
+`kernel.bin` bytes. Do that later from the original
+extracted files, not a reconstructed `Image`.
+No HXL1 CVE/root verification, KernelSU loader or support-feed
+publication follows from this result.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
