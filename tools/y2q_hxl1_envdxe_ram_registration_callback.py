@@ -57,8 +57,13 @@ def original_registration(folder: Path) -> dict:
     previous=prior_audit(folder)
     if previous.get("originalEnvDxeSha256") != PE_SHA256:
         raise ExtractionError("Original HXL1 EnvDxe SHA256 gate failed")
+    # Require the ACTUAL output schema of y2q_hxl1_envdxe_smem402_protocol.audit.
+    # numericRuntimeRamBaseMeasured belongs to the earlier input-trace stage,
+    # not this direct parent's report. Missing fields must not silently pass.
     if (previous.get("efiRamProtocolRegistrationProven") is not False or
-        previous.get("numericRuntimeRamBaseMeasured") is not False or
+        previous.get("ramProtocolImplementationRegistrationConfirmed") is not False or
+        previous.get("physicalBaseMemoryMeasured") is not False or
+        previous.get("runtimeSmemTableContentsObserved") is not False or
         previous.get("kernelPhysicalLoadVerified") is not False):
         raise ExtractionError("Prior static evidence was promoted without runtime proof")
     code_sources=previous.get("originalSourceFunctions")
