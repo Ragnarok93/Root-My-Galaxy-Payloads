@@ -143,6 +143,23 @@ def main() -> int:
     args=p.parse_args()
     try:
         result=recover(args.abl,args.diagnostics,args.independent_unpacked,args.out)
+        if result["peHeader"]["strictAarch64Pe32PlusVerified"]:
+            # Keep the old unclassified copy for audit continuity. Publish a
+            # correctly named EFI only after independent original-byte
+            # correlation AND PE32+/AArch64 structural validation.
+            verified=args.out.parent/"LinuxLoader-HXL1.efi"
+            raw=args.out.read_bytes()
+            if verified.exists():
+                check_regular(verified)
+                if digest(verified.read_bytes())!=digest(raw):
+                    raise CorrelationError(
+                        "Existing verified LinuxLoader EFI mismatches cached original bytes")
+            else:
+                verified.write_bytes(raw)
+            result["verifiedPeOutput"]=str(verified)
+            result["verificationStatus"]="HXL1_ORIGINAL_FFS_UI_PE32PLUS_AARCH64_VERIFIED"
+        else:
+            result["verificationStatus"]="PE_ARCHITECTURE_UNVERIFIED"
         report=args.out.parent/"linuxloader-cached-correlation.json"
         report.write_text(json.dumps(result,indent=2)+"\n")
     except (OSError,CorrelationError,ValueError,UnicodeError) as exc:
@@ -152,6 +169,8 @@ def main() -> int:
     print("[PASS] Original SHA256-pinned HXL1 ABL, FFS GUID and UTF-16 UI")
     print("[SOURCE]",result["sourceSectionPath"])
     print("[LOADER]",result["output"])
+    if "verifiedPeOutput" in result:
+        print("[VERIFIED EFI]",result["verifiedPeOutput"])
     print("[PE]",json.dumps(result["peHeader"],sort_keys=True))
     print("[REPORT]",report)
     print("[LIMIT] No physical kernel load, runtime handoff, exploit or root")
