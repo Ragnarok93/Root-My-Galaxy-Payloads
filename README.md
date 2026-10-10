@@ -52,6 +52,22 @@ No Samsung kernel rebuild is needed for the Android NDK library. None
 of these operations attempts kernel exploitation, privilege escalation,
 KernelSU loading, or flash modification.
 
+The active HXL1 priority is to **finish the original nine-stage
+firmware-to-target porting audit** before expanding GhostLock
+runtime work. Use `python3 tools/y2q_porting_readiness.py`
+after pulling the HXL1 investigation branch to review
+which original kernel/BL/structural prerequisites are
+verified and which are not. It validates original
+stock artifact hashes, searches the retained
+`kernel.bin` for bounded raw-BTF candidates, checks
+the Samsung RT-mutex source hash pins, and refuses
+any unverified HXL1 entry in the production support
+feed. The tool is read-only and produces an
+offline research report, **not** a working exploit
+or installable KernelSU module. No
+`src/targets/y2q-G986U1UESCHXL1/target.h` or
+release exploit profile is currently verified.
+
 Start with the [nine-stage HXL1 firmware-to-profile adaptation](docs/SM-G986U1-G986U1UESCHXL1.md)
 and [the HXL1 research instructions](research/y2q-G986U1UESCHXL1/ROOT_PAYLOAD_RESEARCH.md)
 for command examples, evidence requirements, reference-repository
