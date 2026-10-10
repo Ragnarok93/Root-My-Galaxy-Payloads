@@ -964,6 +964,71 @@ blocked.
 
 ---
 
+## October 10 — direct original-firmware instruction check: 4/4
+
+The owner executed a read-only comparison between four recovered
+ARM64 instructions and their corresponding raw bytes in the
+SHA-256-verified HXL1 `kernel.bin`. All **four** match exactly:
+
+| Critical instruction | VA in reconstructed ELF | Raw and ELF bytes (little-endian) | Result |
+|---|---|---|---|
+| `mrs x20, SP_EL0` (`current`) | `0xffffff8008147de8` | `144138d5` | PASS |
+| `add x21, x20, #0x8c8` (`pi_lock`) | `0xffffff8008147dec` | `95222391` | PASS |
+| `str xzr, [x20, #0x8f8]` (clear `pi_blocked_on`) | `0xffffff8008147e1c` | `9f7e04f9` | PASS |
+| `bl remove_waiter` from proxy wrapper | `0xffffff8008147d58` | `17000094` | PASS |
+
+This closes the earlier limited 64-byte-window qualification:
+the two critical instructions just beyond the tested entry windows
+are now **also** byte-confirmed. Together with the HXL1 source, this
+is strong evidence for the CVE-2026-43499 task identity bug in
+the **original extracted firmware**. It does not show that a
+trigger is reliable or safe, nor provide live KASLR, running-RAM
+verification or KernelSU privileges.
+
+### Separate positive-return cleanup behavior
+
+The exact owner-provided `rtmutex.c` excerpt shows:
+
+1. `__rt_mutex_start_proxy_lock` at lines `1756–1757` returns **1**
+   when `try_to_take_rt_mutex(lock, task, NULL)` acquires the
+   lock immediately.
+2. The wrapper at lines `1803–1806` checks `if (unlikely(ret))`,
+   then invokes `remove_waiter(lock, waiter)` for **all nonzero**
+   results, including `1` (successful acquisition).
+3. The caller `futex.c:2159–2170` treats `ret == 1`
+   as successful acquisition and wakes the waiter.
+4. Recovered ELF disassembly branches from a nonzero
+   `try_to_take_rt_mutex` result to a call of `remove_waiter`,
+   and the exact branch instruction word matches the raw Image.
+
+This is a legitimate **source-level control-flow concern**,
+but whether that particular path causes a fault on HXL1 is
+**not yet demonstrated**. The upstream
+[CVE-2026-53163 advisory](https://lists.openwall.net/linux-cve-announce/2026/06/25/20)
+warns about cleanup after successful acquisition, but its
+reported introduced/fixed version ranges are on *newer*
+kernel branches and backports; do not label this legacy 4.19
+source as affected by that separate CVE just by analogy.
+The CVE-2026-43499 source bug remains a separate confirmed
+finding.
+
+### Next offline gate: original waiter ownership and ABI review
+
+Review `task_blocks_on_rt_mutex`, `rt_mutex_dequeue`, and
+the futex `requeue_pi` paths in the exact audited source
+to establish when `waiter->task` is populated and which
+error/success branches arm a waiter. Any task layout
+offsets inferred from ARM64 instructions (`0x8c8` and
+`0x8f8`) remain only **field-use hypotheses** until
+verified against this exact Samsung source/config.
+
+**Status:** original firmware code correlation **PASS** for
+tested instructions; **device-side exploitability, root,
+kernel write capability and KernelSU loading remain OPEN**.
+No experimental target goes to the production support feed.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
