@@ -23,6 +23,60 @@ kernel compilation errors to perform the firmware-to-profile audit.
 - [Support feed selection limitations](../support/README.md)
 - [KernelSU module constraints and Samsung adaptations](../kernelsu/README.md)
 
+## October 10, 07:06 UTC — correct false-positive RT-mutex DWARF discovery
+
+The owner ran a broad loop over the partial Clang18 Samsung
+build using `if pahole -C "$type" "$obj" >/dev/null 2>&1`
+to classify `rt_mutex_waiter` and `rt_mutex`.
+Both lists included nearly all DWARF-bearing objects and
+`init/main.o`. **Do not treat these as verified type
+definitions**: an earlier direct `pahole -C` on
+`init/main.o` printed `type not found` for both names.
+On some `pahole` builds, a missing type does not
+reliably cause a failing process exit status.
+
+This is an audit-checker defect, **not proof of a
+Samsung kernel structure discrepancy or a fix to CVE
+runtime reachability**. The successful 72-object DWARF
+section inventory and independently corroborated
+`task_struct.pi_lock` and `pi_blocked_on` field
+evidence are unaffected.
+
+### Corrected read-only detection
+
+The repository now includes
+`tools/y2q_dwarf_type_presence.py`. It:
+
+- Validates the hash-pinned experimental Samsung
+  HXL1 `.config` before accepting any object.
+- Filters for ARM64 ELF64 relocatable objects.
+- Reads actual `pahole -C` standard output and
+  standard error; records `PRESENT` only if a
+  complete, exact named `struct ... { ... };`
+  definition is printed and execution succeeded.
+- Treats “type not found,” unexpected successful
+  exit without the definition, and tool errors
+  differently.
+- Produces an offline JSON/Markdown report; never
+  generates numerical field offsets or runtime
+  constants.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools/test_y2q_dwarf_type_presence.py
+python3 tools/y2q_dwarf_type_presence.py
+cat ~/s20-artifacts/hxl1-research/rtmutex-dwarf-presence.md
+```
+
+Until those results are collected, classify both
+RT-mutex types as `PRESENCE_UNVERIFIED` in the
+partial Clang18 objects. Successful DWARF type
+identification is not factory ABI verification and
+does not close Stage 3.
+
+---
+
 ## October 10, 07:03 UTC — individual task field consistency with original HXL1 Image
 
 The owner inspected the full previously preserved Samsung Clang18
