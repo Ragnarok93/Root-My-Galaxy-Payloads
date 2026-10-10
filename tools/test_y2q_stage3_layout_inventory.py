@@ -92,7 +92,9 @@ class Stage3Tests(unittest.TestCase):
             struct.pack_into("<Q", data, 40, 64)
             struct.pack_into("<HHH", data, 58, 64, 3, 1)
             strtab = 64 + 3 * 64
-            struct.pack_into("<IQQ", data, 64 + 64, 1, strtab, len(names))
+            struct.pack_into("<I", data, 64 + 64, 1)
+            struct.pack_into("<Q", data, 64 + 64 + 24, strtab)
+            struct.pack_into("<Q", data, 64 + 64 + 32, len(names))
             struct.pack_into("<I", data, 64 + 2 * 64, 11)
             data[strtab:] = names
             elf.write_bytes(data)
