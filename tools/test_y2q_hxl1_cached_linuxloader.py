@@ -109,7 +109,9 @@ class CachedLinuxLoaderTests(unittest.TestCase):
 
     def test_independent_pe_symlink_refused(self):
         self.source.unlink()
-        self.source.symlink_to(self.abl)
+        alternate=self.unpacked/"alternate.pe"
+        alternate.write_bytes(self.bytes)
+        self.source.symlink_to(alternate)
         with self.assertRaisesRegex(mod.CorrelationError,"non-symlinked"):
             self.go()
 
