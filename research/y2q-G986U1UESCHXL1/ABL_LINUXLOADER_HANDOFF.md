@@ -1130,3 +1130,66 @@ observation does not imply installed root, runtime RAM table, numerical
 physical kernel load, verified GhostLock applicability or KernelSU.
 
 **CI verification:** [GitHub Actions run 38079351379](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38079351379) completed **success** for commit `199d0bb`; the entire repository CI suite ran **3,366 tests** with no failures. This CI outcome does not substitute for the owner's Ghidra reads of the original firmware. The new three-target 2,941-test WSL runner has not yet been executed by the owner.
+
+
+## 2026-10-10 14:26 CDT — 2941 owner PASS; EFI pool lifecycle identified; misleading 0x3d04 label corrected
+
+Owner executed `bash tools/run_y2q_hxl1_envdxe_callee_provenance.sh` on original SHA256-pinned `EnvDxe-HXL1.efi`:
+**2941/2941 tests passed** (5.613 s). Original PE and Ghidra byte windows
+at `0x26bc` (192 bytes, SHA256 `7bbbff2a67b220ffba61015334631d459567e53685cc3394f9f1c40d737ec698`),
+`0x25d8` (160 bytes, SHA256 `126cdfcb3f992cbdc4044b233ca4c7ed80a85323d12b267646aa12415e746455`),
+and `0x3d04` (160 bytes, SHA256 `6129449ccf95968e6c3d8031fd83d8f0250e2467d7034c77ccc36adcbda0e981`)
+**match byte-for-byte**. Authenticated Ghidra direct xrefs: 0x26bc 8 callers,
+0x25d8 2 callers, and 0x3d04 4 callers. Original evidence IDs are in
+`rea-envdxe-callee-provenance.md`.
+
+**Source-backed semantic correction from independent ARM64 disassembly:**
+
+- `0x25d8` is an **EFI_BOOT_SERVICES.AllocatePool wrapper**. Original
+  `ldr x9,[x8,#0x328]` obtains BootServices from original static data,
+  `ldr x8,[x9,#0x40]` selects AllocatePool, `blr x8` invokes it, and
+  `tbnz x0,#63` tests EFI_STATUS error. On success it loads the returned
+  buffer pointer from `[sp,#8]`; on failure returns NULL. The wrapper at
+  `0x2618` supplies `PoolType = 4` (`EfiBootServicesData`) and the
+  allocation size before tail branching to `0x25d8`. The callback reaches
+  this wrapper via `BL 0x1ff0 -> 0x2618`.
+- `0x26bc` is an **EFI_BOOT_SERVICES.FreePool wrapper**. Original
+  `ldr x9,[x8,#0x328]` obtains BootServices, `ldr x9,[x9,#0x48]`
+  selects FreePool, and `blr x9` invokes it. Subsequent code inspects
+  the returned EFI_STATUS error bit. The callback reaches this wrapper
+  via `BL 0x2050 -> 0x26bc`.
+- The previously misleading `record-copy-subroutine` label at **`0x3d04`**
+  was only a hypothesis, **not a verified memcpy/record-copy function**.
+  Its ARM64 instructions show a **bounded null-terminated byte-count
+  (strnlen-like)** loop: `ldrb w10,[x0]` at 0x3d34,
+  `cbnz w10,0x3d20` at 0x3d38, incrementing input pointer and
+  byte count, checking a configured upper bound, and returning length.
+  The actual 72-byte internal to 16-byte output transfer is still
+  the now verified `GetRamPartitions` callback instructions
+  **0x2030..0x2040**, not the unrelated `0x3d04` helper.
+
+UEFI Boot Services table, memory type and ownership semantics:
+https://uefi.org/specs/UEFI/2.10/04_EFI_System_Table.html and
+https://uefi.org/specs/UEFI/2.10/07_Services_Boot_Services.html .
+
+New implementation:
+`tools/y2q_hxl1_envdxe_efi_pool_ownership.py`,
+`tools/test_y2q_hxl1_envdxe_efi_pool_ownership.py` and
+`tools/run_y2q_hxl1_envdxe_efi_pool_ownership.sh`.
+The runner preserves all 2,941 prior checks and adds 3,456 independent
+32-bit opcode-mutation regressions (27 semantic opcodes x32 bits x4
+mutation families) plus 15 functional tests, or **6,412 tests total**;
+**no new Ghidra read** is required. Source identities remain fail-closed,
+and the report retains unresolved live status/ownership ambiguities.
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_envdxe_efi_pool_ownership.sh
+
+After this host-only classification gate, the recommended engineering
+priority is **native target kernel proof**, not more incremental firmware
+xref scans: exact Linux 4.19 structure ABI and vulnerability applicability,
+live physical load/KASLR feasibility, Samsung RKP/KDP/DEFEX protections,
+and a real (not inferred) privilege escalation before KernelSU. Static
+UEFI table code is **not** evidence of root, physical kernel load,
+runtime RAM partitions or feasible arbitrary kernel memory access.
