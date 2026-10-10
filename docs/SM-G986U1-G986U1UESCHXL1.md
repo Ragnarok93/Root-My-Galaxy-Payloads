@@ -77,6 +77,85 @@ does not close Stage 3.
 
 ---
 
+## October 10, 07:46 UTC — original HXL1 boot header and embedded components independently verified
+
+The owner ran the repaired Android boot v2 parser on the actual
+SHA256-pinned HXL1 firmware: **13/13 unit tests PASS** and original
+`boot.img` passes SHA256. Individual extracted `ramdisk.img` and
+`dtb.img` are missing from the artifact root, but **the actual bytes
+embedded in original `boot.img` match their previously recorded
+SHA256 pins**; the standalone `kernel.bin` is present and identical
+to the embedded region.
+
+The recovered stock metadata is:
+
+| Original header field | Value |
+|---|---:|
+| `header_version` | 2 |
+| `page_size` | 4096 |
+| `board` | `SRPSH29C012` |
+| `kernel_addr` | `0x00008000` |
+| `ramdisk_addr` | `0x02000000` |
+| `second_addr` | `0x00000000` |
+| `tags_addr` | `0x01e00000` |
+| `dtb_addr` | `0x01f00000` |
+
+Component provenance:
+
+| Component | Header-relative file offset | Length | Packed SHA256 matches previously pinned component | Separate file |
+|---|---:|---:|---|---|
+| kernel | `0x1000` | 51957772 | YES | SHA256-pinned and byte-identical |
+| ramdisk | `0x318f000` | 724388 | YES | missing optional |
+| second | `0x3240000` | 0 | n/a | n/a |
+| dtb | `0x3240000` | 1580275 | YES | missing optional |
+
+**Caveat:** The Android legacy v2 `kernel_addr` field is labeled
+physical load address by AOSP bootimg.h, but this OEM image declares
+the unusually low value `0x8000`; Android mkbootimg tooling also
+supports base-plus-offset conventions. No observation establishes
+the proprietary ABL's effective relocation/load policy on this
+phone. Neither this `kernel_addr` nor the earlier bootloader
+ELF `p_paddr` values should be treated as a verified Linux runtime
+physical base. This audit does not identify KASLR.
+
+AOSP reference:
+[Boot image header](https://source.android.com/docs/core/architecture/bootloader/boot-image-header).
+
+### Next: classify the original embedded DTB data, without extracting or guessing RAM placement
+
+The checksum-verified original DTB occupies
+`[0x3240000, 0x33c1ca3)` inside `boot.img`
+(the ending address is exclusive). A new read-only
+`tools/y2q_stock_dtb_inventory.py` verifies both
+`boot.img` and the full embedded DTB digest, examines
+container magic (`QCDT`, FDT `0xd00dfeed`, Android
+DT table), and checks boundary consistency of any
+FDT v17+ headers found. This is only format discovery;
+it does not choose a device-tree variant or recover a
+kernel handoff location.
+
+Run:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools/test_y2q_stock_dtb_inventory.py
+python3 tools/y2q_stock_dtb_inventory.py
+cat ~/s20-artifacts/hxl1-research/stock-dtb-inventory.md
+```
+
+The **10 new host tests are committed but not yet verified on
+the owner's WSL**. The scanner does not touch the phone,
+patch firmware, or compile an exploit.
+
+FDT format reference:
+[Devicetree Specification, flattened format](https://devicetree-specification.readthedocs.io/en/v0.2/flattened-format.html).
+
+**Stage 4 remains OPEN for actual physical Android kernel
+load and boot handoff.**
+
+---
+
 ## October 10, 07:39 UTC — fix missing separately extracted ramdisk prerequisite in boot v2 audit
 
 Owner pulled through `6f21b73` and ran the original
