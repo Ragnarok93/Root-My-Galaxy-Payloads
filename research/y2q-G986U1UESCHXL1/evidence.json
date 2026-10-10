@@ -1935,5 +1935,80 @@
       "kernelSuReady": false,
       "interpretation": "Confirms that unprivileged ADB shell on exact HXL1 can invoke ordinary futex WAIT/WAKE and uncontended PI LOCK/TRYLOCK/UNLOCK operations. No PI requeue, priority-inheritance contention, race, GhostLock primitive, privilege escalation, module loading, or KernelSU hooks were tested."
     }
+  },
+  "hxl1QemuLab": {
+    "phase": "phase-3-disposable-arm64-qemu-lab",
+    "ownerHostPrerequisitesObservedAt": "2026-10-10",
+    "ownerHost": {
+      "osArchitecture": "x86_64 WSL2",
+      "ramMemTotalKiB": 3964180,
+      "diskFreeReported": "945G on /dev/sdd",
+      "toolsPresent": [
+        "aarch64-linux-gnu-gcc",
+        "clang",
+        "make",
+        "cpio",
+        "git"
+      ],
+      "toolMissingOnOwnerHost": [
+        "qemu-system-aarch64"
+      ],
+      "originalSamsungSource": {
+        "kernel/locking/rtmutex.c": "36b187173cfb3934a5c9d51952bce58c2f41701d3585326f18cd3965e46a21f9",
+        "kernel/futex.c": "493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5",
+        "sha256MatchesPreviouslyRecorded": true
+      }
+    },
+    "repoImplementation": {
+      "hostOrchestrator": "tools/y2q_qemu_lab.py",
+      "hostUnitTests": "tools/test_y2q_qemu_lab.py",
+      "guestSource": "research/y2q-G986U1UESCHXL1/qemu_lab_init.c",
+      "docs": "docs/SM-G986U1-G986U1UESCHXL1.md",
+      "baselineSourceUrl": "https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.19.325.tar.xz",
+      "baselineIsSamsungKernel": false,
+      "expectedKernelSourcePath": "~/src/linux-4.19.325",
+      "outputPath": "~/s20-artifacts/qemu-lab",
+      "commands": [
+        "check",
+        "initramfs",
+        "configure",
+        "build",
+        "boot"
+      ],
+      "memoryLimitMiB": {
+        "default": 1024,
+        "max": 1536
+      },
+      "vcpus": 1,
+      "buildJobs": {
+        "default": 1,
+        "max": 2
+      },
+      "optionalKasan": true,
+      "guestChecks": [
+        "PID1 and AArch64 uname",
+        "FUTEX_WAIT_PRIVATE mismatch EAGAIN",
+        "boot sentinel and poweroff"
+      ],
+      "noGuestNetwork": true,
+      "noDiskImage": true,
+      "noADB": true,
+      "noExploitation": true,
+      "noCvePiRequeue": true,
+      "noKernelSU": true
+    },
+    "status": {
+      "implementationCommitted": true,
+      "unitTestsRunByOwner": false,
+      "qemuInstalledByOwner": false,
+      "officialSourceDownloadedByOwner": false,
+      "upstreamArm64KernelBuiltByOwner": false,
+      "guestBootedByOwner": false,
+      "kasanImageBuiltByOwner": false,
+      "cvePathReproduced": false,
+      "phoneRootVerified": false,
+      "productionSupportApproved": false
+    },
+    "interpretation": "Boot-only generic upstream Linux 4.19 ARM64 lab prerequisite; cannot validate Samsung HXL1 CVE semantics, kernel ABI, KernelSU hooks or device loading, and is not a GhostLock trigger."
   }
 }
