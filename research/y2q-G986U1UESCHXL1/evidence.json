@@ -1771,8 +1771,8 @@
               }
             ],
             "layoutMinBytes": 64,
-            "eventEnabled": false,
-            "eventEnabledNote": "Not queried; false means NOT VERIFIED enabled, not that it is disabled",
+            "eventEnabled": null,
+            "eventEnabledNote": "Not observed; do not infer either enabled or disabled",
             "liveEventCaptureVerified": false,
             "liveFutexTraceVerified": false,
             "parserEndianAndAlignment": "As reported by this AArch64 kernel's tracepoint format, not generalized to all kernels"
