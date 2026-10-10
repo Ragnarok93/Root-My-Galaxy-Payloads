@@ -248,6 +248,82 @@ Do not run a CVE PoC or module loader at this stage.
 
 ---
 
+## October 10: original ARM64 Image header and WSL tooling
+
+The owner checked the previously SHA-256-verified original
+`/home/main/s20-artifacts/kernel.bin` header:
+
+| Field | Observed |
+|---|---|
+| Physical file length | `51,957,772` bytes |
+| ARM64 magic | `ARM\\x64` (passed validation) |
+| `text_offset` | `0x80000` |
+| `image_size` | `0x433b000` |
+| `flags` | `0xa` |
+| `llvm-nm` | `/usr/bin/llvm-nm` |
+| `vmlinux-to-elf` | Not installed |
+| `bpftool` | Not installed |
+
+The kernel [ARM64 boot documentation](https://kernel.org/doc/html/v6.16/arch/arm64/booting.html)
+defines `image_size` as an **effective memory reservation**.
+Its larger value does not prove disk image corruption. `0x80000`
+is an image **offset**, not the absolute Qualcomm physical load address.
+
+### Next WSL commands: symbol recovery on original kernel only
+
+Use an isolated Python CLI installer (do not install using
+`sudo pip3`):
+
+```bash
+sudo apt update
+sudo apt install -y pipx
+pipx ensurepath
+export PATH="$HOME/.local/bin:$PATH"
+pipx install vmlinux-to-elf
+
+mkdir -p ~/s20-artifacts/hxl1-research
+vmlinux-to-elf ~/s20-artifacts/kernel.bin \
+  ~/s20-artifacts/hxl1-research/vmlinux-stock.elf
+
+file ~/s20-artifacts/hxl1-research/vmlinux-stock.elf
+llvm-nm -n ~/s20-artifacts/hxl1-research/vmlinux-stock.elf \
+  > ~/s20-artifacts/hxl1-research/vmlinux-stock.nm
+wc -l ~/s20-artifacts/hxl1-research/vmlinux-stock.nm
+```
+
+This runs **off-device**. A recovered ELF can be incomplete or
+incorrect; symbol names/offsets remain unverified until crosschecked
+with the actual Image and Samsung source. If extraction fails, retain
+the exact error; do not fabricate symbols or use the Clang18 build
+as the stock image.
+
+Before installing a BTF tool, check the original device config:
+
+```bash
+gzip -dc ~/s20-artifacts/config.gz |
+  grep -E '^(CONFIG_DEBUG_INFO_BTF|# CONFIG_DEBUG_INFO_BTF)' || true
+```
+
+Ubuntu 24.04 provides `bpftool` via the virtual
+`linux-tools-common` package, not directly via
+`apt install bpftool`. On WSL2, the common package may
+install **only a wrapper** expecting a matching host kernel
+tool that Ubuntu cannot supply. If embedded BTF is actually
+identified and passes header/bounds checks, install:
+
+```bash
+sudo apt install -y linux-tools-common linux-tools-generic
+find /usr/lib/linux-tools -type f -name bpftool -print
+```
+
+Run an actual `/usr/lib/linux-tools/<version>/bpftool` binary
+directly when `bpftool` reports a WSL kernel mismatch.
+BTF still has **not** been established for HXL1.
+No installation or exploitation commands for the S20+ are part of
+this stage.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
