@@ -3418,6 +3418,67 @@ production support feed or present an exploit as working.
 
 ---
 
+## October 10 — HXL1 BPF and ftrace hook feasibility check
+
+The owner inspected the exact original `G986U1UESCHXL1`
+`config.gz` after confirming source-consistent module CRCs.
+
+| Original HXL1 configuration | Observed state | Correct interpretation |
+|---|---|---|
+| `CONFIG_BPF` | `y` | BPF core compiled |
+| `CONFIG_BPF_SYSCALL` | `y` | BPF syscall compiled; **access subject to policy/privileges** |
+| `CONFIG_KPROBES` | **n** | Kernel does not support kprobe-based interception |
+| `CONFIG_FTRACE` | `y` | General trace infrastructure compiled |
+| `CONFIG_FUNCTION_TRACER` | **n** | Normal ftrace function-entry callbacks unavailable |
+| `CONFIG_FTRACE_SYSCALLS` | **n** | Dedicated ftrace syscall tracing unavailable |
+| `CONFIG_KRETPROBES` | Not printed | Do not treat missing grep output as a confirmed build setting; kretprobes depend on kprobes |
+| `CONFIG_DYNAMIC_FTRACE` | Not printed | Do not treat missing grep output as a confirmed setting; 4.19 dynamic ftrace depends on function tracing |
+
+The important distinction is that **ftrace core is not
+the same as the function tracer**, and **BPF syscalls
+are not automatically unrestricted BPF probes**.
+The Linux 4.19 [ftrace overview](https://www.kernel.org/doc/html/v4.19/trace/ftrace.html)
+distinguishes its event-tracing framework from the
+function tracer, and [function-hook documentation](https://www.kernel.org/doc/html/v4.19/trace/ftrace-uses.html)
+discusses function callbacks separately.
+
+The current `kernelsu/patches/KernelSU-v3.2.5-samsung-kdp-rkp-defex.patch`
+uses `register_kprobe` for Samsung sucompat and
+DEFEX intercepts, and `register_kretprobe` for its
+setresuid fallback. The exact HXL1 `CONFIG_KPROBES=n`
+rules out **those existing hook paths**.
+The patch's `CONFIG_KSU_SAMSUNG_NO_PATCH_TEXT`
+also makes direct text patching return
+`-EOPNOTSUPP`. So **there is no verified current
+4.19-compatible KernelSU hook backend**.
+
+This does not imply that every kernel-observation method
+is absent. Static tracepoints or perf facilities may exist,
+but they are **not substitutes for arbitrary credentials,
+syscall modification or privileged module loading**.
+Kernel signature enforcement
+(`CONFIG_MODULE_SIG_FORCE=y`), a **locked bootloader**
+and Samsung RKP/KDP/DEFEX are still separate blockers.
+The earlier CVE-2026-43499 source/binary defect has
+not been shown to produce a working privilege escalation
+or loading primitive.
+
+### Next bounded, read-only configuration inventory
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+gzip -dc ~/s20-artifacts/config.gz |
+  grep -E '^(CONFIG_(BPF_EVENTS|BPF_JIT|BPF_JIT_ALWAYS_ON|PERF_EVENTS|TRACEPOINTS|EVENT_TRACING|KPROBE_EVENTS|KRETPROBES|UPROBES|UPROBE_EVENTS|DYNAMIC_FTRACE|FUNCTION_GRAPH_TRACER|HAVE_KPROBES|HAVE_KRETPROBES)=|# CONFIG_(BPF_EVENTS|BPF_JIT|BPF_JIT_ALWAYS_ON|PERF_EVENTS|TRACEPOINTS|EVENT_TRACING|KPROBE_EVENTS|KRETPROBES|UPROBES|UPROBE_EVENTS|DYNAMIC_FTRACE|FUNCTION_GRAPH_TRACER) is not set)' || true
+```
+
+**No root, unsigned module load, KernelSU initialization,
+live code patch or exploit chain has been demonstrated.**
+Keep HXL1 out of `support/targets-v3.json`.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
