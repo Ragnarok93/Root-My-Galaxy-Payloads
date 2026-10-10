@@ -2810,7 +2810,7 @@
       "sizeBytes": 92600434,
       "sha256": "f6048fb50cd83741951552866c4dcf26e6165b0a67a232b81028c266bef22d6b",
       "packageNameMatchesDeviceBuild": true,
-      "fileEntriesCount": 28,
+      "fileEntriesCount": 27,
       "entries": [
         "abl.elf.lz4",
         "xbl.elf.lz4",
