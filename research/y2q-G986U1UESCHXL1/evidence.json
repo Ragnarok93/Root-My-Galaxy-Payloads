@@ -2216,5 +2216,59 @@
       "actualQemuGuestBoundedPiPassedPreviously": true,
       "status": "11/11 Python unit tests and command exit code zero verified from owner terminal output"
     }
+  },
+  "hxl1RtmutexFixReferenceAudit": {
+    "ownerObservedAt": "2026-10-10T05:51:55Z",
+    "ownerOriginalSourceReadOnlyHashes": {
+      "kernel/locking/rtmutex.c": "36b187173cfb3934a5c9d51952bce58c2f41701d3585326f18cd3965e46a21f9",
+      "kernel/futex.c": "493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5",
+      "matchedPreviouslyPinned": true
+    },
+    "ownerReportDirectory": "/home/main/s20-artifacts/hxl1-research/rtmutex-fix-review",
+    "samsungExcerptsSaved": [
+      "samsung-rtmutex-excerpts.txt",
+      "samsung-futex-excerpts.txt"
+    ],
+    "references": {
+      "first": {
+        "cve": "CVE-2026-43499",
+        "url": "https://lists.ubuntu.com/archives/kernel-team/2026-July/169898.html",
+        "ownerDownloaded": true,
+        "patchTextExtracted": true,
+        "observedEdits": [
+          "introduces waiter_task = waiter->task",
+          "locks waiter_task->pi_lock instead of current->pi_lock",
+          "clears waiter_task->pi_blocked_on instead of current->pi_blocked_on",
+          "passes waiter_task rather than current to priority chain adjustment"
+        ]
+      },
+      "second": {
+        "cve": "CVE-2026-53163",
+        "url": "https://lists.ubuntu.com/archives/kernel-team/2026-July/170235.html",
+        "ownerDownloaded": true,
+        "patchTextExtracted": true,
+        "observedEdits": [
+          "skip cleanup when waiter_task is null / never enqueued",
+          "restrict remove_waiter after proxy start to ret < 0"
+        ],
+        "caveat": "Follow-up regression introduced by first fix on newer kernel branches; NOT independently attributed to unmodified Samsung 4.19"
+      }
+    },
+    "helper": {
+      "script": "tools/y2q_rtmutex_fix_audit.py",
+      "tests": "tools/test_y2q_rtmutex_fix_audit.py",
+      "outputExpected": "audit.json and audit.md, in owner report directory",
+      "state": "committed; owner has not yet executed",
+      "sourceHashGate": true,
+      "noPhoneOrKernelMutation": true
+    },
+    "conclusions": {
+      "sourceLevelWrongWaiterOwnershipCorroborated": true,
+      "followupPatchSemanticsDocumented": true,
+      "matchingSamsungRuntimeCorruptionDemonstrated": false,
+      "actualGhostLockCveTriggered": false,
+      "onPhoneRootVerified": false,
+      "kernelSuValidated": false
+    }
   }
 }
