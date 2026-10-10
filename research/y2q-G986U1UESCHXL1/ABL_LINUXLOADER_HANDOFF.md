@@ -1193,3 +1193,5 @@ live physical load/KASLR feasibility, Samsung RKP/KDP/DEFEX protections,
 and a real (not inferred) privilege escalation before KernelSU. Static
 UEFI table code is **not** evidence of root, physical kernel load,
 runtime RAM partitions or feasible arbitrary kernel memory access.
+
+**CI result for pool-ownership pass:** [GitHub Actions run 38080273660](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38080273660), commit `72de43b`, completed **SUCCESS**: **6,837 repository tests PASS in 7.685 seconds**. That includes the new exact ARM64 semantics and mutation suite. The owner's WSL2 `run_y2q_hxl1_envdxe_efi_pool_ownership.sh` has not yet run; CI does not contain the private SHA-pinned original firmware for live Ghidra verification.
