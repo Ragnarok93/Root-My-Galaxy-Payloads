@@ -61,6 +61,26 @@ class CachedLinuxLoaderTests(unittest.TestCase):
         self.assertFalse(result["androidLinuxHandoffVerified"])
         self.assertFalse(result["phoneModified"])
 
+    def test_real_hxl1_pe_stub_at_0xe58_promotes_classification(self):
+        import struct
+        data=bytearray(0x2000)
+        data[:2]=b"MZ"
+        struct.pack_into("<I", data, 0x3c, 0xe58)
+        header=24+0xf0+3*40
+        data[0xe58:0xe58+header]=self.bytes[0x80:0x80+header]
+        struct.pack_into("<H", data, 0xe58+6, 3)
+        self.source.write_bytes(data)
+        self.diagdata["sections"][0].update({
+            "sectionBodyBytes":len(data),
+            "sha256":mod.digest(data),
+            "first64Hex":bytes(data[:64]).hex(),
+        })
+        self.flush()
+        result=self.go()
+        self.assertEqual(result["classification"],"PE_HEADER_AARCH64_VERIFIED")
+        self.assertEqual(result["peHeader"]["dosPeHeaderOffset"],"0xe58")
+        self.assertTrue(result["peHeader"]["strictAarch64Pe32PlusVerified"])
+
     def test_original_stock_sha_mismatch_fails(self):
         with self.assertRaisesRegex(mod.CorrelationError,"size/hash mismatch"):
             mod.recover(self.abl,self.diag,self.unpacked,self.out)
