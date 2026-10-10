@@ -59,7 +59,7 @@ for key in ("stockKernelInspection", "bootArtifactChecks", "unmetGates"):
     print(json.dumps(report.get(key), indent=2))
 PY
 
-grep -nE '(remove_waiter|rt_mutex_start_proxy_lock)[[:space:]]*\\(' \
+grep -nE '(remove_waiter|rt_mutex_start_proxy_lock)[[:space:]]*\(' \
   ~/src/samsung-y2q-hxl1-stock/kernel/locking/rtmutex.c
 grep -n 'rt_mutex_start_proxy_lock' \
   ~/src/samsung-y2q-hxl1-stock/kernel/futex.c
