@@ -4,7 +4,7 @@
 Two independent, original-PE-gated evidence groups in one pass:
   A: the real 0x205c -> 0x5560 -> BootServices+0x148 registration branch.
   B: the protocol interface at 0xd1d0, GetRamPartitions slot +0x18,
-     four bounded Ghidra references and optional real callback function.
+     eight bounded Ghidra references and optional real callback function.
 
 No device access. Ghidra static addresses are not boot-time RAM addresses.
 """
@@ -38,6 +38,10 @@ XREF_TARGETS=(
     ("get-ram-partitions-slot", "0xd1e8"),
     ("registration-function", "0x205c"),
     ("smem402-table-supplier", "0x53b0"),
+    ("ram-table-v1-parser", "0x5430"),
+    ("ram-table-header-validator", "0x5288"),
+    ("smem-generic-item-accessor", "0x7d08"),
+    ("other-protocol-installer", "0x23b0"),
 )
 MAX_REFS=5000
 MAX_CODE=350000
@@ -254,7 +258,7 @@ def markdown(record:dict)->str:
         rows+=["No plain unrelocated code address could be established from",
                "this static slot. PE relocation or runtime initialization",
                "may explain the result; this is NOT proof of missing callback.",""]
-    rows+=["## Four original static xref checks", ""]
+    rows+=["## Eight original static xref checks", ""]
     for ref in record["targetedOriginalXrefs"]:
         rows+=["### "+ref["label"],"","Target: "+ref["queriedStaticAddress"],
                "Evidence: "+ref["originalEvidenceId"],
