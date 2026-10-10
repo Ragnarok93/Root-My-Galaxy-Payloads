@@ -895,3 +895,43 @@ Run in WSL2 (NO S20+ needed):
     bash tools/run_y2q_hxl1_envdxe_ram_registration_callback.sh
 
 Report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-ram-registration-callback.md`. **Original 0x1f74 callback function semantics, live SMEM partition entries, BaseMemory, actual kernel physical load, KASLR, GhostLock privilege escalation, and KernelSU remain unverified.** A zero direct Ghidra xrefs count to an initialized interface slot does not disprove data-pointer identity.
+
+
+## 2026-10-10 16:07 — original EFI RAM +0x18 callback executable and static BL to 0x52cc authenticated
+
+The owner ran `bash tools/run_y2q_hxl1_envdxe_ram_registration_callback.sh` at `ff54319`. **121/121 offline regression tests PASS**. The original SHA256-pinned stock HXL1 `EnvDxe-HXL1.efi` byte read and eight Ghidra xrefs all pass.
+
+**Crucial original PE observation:** The verified protocol interface at `0xd1d0` consists of six little-endian UINT64 values:
+
+    +0x00 0x10001
+    +0x08 0x1ee8
+    +0x10 0x1f0c
+    +0x18 0x1f74     <-- GetRamPartitions (original ABL consumer ABI)
+    +0x20 0x1f28
+    +0x28 0x10001
+
+Ghidra REA byte-read evidence of original interface: `ev_e835b6d905f02ab46a655f9708492664caf4ad996c491232e4f41c6f0e328d91`. The independently original-PE-mapped `0x1f74` is a 4-byte-aligned executable ARM64 address in original PE `.text`, PE file offset `0x1f74`. 64 code bytes SHA256 `7d4e16e4b3402ff3959080b7ca298f46c5b9b963b6ddd59203a613948d0d12ef`. Original PE SHA256 and Ghidra imported code agree *byte for byte*; REA evidence `ev_9788b87fef00b57e962287af87496caa03bb7bcb19a238ed658ff1a9a41d0197`.
+
+Ghidra `analyze_function 0x1f74` failed with a specific, preserved native REA error:
+
+    code=invalid_request
+    details.operation=analyze_function
+    details.issues[0].message="No procedure exists at the requested address: 0x1f74"
+
+This means **Ghidra has not defined a function at 0x1f74**, not that original code or an EFI callback is missing. There is no confirmed decompilation, static function extent or runtime invocation. Failed result SHA256 `d3c979af5bdcf86731ccf884927844c064c48e7076a07936f419fca1e077dbea`; original stderr empty.
+
+By independently decoding the **user-provided, original SHA-verified 64 ARM64 bytes**, the callback begins with normal stack-frame setup, stores input registers, checks an argument, and contains a direct ARM64 `BL` at original static address **`0x1fa4`** with instruction word `0x94000cca`. Architecturally, `BL` encodes a signed 26-bit word-relative displacement. Applying that displacement to `0x1fa4` yields a **firmware code target `0x52cc`**. This is an original firmware static code-reference, not a runtime kernel memory address. The callback's semantics/returned RAM table and chosen boot-time physical values remain unproven.
+
+Previously validated eight Ghidra xref query results: direct xrefs to interface 0xd1d0 0, GetRamPartitions slot 0xd1e8 0, registration function 0x205c 1 (source 0x22e0), SMEM 402 supplier 0x53b0 2 (0x55b0,0x5770), RAM v1 parser 0x5430 1 (0x5634), table header validation 0x5288 1 (0x53e4), SMEM accessor 0x7d08 2 (0x53d4,0x81f4), other protocol initializer 0x23b0 1 (0x22f4). Zero direct Ghidra references to interface static data are not proof it is unused.
+
+### Combined next host-only pass (more than twice prior test rate)
+
+`tools/y2q_hxl1_envdxe_method_arm64_trace.py` plus `tools/run_y2q_hxl1_envdxe_method_arm64_trace.sh` audit **all four original protocol method pointers** and the **direct callback BL target `0x52cc`**, each through a SHA256-pinned, uniquely executable PE section 128-byte raw window and independent original Ghidra import readback; plus bounded xref queries at callback `0x1f74` and callee `0x52cc`. Its little-endian ARM64 control-flow decoding reports direct `BL/B/B.cond/CBZ/CBNZ/TBZ/TBNZ`, indirect `BLR/BR` and `RET`, with precise static byte addresses and branch targets. **128-byte windows must not be mistaken for full function bodies**. Original source identities and callback's first 64-byte digest remain prerequisite gates. A Ghidra decompiler function definition is not required.
+
+The combined test runner executes the prior 121 independent regression cases plus around 196 new ones: approximately **317 distinct host-only unit checks in one pass**, more than doubling the earlier 121-case pass, with 5 independent code-window reads and 2 xref queries. A failed optional imported byte request is preserved as partial and the exact original PE proof stays usable; a conflicting saved completed result is fail-closed. CI is wired for source compile, unit tests and shell syntax.
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_envdxe_method_arm64_trace.sh
+
+Expected report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-four-method-arm64.md`. It will contain four original method windows, original direct callee code window, static ARM64 branch targets and two xref sets. Phone NOT required. This extends original **static** XBL provider evidence; do not infer runtime DRAM entries, physical kernel load, exploit success or KernelSU. Follow this with the more decisive Linux 4.19 structure/layout and GhostLock applicability proof gates before claiming a working Root My Galaxy payload.
