@@ -3267,6 +3267,75 @@ compatibility gates remain unverified and closed.
 
 ---
 
+## October 9 — exact Samsung source confirms direct CRC interpretation
+
+The owner reran the read-only original Image export audit and
+the Python regression suite (**5/5 tests passed**). The exact assembled
+Samsung HXL1 source includes the CRC representation conditional in
+`include/linux/export.h` at lines 27–38:
+
+- `#if defined(CONFIG_MODULE_REL_CRCS)`: emit 32-bit
+  **relative** reference (`.long __crc_##sym - .`)
+- `#else`: emit 32-bit **direct** CRC (`.long __crc_##sym`)
+
+And `kernel/module.c` at lines 1346–1349 uses the paired
+loader behavior:
+
+```c
+if (IS_ENABLED(CONFIG_MODULE_REL_CRCS))
+    crcval = resolve_rel_crc(crc);
+else
+    crcval = *crc;
+```
+
+The owner-supplied exact original `config.gz` has
+`CONFIG_HAVE_ARCH_PREL32_RELOCATIONS=y` and
+`CONFIG_MODVERSIONS=y`, but does **not define**
+`CONFIG_MODULE_REL_CRCS`. This selects the
+non-relative branch of the Samsung source. Therefore
+`commit_creds=0xf2cc4f79`,
+`prepare_kernel_cred=0xb86faf5c`,
+`init_task=0x7205bde2`,
+`module_layout=0xb6628175` and
+`system_unbound_wq=0xd4c14632`
+are **source-consistent direct module version CRC words**
+from the verified original Image. Their export names
+and target addresses were all checked against the
+recovered `kallsyms` listing (5/5).
+
+The audit now accepts optional `--source-dir`. With
+that option, it inspects Samsung's own export/header
+and module-loader representations and reports
+`sourceConsistentDirectCrc` per matching entry.
+The check is intentionally source-level; it
+does **not** certify the complete reconstructed
+source against the deployed kernel, synthesize a
+trusted module signer, override Samsung security
+checks, or produce a flashable root payload.
+
+**Run after pulling updates:**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 -m py_compile tools/y2q_export_table_audit.py
+python3 -m unittest -v tools/test_y2q_export_table_audit.py
+
+python3 tools/y2q_export_table_audit.py \
+  --kernel-bin ~/s20-artifacts/kernel.bin \
+  --nm ~/s20-artifacts/hxl1-research/vmlinux-stock.nm \
+  --config-gz ~/s20-artifacts/config.gz \
+  --source-dir ~/src/samsung-y2q-hxl1-stock
+```
+
+The original GPL and ordinary export count/CRC count
+pairs both match: `7427/7427` and `5283/5283`.
+No KernelSU/module-loader compatibility or ability
+to insert signed kernel modules has been established.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
