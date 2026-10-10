@@ -640,6 +640,31 @@
       "builtImage": false,
       "phoneTouched": false,
       "bootloaderLocked": true
+    },
+    "ninthImageBuildAttempt": {
+      "reportedAt": "2026-10-09T20:10:33-05:00",
+      "firmware": "G986U1UESCHXL1",
+      "source": "/home/main/src/samsung-y2q-hxl1-vdso-ias-compat",
+      "output": "/home/main/src/samsung-y2q-hxl1-config-clang18",
+      "log": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-build-09.log",
+      "result": "FAILED: Samsung gcc-wrapper prohibited Clang warning in init/main.c at line 720",
+      "firstFatalMarker": "('error, forbidden warning:', 'main.c:720')",
+      "actualClangWarningText": "NOT INCLUDED IN USER'S GREP + TAIL EXCERPT; MUST READ EARLIER 9th log context BEFORE SUPPRESSING",
+      "rootCauseClass": "strict Clang warning, precise category not yet identified",
+      "priorCompatibilityPassed": [
+        "AArch64 IAS",
+        "AArch64 GNU VDSO linker",
+        "cgroup GNU variable layout warning suppression",
+        "pointer-sign warning suppression",
+        "unused-but-set-variable warning suppression"
+      ],
+      "archKernelBuiltInArchiveObserved": true,
+      "otherObservedWarnings": [
+        "DWARF2 only supports one section per compilation unit in ARM64 assembly (not fatal in supplied excerpt)"
+      ],
+      "nextAction": "Run read-only tools/summarize_samsung_kernel_build.py --log ~/s20-artifacts/samsung-hxl1-image-clang18-build-09.log; retain original log, do not invent suppression flag; exact diagnostics around marker via sed -n '55,68p' original log",
+      "kernelImageBuilt": false,
+      "phoneModified": false
     }
   }
 }
