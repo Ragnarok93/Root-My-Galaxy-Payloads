@@ -1832,15 +1832,18 @@
       "regressionTestsCommitted": true,
       "ciWired": true,
       "ciBuildPassed": false,
-      "androidArtifactExistsVerified": false,
-      "hostUnitTestsPassed": false,
-      "deviceSmokeRunVerified": false,
+      "androidArtifactExistsVerified": true,
+      "hostUnitTestsPassed": true,
+      "deviceSmokeRunVerified": true,
       "ghostLockTriggered": false,
       "rootVerified": false,
       "moduleLoadVerified": false,
-      "publicationAllowed": false
+      "publicationAllowed": false,
+      "localNdkBuildVerified": true,
+      "deviceStagedFileRemovalVerified": true,
+      "hostRunnerJsonReportCreated": true
     },
-    "gateInterpretation": "A passing basic futex-PI smoke test shows ordinary syscall availability only. It neither exercises PI requeue/error paths nor indicates GhostLock exploitable or KernelSU bootloader/ABI/kernel hook feasibility.",
+    "gateInterpretation": "Physically verified 4/4 benign, uncontended futex/PI smoke operations on exact stock HXL1 under UID 2000. This does NOT test the vulnerable FUTEX_CMP_REQUEUE_PI / proxy-lock waiter lifecycle, does not demonstrate exploitability or root, and does not satisfy KernelSU loader or hook gates.",
     "wslAutomation": {
       "addedAt": "2026-10-10",
       "source": "tools/run_y2q_futex_smoke.py",
@@ -1865,13 +1868,72 @@
         "Remove staged file with adb rm in finally even after failures",
         "Save JSON report under ~/s20-artifacts"
       ],
-      "stage": "Implemented; CI/phone execution not yet confirmed",
-      "hostTestsPassed": false,
+      "stage": "Owner verified host tests, local NDK build, exact-device execution, cleanup and report logging. CI status separately unverified.",
+      "hostTestsPassed": true,
       "ciBuildPassed": false,
       "artifactDownloadedVerified": false,
-      "deviceRunVerified": false,
+      "deviceRunVerified": true,
       "exploitTested": false,
       "rootVerified": false
+    },
+    "ownerExecutedAt": "2026-10-10T04:11:01Z",
+    "ownerTestEvidence": {
+      "source": "owner-provided unmodified WSL2 terminal output of python3 tools/run_y2q_futex_smoke.py",
+      "firmware": "G986U1UESCHXL1",
+      "model": "SM-G986U1",
+      "runningKernelRelease": "4.19.113-27095354",
+      "androidNdkLocation": "/home/main/opt/android-ndk-r30",
+      "binaryPath": "/home/main/src/Root-My-Galaxy-Payloads/research/y2q-G986U1UESCHXL1/build/y2q-HXL1-futex-pi-smoke",
+      "binaryELF": "ELF 64-bit LSB pie executable, ARM aarch64, dynamically linked with /system/bin/linker64",
+      "binarySha256": "e7506a3f5ef3f323e278b83ec353354298f7f1c74a6972efbddd3f5b70c54412",
+      "automationUnitTests": {
+        "passed": 7,
+        "total": 7,
+        "executionSeconds": 0.016
+      },
+      "deviceIdentity": "IDENTITY=EXACT_STOCK_HXL1_ADB_SHELL",
+      "checks": [
+        {
+          "name": "WAIT_VALUE_MISMATCH",
+          "status": "PASS",
+          "rc": -1,
+          "errno": 11,
+          "interpretation": "EAGAIN, immediate return"
+        },
+        {
+          "name": "WAKE_NO_WAITERS",
+          "status": "PASS",
+          "rc": 0,
+          "errno": 0
+        },
+        {
+          "name": "LOCK_PI_UNCONTENDED",
+          "status": "PASS",
+          "lockRc": 0,
+          "ownerMatches": 1,
+          "unlockRc": 0,
+          "unlockErrno": 0,
+          "unlockedZero": 1
+        },
+        {
+          "name": "TRYLOCK_PI_UNCONTENDED",
+          "status": "PASS",
+          "lockRc": 0,
+          "ownerMatches": 1,
+          "unlockRc": 0,
+          "unlockErrno": 0,
+          "unlockedZero": 1
+        }
+      ],
+      "deviceResult": "PASS_BASIC_FUTEX_PI_SYSCALLS_ONLY",
+      "runnerResult": "SAFE_PI_PREREQUISITES_VERIFIED_NOT_ROOT",
+      "stagedFileRemoved": true,
+      "reportPath": "/home/main/s20-artifacts/y2q-futex-pi-smoke-20261010T041101Z.json",
+      "liveCveErrorPathTested": false,
+      "ghostLockExploitDemonstrated": false,
+      "temporaryRootVerified": false,
+      "kernelSuReady": false,
+      "interpretation": "Confirms that unprivileged ADB shell on exact HXL1 can invoke ordinary futex WAIT/WAKE and uncontended PI LOCK/TRYLOCK/UNLOCK operations. No PI requeue, priority-inheritance contention, race, GhostLock primitive, privilege escalation, module loading, or KernelSU hooks were tested."
     }
   }
 }
