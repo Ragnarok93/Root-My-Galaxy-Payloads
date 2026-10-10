@@ -3974,6 +3974,126 @@ KernelSU hooking compatibility gate still remains.
 
 ---
 
+## Phase 3 — isolated ARM64 QEMU Linux 4.19 lab bootstrap
+
+The owner's WSL2 environment was checked on October 10:
+`aarch64-linux-gnu-gcc`, `clang`, `make`,
+`cpio` and `git` are installed. The original
+Samsung `rtmutex.c` and `futex.c` SHA-256 hashes
+match exactly. The x86_64 WSL2 host has approximately
+**3.8 GiB RAM** and **945 GiB free disk**,
+but `qemu-system-aarch64` was **not installed**.
+
+The repo now provides a purely isolated host/VM helper:
+`tools/y2q_qemu_lab.py` and the static guest program
+`research/y2q-G986U1UESCHXL1/qemu_lab_init.c`.
+
+**This lab is NOT a Samsung firmware VM.**
+QEMU's generic ARM64 `virt` board is structurally
+different from the Snapdragon 865 Samsung board.
+The helper only accepts an **upstream 4.19** kernel
+tree, stores all built artifacts outside the original
+source at `~/s20-artifacts/qemu-lab`, and refuses
+using the original Samsung source as a `virt` kernel.
+The guest starts PID 1, prints its ARM64 kernel
+version, performs one immediate-return
+`FUTEX_WAIT_PRIVATE` value mismatch, prints
+`RMG_QEMU_LAB_COMPLETE=PASS_BOOT_ONLY_NOT_GHOSTLOCK`
+and powers off. It does **not** exercise any CVE race,
+RT-mutex error chain, kernel overwrite, privilege
+change, module load or KernelSU hook.
+
+### Setup in Ubuntu WSL2
+
+```bash
+sudo apt update
+sudo apt install -y qemu-system-arm qemu-utils \
+  bc bison flex libssl-dev libelf-dev
+
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m py_compile tools/y2q_qemu_lab.py
+python3 -m unittest -v tools/test_y2q_qemu_lab.py
+python3 tools/y2q_qemu_lab.py check
+```
+
+Ubuntu provides `qemu-system-aarch64` through
+[`qemu-system-arm`](https://ubuntu.com/server/docs/virtualization-qemu/).
+
+### Acquire a disposable UPSTREAM Linux 4.19 tree
+
+The isolated VM needs a buildable upstream Linux
+4.19 baseline, **not** Samsung's original device tree.
+Linux
+[`4.19.325`](https://cdn.kernel.org/pub/linux/kernel/v4.x/)
+is an archived final stable release of that older
+kernel series, published December 2024, and is
+used as the generic `virt` baseline.
+It is **not** claimed to reproduce Samsung's
+HXL1 bug or ABI.
+
+```bash
+mkdir -p ~/src
+cd ~/src
+curl --fail --location --retry 3 \
+  --output linux-4.19.325.tar.xz \
+  https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.19.325.tar.xz
+tar -xJf linux-4.19.325.tar.xz
+
+# Do not overwrite or rebuild ~/src/samsung-y2q-hxl1-stock.
+cd ~/src/Root-My-Galaxy-Payloads
+python3 tools/y2q_qemu_lab.py initramfs
+python3 tools/y2q_qemu_lab.py configure
+python3 tools/y2q_qemu_lab.py build
+python3 tools/y2q_qemu_lab.py boot
+```
+
+The helper defaults to **one build job** (maximum
+`--jobs 2`), **one vCPU** and **1024 MiB VM RAM**,
+using software ARM64 emulation on the x86_64 WSL
+host. No disk image or network interface is attached.
+Build output goes to
+`~/s20-artifacts/qemu-lab/kernel-build.log`.
+Guest console logs and JSON reports are written
+as `qemu-boot-*.log` and `qemu-boot-*.json`.
+VM boot reports **`PASS_BOOT_ONLY`** only if the
+guest prints the expected marker without reported
+kernel panic/Oops/KASAN BUG. ARM64 QEMU boot and
+upstream compilation have **not yet been confirmed
+on the owner's machine**.
+
+### Optional separate KASAN/debug build
+
+Once the plain ARM64 boot baseline passes, build a
+**separate** KASAN configuration (the `configure`
+step replaces only the lab's out-of-tree config):
+
+```bash
+python3 tools/y2q_qemu_lab.py configure --kasan
+python3 tools/y2q_qemu_lab.py build --jobs 1
+python3 tools/y2q_qemu_lab.py boot --memory 1536
+```
+
+The helper verifies that `CONFIG_KASAN=y`
+and `CONFIG_DEBUG_RT_MUTEXES=y` survive
+`olddefconfig`; if the old 4.19 kernel
+cannot build with the current host GCC,
+that is a compiler/toolchain compatibility
+failure—not evidence of Samsung runtime
+exploitability. KASAN is instrumentation
+for a disposable VM, not a mechanism to
+root or modify the phone.
+
+**Next gate:** verify generic `virt` boots first.
+Later source/correction comparisons must explicitly
+separate upstream and Samsung/vendor semantics.
+No exercise involving the GhostLock race or
+potentially destabilizing PI requeue operations
+belongs on the physical handset. KernelSU module
+signature and hook backend gates remain unresolved.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
