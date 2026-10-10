@@ -349,8 +349,11 @@ def main() -> int:
                       flush=True)
                 if stderr:
                     print(stderr, file=sys.stderr)
-                labels = re.findall(r"^RESULT=([A-Z0-9_]+)$",
-                                    stdout, flags=re.MULTILINE)
+                labels = [
+                    line.strip().partition("=")[2]
+                    for line in stdout.splitlines()
+                    if re.fullmatch(r"RESULT=[A-Z0-9_]+", line.strip())
+                ]
                 label = labels[-1] if labels else "NO_RESULT_MARKER"
                 report.update({
                     "status": label,
@@ -366,14 +369,18 @@ def main() -> int:
                 print(f"[device] {exc}", file=sys.stderr)
             finally:
                 if staged:
-                    cleanup = command(base + ["shell", "rm", "-f", remote],
-                                      timeout=15, check=False)
-                    if cleanup.returncode != 0:
-                        print("[cleanup] Remote removal did not succeed: "
-                              f"{cleanup.stderr.strip()}", file=sys.stderr)
-                        report["cleanupWarning"] = cleanup.stderr.strip()
-                    else:
-                        print("[cleanup] Staged executable removed.", flush=True)
+                    try:
+                        cleanup = command(base + ["shell", "rm", "-f", remote],
+                                          timeout=15, check=False)
+                        if cleanup.returncode != 0:
+                            message = cleanup.stderr.strip() or "non-zero adb exit status"
+                            report["cleanupWarning"] = message
+                            print(f"[cleanup] WARNING: {message}", file=sys.stderr)
+                        else:
+                            print("[cleanup] Staged executable removed.", flush=True)
+                    except DiagnosticError as exc:
+                        report["cleanupWarning"] = str(exc)
+                        print(f"[cleanup] WARNING: {exc}", file=sys.stderr)
 
             path = record_report(report, args.output_dir.expanduser())
             print(f"[report] {path}", flush=True)
