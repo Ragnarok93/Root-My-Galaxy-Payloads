@@ -803,3 +803,37 @@ The owner executed `bash tools/run_y2q_hxl1_envdxe_ram_table_input_trace.sh` at 
 Report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-smem402-protocol.md`.
 
 **Explicitly unresolved:** whether and where the original XBL registers EFI_RAMPARTITION, the runtime SMEM table content, numerical BaseMemory, boot-time KASLR and kernel physical load, GhostLock exploit applicability and privilege escalation, and KernelSU installation. No ADB needed or used in this host-only stage.
+
+
+## October 10, 2026 15:14 — original EFI_RAMPARTITION registration path located, double evidence/test throughput
+
+Owner executed `bash tools/run_y2q_hxl1_envdxe_smem402_protocol.sh` on original, SHA256-pinned stock `EnvDxe-HXL1.efi` PE `9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670`. **15/15 synthetic tests passed**, and all original REA/Ghidra source dossiers and GUID readback checks passed. The command reused original JSON from a previous host analysis; results were reauthenticated rather than claimed newly measured.
+
+### Key finding: genuine original RAM protocol registration branch
+
+- At original Ghidra coordinate **`0x205c`**, the real `FUN_0000205c` calls original **`FUN_00005560`** (RAM table initialization). On **success only** it executes the decompiled indirect call `(**(code **)(DAT_0000d328 + 0x148))(0xd2b8,0xd118,0xd1d0,0,0)`. REA evidence `ev_194f166b1d738a6a1d6320693288ee282d8892de32d02f809de891fdfdd57c74`; the earlier one-reference Ghidra xref to 0x5560 at `0x2064` independently led to this function.
+- Offset `+0x148` matches `EFI_BOOT_SERVICES.InstallMultipleProtocolInterfaces` on UEFI x64/AArch64 ABI; arguments match HandlePointer `0xd2b8`, protocol GUID pointer **`0xd118`**, interface pointer **`0xd1d0`**, and terminating `NULL` GUID. These match the UEFI Specification's GUID/interface-pair calling convention; reference https://uefi.org/specs/UEFI/2.10/07_Services_Boot_Services.html . The **16 original bytes at 0xd118** were previously authenticated as Qualcomm EFI_RAMPARTITION GUID `5172ffb5-4253-7d51-c641-a701f973103c`.
+- This is **strong, consistent original-static evidence for the RAM protocol registration callsite, conditional on successful table initialization**. Runtime boot-service identity, registration return status and execution on the physical device have NOT been observed.
+- The separate `FUN_000023b0` calls method `+0x80` using GUID data at `0xd2e8`, which authenticated Ghidra readback shows to be **16 zero bytes** (GUID `00000000-0000-0000-0000-000000000000`), evidence `ev_fee50b9de8b5cc65d8154061849127ea1c73f0cd72c3a04923a4732743ecb7ce`. This *does not directly pass the genuine RAM GUID*. It is a separate initialization path; do not promote it to the RAM installer.
+- `FUN_00005288` at `0x5288` validates the SMEM 402 RAM-partition header through two fixed 32-bit magic values and writes format/version to the caller; evidence `ev_29cc7adb5126cc64599526d6507c784b971bae83259e0ba5b81f7c26a21bb1dd`.
+- `FUN_00007d08` at `0x7d08` is the actual SMEM accessor; on initialized SMEM it forwards the item argument through a function pointer and returns its address, evidence `ev_fff9072b258237dedae47b40ac58c2211dc3680efd13d304ab642cf55d40e461`. In earlier parent function 0x53b0 this argument is **0x192**, the public Qualcomm usable RAM-partition table identifier 402.
+- Physical base and length reported by this runtime SMEM item are **unavailable from static PE disassembly**. The fallback 0x80000000/0x60000000 remains conditional. The original ABL protocol consumer's GetRamPartitions method is at **interface +0x18**, so the decisive next question is the published static interface's +0x18 callback address and original code.
+
+### Double-rate next pass
+
+User requested at least **twice the testing rate per pass**, because sequential tiny investigations were too slow. New `tools/y2q_hxl1_envdxe_ram_registration_callback.py` and `tools/run_y2q_hxl1_envdxe_ram_registration_callback.sh` combine **two distinct evidence groups into one host run**:
+
+1. Gate the authentic `0x205c` registration pseudocode, the exact `0xd118` RAM GUID from prior byte-verified evidence, success branch, UEFI method +0x148, exact interface address 0xd1d0, and reject the separate all-zero candidate 0xd2e8 as RAM registration.
+2. Read **48 exact original Ghidra bytes** at 0xd1d0. Interpret six little-endian qwords and the method slot **+0x18, static coordinate 0xd1e8**. Query **four** targeted Ghidra xrefs: interface 0xd1d0, callback slot 0xd1e8, installer function 0x205c, and SMEM402 table supplier 0x53b0. If the method's raw qword is plausibly a nonzero word-aligned static PE address, immediately obtain and SHA-bind the actual Ghidra function dossier. Otherwise report relocation/uninitialized static slot as an explicit gap, never "callback absent."
+
+The audit uses exact original PE SHA256, earlier REA evidence IDs, readback length, Ghidra provider and requested coordinates, callback function-body containment, and fail-closed reuse of cached JSON. It cannot contact or modify the handset.
+
+**43 independent synthetic regression tests** are committed in two new suites (23 registration/interface + 20 callback/reference), over **2.8×** the previous 15-test pass; CI includes test and shell syntax checks. The actual WSL2 run has not yet occurred.
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_envdxe_ram_registration_callback.sh
+
+Output: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-ram-registration-callback.md`.
+
+This resolves provider-side **registration source code**, not runtime table contents, selected device DRAM base, ABL per-boot KASLR, kernel physical entry, GhostLock exploit reliability, Samsung RKP/KDP/DEFEX restrictions, or KernelSU deployment. Nothing currently makes the HXL1 Root My Galaxy research profile installable.
