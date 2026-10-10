@@ -23,6 +23,55 @@ kernel compilation errors to perform the firmware-to-profile audit.
 - [Support feed selection limitations](../support/README.md)
 - [KernelSU module constraints and Samsung adaptations](../kernelsu/README.md)
 
+## October 10: first original-source GhostLock scan completed
+
+Owner executed `tools/y2q_research_toolchain.py references` and `scan`
+against the audited HXL1 Samsung source. The command completed with
+`RESEARCH SCAN COMPLETE` and reported:
+
+```text
+Source heuristic: REVIEW_REQUIRED_POSSIBLE_UNFIXED_CODE_PATH
+Deployable: NO; not an exploit or root validation.
+```
+
+This result follows the scan's *syntactic* checks: it detects the
+presence of `current` in `remove_waiter()`, the absence of
+`waiter->task` there, and a proxy-lock call in the futex source,
+but does not assess all call-site semantics or prove that the exact
+booted HXL1 kernel has the same implementation. The Linux CVE
+advisory identifies the specific bug as using `current` when
+proxy-lock rollback operates on `waiter->task`. Relevant fix:
+[Linux kernel CVE-2026-43499 announcement](https://lists.openwall.net/linux-cve-announce/2026/05/21/7).
+
+**Next read-only checkpoints (do not run a crash PoC on the phone):**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 - <<'PY'
+import json
+from pathlib import Path
+report = json.loads(Path.home().joinpath(
+    "s20-artifacts/hxl1-research/candidate.json").read_text())
+for key in ("stockKernelInspection", "bootArtifactChecks", "unmetGates"):
+    print("\n" + key + ":")
+    print(json.dumps(report.get(key), indent=2))
+PY
+
+grep -nE '(remove_waiter|rt_mutex_start_proxy_lock)[[:space:]]*\\(' \
+  ~/src/samsung-y2q-hxl1-stock/kernel/locking/rtmutex.c
+grep -n 'rt_mutex_start_proxy_lock' \
+  ~/src/samsung-y2q-hxl1-stock/kernel/futex.c
+```
+
+Read the *full implementation* and call sites before drawing a
+conclusion. The exact source file and kernel binary correlation
+remain an open gate. No HXL1 payload, offsets, KernelSU module or
+support-feed entry is authorized by this static finding.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
