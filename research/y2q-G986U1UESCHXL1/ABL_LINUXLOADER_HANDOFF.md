@@ -864,3 +864,34 @@ Run the corrected host-only stage again:
     bash tools/run_y2q_hxl1_envdxe_ram_registration_callback.sh
 
 The first new actual Ghidra query will read the original 48-byte protocol interface at static `0xd1d0`, then eight authentic bounded xref queries, and optionally decompile the original `GetRamPartitions` callback at slot `+0x18` when a valid static address exists. **No runtime physical RAM, KASLR, GhostLock exploitation, KernelSU or root has been proven.** The user's S20+ is not required for this offline test.
+
+
+## October 10, 2026 15:52 — original RAM protocol callback discovered: 0x1f74; Ghidra decompiler failure is NON-FATAL
+
+Owner executed `bash tools/run_y2q_hxl1_envdxe_ram_registration_callback.sh` after pulling `1573f67`. The command printed `Ran 72 tests in 0.192s / OK` even though the banner said `57`: a test module inadvertently imported the whole 15-test `Hxl1Smem402ProtocolTests` subclass into unittest's discovery namespace. This was harmless double execution, **not 72 independent regression scenarios**. Corrected by importing the test-fixtures *module*, not the class, in `tools/test_y2q_hxl1_envdxe_ram_registration_parent_chain.py`.
+
+The original firmware evidence is now significantly stronger:
+
+- Original SHA256-pinned `EnvDxe-HXL1.efi` (`9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670`) verified the genuine, **conditional** `FUN_0000205c` RAM-protocol installer at PE address `0x205c`, REA `ev_194f166b1d738a6a1d6320693288ee282d8892de32d02f809de891fdfdd57c74`.
+- The exact **48 original imported bytes** at protocol interface `0xd1d0` were authenticated via Ghidra. The `+0x18` method slot at **`0xd1e8`**, consumed by original ABL's `GetRamPartitions` call, is a nonzero raw little-endian pointer **`0x1f74`**. These static coordinates are original PE RVA/preferred VA, NOT observed boot-time physical or virtual DRAM.
+- **Eight of eight** original Ghidra xrefs queries authenticated successfully. Direct references: interface 0xd1d0 **0**, callback slot 0xd1e8 **0**, installer at 0x205c **1**, SMEM402 supplier at 0x53b0 **2**, RAM v1 parser at 0x5430 **1**, SMEM header checker 0x5288 **1**, SMEM getter 0x7d08 **2**, other-protocol installer 0x23b0 **1**. These xref counts do not demonstrate execution at boot.
+- The optional direct `REA function 0x1f74 --provider ghidra` failed. **No Ghidra error message was included in the terminal output**, so the failure cause (missing function discovery, provider exception, decompiler error, etc.) is *not established*. Runner preserved `rea-envdxe-ram-protocol-callback-function.partial.json` and `rea-envdxe-ram-protocol-callback-function-stderr.txt`; it previously aborted without emitting the aggregate result. Do not equate decompilation failure to a missing callback.
+- No physical S20+ connection required; only original firmware and read-only host tools were used.
+
+### Corrective combined fallback: independent ORIGINAL PE bytes, not another brittle decompile gate
+
+New `tools/y2q_hxl1_envdxe_callback_raw_proof.py` validates the exact original EnvDxe PE SHA256, preferred PE base, unambiguous section RVA->raw-offset mapping at `0x1f74`, **PE IMAGE_SCN_MEM_EXECUTE** on its owning section, 4-byte AArch64 alignment, and a bounded **64-byte original instruction SHA256/hex**. This binary-mapping verification is independent of whether Ghidra recognizes a function.
+
+New host runner then attempts a single `node "$REA" read-bytes "$EFI" 0x1f74 --length 64 --provider ghidra --json`, compares the 64 imported Ghidra bytes **exactly** to those from the SHA256-pinned original executable section, and records the original REA evidence ID. A failed imported-byte read is preserved as a partial and reported unresolved, but cannot erase the independent original-PE evidence.
+
+The earlier failed Ghidra function-analysis partial/stderr are reused as **failure evidence**, included with bounded SHA256 and diagnostic excerpt in `rea-envdxe-ram-registration-callback.md`, and are **not overwritten or retried automatically**. An invalid completed function dossier remains fail-closed. If the callback's raw pointer is not a unique executable-section coordinate, the PE-mapping test fails, rather than inventing code location or callback behavior. Reports distinguish: (1) original executable bytes proven, (2) imported byte match, (3) decompilation still unavailable, and (4) live callback invocation unknown.
+
+The expanded regression suite uses 57 prior distinct cases, plus 3 callback-failure report scenarios, 19 independent PE/REA raw-proof checks, and 42 targeted evidence/section mutation scenarios for **121 distinct test methods**, more than double the 57-test previous intended suite. GitHub CI includes compile/unit tests and runner syntax.
+
+Run in WSL2 (NO S20+ needed):
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_envdxe_ram_registration_callback.sh
+
+Report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-ram-registration-callback.md`. **Original 0x1f74 callback function semantics, live SMEM partition entries, BaseMemory, actual kernel physical load, KASLR, GhostLock privilege escalation, and KernelSU remain unverified.** A zero direct Ghidra xrefs count to an initialized interface slot does not disprove data-pointer identity.
