@@ -60,12 +60,20 @@ def original_registration(folder: Path) -> dict:
     # Require the ACTUAL output schema of y2q_hxl1_envdxe_smem402_protocol.audit.
     # numericRuntimeRamBaseMeasured belongs to the earlier input-trace stage,
     # not this direct parent's report. Missing fields must not silently pass.
-    if (previous.get("efiRamProtocolRegistrationProven") is not False or
-        previous.get("ramProtocolImplementationRegistrationConfirmed") is not False or
-        previous.get("physicalBaseMemoryMeasured") is not False or
-        previous.get("runtimeSmemTableContentsObserved") is not False or
-        previous.get("kernelPhysicalLoadVerified") is not False):
-        raise ExtractionError("Prior static evidence was promoted without runtime proof")
+    required_unverified = (
+        "efiRamProtocolRegistrationProven",
+        "ramProtocolImplementationRegistrationConfirmed",
+        "physicalBaseMemoryMeasured",
+        "runtimeSmemTableContentsObserved",
+        "kernelPhysicalLoadVerified",
+    )
+    for field in required_unverified:
+        if field not in previous:
+            raise ExtractionError("Prior SMEM402 report schema missing field: " + field)
+        if previous[field] is not False:
+            raise ExtractionError(
+                "Prior static evidence was promoted without runtime proof: " + field
+            )
     code_sources=previous.get("originalSourceFunctions")
     if not isinstance(code_sources,list):
         raise ExtractionError("No verified original RAM initializer caller dossier")
