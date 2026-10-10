@@ -297,3 +297,61 @@ which non-destructive runtime prerequisites can actually be
 validated on the owner's phone. Never infer that a kernel
 address, arbitrary read/write capability, working root shell,
 or persistent KernelSU integration exists from this toolchain.
+
+
+## October 10, 2026 — Stage 4 original EFI provider complete; pivot to honest Stage 3 kernel gating
+
+The owner completed `bash tools/run_y2q_hxl1_envdxe_efi_pool_ownership.sh`
+with **6,412/6,412 tests PASS** (14.554 seconds). The full static
+`EFI_RAMPARTITION` callback and pool ownership are authenticated against
+the exact `EnvDxe-HXL1.efi` digest
+`9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670`:
+
+- Callback `0x1f74` uses `0x2618 -> 0x25d8` to request
+  `EfiBootServicesData` through `BootServices.AllocatePool(+0x40)`.
+- It calls the original RAM provider at `0x52cc`, copies two 64-bit
+  fields from `0x48`-stride internal records into `0x10`-stride
+  EFI output entries, then calls `0x26bc` through
+  `BootServices.FreePool(+0x48)`.
+- The unrelated `0x3d04` code is a bounded byte-string-length helper,
+  not the RAM partition record copier.
+- **These are original static firmware instructions only**: no actual
+  `SMEM_USABLE_RAM_PARTITION_TABLE` content, selected boot-time
+  physical memory, per-boot KASLR, live root or KernelSU was measured.
+
+The next investigation should not repeat ABI evidence for the EFI provider
+without a material new fact. Exact Linux kernel structure layouts remain
+unverified. Pinned original Samsung source headers and recovered `vmlinux`
+symbols are **not** equivalent to the OEM's compiled `rt_mutex` member offsets.
+The partial Clang18 build differs from the original factory Clang10 and
+cannot establish factory field geometry even if DWARF type declarations
+appear. The RT-mutex `current`/waiter source review resembles a published
+vulnerability pattern, but does not demonstrate an executable or reliable
+privilege-escalation path.
+
+A new read-only tool `tools/y2q_hxl1_kernel_proof_matrix.py` therefore
+executes and reconciles five previously independent, pinned local checks:
+`y2q_stage3_layout_inventory`, `y2q_partial_samsung_dwarf_audit`,
+`y2q_dwarf_type_presence`, `y2q_rtmutex_fix_audit`, and
+`y2q_porting_readiness`. It uses each audit's **actual report field
+schema**, checks explicit negative runtime/security claims, and reports
+original source declarations, experimental type presence, effective
+Clang18-vs-stock config differences, RT-mutex source-review signals, and all
+nine readiness gates without manufacturing offsets.
+
+Run on WSL2:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_kernel_proof_matrix.sh
+
+Output:
+`~/s20-artifacts/hxl1-research/kernel-proof-matrix.json` and
+`~/s20-artifacts/hxl1-research/kernel-proof-matrix.md`.
+
+**This is deliberately not a new root method, and does not contact the phone.**
+Next proof obligations: OEM-equivalent compiled layouts (if recoverable),
+a genuine unprivileged vulnerability applicability result (not just source
+and syscall smoke tests), validated physical kernel handoff/KASLR data, and
+feasible KernelSU loading under signature enforcement/RKP/KDP/DEFEX.
+Production support feed registration stays disabled.
