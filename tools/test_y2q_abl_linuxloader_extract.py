@@ -127,7 +127,7 @@ class ExtractionTests(unittest.TestCase):
         old_size = struct.unpack_from("<Q", image, at + 0x20)[0]
         volume_data = bytearray(image[at:at + old_size])
         new_size = 1024 * 1024
-        volume_data.extend(b"\\xff" * (new_size - old_size))
+        volume_data.extend(bytes([0xff]) * (new_size - old_size))
         struct.pack_into("<Q", volume_data, 0x20, new_size)
         enlarged = image[:at] + bytes(volume_data) + image[at + old_size:]
         walker = abl.Walker()
