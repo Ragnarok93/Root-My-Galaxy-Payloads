@@ -1,4 +1,4 @@
-name: Galaxy S20+ read-only ARM64 probe
+name: Galaxy S20+ read-only ARM64 probes
 
 on:
   workflow_dispatch:
@@ -41,7 +41,7 @@ on:
 
 jobs:
   diagnostic:
-    name: Build non-root ARM64 identity probe
+    name: Test and build non-root ARM64 identity/futex probes
     runs-on: ubuntu-latest
     permissions:
       contents: read
