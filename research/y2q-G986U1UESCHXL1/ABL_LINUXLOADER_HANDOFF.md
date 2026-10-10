@@ -1128,3 +1128,5 @@ free, validation or partition access based only on their caller.
 The owner device remains UID 2000 with enforced SELinux; firmware
 observation does not imply installed root, runtime RAM table, numerical
 physical kernel load, verified GhostLock applicability or KernelSU.
+
+**CI verification:** [GitHub Actions run 38079351379](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38079351379) completed **success** for commit `199d0bb`; the entire repository CI suite ran **3,366 tests** with no failures. This CI outcome does not substitute for the owner's Ghidra reads of the original firmware. The new three-target 2,941-test WSL runner has not yet been executed by the owner.
