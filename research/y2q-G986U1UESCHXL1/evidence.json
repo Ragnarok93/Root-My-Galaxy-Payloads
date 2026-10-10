@@ -2438,7 +2438,7 @@
     "workingKernelSu": false,
     "verifiedStockIdentity": true,
     "verifiedStockOriginalSourceHashes": true,
-    "nextOwnerAction": "Locate exact original clang 10.0.6 and any retained matching HXL1 build DWARF objects; otherwise produce a compiler-labelled provisional source-layout model and compare selected field offsets independently with original kernel ARM64 instructions. Separately locate the matching Samsung firmware BL archive, not source wrapper.",
+    "nextOwnerAction": "Verify toolchain provenance via executable-aware command -v/readlink/--version; inventory section headers of QEMU control objects only as format calibration, not HXL1 struct offset evidence; locate authentic HXL1 unstripped build objects or matching vendor Clang10, or use constrained source+stock ARM64 instruction corroboration.",
     "noPhoneChanges": true,
     "noCrossDeviceOffsets": true,
     "noPrematureSupportFeedRegistration": true,
@@ -2567,6 +2567,40 @@
       "configuredStructOffsetsVerified": false,
       "liveRamAbiParityVerified": false,
       "physicalDeviceTouched": false
+    },
+    "ownerArtifactDiscovery": {
+      "observedAt": "2026-10-10T06:34:52Z",
+      "ownerPulledThrough": "62ef7f6",
+      "searchRoots": [
+        "/home/main/s20-artifacts",
+        "/home/main/src"
+      ],
+      "artifactsFound": [
+        "/home/main/s20-artifacts/qemu-lab/kernel-build/kernel/futex.o",
+        "/home/main/s20-artifacts/qemu-lab/kernel-build/kernel/locking/rtmutex.o",
+        "/home/main/s20-artifacts/qemu-lab/kernel-build/vmlinux",
+        "/home/main/s20-artifacts/qemu-lab-kasan/kernel-build/kernel/futex.o",
+        "/home/main/s20-artifacts/qemu-lab-kasan/kernel-build/kernel/locking/rtmutex.o",
+        "/home/main/s20-artifacts/qemu-lab-kasan/kernel-build/vmlinux"
+      ],
+      "classification": "All six belong to separate upstream Linux 4.19.325 ARM64 QEMU control builds; none is a Samsung 4.19.113 HXL1 object or matching unstripped firmware ELF",
+      "usableAsSamsungTargetLayout": false,
+      "vendorBuildObjectFoundInSearch": false,
+      "compilerSearch": {
+        "roots": [
+          "/home/main",
+          "/opt",
+          "/usr/local"
+        ],
+        "maxDepth": 7,
+        "names": [
+          "clang",
+          "clang-10"
+        ],
+        "matched": [],
+        "limitation": "-type f excludes symlinks, and /usr/bin /usr/lib/llvm-* are outside searched roots; system Clang 18 and NDK Clang 21 were previously identified"
+      },
+      "nextProof": "Inspect compiler symlinks/versions via command -v/readlink, raw DWARF sections of QEMU controls only for method calibration, then identify a genuine Clang10/stock-object source or derive provisional layouts using exact Samsung Kconfig and independently compare selected stock instructions."
     }
   },
   "hxl1Stage4BootloaderDiscovery": {
@@ -2580,6 +2614,14 @@
     "foundCopySha256JustVerified": false,
     "matchingOriginalBLDiscovered": false,
     "potentialOtherSources": "Exact full stock firmware ZIP may reside outside searched directories or have a filename that does not match BL*G986* / *G986*.zip; source-only SM-G986U.zip is not a BL archive.",
-    "physicalLoadAddressVerified": false
+    "physicalLoadAddressVerified": false,
+    "windowsSourceArchive": {
+      "path": "/mnt/c/Users/Admin/Downloads/SM-G986U.zip",
+      "observedAt": "2026-10-10T06:34:52Z",
+      "observedSha256": "940fe6bbcfe3dcd372ad662dd24b56e0a3ba1a965666b04051fe9941bab4986d",
+      "matchesPinnedSamsungSourceWrapper": true,
+      "classification": "Official vendor source wrapper; not BL firmware archive",
+      "bootloaderPhysicalLoadProved": false
+    }
   }
 }
