@@ -23,6 +23,96 @@ kernel compilation errors to perform the firmware-to-profile audit.
 - [Support feed selection limitations](../support/README.md)
 - [KernelSU module constraints and Samsung adaptations](../kernelsu/README.md)
 
+## October 10, 06:37 UTC — upstream DWARF works; inspect retained partial Samsung objects
+
+The owner reported the following real WSL results after pulling
+47d1a06:
+
+| Tool | Observed version |
+|---|---|
+| clang | Ubuntu 18.1.3 at /usr/lib/llvm-18/bin/clang |
+| clang-10 | unavailable on PATH |
+| llvm-readelf | LLVM 18.1.3 (resolves to llvm-readobj) |
+| llvm-objdump | LLVM 18.1.3 |
+| aarch64-linux-gnu-gcc | Ubuntu 13.3.0 |
+| vendor-shipped Clang 10 binary | missing from expected stock source-tree path |
+
+Both upstream Linux 4.19.325 QEMU control vmlinux files have
+.debug_info, .debug_abbrev, and .symtab ELF sections.
+These are **valid for verifying that our DWARF inspection tools work**,
+but not for deriving HXL1 structure offsets. Neither QEMU object
+matches Samsung Linux 4.19.113-27095354.
+
+**Important previously recorded clue:** the original reconstructed
+Samsung kernel was compiled *partway* with Clang 18 using the
+separate output root
+/home/main/src/samsung-y2q-hxl1-config-clang18.
+The eighth and ninth experimental Image attempts reached compilation
+of init/main.o and arch/arm64/kernel/process.o, but the owner's
+most recent filename search looked only for vmlinux, rtmutex.o,
+and futex.o. Therefore it did **not** establish that no partial
+Samsung object or DWARF data remains.
+
+### Next Stage 3 check: inspect existing compiled objects, no rebuild
+
+```bash
+BUILD="$HOME/src/samsung-y2q-hxl1-config-clang18"
+echo "=== generated config ==="
+if [ -f "$BUILD/.config" ]; then
+  sha256sum "$BUILD/.config"
+else
+  echo "NO generated .config"
+fi
+
+echo "=== retained Samsung .o counts and samples ==="
+if [ -d "$BUILD" ]; then
+  find "$BUILD" -type f -name '*.o' | wc -l
+  find "$BUILD" -type f -name '*.o' | head -n 35
+fi
+
+echo "=== inspect selected partial Samsung .o ==="
+for obj in \
+  "$BUILD/init/main.o" \
+  "$BUILD/arch/arm64/kernel/process.o" \
+  "$BUILD/arch/arm64/kernel/fpsimd.o"; do
+  if [ -f "$obj" ]; then
+    echo "--- $obj"
+    file "$obj"
+    readelf -SW "$obj" |
+      grep -E '\.debug_info|\.debug_abbrev|\.BTF|\.symtab' || true
+  else
+    echo "NOT PRESENT: $obj"
+  fi
+done
+
+echo "=== DWARF extractor control, upstream QEMU ONLY ==="
+pahole -C task_struct \
+  "$HOME/s20-artifacts/qemu-lab/kernel-build/vmlinux" \
+  2>&1 | head -n 35
+```
+
+Expect generated .config SHA-256
+97cf1d93f86251294951ff235e76281e9e3705d5745be6b44f130fc3aa501c09
+if the prior Clang18 test output has not been modified. Its
+only explicitly differing stock CONFIG_CLANG_VERSION was
+180103 (Clang18) instead of stock 100006 (Clang10), with
+18 running-only config symbols awaiting individual classification.
+Never silently mark the compiler as factory-equivalent.
+
+If an experimental Samsung object contains DWARF, we can use
+it to derive a **Clang18 provisional source-layout model**
+and then compare independent original HXL1 instruction
+displacements, starting with already observed
+task_struct.pi_lock and task_struct.pi_blocked_on.
+Any agreement would validate only the specific corroborated
+member(s), not all of task_struct and not the live handset's
+memory layout. No full Image rebuild is required.
+
+Stage 3 remains PARTIAL. No new CVE execution, root exploit,
+KernelSU module or device change was made.
+
+---
+
 ## October 10, 06:34 UTC — QEMU objects are not Samsung debug provenance
 
 The owner searched both `~/s20-artifacts` and `~/src`
