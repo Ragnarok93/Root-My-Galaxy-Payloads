@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Original stock HXL1 XBL EnvDxe: 4 EFI RAM methods + directly observed BL 0x52cc.
-# ~317 distinct offline tests; 5 independent 128-byte provenance reads;
+# 319 distinct offline tests; 5 independent 128-byte provenance reads;
 # 2 direct xrefs, full static ARM64 branch report. NO ADB/phone writes.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -9,7 +9,7 @@ EFI="$OUT/EnvDxe-HXL1.efi"
 REA="$HOME/src/rea/scripts/rea.mjs"
 PIN=9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670
 
-echo "=== 317 original EnvDxe RAM interface/ARM64 static-analysis regressions ==="
+echo "=== 319 original EnvDxe RAM interface/ARM64 static-analysis regressions ==="
 python3 -m unittest -q \
   tools/test_y2q_hxl1_envdxe_ram_registration_interface.py \
   tools/test_y2q_hxl1_envdxe_ram_registration_callback.py \
