@@ -149,7 +149,7 @@ class RegistrationInterfaceFixture(unittest.TestCase):
 
     def test_missing_parent_runtime_field_is_rejected(self):
         self.previous.pop("physicalBaseMemoryMeasured")
-        with self.assertRaisesRegex(ExtractionError,"without runtime"):
+        with self.assertRaisesRegex(ExtractionError,"schema missing field: physicalBaseMemoryMeasured"):
             self.reg()
 
     def test_parent_runtime_smem_flag_must_stay_unobserved(self):
