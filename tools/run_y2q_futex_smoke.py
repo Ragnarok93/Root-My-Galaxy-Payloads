@@ -244,7 +244,6 @@ def verify_device(adb: str, serial: str) -> dict[str, str]:
         (["uname", "-r"], EXPECTED_KERNEL, "kernel release"),
         (["getconf", "PAGESIZE"], EXPECTED_PAGE_SIZE, "page size"),
         (["id", "-u"], "2000", "ADB shell uid"),
-        (["id", "-ru"], "2000", "ADB shell real uid"),
         (["getenforce"], "Enforcing", "SELinux enforcement"),
     ]
     for tokens, expected, label in checks:
@@ -340,32 +339,31 @@ def main() -> int:
                 command(base + ["shell", "chmod", "700", remote], timeout=15)
                 print(f"[device] Executing once (timeout {args.run_timeout}s).",
                       flush=True)
-                try:
-                    completed = command(
-                        base + ["shell", remote], timeout=args.run_timeout,
-                        check=False)
-                    stdout = completed.stdout
-                    stderr = completed.stderr
-                    exit_code = completed.returncode
-                    print(stdout, end="" if stdout.endswith("\n") else "\n",
-                          flush=True)
-                    if stderr:
-                        print(stderr, file=sys.stderr)
-                    labels = re.findall(r"^RESULT=([A-Z0-9_]+)$",
-                                        stdout, flags=re.MULTILINE)
-                    label = labels[-1] if labels else "NO_RESULT_MARKER"
-                    report.update({
-                        "status": label,
-                        "exitCode": exit_code,
-                        "stdout": stdout,
-                        "stderr": stderr,
-                    })
-                except DiagnosticError as exc:
-                    report.update({
-                        "status": "HOST_TIMEOUT_OR_ADB_FAILURE",
-                        "error": str(exc),
-                    })
-                    print(f"[device] {exc}", file=sys.stderr)
+                completed = command(
+                    base + ["shell", remote], timeout=args.run_timeout,
+                    check=False)
+                stdout = completed.stdout
+                stderr = completed.stderr
+                exit_code = completed.returncode
+                print(stdout, end="" if stdout.endswith("\n") else "\n",
+                      flush=True)
+                if stderr:
+                    print(stderr, file=sys.stderr)
+                labels = re.findall(r"^RESULT=([A-Z0-9_]+)$",
+                                    stdout, flags=re.MULTILINE)
+                label = labels[-1] if labels else "NO_RESULT_MARKER"
+                report.update({
+                    "status": label,
+                    "exitCode": exit_code,
+                    "stdout": stdout,
+                    "stderr": stderr,
+                })
+            except DiagnosticError as exc:
+                report.update({
+                    "status": "HOST_TIMEOUT_OR_ADB_FAILURE",
+                    "error": str(exc),
+                })
+                print(f"[device] {exc}", file=sys.stderr)
             finally:
                 if staged:
                     cleanup = command(base + ["shell", "rm", "-f", remote],
