@@ -12,9 +12,7 @@ from unittest.mock import patch
 
 from tools import y2q_hxl1_envdxe_smem402_protocol as upstream
 from tools import y2q_hxl1_envdxe_ram_registration_callback as downstream
-from tools.test_y2q_hxl1_envdxe_smem402_protocol import (
-    Hxl1Smem402ProtocolTests,
-)
+from tools import test_y2q_hxl1_envdxe_smem402_protocol as smem_fixtures
 from tools.y2q_hxl1_extract_envdxe import ExtractionError
 
 
@@ -31,7 +29,7 @@ class RealUpstreamContractTests(unittest.TestCase):
         # Reuse upstream's real three-function and GUID evidence fixtures.
         # Patching only the earlier input-table parent deliberately exercises
         # every nontrivial function in the immediately preceding stage.
-        self.up=Hxl1Smem402ProtocolTests(
+        self.up=smem_fixtures.Hxl1Smem402ProtocolTests(
             "test_original_smem402_guid_and_three_followup_functions")
         self.up.setUp()
         self.addCleanup(self.up.doCleanups)
