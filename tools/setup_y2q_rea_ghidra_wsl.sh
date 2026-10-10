@@ -50,7 +50,7 @@ fi
 
 echo "=== Find existing Linux Ghidra 12.1.x ==="
 candidate=""
-if [[ -n "$GHIDRA_INSTALL_DIR" ]] 2>/dev/null && [[ -f "$GHIDRA_INSTALL_DIR/support/analyzeHeadless" ]]; then
+if [[ -n "${GHIDRA_INSTALL_DIR:-}" && -f "${GHIDRA_INSTALL_DIR:-/nonexistent}/support/analyzeHeadless" ]]; then
   candidate="$GHIDRA_INSTALL_DIR"
 elif [[ -f "$TARGET/support/analyzeHeadless" ]]; then
   candidate="$TARGET"
