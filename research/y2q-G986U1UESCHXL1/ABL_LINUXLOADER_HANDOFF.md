@@ -140,3 +140,46 @@ bash tools/analyze_y2q_hxl1_linuxloader_rea.sh
 ```
 
 Do **not** re-run the whole decompression/UEFI extraction chain: the original PE section is already saved and independently fingerprinted. If REA's fork/Node/Ghidra is absent, the command preserves the raw original loader classification and reports precisely which dependency is missing without installing an arbitrary tool or claiming success.
+
+
+## 2026-10-10 — original LinuxLoader section confirmed; wrong 0x800 DOS stub cap fixed
+
+The owner's next WSL2 run (using commit `7b5520f`) verified all **nine synthetic cached-correlation tests** and passed the **real dual-decoder cached byte comparison** against exact firmware G986U1UESCHXL1. Verified original LinuxLoader:
+
+- Exact FFS GUID `f536d559-459f-48fa-8bbc-43b554ecae8d`, UTF-16 UI `LinuxLoader`.
+- EFI PE section body **3,575,808 bytes**.
+- SHA256 `5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003`.
+- DOS PE header pointer `e_lfanew=0xe58`; signature `PE\\0\\0`; COFF machine `0xaa64` (AArch64); optional-header magic `0x20b` (PE32+); COFF optional size `0xf0`; **3 sections**.
+- Host `file` independently classified this SHA-pinned binary as **PE32+ executable (EFI application) Aarch64**.
+- The custom `identify_pe` incorrectly imposed an arbitrary `e_lfanew <= 0x800` limit, rejecting the valid original offset `0xe58`. This was the final PE parser defect, NOT an unsupported Qualcomm format.
+
+**Repair:** `tools/y2q_abl_linuxloader_extract.py::identify_pe` now accepts header locations within the actual file bounds, while requiring a complete COFF header, complete optional header, a complete section table, AArch64 machine and PE32+ magic. Synthetic test coverage now includes original-format `0xe58`, valid 3-section image, out-of-file header and truncated section table. `tools/y2q_hxl1_cached_linuxloader.py` upgrades the previously authenticated existing section to `LinuxLoader-HXL1.efi` if and only if the **original ABL, both decoders' SHA256/size/FFS/UI comparison, and strict PE32+/AArch64 parser** pass. It retains the original `LinuxLoader-HXL1.unclassified.pe` for audit continuity and never reruns LZMA/UEFI unpacking. `tools/analyze_y2q_hxl1_linuxloader_rea.sh` then authenticates that promoted ELF **PE** against the cached verified provenance.
+
+**REA fork availability:** Owner's most recent WSL2 analysis halted after successfully preserving `file`, `llvm-readobj` and `llvm-objdump` reports because `~/src/rea` **does not exist**. The task-specific native REA/Ghidra analysis is therefore **not yet run**. The connected repo `Ragnarok93/rea`'s reverse-engineer-anything skill explicitly distinguishes native artifact evidence from source inspection. Running the skill does NOT install the REA CLI, Node, or Ghidra.
+
+Next owner commands, no firmware re-unpacking:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools/test_y2q_abl_linuxloader_extract.py tools/test_y2q_hxl1_cached_linuxloader.py
+python3 tools/y2q_hxl1_cached_linuxloader.py
+
+# One-time REA fork setup in WSL2 if Node 22.19+, 24.11+, or 26+ is installed.
+node --version
+npm --version
+git clone https://github.com/Ragnarok93/rea.git ~/src/rea
+cd ~/src/rea
+npm ci
+npm run build
+node scripts/rea.mjs providers --json
+node scripts/rea.mjs doctor --provider ghidra --json
+
+# From Root repo; only runs Ghidra if already available and compatible.
+cd ~/src/Root-My-Galaxy-Payloads
+bash tools/analyze_y2q_hxl1_linuxloader_rea.sh
+```
+
+If `doctor --provider ghidra` reports missing Ghidra, install/configure a supported Ghidra from an official distribution, then re-run the REA command. Do not substitute a different provider silently, and do not claim any decompilation or AArch64 handoff result before analyzing the recovered genuine PE.
+
+**Stage 4 remains OPEN**: identifying the original LinuxLoader executable and its PE file format does not prove physical Linux load/entry, DTB selection, runtime vulnerability reachability or KernelSU.
