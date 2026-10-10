@@ -320,6 +320,78 @@ def check_arm64_cross_linker(compiler, linker):
     }
 
 
+# Explicitly observed in eighth build: Samsung's original code emits
+# diagnostics under Clang 18 that its gcc-wrapper.py rejects as fatal.
+# Never use -w / -Wno-everything or replace the warning-enforcing wrapper.
+CORE_COMPAT_WARNINGS = (
+    ("pointer-sign", "-Wpointer-sign", "-Wno-pointer-sign",
+     "char *samsung_y2q_probe(unsigned char *p) { char *q = p; return q; }\n"),
+    ("unused-but-set-variable", "-Wunused-but-set-variable",
+     "-Wno-unused-but-set-variable",
+     "int samsung_y2q_probe(void) { int which_el = 0; which_el = 1; return 0; }\n"),
+)
+
+
+def check_legacy_core_warnings(compiler):
+    """Require each Clang 18 diagnostic, then verify its precise suppression.
+
+    This only syntax-checks embedded snippets using the real selected Clang.
+    Preserves the stock headers, security config, source-compatibility copy,
+    and Samsung's strict wrapper. All other warnings remain visible.
+    """
+    base = [str(compiler), "--target=aarch64-linux-gnu",
+            "-Wall", "-Werror=unknown-warning-option", "-fsyntax-only",
+            "-x", "c", "-"]
+    findings = {}
+    for category, enable, suppress, sample in CORE_COMPAT_WARNINGS:
+        try:
+            before = subprocess.run(
+                base[:4] + [enable] + base[4:],
+                input=sample, capture_output=True, text=True,
+                timeout=15, check=False,
+            )
+            after = subprocess.run(
+                base[:4] + [enable, suppress] + base[4:],
+                input=sample, capture_output=True, text=True,
+                timeout=15, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise ValueError("Clang core-warning compatibility probe failed: " + str(error)) from error
+        emitted = before.stdout + before.stderr
+        silenced = after.stdout + after.stderr
+        if before.returncode != 0 or "[" + enable + "]" not in emitted:
+            raise ValueError("Clang did not reproduce " + category +
+                             " diagnostic before suppression: " + emitted[-700:])
+        if after.returncode != 0 or silenced.strip():
+            raise ValueError("Clang did not suppress exactly " + category +
+                             " diagnostic: " + silenced[-700:])
+        findings[category] = {
+            "diagnostic": enable, "suppression": suppress,
+            "observedBefore": True, "absentAfter": True,
+        }
+
+    # In particular, do not allow a blanket diagnostics-disabling change.
+    other = "int samsung_y2q_control(int parameter) { return 1; }\n"
+    flags = [row[2] for row in CORE_COMPAT_WARNINGS]
+    try:
+        still_active = subprocess.run(
+            base[:4] + flags + ["-Wunused-parameter"] + base[4:],
+            input=other, capture_output=True, text=True,
+            timeout=15, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ValueError("Clang control-warning probe failed: " + str(error)) from error
+    control_output = still_active.stdout + still_active.stderr
+    if (still_active.returncode != 0
+            or "[-Wunused-parameter]" not in control_output):
+        raise ValueError("another warning category was not preserved: " + control_output[-700:])
+
+    return {
+        "categories": findings, "unrelatedWarningsStillEnabled": True,
+        "stockSourceEdited": False, "sourceConfigEdited": False,
+    }
+
+
 def plan(args):
     source = args.source_dir.expanduser().resolve()
     build_source = (args.compat_source_dir.expanduser().absolute()
@@ -401,6 +473,16 @@ def plan(args):
         if not getattr(args, "integrated_arm64_as", False):
             raise ValueError("--cross-arm64-linker requires --integrated-arm64-as")
         cross_linker_probe = check_arm64_cross_linker(compiler, ld)
+    core_warning_probe = None
+    if getattr(args, "suppress_legacy_core_warnings", False):
+        if (not getattr(args, "integrated_arm64_as", False)
+                or not getattr(args, "cross_arm64_linker", False)
+                or not getattr(args, "suppress_cgroup_layout_warning", False)):
+            raise ValueError(
+                "--suppress-legacy-core-warnings requires --integrated-arm64-as, "
+                "--cross-arm64-linker and --suppress-cgroup-layout-warning"
+            )
+        core_warning_probe = check_legacy_core_warnings(compiler)
     if args.execute and args.log is None:
         raise ValueError("--execute requires --log outside the source and output directories")
     log = valid_external_path(source, output, args.log) if args.log else None
@@ -448,6 +530,10 @@ def plan(args):
             # strict wrapper. Disable only this one unused-argument warning.
             cflags += " --ld-path=" + str(ld)
             cflags += " " + CROSS_LINKER_UNUSED_ARG_SUPPRESSION
+        if core_warning_probe:
+            # Exactly two named Clang 18 compatibility diagnostics.
+            # No global -w and no change to Samsung's gcc-wrapper.py.
+            cflags += " " + " ".join(row[2] for row in CORE_COMPAT_WARNINGS)
         cmd.extend(["KCFLAGS=" + cflags, "KAFLAGS=" + extra])
     if getattr(args, "verbose", False):
         cmd.append("V=1")
@@ -471,6 +557,7 @@ def plan(args):
         "crossAssemblerProbe": assembler_probe,
         "cgroupLayoutWarningCompatibilityProbe": cgroup_warning_probe,
         "aarch64LinkerProbe": cross_linker_probe,
+        "legacyKernelCoreWarningProbe": core_warning_probe,
         "note": "Experimental Clang18/GCC13 stock Image compatibility build with CFP compiler override, not a Samsung factory-identical binary.",
     }, report
 
@@ -525,6 +612,8 @@ def main():
                         help="Experimental external GNU assembler: fail closed if Samsung --prefix selects /usr/bin/as")
     parser.add_argument("--integrated-arm64-as", action="store_true",
                         help="Probe Clang's integrated AArch64 assembler with vendor flags and test ELF, then override KCFLAGS/KAFLAGS")
+    parser.add_argument("--suppress-legacy-core-warnings", action="store_true",
+                        help="Opt-in Clang18 -Wno-pointer-sign and -Wno-unused-but-set-variable, each probed; requires all prior ARM64 compatibility modes")
     parser.add_argument("--cross-arm64-linker", action="store_true",
                         help="Opt-in explicit AArch64 cross linker (--ld-path) with verified temporary ELF64 DSO; requires integrated assembler")
     parser.add_argument("--suppress-cgroup-layout-warning", action="store_true",
