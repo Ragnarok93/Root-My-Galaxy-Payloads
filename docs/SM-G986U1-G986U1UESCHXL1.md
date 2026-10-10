@@ -4225,6 +4225,84 @@ may be loaded on the locked stock firmware.
 
 ---
 
+## October 10, 05:29 UTC — KASAN + DEBUG_RT_MUTEXES ARM64 QEMU baseline PASSED
+
+The owner completed the **separate** instrumented Linux
+`4.19.325` generic ARM64 `virt` build and boot in WSL2.
+This is an upstream research VM, **not** Samsung
+`G986U1UESCHXL1` hardware emulation or a GhostLock
+trigger.
+
+The driver script's `configure --kasan` verified
+`CONFIG_KASAN=y` and `CONFIG_DEBUG_RT_MUTEXES=y` in
+the generated `.config` after `olddefconfig`.
+The kernel Image compiled with
+`aarch64-linux-gnu-gcc` 13.3.0 and the 15-second
+build status heartbeats ran for approximately
+1,797 seconds before reporting success. The
+`-z norelro ignored` linker warning was
+nonfatal. A read of the full `.config` and full
+boot log is still a separate, optional check;
+the helper does not perform a KASAN bug-detection
+self-test.
+
+| Owner-verified checkpoint | Result |
+|---|---|
+| Separate instrumented build output | `~/s20-artifacts/qemu-lab-kasan` |
+| KASAN and DEBUG_RT_MUTEXES config check | PASS |
+| ARM64 `Image` compile | PASS |
+| ARM64 QEMU `virt` / Cortex-A57 / 1.5 GiB | BOOT PASS |
+| Guest `uname` | Linux `4.19.325`, `aarch64` |
+| Immediate-return `FUTEX_WAIT_PRIVATE` | PASS |
+| `reboot: Power down` | Clean |
+| Overall lab result | `[PASS_BOOT_ONLY]` |
+| KASAN report in output tail | None seen (not an exhaustive full-log check) |
+| Samsung HXL1 RT-mutex CVE error path | NOT TESTED |
+| Galaxy S20+ root / KernelSU | NOT VERIFIED |
+
+Original owner-reported instrumented kernel SHA-256:
+`c0ba1e7a775565fdf503082d31c21ce38e2dd7568d724ed6a559ffba8251e065`.
+
+The independent initramfs SHA-256 is
+`2c8e76cad504663380358c4854aa3a86d867c0c635a85b0ea9a6a4de82ef00fc`.
+
+The owner retained:
+`~/s20-artifacts/qemu-lab-kasan/qemu-boot-20261010T052910Z.log`
+and
+`~/s20-artifacts/qemu-lab-kasan/qemu-boot-20261010T052910Z.json`.
+
+### Optional read-only instrumentation verification
+
+No rebuild or further VM execution is necessary
+to inspect the existing KASAN/debug configuration
+and captured boot messages:
+
+```bash
+KASAN_LAB="$HOME/s20-artifacts/qemu-lab-kasan"
+grep -E '^(CONFIG_(KASAN|KASAN_OUTLINE|KASAN_INLINE|DEBUG_RT_MUTEXES|DEBUG_LIST|DEBUG_SPINLOCK)=|# CONFIG_(KASAN|KASAN_OUTLINE|KASAN_INLINE|DEBUG_RT_MUTEXES|DEBUG_LIST|DEBUG_SPINLOCK) is not set)' \
+  "$KASAN_LAB/kernel-build/.config"
+
+grep -nEi 'kasan|rt_mutex|BUG:|kernel panic|Oops:' \
+  "$KASAN_LAB/qemu-boot-20261010T052910Z.log" | tail -n 40
+
+sha256sum "$KASAN_LAB/kernel-build/arch/arm64/boot/Image"
+```
+
+The KASAN lab was compiled from upstream 4.19.325,
+which is not guaranteed to reproduce the Samsung
+vendor RT-mutex bug. The next bounded test can
+exercise *healthy*, uncontended RT-mutex/PI-lock
+operations inside this VM and compare the observed
+result to the physical device's safe futex-PI
+baseline; a pass does **not** imply the vulnerable
+proxy-lock error branch was traversed. Any
+potentially crashing race/requeue testing remains
+off the physical handset. A separate authorized
+kernel-loading and KernelSU hook design is still
+required before root can be claimed.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
