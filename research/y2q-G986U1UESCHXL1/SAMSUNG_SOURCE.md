@@ -1092,6 +1092,98 @@ legacy Samsung assembly directives; the objective is a diagnostic,
 off-device stock compatibility build. A successful `Image` remains
 unsigned and nonflashable on the currently locked S20+.
 
+## October 9: fifth Image build reaches ARM64 offsets; Clang 18 warning forbidden
+
+The fifth owner-side Clang18/GCC13 build with
+`--integrated-arm64-as --verbose` passed the external assembler blocker.
+Samsung Kbuild completed `scripts/mod/empty.o`, `modpost` and the
+host-side certificate-signing/extraction tools (OpenSSL 3 deprecations
+were warnings, not fatal), generated `kernel/bounds.s` and
+`include/generated/bounds.h`, then stopped while compiling
+`arch/arm64/kernel/asm-offsets.s`:
+
+```text
+include/linux/cgroup-defs.h:475:16: warning:
+field 'cgrp' with variable sized type 'struct cgroup' not at the
+end of a struct or class is a GNU extension
+[-Wgnu-variable-sized-type-not-at-end]
+('error, forbidden warning:', 'cgroup-defs.h:475')
+```
+
+Samsung's `scripts/gcc-wrapper.py` treats **any emitted compiler
+warning** as fatal. The recorded source is still stock and the warning
+itself does not show a compiler crash or C syntax rejection. Modern
+Clang 18 may diagnose GNU extensions that the original Qualcomm
+Clang 10.0.6 did not warn about.
+
+The sixth build option,
+`--suppress-cgroup-layout-warning`, is intentionally narrow: it
+adds *only* `-Wno-gnu-variable-sized-type-not-at-end` to
+`KCFLAGS`, leaving `KAFLAGS`, compiler warning categories, Samsung's
+wrapper, original source files and verified `.config` unchanged.
+
+The guard requires `--integrated-arm64-as` and uses Clang's
+`-fsyntax-only` on a tiny, embedded GNU flexible-layout example
+to confirm that the named diagnostic first appears and then
+disappears with this single opt-in suppression. This probe does
+not compile kernel source or alter the existing build output.
+
+Run the dry-run gate:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --integrated-arm64-as \
+  --suppress-cgroup-layout-warning \
+  --verbose \
+  --jobs 2
+```
+
+If the dry run prints `DRY RUN PASSED` and the command's
+`KCFLAGS` includes the single `-Wno-gnu-variable-sized-type-not-at-end`,
+retry using **fresh** sixth-attempt log/report paths:
+
+```bash
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --integrated-arm64-as \
+  --suppress-cgroup-layout-warning \
+  --verbose \
+  --jobs 2 \
+  --execute \
+  --log ~/s20-artifacts/samsung-hxl1-image-clang18-build-06.log \
+  --json ~/s20-artifacts/samsung-hxl1-image-clang18-report-06.json
+```
+
+If it fails, collect both ordinary compiler errors **and** Samsung's
+nonstandard `error, forbidden warning` diagnostic:
+
+```bash
+grep -nE 'error:|forbidden warning|fatal error:|Error [0-9]+|No such file|unrecognized option' \
+  ~/s20-artifacts/samsung-hxl1-image-clang18-build-06.log | head -100
+tail -n 90 ~/s20-artifacts/samsung-hxl1-image-clang18-build-06.log
+```
+
+Any further warning or code-generation difference needs its own
+investigation rather than broadly disabling warning checks or editing
+Samsung's original source. Neither a compiled Image nor firmware
+modification has yet occurred; the phone's bootloader remains locked.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
