@@ -692,6 +692,124 @@ If the command succeeds, the tool records the compiled `Image` size,
 SHA-256 and path, but the binary remains **unsigned, unbooted,
 and nonflashable on the owner's currently locked device**.
 
+## October 9: first Image build reaches scripts, blocked by missing Python 2
+
+Owner ran the guarded `Image` build using Ubuntu Clang 18.1.3 / GCC 13.3.0.
+Generated Kconfig was still SHA-256 verified, but Make returned 2 before
+building a kernel image. The first material failure was:
+
+```text
+/usr/bin/env: ‘python2’: No such file or directory
+  CC      scripts/mod/empty.o
+make[3]: *** [scripts/Makefile.build:339: scripts/mod/empty.o] Error 127
+```
+
+Make also printed `make[1]: secgetspf: No such file or directory`
+and a warning that the assembler's `.inst` handling may produce
+unreliable disassembly. Those are **separate diagnostics**.
+We have **not** established that `secgetspf` is mandatory, and should
+inspect the actual Makefile reference before substituting a fake program
+or changing firmware feature values.
+
+- Failed build log: `~/s20-artifacts/samsung-hxl1-image-clang18-build.log`
+- Failed result JSON: `~/s20-artifacts/samsung-hxl1-image-clang18-report.json`
+- The partial `O=` output directory must **not be deleted**.
+- The original Samsung kernel source has not been edited or flashed.
+
+### Read-only inspect the additional build dependencies
+
+```bash
+SRC=~/src/samsung-y2q-hxl1-stock
+grep -n -C 6 'secgetspf' "$SRC/Makefile"
+grep -RInE '^#!.*python2|/usr/bin/env python2' "$SRC/scripts" \
+  "$SRC/arch/arm64" | head -60
+sed -n '1,75p' "$SRC/scripts/gcc-wrapper.py"
+```
+
+The build scripts are from a kernel originally built against **Python 2**.
+Ubuntu 24.04's `python-is-python3` provides `python` but does not
+provide `python2`. Do **not** symlink `python2` to Python 3.
+The final Python 2 release (2.7.18) is end-of-life and should be
+kept isolated and used only for this historical build. See
+https://www.python.org/downloads/release/python-2718/.
+
+### Set up isolated genuine Python 2.7.18 in WSL2
+
+Build official CPython source into a **user-owned** directory rather
+than overwriting Ubuntu's `/usr/bin/python`. The published source
+checksum below is also recorded by Buildroot's 2020 package update:
+https://lists.buildroot.org/pipermail/buildroot/2020-April/268853.html.
+
+```bash
+sudo apt install -y curl xz-utils build-essential \
+  zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev \
+  libffi-dev libncursesw5-dev
+
+mkdir -p ~/src/legacy-toolchains
+cd ~/src/legacy-toolchains
+
+curl --fail --location --proto '=https' --tlsv1.2 \
+  https://www.python.org/ftp/python/2.7.18/Python-2.7.18.tar.xz \
+  --output Python-2.7.18.tar.xz
+
+echo 'b62c0e7937551d0cc02b8fd5cb0f544f9405bafc9a54d3808ed4594812edef43  Python-2.7.18.tar.xz' \
+  | sha256sum -c -
+
+tar -xf Python-2.7.18.tar.xz
+cd Python-2.7.18
+
+CFLAGS='-std=gnu11' ./configure \
+  --prefix="$HOME/opt/samsung-kernel-python2" \
+  --without-ensurepip
+
+make -j2
+make altinstall
+ln -s python2.7 ~/opt/samsung-kernel-python2/bin/python2
+
+~/opt/samsung-kernel-python2/bin/python2 --version
+```
+
+No root access is needed beyond installing standard Ubuntu build
+dependencies. **Do not install Python 2 globally or use it for web
+browsing / application packages.** The interpreter exists only for
+these historical kernel compilation scripts.
+
+If Python 2 source building fails on modern GCC/OpenSSL,
+record the errors instead of bypassing the SHA-256 check or installing
+old Ubuntu packages directly from obsolete distributions.
+
+### Retry the same Image build with a process-local Python 2 PATH
+
+The build tool validates that the supplied `--python2` path executes
+a **real Python 2.7**. It prepends the interpreter directory to the
+Make subprocess PATH only, without changing the user's global shell
+or Samsung source tree.
+
+Use **fresh filenames** because the failed run's log/report are
+intentionally immutable:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --jobs 2 \
+  --execute \
+  --log ~/s20-artifacts/samsung-hxl1-image-clang18-build-02.log \
+  --json ~/s20-artifacts/samsung-hxl1-image-clang18-report-02.json
+```
+
+The tool will still reject modified source/config checksums or
+preexisting `Image` outputs. More errors may emerge after the missing
+Python 2 dependency is resolved; the resulting logs will identify them.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
