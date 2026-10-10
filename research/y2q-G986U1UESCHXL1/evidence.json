@@ -2707,6 +2707,35 @@
       ],
       "scope": "Read-only checksum guard on original source, actual runtime IKCONFIG and preserved modern Clang18 .config; audit ARM64 object/debug availability without emitting/validating exploit offsets.",
       "productionProfileAuthorized": false
+    },
+    "clang18TaskStructConsistency": {
+      "observedAt": "2026-10-10T06:59:56Z",
+      "source": "Owner WSL pahole and cmp output",
+      "root": "/home/main/s20-artifacts/hxl1-research/task-struct-review",
+      "files": [
+        "init_task.txt",
+        "init_main.txt",
+        "process.txt"
+      ],
+      "outputLinesPerFile": 310,
+      "comparisonResults": {
+        "init_main": "MATCH",
+        "process": "MATCH"
+      },
+      "summary": {
+        "sizeBytes": 3904,
+        "cachelines": 61,
+        "members": 199,
+        "holes": 19,
+        "holesTotalBytes": 131,
+        "bitfieldMemberBits": 11,
+        "bitHoles": 2,
+        "bitHolesBits": 53
+      },
+      "provenance": "Incomplete Samsung HXL1 source compilation using Clang 18.1.3, not factory Clang 10.0.6.",
+      "conclusion": "The three Clang18 DWARF reports are text-identical. This establishes within-build type consistency only, not original OEM binary/runtime ABI equivalence.",
+      "exactOriginalFirmwareLayoutVerified": false,
+      "onPhoneTest": false
     }
   },
   "hxl1Stage4BootloaderDiscovery": {
