@@ -132,6 +132,9 @@ def analyze(root: Path) -> dict:
             state == "PRESENT_PIN_VERIFIED" for state in extracted.values()),
         "bootHeader": h,
         "payloadComparisons": checks,
+        "allEmbeddedPayloadPinsMatch": all(
+            record["embeddedRegionMatchesPinnedSha256"]
+            for record in checks.values()),
         "runtimeKernelPhysicalAddressVerified": False,
         "originalBootloaderHandoffRegistersVerified": False,
         "deviceModified": False,
@@ -182,8 +185,11 @@ def main() -> int:
                     /"s20-artifacts/hxl1-research/stock-boot-v2-audit.json")
     args = ap.parse_args()
     output = args.output.expanduser().resolve()
+    root = args.artifacts.expanduser().resolve()
+    if output.suffix != ".json" or output in {root / name for name in PINS}:
+        ap.error("JSON report path must not overwrite original firmware artifacts")
     try:
-        report = analyze(args.artifacts.expanduser().resolve())
+        report = analyze(root)
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(report, indent=2)+"\n")
         output.with_suffix(".md").write_text(markdown(report))
@@ -201,6 +207,10 @@ def main() -> int:
     print("[report]", output)
     print("[report]", output.with_suffix(".md"))
     print("[LIMIT] Header addresses are NOT verified runtime kernel addresses")
+    if not report["allEmbeddedPayloadPinsMatch"]:
+        print("[CHECK] At least one boot.img embedded component differs from the "
+              "previously pinned separate extraction; inspect report", file=sys.stderr)
+        return 3
     return 0
 
 if __name__ == "__main__":
