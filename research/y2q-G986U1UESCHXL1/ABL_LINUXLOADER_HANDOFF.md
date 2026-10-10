@@ -757,3 +757,29 @@ The update includes **16 synthetic tests**, CI compile/unit/shell checks, and pr
 Report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-provider-followup.md`.
 
 Even if registration code is eventually identified, an original static PE is not a live DRAM partition-table dump. Runtime `BaseMemory`, KASLR, the booted Linux physical entry, GhostLock exploitability and KernelSU installation remain unverified.
+
+
+## October 10, 2026 14:42 — original EnvDxe RAM-table supplier and conditional fallback located
+
+Owner ran `bash tools/run_y2q_hxl1_envdxe_provider_followup.sh` at commit `48a377c`. **16/16 offline tests passed**. All three authentic SHA256-verified original EnvDxe HXL1 PE Ghidra function dossiers passed native function-body ownership and p-code availability.
+
+Actual recovered function evidence:
+
+- Original `FUN_000022b0` (`0x22b0`) is an EnvDxe startup dispatch that calls `FUN_0000422c` for a pointer and runs many initializer candidates, including `FUN_000023b0` and `FUN_000020ac`; provenance `ev_28d41ca312f2b314f1b34321f95fc763af7a851427fd8cc69434200a86e3d2d6`.
+- Original `FUN_00005430` at `0x5430` contains both earlier validated diagnostic reference source instructions `0x554c`, `0x5554`. It processes a 0x40-stride input table, matching fields at +0x2c == 1 and +0x24 == 0xe, accumulates table records in `DAT_0000d6d8`-based state, and asserts at most four RAM-partition entries. **No actual runtime table contents were read**. Provenance `ev_71558580cd7ebcdb9318eacfb416cdd69b68024d089d546790a5128f73c795c9`.
+- Original `FUN_00005560` at `0x5560` contains both source instructions `0x572c` and `0x5734`. It invokes `FUN_000053b0` to obtain a pointer/descriptor format and handles two 0x40-/0x48-stride table layouts; it also applies the at-most-four-entry bound. Provenance `ev_a9198391b279aafa76b364535bdffcc763c9a060d9abccdcd9b7bbe115c42fd7`.
+- Crucially, under **one explicit error-status condition** `FUN_00005560` assigns `DAT_0000d700 = 0x60000000` and `DAT_0000d6f8 = 0x80000000`. These are **original static compiled fallback constants**, NOT observed device runtime RAM boundaries or confirmed interpretation of which field is Base and which is AvailableLength.
+
+### Porting maturity
+
+The device is the original locked-US `SM-G986U1` exact HXL1 phone. Full-target firmware identity and safe ADB shell/read-only probe are proven. The uncontended futex-PI syscall smoke passed on the physical phone as UID 2000. Original ABL handoff code and original compressed XBL EnvDxe module are verified. This project is nevertheless in **device-specific research and exploit-feasibility analysis**, **not a working Root-My-Galaxy payload port**. There is no verified vulnerability trigger, race, leak, kernel write primitive, safe in-memory kernel patch, root, persistent privilege or KernelSU module deployment for this stock locked handset. Neither ADB nor Shizuku shell access yields those privileges.
+
+### Next targeted host-side probe
+
+Three new grounded functions need original SHA256-authenticated REA/Ghidra dossiers: `FUN_000053b0` (direct table supplier called by `0x5560`); `FUN_000023b0` and `FUN_000020ac` (startup initialization candidates called by `0x22b0`). A single authenticated REA/Ghidra xref query at **`0x5560`** will also identify static callers of the table initializer, without inferring that any caller ran on the physical phone. These are candidates only, not claimed protocol registration. New `tools/y2q_hxl1_envdxe_ram_table_input_trace.py`, 16 synthetic tests, a bounded runner and CI checks were committed. Execute in WSL2 **without attaching the S20+**:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_envdxe_ram_table_input_trace.sh
+
+Report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-ram-table-input-trace.md`. It will preserve full source function pseudocode and evidence IDs. The actual kernel physical load address, runtime KASLR slide and root exploit remain **UNVERIFIED**, regardless of static address constants.
