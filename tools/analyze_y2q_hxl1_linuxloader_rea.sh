@@ -18,6 +18,12 @@ if [ -s "$HOME/.nvm/nvm.sh" ]; then
   nvm use 24 >/dev/null 2>&1 || true
   hash -r
 fi
+# Activated only when Ghidra/JDK was discovered and verified by setup.
+# A sourced file belongs to this explicit local research environment.
+if [ -f "$OUT/rea-ghidra-env.sh" ]; then
+  # shellcheck source=/dev/null
+  . "$OUT/rea-ghidra-env.sh"
+fi
 
 if [ ! -f "$OUT/LinuxLoader-HXL1.efi" ]; then
   echo "=== Reuse existing verified 2-decoder ABL section evidence (no re-unpack) ==="
