@@ -730,3 +730,30 @@ Operator commands (no phone needed):
 Report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-ram-source-xrefs.md`.
 
 This changes investigative dimensions from absent GUID xrefs to actual startup function call tree and diagnostic strings. Next proof is the exact firmware initializer path to `InstallMultipleProtocolInterfaces` and the actual GetRamPartitions callback implementation. Even proving both functions statically does not provide XBL runtime DRAM partition entries, UEFI KernelBaseAddr variable values, actual per-boot KASLR, device physical kernel load address, exploitability or KernelSU.
+
+
+## 2026-10-10 14:32 — EnvDxe Ghidra RAM-table diagnostic xrefs and startup-call chain
+
+The owner ran `bash tools/run_y2q_hxl1_envdxe_ram_source_xrefs.sh` on branch commit `32f0076`. All **14 synthetic tests passed**. The original, SHA256-pinned HXL1 XBL `EnvDxe-HXL1.efi` is still SHA256 `9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670`. Original REA/Ghidra evidence: actual `EnvDxe` entrypoint `0x1000`; exact GUID bytes at `0xd118`; zero direct GUID xrefs, as previously observed.
+
+**New, authenticated static sources:**
+
+- The original source diagnostic `RamPartitionTableLib.c` (`0xa87e`) has **two** Ghidra xrefs from instructions `0x554c`, `0x572c`. REA evidence ID `ev_b7cbec4f1b33bfe4cdc33b6645b89349f6bd6e34e35d34c0eaef9032c194ed42`.
+- The `mRamPartitionTableEntryCount <= 4` assertion text (`0xa895`) has **two** Ghidra xrefs from `0x5554`, `0x5734`. REA evidence ID `ev_db2936b04e50fb1e7b7f372a21b6fb0e6c1e8bca598ca7df37409ba646773125`.
+- `EnvDxe.c` (`0x90bf`) has **nine** xrefs at `0x1818`, `0x1870`, `0x1a10`, `0x1be4`, `0x1d70`, `0x1df4`, `0x1e70`, `0x1ec8`, `0x232c`. REA evidence ID `ev_b5033c4218f1a2c00659933d0f3ee85c72160f5d15f729cbec3d795388b09103`.
+- Genuine Ghidra `FUN_000010f4` uses `DAT_0000d000 = thunk_FUN_000051a4()`, HighFunction true. REA evidence ID `ev_9b8a5baa949e5855d2c1ef3e4d0e0a3154bc31184795110731cf5f0f9099ad17`.
+- Genuine Ghidra `FUN_00001150` calls `FUN_0000123c`, then `thunk_FUN_000022b0` and on error `FUN_00001500`; HighFunction true. REA evidence ID `ev_c5e3ef2b05dc8eccfb50cbdf1a33c9ed949bce104f34b278975fe0d10aa6aae9`.
+
+The two RAM-source xref **instruction pairs** are at `0x554c/0x5554` and `0x572c/0x5734`, each 8 bytes apart. These strongly motivate checking the containing function bodies, but the current evidence alone does **not** establish that each pair belongs to one Ghidra function, that there are two distinct RAM parsing routines, or that those addresses contain physical RAM values. The `<=4` string is a compiled assertion, not a measured active partition count.
+
+**Next verified-function gate implemented:** `tools/y2q_hxl1_envdxe_provider_followup.py` plus host wrapper `tools/run_y2q_hxl1_envdxe_provider_followup.sh`. This revalidates all prior exact-original-PE SHA256 and REA source evidence and issues precisely **three** REA/Ghidra function requests: `0x22b0` (init dispatch), `0x554c` and `0x572c` (RAM-table diagnostic reference sources). For RAM-table regions, the returned Ghidra function body must include **both** the matching source-file and assertion instruction addresses before its pseudocode is accepted. A function whose body splits the pair is a **hard stop** requiring revised address-specific inspection. Actual Ghidra function ranges, original evidence IDs and complete pseudocode are saved; any observed indirect calls or callbacks are still considered unverified until directly traced. The report does not promote function names, references or compiler assertions to runtime physical address evidence.
+
+The update includes **16 synthetic tests**, CI compile/unit/shell checks, and preserves existing evidence rather than overwriting it. Run on WSL2 (the phone is not used):
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_envdxe_provider_followup.sh
+
+Report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-provider-followup.md`.
+
+Even if registration code is eventually identified, an original static PE is not a live DRAM partition-table dump. Runtime `BaseMemory`, KASLR, the booted Linux physical entry, GhostLock exploitability and KernelSU installation remain unverified.
