@@ -30,8 +30,15 @@ def image():
     pe[sec:sec+8]=b".text\0\0\0"
     struct.pack_into("<IIII",pe,sec+8,0x5000,0x1000,0x5000,0x400)
     struct.pack_into("<I",pe,sec+36,0x60000020)
-    offset=0x400+(0x1f74-0x1000)+0x30
-    struct.pack_into("<I",pe,offset,0x94000cca)
+    def put_word(address,word):
+        offset=0x400+(address-0x1000)
+        struct.pack_into("<I",pe,offset,word)
+    # Seed the four independent ARM64 control-flow boundaries used in
+    # the real HXL1 firmware. Random filler alone has no valid final RET.
+    put_word(0x1f40,0x94000e00)  # preceding method BL -> 0x5740
+    put_word(0x1fa4,0x94000cca)  # GetRamPartitions BL -> 0x52cc
+    put_word(0x1fe4,0xd65f03c0) # callback RET; provisional end 0x1fe8
+    put_word(0x1ff0,0x9400018a)  # separate post-callback BL -> 0x2618
     return pe
 
 
@@ -179,6 +186,23 @@ class FourMethodProvenanceTests(unittest.TestCase):
         self.assertEqual(bounded["exclusiveUpperBound"],"0x1f74")
         self.assertNotIn("0x1fa4",
             [x["instructionAddress"] for x in bounded["inRegionControlFlow"]])
+
+    def test_synthetic_control_flow_setup_has_three_calls_and_ret(self):
+        # The test input is synthetic, but its relative branches/return must
+        # match the four critical observed ORIGINAL instruction relationships.
+        expected={
+            "0x1f40":("BL","0x5740"),
+            "0x1fa4":("BL","0x52cc"),
+            "0x1fe4":("RET",None),
+            "0x1ff0":("BL","0x2618"),
+        }
+        from tools.y2q_hxl1_envdxe_method_arm64_trace import arm64_edges
+        for address,(mnemonic,target) in expected.items():
+            with self.subTest(address=address):
+                off=0x400+(int(address,16)-0x1000)
+                edge=arm64_edges(bytes(self.pe[off:off+4]),int(address,16))[0]
+                self.assertEqual(edge["mnemonicClass"],mnemonic)
+                self.assertEqual(edge["directBranchTarget"],target)
 
     def test_getram_ret_boundary_excludes_adjacent_0x2618_call(self):
         result=self.full()
