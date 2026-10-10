@@ -19,6 +19,7 @@ from tools.y2q_stock_boot_v2_audit import PINS, AuditError, boot_header, pinned
 FDT_MAGIC = b"\xd0\x0d\xfe\xed"
 DT_TABLE_MAGIC = b"\xd7\xb7\xab\x1e"
 MAX_CANDIDATES = 4096
+EXPECTED_BOOT_FILE_SIZE = 67108864
 
 
 def digest(raw: bytes) -> str:
@@ -104,7 +105,7 @@ def inventory_dtb_region(blob: bytes) -> dict:
 
 def analyze(artifacts: Path) -> dict:
     original = pinned(artifacts / "boot.img", PINS["boot.img"])
-    if len(original) != 67108864:
+    if len(original) != EXPECTED_BOOT_FILE_SIZE:
         raise AuditError("unexpected original boot.img size")
     header = boot_header(original)
     region = header["regions"]["dtb"]
