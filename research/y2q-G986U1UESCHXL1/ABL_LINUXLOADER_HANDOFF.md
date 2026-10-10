@@ -996,10 +996,15 @@ These are **provisional attribution bounds, not Ghidra-confirmed function extent
 
 Four bounded Ghidra xref queries: `0x3c3c`, `0x5740`, `0x2618`, `0x1fe8`. Each window is original-executable PE SHA-gated and optional Ghidra-readback matched. An existing completed but corrupted result fails closed; failed partial evidence is preserved. The source analyzer requires parent original method attribution and 0x52cc original 128-byte prefix corroboration, and differentiates original evidence from live execution.
 
-Previous 319 tested cases + 5 new method-ownership regression tests + 334 new helper-batch cases = **658 independent offline test cases**, over twice the previous 319. All tools and CI wiring pushed to original feature branch but **NOT yet executed on WSL2**, so avoid claiming a successful 658 pass. Read-only, no S20+ connection:
+Previous 319 tested cases + 6 new method-ownership and synthetic ARM64 fixture regressions + 334 new helper-batch cases = **659 independent offline test cases**, over twice the previous 319. All tools and CI wiring pushed to original feature branch but **NOT yet executed on WSL2**, so avoid claiming a successful 658 pass. Read-only, no S20+ connection:
 
     cd ~/src/Root-My-Galaxy-Payloads
     git pull --ff-only
     bash tools/run_y2q_hxl1_envdxe_helper_batch.sh
 
 Report path: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-helper-batch.md`. This continues the original firmware's GetRamPartitions ABI tracing. It does **not** establish a live BaseMemory, boot-time KASLR, physical kernel entry, GhostLock vulnerability, root or KernelSU.
+
+
+### Preflight fixture correction before the 659-test run
+
+Before user WSL execution, a review of the synthetic PE test fixture identified that provisional method boundaries require **real ARM64 RET and BL instructions**, while the earlier synthetic PE only explicitly seeded BL `0x1fa4 -> 0x52cc`. The expanded fixture now **explicitly writes** `BL 0x1f40 -> 0x5740`, `BL 0x1fa4 -> 0x52cc`, `RET 0x1fe4`, and `BL 0x1ff0 -> 0x2618`. A new test decodes and checks each word from the fixture. These are SYNTHETIC instructions accurately encoding four independently observed relationships; they are not new original firmware readbacks. Source PE provenance and Ghidra comparison checks remain unchanged. Intended next batch test count revised from 658 to **659**. Full tests have not been run in WSL2 since the modifications.
