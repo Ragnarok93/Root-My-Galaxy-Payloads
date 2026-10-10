@@ -28,13 +28,31 @@ if hashlib.sha256(abl.read_bytes()).hexdigest() != ORIGINAL_ABL_SHA256:
 
 target=out/"LinuxLoader-HXL1.efi"
 if target.is_file():
-    if (out/"linuxloader-extraction.json").is_file():
+    if (out/"linuxloader-cached-correlation.json").is_file():
+        info=json.loads((out/"linuxloader-cached-correlation.json").read_text())
+        if (info.get("verificationStatus")=="HXL1_ORIGINAL_FFS_UI_PE32PLUS_AARCH64_VERIFIED"
+                and info.get("verifiedPeOutput")==str(target)
+                and info.get("sourceAblSha256")==ORIGINAL_ABL_SHA256
+                and info.get("nativeDecoderSectionSha256")==info.get("independentDecoderSectionSha256")
+                and info.get("peHeader",{}).get("strictAarch64Pe32PlusVerified") is True):
+            sha=info["independentDecoderSectionSha256"]
+            cls="PE32PLUS_AARCH64_VALIDATED_BY_TWO_DECODERS"
+        elif (out/"linuxloader-extraction.json").is_file():
+            native=json.loads((out/"linuxloader-extraction.json").read_text())
+            sha=native["loaderInfo"]["sha256"]
+            cls="PE_HEADER_VALIDATED_NATIVE"
+        else:
+            raise SystemExit("[STOP] Verified EFI present without matching provenance")
+    elif (out/"linuxloader-extraction.json").is_file():
         info=json.loads((out/"linuxloader-extraction.json").read_text())
         sha=info["loaderInfo"]["sha256"]
+        cls="PE_HEADER_VALIDATED_NATIVE"
     else:
         info=json.loads((out/"independent-uefi-recovery.json").read_text())
+        if info.get("status")!="VERIFIED_LINUXLOADER_PE_FROM_MATCHING_FFS_GUID":
+            raise SystemExit("[STOP] EFI lacks verified recovery record")
         sha=info["loader"]["sha256"]
-    cls="PE_HEADER_VALIDATED"
+        cls="PE_HEADER_VALIDATED_INDEPENDENT"
 else:
     target=out/"LinuxLoader-HXL1.unclassified.pe"
     if not target.is_file():
