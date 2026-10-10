@@ -105,6 +105,36 @@ def check_comparison(comparison, output):
         raise ValueError("important kernel platform/security config differs from running device")
 
 
+def check_arm64_external_assembler(compiler, prefix):
+    """Inspect Clang's external AArch64 assembler selection without compiling.
+
+    Clang's -B option accepts a tool-prefix (not just a directory), e.g.
+    -B/usr/bin/aarch64-linux-gnu-, which selects the cross-as executable
+    when vendor Kbuild supplies -no-integrated-as.
+    """
+    assembler = Path(prefix + "as")
+    if not assembler.is_file() or not os.access(assembler, os.X_OK):
+        raise ValueError("AArch64 GNU assembler not executable: " + str(assembler))
+    probe = [
+        str(compiler), "--target=aarch64-linux-gnu",
+        "-no-integrated-as", "-B" + prefix, "-EL", "-###",
+        "-x", "assembler", "-c", "/dev/null", "-o", "/dev/null",
+    ]
+    try:
+        process = subprocess.run(
+            probe, capture_output=True, text=True, timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ValueError("could not inspect Clang assembler command: " + str(error)) from error
+    output = process.stdout + process.stderr
+    if process.returncode or str(assembler) not in output:
+        raise ValueError("Clang did not select cross ARM64 assembler " + str(assembler) +
+                         "; inspect: " + output[-900:])
+    return {"assembler": str(assembler), "clangDryRun": probe,
+            "outputExcerpt": output[-1200:]}
+
+
 def plan(args):
     source = args.source_dir.expanduser().resolve()
     output = args.output_dir.expanduser().absolute()
@@ -156,6 +186,9 @@ def plan(args):
                    for x in source_audit["deviceConfigs"].values())):
         raise ValueError("source preflight failed before Image compatibility build")
 
+    assembler_probe = None
+    if getattr(args, "external_arm64_as", False):
+        assembler_probe = check_arm64_external_assembler(compiler, cross_prefix)
     if args.execute and args.log is None:
         raise ValueError("--execute requires --log outside the source and output directories")
     log = valid_external_path(source, output, args.log) if args.log else None
@@ -177,8 +210,17 @@ def plan(args):
         "CFP_CC=" + str(compiler),
         "DTC_EXT=" + str(dtc),
         "CONFIG_BUILD_ARM64_DT_OVERLAY=y",
-        "-j" + str(args.jobs), "Image",
     ]
+    if assembler_probe:
+        # Clang's external-assembler search otherwise falls back to /usr/bin/as
+        # (host x86-64); vendor Kbuild passes -EL, which that tool rejects.
+        # KCFLAGS applies to target C; KAFLAGS applies to target .S, both
+        # keeping Samsung source and the generated stock .config unchanged.
+        extra = "--target=aarch64-linux-gnu -B" + cross_prefix
+        cmd.extend(["KCFLAGS=" + extra, "KAFLAGS=" + extra])
+    if getattr(args, "verbose", False):
+        cmd.append("V=1")
+    cmd.extend(["-j" + str(args.jobs), "Image"])
     return {
         "firmware": FIRMWARE,
         "source": str(source),
@@ -193,6 +235,7 @@ def plan(args):
         "signed": False,
         "flashable": False,
         "compilerRouting": {"REAL_CC": str(compiler), "CFP_CC": str(compiler)},
+        "crossAssemblerProbe": assembler_probe,
         "note": "Experimental Clang18/GCC13 stock Image compatibility build with CFP compiler override, not a Samsung factory-identical binary.",
     }, report
 
@@ -240,6 +283,10 @@ def main():
     parser.add_argument("--comparison-json", type=Path, required=True)
     parser.add_argument("--clang", type=Path, default=Path("/usr/bin/clang"))
     parser.add_argument("--gcc-prefix", default="/usr/bin/aarch64-linux-gnu-")
+    parser.add_argument("--external-arm64-as", action="store_true",
+                        help="Probe AArch64 cross-as and route Clang external assembler with KCFLAGS/KAFLAGS")
+    parser.add_argument("--verbose", action="store_true",
+                        help="Log complete Make/compiler commands (V=1)")
     parser.add_argument("--jobs", type=int, default=2)
     parser.add_argument("--python2", type=Path,
                         help="Path to genuine Python 2.7 named python2; added to build subprocess PATH only")
