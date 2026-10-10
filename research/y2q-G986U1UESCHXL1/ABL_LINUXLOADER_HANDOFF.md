@@ -352,3 +352,36 @@ bash tools/run_y2q_hxl1_stage4_functions.sh
 ```
 
 **Engineering limit:** Function and p-code recovery is not evidence of actual execution, runtime physical Linux load, factory ABI, unlocked bootloader, or KernelSU. Next review original Ghidra pseudocode and value-flow provenance before proposing any address.
+
+
+## 2026-10-10 12:10: Original BootLinux load-layout arithmetic recovered
+
+Owner ran `tools/run_y2q_hxl1_stage4_functions.sh` against genuine SHA256-pinned `LinuxLoader-HXL1.efi`. **Seven/seven** new synthetic function-dossier tests passed and **three** real original REA 6.3.0/Ghidra 12.1.4 function dossiers were authenticated. The previously separate kernel-address and kernel/DT-space diagnostic references are unequivocally in **the same** Ghidra function `FUN_00020a60`, body `0x20a60..0x228df`, with Ghidra HighFunction p-code available. Related selector `FUN_00023bc8`, body `0x23bc8..0x25103`, also has HighFunction p-code. Evidenced original Ghidra IDs:
+
+- `kernel-load-print` `FUN_00020a60`: `ev_506be3a028e265ffb35075507e4277622a0a59578456ffc310586ff5191a3ded`;
+- `kernel-dt-boundary` `FUN_00020a60`: `ev_fb7cefe153c76c9bfa8e9171e3522336a8397493d1cbb7c36e8f0b6d98284d47`;
+- `best-dtb-match` `FUN_00023bc8`: `ev_9a97905f56a03853dfcc381dd5f99f39c37be72f3fe3a618100c56d28b304229`.
+
+**Now observed in actual firmware code** rather than inferred from a string:
+- `FUN_0001f018(&local_1c0)` retrieves a base-memory input (actual runtime value unknown).
+- BootLinux obtains `KernelBaseAddr` and `KernelSize` via an indirect UEFI service at `DAT_00351a40 + 0x48`. If *both* queries return success, and the detected kernel is in the recognized ARM64 format, initial kernel target `local_190 = KernelBaseAddr + 0x80000`; alternate image-format branch uses `KernelBaseAddr + 0x8000`. Its region upper end becomes `local_188 = KernelBaseAddr + KernelSize`.
+- If either query fails, the fallback `local_190 = (local_1c0 | *puVar1)` selects one of firmware-stored **DAT_000b2210/DAT_000b221c** offset words based on image format, while region upper end becomes `local_188 = local_1c0 + *(DAT_000b2214/DAT_000b2218)`. Note the fallback uses **bitwise OR**, not addition; do not casually replace it with arithmetic addition.
+- A firmware KASLR state word `DAT_0032a4c8` contributes `_DAT_a0001004 = DAT_0032a4c8 << 15`, then `local_190 = local_190 + (uint64)_DAT_a0001004`. In the sentinel-equals-`0x40` branch the word is initialized via `FUN_00020838` and masked with `0x3f`, implying a 32-KiB-granularity displacement; the range for other initialization branches and the runtime value are not proved.
+- Computes ramdisk and DTB destinations `local_180` and `local_178` below the region upper end, using page-size rounding and a 2-MiB spacing. Performs overlap checks including `local_178 <= local_190` and checks against the kernel runtime image size.
+- Decompress path sends `local_190` as a destination to `FUN_00023730(...)`; direct-copy paths call an indirect memory-copy service `DAT_00351a38+0x160` to copy kernel bytes to `local_190`.
+- Calls DTB selector `FUN_00023bc8(uVar14,uVar23,local_14c,local_178)`; that function reads `model`, `qcom,board-id`, `qcom,msm-id`, `qcom,pmic-id` from candidate device-tree data. These are selection inputs, not conclusive runtime winning DTB.
+
+**Very important:** `0x80000` is a boot image placement **offset**, NOT a literal physical address. Neither `KernelBaseAddr`, the base-memory input, fixed firmware offset words, nor the KASLR word's actual runtime value is yet in evidence. The main BootLinux source ends beyond the pasted report's 18,000-character preview; neither its final indirect kernel jump nor boot-services exit were shown there.
+
+**New passive next probe:** `tools/y2q_linuxloader_rea_stage4_placement.py` revalidates all three original REA function dossiers, checks that both views of `BootLinux` agree, reports actual observed placement statements and p-code availability, and retrieves the **last 180 lines** of complete Ghidra pseudocode from existing local JSON (NO Ghidra rerun). It saves `rea-stage4-placement-tail.md` and JSON, with explicit unknown runtime values. Eight synthetic offline tests added. This targets the missing final handoff evidence instead of another scan.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -q tools/test_y2q_linuxloader_rea_stage4_placement.py
+python3 tools/y2q_linuxloader_rea_stage4_placement.py
+sed -n '/## Previously omitted BootLinux pseudocode tail/,/## Still unknown/p' \\
+  ~/s20-artifacts/hxl1-research/abl-linuxloader/rea-stage4-placement-tail.md
+```
+
+**Additional high-value static input**: the four 32-bit OEM fallback words at Ghidra PE addresses `0x000b2210..0x000b221f` can be read with REA `read-bytes` (16 bytes, original authenticated PE) to resolve *fallback offsets* without a live device or blind scan. That **still would not establish the firmware runtime `BaseMemory` value**. Once the remaining tail is observed, follow any final kernel branch/ExitBootServices callee and its register setup, separately distinguishing static values from runtime state. Stage 4 remains OPEN.
