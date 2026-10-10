@@ -998,6 +998,100 @@ This is an experimental **off-device** stock-kernel compatibility
 build. Nothing is signed, flashed, booted, or installed onto
 the locked Galaxy S20+.
 
+## October 9: fourth Image build failed — Samsung Clang prefix overrides cross assembler
+
+Fourth owner-side attempt used the prior
+`--external-arm64-as --verbose` build mode. The actual verbose C
+compiler invocation retained all of:
+
+- `--target=aarch64-linux-gnu`
+- `--prefix=/usr/bin/` (Samsung Kbuild-supplied)
+- `-no-integrated-as` (Samsung Kbuild-supplied)
+- `-B/usr/bin/aarch64-linux-gnu-` (our attempted routing override)
+
+Despite the `-B` flag, Clang still launched native `/usr/bin/as`,
+which failed on ARM64 option `-EL` when compiling
+`scripts/mod/empty.o`. The prior probe was insufficient because it did
+**not** replicate Samsung's `--prefix=/usr/bin/` argument. This is now
+corrected: external assembler routing only passes preflight when the
+**full vendor-like flags** select the precise cross assembler executable.
+
+### Fifth compatibility trial: verified Clang integrated ARM64 assembler
+
+Clang also includes an AArch64 *integrated assembler*. Adding
+`-integrated-as` **after** the original `-no-integrated-as`
+overrides the external assembler request, bypassing `/usr/bin/as`
+entirely. The build helper now offers an **opt-in**
+`--integrated-arm64-as` option.
+
+The new preflight performs two checks using vendor-like flags,
+including `--prefix=/usr/bin/ -no-integrated-as -EL`:
+
+1. Inspect `clang -###` and require ARM64 `cc1` with object emission
+   and **no external assembler**.
+2. Compile a tiny disposable C object in an automatically deleted
+   temporary directory and validate the ELF magic, ELF64 class,
+   little-endian encoding, and `EM_AARCH64` architecture identifier.
+
+No stock kernel source, configuration, firmware, phone, or existing
+output directory is changed during the dry-run probe.
+
+First, pull the updated tool and run dry-run:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --integrated-arm64-as \
+  --verbose \
+  --jobs 2
+```
+
+Expected `DRY RUN PASSED`; the report prints the Make command including
+`KCFLAGS=--target=aarch64-linux-gnu -integrated-as` and a matching
+`KAFLAGS`. The Clang probe is **not** a Samsung kernel Image build.
+
+Only if that preflight passes, reuse the existing stock-only `O=`
+directory with **fresh fifth-attempt logs**:
+
+```bash
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --integrated-arm64-as \
+  --verbose \
+  --jobs 2 \
+  --execute \
+  --log ~/s20-artifacts/samsung-hxl1-image-clang18-build-05.log \
+  --json ~/s20-artifacts/samsung-hxl1-image-clang18-report-05.json
+```
+
+If Make fails, capture:
+
+```bash
+grep -nE 'error:|fatal error:|Error [0-9]+|No such file|unrecognized option' \
+  ~/s20-artifacts/samsung-hxl1-image-clang18-build-05.log | head -80
+tail -n 85 ~/s20-artifacts/samsung-hxl1-image-clang18-build-05.log
+```
+
+The integrated assembler can expose **new incompatibilities** in
+legacy Samsung assembly directives; the objective is a diagnostic,
+off-device stock compatibility build. A successful `Image` remains
+unsigned and nonflashable on the currently locked S20+.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
