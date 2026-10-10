@@ -23,6 +23,7 @@ from tools.y2q_hxl1_extract_envdxe import (
 
 ADDRESS=re.compile(r"^0x[0-9a-fA-F]+$")
 XREF_NAME="rea-envdxe-ram-guid-xrefs.json"
+READBACK_NAME="rea-envdxe-ram-guid-import-read.json"
 MAX_JSON=16*1024*1024
 MAX_REFS=5000
 
@@ -62,8 +63,42 @@ def source_info(folder: Path) -> dict:
     }
 
 
+def readback_info(folder: Path) -> dict:
+    """Prevent silently treating a mismatched Ghidra image base as no xrefs."""
+    source=source_info(folder)
+    f=folder/READBACK_NAME
+    if f.is_symlink() or not f.is_file() or f.stat().st_size>MAX_JSON:
+        raise ExtractionError("Ghidra exact imported-GUID read Evidence absent")
+    ev=json.loads(f.read_text())
+    if (not isinstance(ev,dict) or "error" in ev or
+        ev.get("operation")!="read_bytes" or
+        ev.get("provider",{}).get("id")!="ghidra" or
+        ev.get("subject",{}).get("digest",{}).get("sha256")!=PE_SHA256 or
+        ev.get("subject",{}).get("architecture")!="arm64" or
+        ev.get("parameters",{}).get("address")!=source["preferredAddress"] or
+        ev.get("parameters",{}).get("length")!=16):
+        raise ExtractionError("Ghidra imported GUID read provenance mismatch")
+    read=ev.get("normalized_result")
+    if (not isinstance(read,dict) or
+        read.get("address")!=source["preferredAddress"] or
+        read.get("requested_bytes")!=16 or
+        read.get("returned_bytes")!=16 or
+        read.get("complete") is not True or
+        read.get("bytes_hex","").lower()!=GUID_LE.hex()):
+        raise ExtractionError(
+            "Ghidra import address does not contain original RAM GUID; "
+            "image base must be investigated, do not trust xrefs")
+    evidence=ev.get("evidence_id")
+    if not isinstance(evidence,str) or not evidence:
+        raise ExtractionError("Missing original GUID readback Evidence ID")
+    return {"evidenceId":evidence,
+            "importedGuidAddress":source["preferredAddress"],
+            "importedBytesVerified":True}
+
+
 def xref_info(folder: Path) -> dict:
     source=source_info(folder)
+    corroborated=readback_info(folder)
     f=folder/XREF_NAME
     if f.is_symlink() or not f.is_file() or f.stat().st_size>MAX_JSON:
         raise ExtractionError("Original EnvDxe Ghidra xrefs Evidence absent")
@@ -87,7 +122,10 @@ def xref_info(folder: Path) -> dict:
     return {
         "classification":"VERIFIED_STATIC_ORIGINAL_ENV_DXE_RAMPARTITION_GUID_XREFS",
         **source,
-        "evidenceId":evidence, "referenceCount":len(refs),
+        "evidenceId":evidence,
+        "guidByteReadbackEvidenceId":corroborated["evidenceId"],
+        "importedGuidBytesVerified":True,
+        "referenceCount":len(refs),
         "distinctSourceReferences":list(dict.fromkeys(refs)),
         "protocolInstallCallIdentified":False,
         "getRamPartitionsImplementationIdentified":False,
@@ -106,6 +144,8 @@ def report_text(result:dict)->str:
         "Static PE RVA: "+result["guidRva"],
         "Original preferred static PE VA: "+result["preferredAddress"], "",
         "Ghidra REA evidence ID: "+result["evidenceId"],
+        "Imported GUID bytes verified via REA read: "+
+        result["guidByteReadbackEvidenceId"],
         "Source reference count: "+str(result["referenceCount"]), "",
         "## Reference instructions", "",
     ]
