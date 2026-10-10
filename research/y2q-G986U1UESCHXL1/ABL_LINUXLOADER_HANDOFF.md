@@ -824,11 +824,11 @@ Owner executed `bash tools/run_y2q_hxl1_envdxe_smem402_protocol.sh` on original,
 User requested at least **twice the testing rate per pass**, because sequential tiny investigations were too slow. New `tools/y2q_hxl1_envdxe_ram_registration_callback.py` and `tools/run_y2q_hxl1_envdxe_ram_registration_callback.sh` combine **two distinct evidence groups into one host run**:
 
 1. Gate the authentic `0x205c` registration pseudocode, the exact `0xd118` RAM GUID from prior byte-verified evidence, success branch, UEFI method +0x148, exact interface address 0xd1d0, and reject the separate all-zero candidate 0xd2e8 as RAM registration.
-2. Read **48 exact original Ghidra bytes** at 0xd1d0. Interpret six little-endian qwords and the method slot **+0x18, static coordinate 0xd1e8**. Query **four** targeted Ghidra xrefs: interface 0xd1d0, callback slot 0xd1e8, installer function 0x205c, and SMEM402 table supplier 0x53b0. If the method's raw qword is plausibly a nonzero word-aligned static PE address, immediately obtain and SHA-bind the actual Ghidra function dossier. Otherwise report relocation/uninitialized static slot as an explicit gap, never "callback absent."
+2. Read **48 exact original Ghidra bytes** at 0xd1d0. Interpret six little-endian qwords and the method slot **+0x18, static coordinate 0xd1e8**. Query **eight** targeted Ghidra xrefs: interface 0xd1d0, callback slot 0xd1e8, RAM installer function 0x205c, SMEM402 table supplier 0x53b0, 0x5430 RAM v1 parser, 0x5288 format validator, 0x7d08 generic SMEM accessor, and unrelated 0x23b0 protocol initializer. If the method's raw qword is plausibly a nonzero word-aligned static PE address, immediately obtain and SHA-bind the actual Ghidra function dossier. Otherwise report relocation/uninitialized static slot as an explicit gap, never "callback absent."
 
 The audit uses exact original PE SHA256, earlier REA evidence IDs, readback length, Ghidra provider and requested coordinates, callback function-body containment, and fail-closed reuse of cached JSON. It cannot contact or modify the handset.
 
-**43 independent synthetic regression tests** are committed in two new suites (23 registration/interface + 20 callback/reference), over **2.8×** the previous 15-test pass; CI includes test and shell syntax checks. The actual WSL2 run has not yet occurred.
+**45 independent synthetic regression tests** are committed in two new suites (23 registration/interface + 22 callback/reference), over **2.8×** the previous 15-test pass; CI includes test and shell syntax checks. The actual WSL2 run has not yet occurred.
 
     cd ~/src/Root-My-Galaxy-Payloads
     git pull --ff-only
