@@ -2438,7 +2438,7 @@
     "workingKernelSu": false,
     "verifiedStockIdentity": true,
     "verifiedStockOriginalSourceHashes": true,
-    "nextOwnerAction": "Validate the four contiguous original boot.img FDT structure-token streams and top-level identity; particularly the 173-byte fourth candidate may be a minimal overlay/sentinel. Original hash pins and 10/10 DTB inventory tests pass, but runtime-selected DTB and physical kernel handoff remain unknown.",
+    "nextOwnerAction": "Run the semantic FDT-token and root identity audit and its 10 tests; four contiguous FDT v17 header candidates are verified, but runtime selection, overlays and physical kernel base are not.",
     "noPhoneChanges": true,
     "noCrossDeviceOffsets": true,
     "noPrematureSupportFeedRegistration": true,
@@ -2859,7 +2859,7 @@
         "sizeBytes": 68536429
       }
     ],
-    "nextEvidenceAction": "Inspect the four original contiguous FDT payloads with a bounded semantic parser or dtc on hashes, inspect root model/compatible and structure token validity, especially the 173-byte fourth blob. No conclusions about runtime-selected DTB or Linux physical placement until independent data.",
+    "nextEvidenceAction": "Run semantic FDT stream validator against four hash-pinned HXL1 DTB headers, classify 173-byte final FDT, compare root model/compatible strings of larger candidates. Stage 4 original ABL-to-Linux physical handoff remains OPEN.",
     "stockBootloaderImagesExtracted": true,
     "originalFactoryPhysicalKernelEntryVerified": false,
     "deviceFlashed": false,
@@ -3172,6 +3172,27 @@
       ],
       "nuance": "Four structurally valid FDT v17 headers cover the embedded DTB region exactly. This does not prove full semantic validity, nor that four trees are bootloader-selectable or identify selected device tree.",
       "kernelPhysicalAddressVerified": false
+    },
+    "followupFdtStructureAndRootIdentity": {
+      "tool": "tools/y2q_stock_fdt_semantic_audit.py",
+      "tests": "tools/test_y2q_stock_fdt_semantic_audit.py",
+      "ci": ".github/workflows/y2q-identity-probe.yml",
+      "source": "original SHA256-pinned boot.img embedded DTB region",
+      "originalFdtHeaderCount": 4,
+      "testCount": 10,
+      "checks": [
+        "FDT_BEGIN_NODE/END_NODE balance",
+        "FDT_PROP bounds and strings offset validity",
+        "FDT_NOP and final FDT_END token",
+        "full contiguous DTB region coverage",
+        "node/property counts",
+        "bounded root model and compatible printable ASCII strings"
+      ],
+      "noteworthy": "Fourth header is only 173 bytes; full FDT structure may be minimal or fail semantic validation. Determine by executing new tool. Do not label it a dummy or runtime-selected tree before results.",
+      "output": "/home/main/s20-artifacts/hxl1-research/stock-fdt-semantic-audit.{json,md}",
+      "status": "COMMITTED_10_TESTS_NOT_YET_OWNER_VERIFIED",
+      "actualSelectedRuntimeDtbKnown": false,
+      "actualKernelPhysicalAddressKnown": false
     }
   }
 }
