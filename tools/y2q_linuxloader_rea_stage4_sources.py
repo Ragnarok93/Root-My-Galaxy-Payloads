@@ -20,6 +20,8 @@ SOURCES = (
     ("base-memory-provider", "0x1f018", "FUN_0001f018"),
     ("kaslr-initializer", "0x20838", "FUN_00020838"),
     ("exit-boot-services", "0x1e868", "FUN_0001e868"),
+    # Direct call observed at 0x1f018: consumes Qualcomm RAM partition protocol.
+    ("ram-partition-reader", "0x1eca0", "FUN_0001eca0"),
 )
 ADDRESS = re.compile(r"^0x[0-9a-f]+$")
 MAX_FILE_BYTES = 50000000
