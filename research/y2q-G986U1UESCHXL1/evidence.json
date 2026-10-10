@@ -809,14 +809,15 @@
     },
     "officialReference": "https://lists.openwall.net/linux-cve-announce/2026/05/21/7",
     "confidence": "Matching source logic confirmed from owner-provided exact excerpts and recorded hashes. Completeness of vendor source reconstruction and identity with running binary not established.",
-    "originalExtractedKernelByteCorrelationVerified": false,
+    "originalExtractedKernelByteCorrelationVerified": true,
     "sourceCodeCVEPatternVerified": true,
     "runtimeVulnerabilityDemonstrated": false,
     "exploitableOnDeviceDemonstrated": false,
     "rootGranted": false,
     "moduleLoadVerified": false,
     "publicationAllowed": false,
-    "nextResearch": "Verify original retained boot.img/kernel.bin against recorded hashes, identify exact stock kernel binary format and inspect read-only disassembly/source correspondence; avoid crash-oriented reproduction until recovery plan is established."
+    "nextResearch": "Verify original retained boot.img/kernel.bin against recorded hashes, identify exact stock kernel binary format and inspect read-only disassembly/source correspondence; avoid crash-oriented reproduction until recovery plan is established.",
+    "originalExtractedKernelByteCorrelationScope": "Three selected function-entry 64-byte windows plus corresponding source/disassembly semantics; not full Image source-byte equivalence or running-memory identity"
   },
   "originalFirmwareBinaryVerification": {
     "ownerReportedAt": "2026-10-10",
@@ -925,7 +926,47 @@
       },
       "bytesAtSymbolLocationsComparedToOriginalKernel": false,
       "runtimeKASLRAddressKnown": false,
-      "note": "RWE/align0 LOAD segments and entry pointing at start_kernel reflect a reconstructed analysis ELF, not measured page protections, SoC physical address or boot entry. Relative mapping for first LOAD may be tested against original raw kernel at symbol VA-minus-_text."
+      "note": "RWE/align0 LOAD segments and entry pointing at start_kernel reflect a reconstructed analysis ELF, not measured page protections, SoC physical address or boot entry. Relative mapping for first LOAD may be tested against original raw kernel at symbol VA-minus-_text.",
+      "instructionCorrelation": {
+        "ownerReportedAt": "2026-10-10",
+        "note": "First 64 bytes of each function compared between original raw kernel.bin at VA - guessed _text and reconstructed ELF first load at file offset 0x240 + same relative offset; all three equal. Since ELF is reconstructed from raw image, matches validate relative byte mapping for selected windows, not an independent runtime binary dump or symbol address proof.",
+        "virtualBaseHypothesis": "0xffffff8008080000",
+        "elfFirstLoadFileOffset": "0x240",
+        "tested": [
+          {
+            "name": "__rt_mutex_start_proxy_lock",
+            "rawImageFileOffset": "0xC7744",
+            "bytesCompared": 64,
+            "equal": true
+          },
+          {
+            "name": "rt_mutex_start_proxy_lock",
+            "rawImageFileOffset": "0xC7D14",
+            "bytesCompared": 64,
+            "equal": true
+          },
+          {
+            "name": "remove_waiter",
+            "rawImageFileOffset": "0xC7DB4",
+            "bytesCompared": 64,
+            "equal": true
+          }
+        ],
+        "disassembly": {
+          "removeWaiterCurrentTask": "0xffffff8008147de8: mrs x20, SP_EL0",
+          "currentPiLock": "0xffffff8008147dec: add x21, x20, #0x8c8; 0xffffff8008147df8: bl _raw_spin_lock",
+          "currentPiBlockedOnClear": "0xffffff8008147e1c: str xzr, [x20, #0x8f8]",
+          "proxyLockRollback": "0xffffff8008147d50: mov x0, x19; 0xffffff8008147d54: mov x1, x20; 0xffffff8008147d58: bl remove_waiter",
+          "proxyLockTaskArgument": "0xffffff8008147d28: mov x21, x2; 0xffffff8008147d3c: mov x1, x21",
+          "proxyLockCleanupControlFlow": "0xffffff8008147d44: bl try_to_take_rt_mutex; 0xffffff8008147d48: cbz w0, +0x68; positive path sets w21=1 then calls remove_waiter. Requires separate review, not proof of distinct exploit."
+        },
+        "reconstructedOriginalKernelCveTaskMismatchBinaryEvidence": true,
+        "requiredCaveats": [
+          "Only selected 64-byte windows were compared; ELF decoder may represent additional relocated instructions incorrectly.",
+          "Physical handset RAM and KASLR were not dumped or measured.",
+          "Disassembly demonstrates wrong-task access in original extracted firmware but not reachability, UAF triggering or root."
+        ]
+      }
     },
     "recoveredSymbolsProvisional": true
   }
