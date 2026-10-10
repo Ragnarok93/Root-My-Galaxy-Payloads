@@ -1995,7 +1995,26 @@
       "noADB": true,
       "noExploitation": true,
       "noCvePiRequeue": true,
-      "noKernelSU": true
+      "noKernelSU": true,
+      "boundedPiGuestEnhancement": {
+        "stage": "Committed, not tested on owner's guest yet",
+        "source": "research/y2q-G986U1UESCHXL1/qemu_lab_init.c",
+        "wrapper": "tools/y2q_qemu_lab.py",
+        "tests": "tools/test_y2q_qemu_lab.py",
+        "immediateReturnOperations": [
+          "FUTEX_WAIT_PRIVATE with mismatched value",
+          "FUTEX_WAKE_PRIVATE with zero waiters",
+          "FUTEX_LOCK_PI_PRIVATE on fresh unlocked word and owned unlock",
+          "FUTEX_TRYLOCK_PI_PRIVATE on another fresh unlocked word and owned unlock"
+        ],
+        "hostGuestIsolation": "No device/ADB/kernel text modifications, no PI requeue or contention, one PID1 process and 10-second in-guest alarm",
+        "preserveWorkingLab": "Use new output ~/s20-artifacts/qemu-lab-pi for guest initramfs; boot --kernel-image ~/s20-artifacts/qemu-lab-kasan/kernel-build/arch/arm64/boot/Image reuses original preserved KASAN Image",
+        "expectedResult": "PASS_BOUNDED_PI",
+        "testsRun": false,
+        "liveGuestExecuted": false,
+        "smartphoneExecuted": false,
+        "cvePathTriggered": false
+      }
     },
     "status": {
       "implementationCommitted": true,
@@ -2011,7 +2030,11 @@
       "plainBootSuccessful": true,
       "kasanConfigAcceptedByHelper": true,
       "kasanGuestBootedByOwner": true,
-      "kasanBootSuccessful": true
+      "kasanBootSuccessful": true,
+      "kasanFlagsIndependentlyObservedFromOwner": true,
+      "kasanBootLogErrorRegexMatches": false,
+      "boundedFutexPiSourceCommitted": true,
+      "boundedFutexPiTestRunByOwner": false
     },
     "interpretation": "Both baseline and KASAN+DEBUG_RT_MUTEXES upstream Linux 4.19.325 ARM64 VM boots verified by owner. KASAN runtime fault-detection sensitivity and Samsung GhostLock path remain untested. No evidence of phone rooting/module loading/KernelSU.",
     "ownerUpstreamBootEvidence": {
@@ -2109,6 +2132,20 @@
       "samsungVendorKernelBooted": false,
       "actualS20DeviceRootVerified": false
     },
-    "next": "Optional read-only config and full guest log validation, then bounded healthy RT-mutex/FUTEX_LOCK_PI guest tests. No crash-triggering CVE sequences on Samsung phone."
+    "next": "Optional read-only config and full guest log validation, then bounded healthy RT-mutex/FUTEX_LOCK_PI guest tests. No crash-triggering CVE sequences on Samsung phone.",
+    "ownerKasanReadOnlyConfigVerification": {
+      "observedAt": "2026-10-10T05:35:12Z",
+      "source": "Owner terminal output from grep of qemu-lab-kasan/kernel-build/.config and saved qemu-boot-20261010T052910Z.log",
+      "exactEnabledOptions": [
+        "CONFIG_KASAN=y",
+        "CONFIG_KASAN_OUTLINE=y",
+        "CONFIG_DEBUG_RT_MUTEXES=y",
+        "CONFIG_DEBUG_SPINLOCK=y",
+        "CONFIG_DEBUG_LIST=y"
+      ],
+      "searchedLogPattern": "kasan|BUG:|kernel panic|Oops:",
+      "grepReturnedMatchingLines": false,
+      "interpretation": "The compiled instrumented kernel configuration has all five requested flags enabled and the saved QEMU boot log grep found no KASAN, panic or Oops matches. This is not a runtime KASAN fault-detection self-test and does not reproduce the Samsung CVE."
+    }
   }
 }
