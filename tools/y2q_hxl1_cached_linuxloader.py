@@ -12,6 +12,9 @@ import json
 from pathlib import Path
 import sys
 
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from tools.y2q_abl_linuxloader_extract import (
     ORIGINAL_ABL_SHA256, ORIGINAL_ABL_BYTES, LOADER_GUID,
     digest, identify_pe, ExtractError,
