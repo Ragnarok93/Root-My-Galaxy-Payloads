@@ -143,7 +143,8 @@ class ImageBuildPlanTests(unittest.TestCase):
             class ProbeResult:
                 returncode = 0
                 stdout = ""
-                stderr = (prefix + "as") + " -EL\\n"
+
+                stderr = '"' + (prefix + "as") + '" "-EL"'
             with patch.object(module.subprocess, "run", return_value=ProbeResult()) as run:
                 observed = module.check_arm64_external_assembler(args.clang, prefix)
                 self.assertEqual(observed["assembler"], prefix + "as")
@@ -151,6 +152,20 @@ class ImageBuildPlanTests(unittest.TestCase):
                 self.assertIn("--target=aarch64-linux-gnu", invoked)
                 self.assertIn("-no-integrated-as", invoked)
                 self.assertIn("-B" + prefix, invoked)
+
+    def test_external_assembler_probe_rejects_host_prefix_selection(self):
+        with tempfile.TemporaryDirectory() as temp:
+            args, _, _, _ = self.setup_case(temp)
+            create_exe(Path(args.gcc_prefix + "as"))
+            class HostSelected:
+                returncode = 0
+                stdout = ""
+                stderr = ' "/usr/bin/as" "-EL" "-o" "/dev/null"'
+            with patch.object(module.subprocess, "run", return_value=HostSelected()) as run:
+                with self.assertRaisesRegex(ValueError, "still routes"):
+                    module.check_arm64_external_assembler(args.clang, args.gcc_prefix)
+                self.assertIn("--prefix=/usr/bin/", run.call_args.args[0])
+                self.assertIn("-no-integrated-as", run.call_args.args[0])
 
     def test_integrated_arm64_probe_compiles_elf64_aarch64_disposable_object(self):
         with tempfile.TemporaryDirectory() as temp:
