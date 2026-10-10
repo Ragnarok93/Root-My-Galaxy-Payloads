@@ -19,6 +19,7 @@ import tempfile
 from pathlib import Path
 
 from preflight_samsung_stock_build import run as source_preflight_run
+from prepare_samsung_vdso_compat import verify_compat
 
 FIRMWARE = "G986U1UESCHXL1"
 MAKEFILE_SHA256 = "d7f9cb790c68a280b20db07c7bcd3f8a3cce3ad99494f72f849c6f3a24a6b79d"
@@ -251,6 +252,8 @@ def check_cgroup_layout_warning_compat(compiler):
 
 def plan(args):
     source = args.source_dir.expanduser().resolve()
+    build_source = (args.compat_source_dir.expanduser().absolute()
+                    if getattr(args, "compat_source_dir", None) else source)
     output = args.output_dir.expanduser().absolute()
     if not source.is_dir() or not output.is_dir():
         raise ValueError("stock source or existing configured O= directory missing")
@@ -259,6 +262,11 @@ def plan(args):
         raise ValueError("source and output must be distinct real directories")
     if output.as_posix().startswith("/mnt/"):
         raise ValueError("keep kernel output on WSL Linux filesystem")
+    if (build_source != source
+            and (build_source.is_symlink() or not build_source.is_dir()
+                 or build_source == output or build_source in output.parents
+                 or output in build_source.parents or build_source.as_posix().startswith("/mnt/"))):
+        raise ValueError("separate normal compatible source outside stock and output required")
     if not (1 <= args.jobs <= 16):
         raise ValueError("job count must be between 1 and 16")
     if not (output / ".config").is_file() or (output / ".config").is_symlink():
@@ -280,7 +288,7 @@ def plan(args):
         raise ValueError("use an absolute AArch64 GCC tool prefix")
     gcc = Path(cross_prefix + "gcc")
     ld = Path(cross_prefix + "ld")
-    dtc = source / "tools/dtc"
+    dtc = build_source / "tools/dtc"
     for path, label in ((compiler, "Clang"), (gcc, "AArch64 GCC"),
                         (ld, "AArch64 GNU linker"), (dtc, "Samsung DTC")):
         if not path.is_file() or not os.access(path, os.X_OK):
@@ -300,6 +308,12 @@ def plan(args):
                    for x in source_audit["deviceConfigs"].values())):
         raise ValueError("source preflight failed before Image compatibility build")
 
+    compat_manifest = None
+    if build_source != source:
+        if sha256_file(build_source / "Makefile") != MAKEFILE_SHA256:
+            raise ValueError("compatibility source has unexpected Samsung Makefile")
+        compat_manifest = verify_compat(source, build_source)
+
     assembler_probe = None
     if getattr(args, "external_arm64_as", False) and getattr(args, "integrated_arm64_as", False):
         raise ValueError("choose one assembler mode: --external-arm64-as OR --integrated-arm64-as")
@@ -315,14 +329,18 @@ def plan(args):
     if args.execute and args.log is None:
         raise ValueError("--execute requires --log outside the source and output directories")
     log = valid_external_path(source, output, args.log) if args.log else None
+    if log and build_source != source:
+        valid_external_path(build_source, output, log)
     if args.execute and (log.exists() or log.is_symlink()):
         raise ValueError("build log already exists; use a new log path")
     report = valid_external_path(source, output, args.json) if args.json else None
+    if report and build_source != source:
+        valid_external_path(build_source, output, report)
     if args.execute and report is not None and (report.exists() or report.is_symlink()):
         raise ValueError("build report already exists; use a new report path")
 
     cmd = [
-        "make", "-C", str(source),
+        "make", "-C", str(build_source),
         "O=" + str(output), "ARCH=arm64",
         "CROSS_COMPILE=" + cross_prefix,
         "CLANG_TRIPLE=aarch64-linux-gnu-",
@@ -355,6 +373,8 @@ def plan(args):
     return {
         "firmware": FIRMWARE,
         "source": str(source),
+        "buildSource": str(build_source),
+        "upstreamCompatibilityManifest": compat_manifest,
         "output": str(output),
         "configSha256": config_sha256,
         "command": cmd,
@@ -409,7 +429,10 @@ def execute_build(info):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source-dir", type=Path, required=True)
+    parser.add_argument("--source-dir", type=Path, required=True,
+                        help="Immutable audited Samsung stock source")
+    parser.add_argument("--compat-source-dir", type=Path,
+                        help="Opt-in isolated copy containing exactly two upstream VDSO IAS fixes; full-tree hashes verified")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--audit-json", type=Path, required=True)
     parser.add_argument("--comparison-json", type=Path, required=True)
@@ -433,7 +456,8 @@ def main():
     try:
         info, report = plan(args)
         print("Firmware:", info["firmware"])
-        print("Source:", info["source"])
+        print("Original Samsung source:", info["source"])
+        print("Build source:", info["buildSource"])
         print("Output:", info["output"])
         print("Known generated config SHA-256:", info["configSha256"])
         print("Mode:", "EXPERIMENTAL STOCK Image COMPILE" if args.execute else "DRY RUN")
