@@ -1786,6 +1786,18 @@
         },
         "tracingFileContentsReadScope": "sched_switch format only"
       }
+    },
+    "bootloaderClarification": {
+      "lockedStateVerifiedByOwner": true,
+      "observedBootProperties": [
+        "ro.boot.verifiedbootstate=green",
+        "ro.boot.flash.locked=1",
+        "ro.boot.vbmeta.device_state=locked"
+      ],
+      "runtimeCveResearchRequiresUnlockedBootloader": false,
+      "ordinaryModifiedBootFlashingRequiresAuthorizedUnlock": true,
+      "stockSignatureEnforcementStillIndependent": true,
+      "status": "GhostLock entry remains a valid research target on locked stock boot; neither temporary root nor late KSU load demonstrated."
     }
   },
   "hxl1FutexPiSmoke": {
@@ -2300,5 +2312,57 @@
       "sourceCodeExecutedOnPhone": false,
       "status": "PASS_SOURCE_AUDIT_ONLY"
     }
+  },
+  "hxl1LiveBootSecurityState20261010": {
+    "source": "Owner read-only adb getprop, uname, getenforce, id output",
+    "observedAt": "2026-10-10T06:02:58Z",
+    "transport": "192.168.0.78:37375 adb device, y2q / SM-G986U1",
+    "model": "SM-G986U1",
+    "device": "y2q",
+    "product": "y2quew",
+    "build": "TP1A.220624.014.G986U1UESCHXL1",
+    "kernel": "4.19.113-27095354",
+    "selinux": "Enforcing",
+    "user": "uid=2000(shell), gid=2000(shell), context=u:r:shell:s0",
+    "verifiedBootState": "green",
+    "flashLocked": "1",
+    "vbmetaDeviceState": "locked",
+    "warrantyBit": "0",
+    "bootloader": "G986U1UESCHXL1",
+    "oemUnlockSupportedProperty": "",
+    "explicitUnlockedBootloaderObserved": false,
+    "originalStockIdentityStillMatches": true,
+    "exploitPrimitiveObserved": false,
+    "phoneRootObserved": false,
+    "note": "Locked bootloader does not prevent investigation of a local vulnerability executed against the currently booted kernel. Its locked state blocks ordinary unauthorized custom boot flashing, but neither proves nor disproves runtime exploitation. No on-device memory corruption, privilege change or KSU load observed."
+  },
+  "hxl1GhostLockToKernelSuResearchPlan": {
+    "reviewedAt": "2026-10-10T06:02:58Z",
+    "distinction": {
+      "runtimeVulnerability": "Does NOT inherently require OEM bootloader unlocking. Current stock kernel may contain vulnerable source path; runtime reaching it and obtaining controlled primitive unverified.",
+      "temporaryPrivilege": "Requires separate controlled reliable kernel primitive and permitted credential/control transition; still unverified",
+      "lateKernelSu": "Requires compatible 4.19 interception/hooks, module-loading trust or independently justified kernel-resident integration. Normal unsigned modules remain refused by CONFIG_MODULE_SIG_FORCE=y even if user-space UID becomes zero.",
+      "customKernel": "Alternative route normally requires an authorized unlock/custom-boot method and is not a prerequisite for the GhostLock root-research path.",
+      "persistence": "Locked Verified Boot remains a separate gate for modified boot-image persistence. Do not claim persistence from temporary runtime root."
+    },
+    "currentMilestones": {
+      "exactStockIdentityConfirmed": true,
+      "lockedVerifiedBootAndSelinuxConfirmed": true,
+      "originalKernelCveSourcePatternEstablished": true,
+      "originalKernelSourceHashesVerified": true,
+      "isolatedQemuLabAndKasanBootPassed": true,
+      "healthyFutexPiGuestPassed": true,
+      "sourceFixAuditPassed": true,
+      "actualGhostLockKernelErrorPathTriggeredOnStock": false,
+      "controlledMemorySafetyPrimitiveVerified": false,
+      "privilegedKernelReadWriteVerified": false,
+      "temporaryRootValidated": false,
+      "compatibleKernelSuHookBackendValidated": false,
+      "moduleSignatureGatePassed": false,
+      "lateKernelSuLoadedAndInitialized": false,
+      "persistenceValidated": false
+    },
+    "nextRecommended": "Prioritize isolated runtime reachability/correctness evidence for the identified RT-mutex rollback path using non-destructive VM instrumentation and pinned HXL1 source parity; separately evaluate 4.19-compatible root/KSU mechanisms and mitigations. Never treat locked bootloader alone as a GhostLock no-go.",
+    "riskPolicy": "Do not run crash-prone CVE PoC/race on primary phone. Keep branch research-only and no production support until privilege, loading and recovery evidence exists."
   }
 }
