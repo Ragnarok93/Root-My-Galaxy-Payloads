@@ -230,6 +230,93 @@ class ImageBuildPlanTests(unittest.TestCase):
             self.assertEqual(result["command"][-1], "Image")
             self.assertEqual((makefile.read_bytes(), config.read_bytes()), unchanged)
 
+    def test_core_compat_warning_probe_is_specific_and_preserves_other_warnings(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _, _, _ = self.setup_case(folder)
+            calls = []
+            class Outcome:
+                returncode = 0
+                stdout = ""
+                stderr = ""
+            def respond(command, **kwargs):
+                calls.append((command, kwargs))
+                result = Outcome()
+                if "-Wunused-parameter" in command:
+                    result.stderr = "warning: unused parameter 'parameter' [-Wunused-parameter]"
+                elif "-Wpointer-sign" in command and "-Wno-pointer-sign" not in command:
+                    result.stderr = "warning: converting from unsigned char * [-Wpointer-sign]"
+                elif ("-Wunused-but-set-variable" in command
+                      and "-Wno-unused-but-set-variable" not in command):
+                    result.stderr = "warning: set but unused [-Wunused-but-set-variable]"
+                return result
+            with patch.object(module.subprocess, "run", side_effect=respond):
+                result = module.check_legacy_core_warnings(args.clang)
+            self.assertEqual(len(calls), 5)
+            self.assertTrue(result["unrelatedWarningsStillEnabled"])
+            self.assertEqual(set(result["categories"]), {
+                "pointer-sign", "unused-but-set-variable"})
+            self.assertIn("-Wno-pointer-sign", calls[1][0])
+            self.assertIn("-Wno-unused-but-set-variable", calls[3][0])
+            self.assertEqual(calls[-1][1]["input"],
+                             "int samsung_y2q_control(int parameter) { return 1; }\n")
+            self.assertTrue(all("-fsyntax-only" in cmd for cmd, _ in calls))
+            self.assertTrue(all("-w" not in cmd for cmd, _ in calls))
+
+    def test_core_warning_probe_refuses_diagnostics_that_do_not_match(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _, _, _ = self.setup_case(folder)
+            class Silent:
+                returncode = 0
+                stdout = ""
+                stderr = ""
+            with patch.object(module.subprocess, "run", return_value=Silent()):
+                with self.assertRaisesRegex(ValueError, "did not reproduce pointer-sign"):
+                    module.check_legacy_core_warnings(args.clang)
+
+    def test_mainline_legacy_warnings_must_be_explicitly_enabled(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _, makefile, config = self.setup_case(folder)
+            args.integrated_arm64_as = True
+            args.cross_arm64_linker = True
+            args.suppress_cgroup_layout_warning = True
+            args.suppress_legacy_core_warnings = True
+            unmodified = (makefile.read_bytes(), config.read_bytes())
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \
+                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \
+                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \
+                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"), \
+                 patch.object(module, "check_arm64_integrated_assembler",
+                              return_value={"mode": "clang-integrated-aarch64"}), \
+                 patch.object(module, "check_cgroup_layout_warning_compat",
+                              return_value={"suppression": module.CGROUP_SUPPRESSION}), \
+                 patch.object(module, "check_arm64_cross_linker",
+                              return_value={"linker": args.gcc_prefix + "ld"}), \
+                 patch.object(module, "check_legacy_core_warnings",
+                              return_value={"unrelatedWarningsStillEnabled": True}) as probe:
+                result, _ = module.plan(args)
+            probe.assert_called_once_with(args.clang)
+            cc = next(x for x in result["command"] if x.startswith("KCFLAGS="))
+            assembler = next(x for x in result["command"] if x.startswith("KAFLAGS="))
+            self.assertIn("-Wno-pointer-sign", cc)
+            self.assertIn("-Wno-unused-but-set-variable", cc)
+            self.assertNotIn("-Wno-pointer-sign", assembler)
+            self.assertNotIn("-Wno-unused-but-set-variable", assembler)
+            self.assertNotIn(" -w ", " ".join(result["command"]))
+            self.assertEqual((makefile.read_bytes(), config.read_bytes()), unmodified)
+
+    def test_legacy_core_warning_mode_rejects_missing_prerequisites(self):
+        with tempfile.TemporaryDirectory() as folder:
+            args, _, makefile, config = self.setup_case(folder)
+            args.suppress_legacy_core_warnings = True
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \
+                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \
+                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \
+                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"):
+                with self.assertRaisesRegex(ValueError, "requires --integrated-arm64-as"):
+                    module.plan(args)
+
     def test_cross_linker_probe_checks_actual_aarch64_dso(self):
         with tempfile.TemporaryDirectory() as folder:
             args, _, _, _ = self.setup_case(folder)
