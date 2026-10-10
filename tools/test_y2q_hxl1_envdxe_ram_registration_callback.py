@@ -69,12 +69,13 @@ class OriginalProtocolXrefAndCallbackTests(unittest.TestCase):
         with patch.object(mod,"prior_audit",return_value=self.previous):
             return mod.audit(self.folder)
 
-    def test_four_distinct_source_xrefs(self):
+    def test_eight_distinct_source_xrefs_in_one_pass(self):
         outcome=self.overall()
-        self.assertEqual(len(outcome["targetedOriginalXrefs"]),4)
+        self.assertEqual(len(outcome["targetedOriginalXrefs"]),8)
         self.assertEqual([x["queriedStaticAddress"]
                           for x in outcome["targetedOriginalXrefs"]],
-                         ["0xd1d0","0xd1e8","0x205c","0x53b0"])
+                         ["0xd1d0","0xd1e8","0x205c","0x53b0",
+                          "0x5430","0x5288","0x7d08","0x23b0"])
 
     def test_combined_register_and_callback_categories_separate(self):
         outcome=self.overall()
@@ -109,6 +110,23 @@ class OriginalProtocolXrefAndCallbackTests(unittest.TestCase):
         result=mod.xref_evidence(self.folder,name,at)
         self.assertEqual(result["referenceCount"],2)
         self.assertEqual(result["sourceInstructionAddresses"],["0x2064"])
+
+    def test_all_8_xref_targets_have_distinct_static_addresses(self):
+        addresses=[at for _,at in mod.XREF_TARGETS]
+        self.assertEqual(len(set(addresses)),8)
+        self.assertEqual(len(set(n for n,_ in mod.XREF_TARGETS)),8)
+
+    def test_smem_and_other_protocol_paths_kept_distinct(self):
+        outcome=self.overall()
+        refs={x["label"]:x for x in outcome["targetedOriginalXrefs"]}
+        self.assertEqual(refs["ram-table-header-validator"]["queriedStaticAddress"],
+                         "0x5288")
+        self.assertEqual(refs["smem-generic-item-accessor"]["queriedStaticAddress"],
+                         "0x7d08")
+        self.assertEqual(refs["other-protocol-installer"]["queriedStaticAddress"],
+                         "0x23b0")
+        self.assertNotEqual(refs["other-protocol-installer"]["queriedStaticAddress"],
+                            outcome["conditionalRegistrationCallsite"]["originalCallerAt"])
 
     def test_xref_wrong_target_refused(self):
         name,_=mod.XREF_TARGETS[1]
