@@ -111,3 +111,34 @@ cat "$OUT/ghostlock-upstream-diagnostics-isolated.txt"
 ```
 
 Expected safe outcome: `kernel_phys_load` should remain **unset** (unless new legitimate, explicit device-side evidence is provided). If the isolated run still supplies a physical kernel address, stop and identify its source rather than accepting it. No `--phys`, built-in profile registration, runtime GhostLock invocation, or privilege elevation is authorized by this study.
+
+## Owner's clean, host-isolated GhostLock analysis — 2026-10-10
+
+The owner reran **the exact same** pinned-upstream extractor binary (`aeab4c182a87711c817ae752d8e9b6414c30f33627bd02bd30fb05b1df5036b0`, from the preceding verified build), original `kernel.bin`, and original `vmlinux-stock.nm`, explicitly passing a zero-byte `--iomem` file on WSL2.
+
+**Exit status:** `0`. The resulting analysis and diagnostics are retained in the owner's local research directory as `ghostlock-upstream-analysis-isolated.txt` and `ghostlock-upstream-diagnostics-isolated.txt`.
+
+```text
+release                 4.19.113-27095354
+kernel_major            4.19
+kernel_family           unverified (no family layout will be emitted)
+kernel_phys_load        unset (no xbl_config.img; pass --phys or let the runtime derive it)
+rt_mutex_waiter         (no rt_mutex_waiter type in BTF)
+mm_struct size          (unavailable)
+primitive               remove_waiter@0xc7db4 unpatched
+pselect chain           not attempted (no embedded BTF)
+path multicast_waiter   available (ip_mc_msfadd=absent ip_mc_source@0xffffff800978367c)
+path select_stack       available (core_sys_select@0xffffff80082f8d64 futex_wait@0xffffff80081900c4)
+path tcp_zerocopy       missing (tcp_zerocopy_receive=absent)
+suggested route         none (low)
+```
+
+Diagnostics: `CVE-2026-43499 primitive present (remove_waiter@0xc7db4 still uses current)`; `embedded BTF not found`; `4.19.113-27095354 is unverified; no family-derived geometry will be emitted`.
+
+**Bounded interpretation:**
+- **Host-address contamination resolved**; `kernel_phys_load` is now **unset**, as it should be. The earlier `0xfffff800` value remains *rejected* and must not be used for any subsequent research or profile.
+- The static `remove_waiter` classifier corroborates the original, SHA256-pinned Samsung RT-mutex source's `current`/waiter ownership pattern. Upstream only checks an `mrs ..., sp_el0` disassembly signature; a match **cannot prove practical vulnerability reachability or a successful exploit**.
+- The other route labels remain **symbol-presence checks**, not verified Linux 4.19 execution paths. `select_stack` stack geometry could not be assessed without BTF and `multicast_waiter` matched only `ip_mc_source` among two candidates.
+- Stage 3 **PARTIAL**; Stage 4 **OPEN**; Stage 7 KernelSU **BLOCKED**; **no executable profile** and no app/support registration.
+
+**Recommended next independent evidence step:** compare the upstream image-relative `remove_waiter` location against the recovered stock `vmlinux-stock.nm` `_text` and `remove_waiter` symbol delta. This checks the extractor's index/representation assumptions without suggesting a runtime address or executing the vulnerability. Preserve exact source and ELF/image provenance. Any mismatch is an artifact or parser problem requiring investigation, not evidence for a guessed adjustment.
