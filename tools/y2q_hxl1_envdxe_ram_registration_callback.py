@@ -24,6 +24,9 @@ from tools.y2q_hxl1_envdxe_smem402_protocol import audit as prior_audit
 from tools.y2q_hxl1_envdxe_entry_strings import (
     PE_SHA256, REPORT_DIR, evidence_json, COORD, contains, ExtractionError
 )
+from tools.y2q_hxl1_envdxe_callback_raw_proof import (
+    original_code, imported_code_match, failure_record, CALLBACK_BYTES_EVIDENCE,
+)
 
 PROTOCOL_GUID_ADDR="0xd118"
 PROTOCOL_INTERFACE_ADDR="0xd1d0"
@@ -221,7 +224,17 @@ def audit(folder:Path)->dict:
     reference_checks=[xref_evidence(folder,name,address)
                       for name,address in XREF_TARGETS]
     callback=interface["unrelocatedStaticFunctionCoordinateCandidate"]
-    implementation=(callback_function(folder,callback) if callback else None)
+    # A valid pointer does not imply successful decompilation. The original
+    # PE executable bytes are independently verified even if the existing
+    # failed Ghidra function-analysis partial must be preserved.
+    executable=original_code(folder,callback) if callback else None
+    readfile=folder/CALLBACK_BYTES_EVIDENCE
+    imported=(imported_code_match(folder,callback) if callback and
+              readfile.is_file() else None)
+    callback_file=folder/CALLBACK_EVIDENCE
+    implementation=(callback_function(folder,callback) if callback and
+                    callback_file.is_file() else None)
+    failure=(failure_record(folder) if callback and implementation is None else None)
     return {
         "classification":"ORIGINAL_HXL1_ENV_DXE_RAM_PROTOCOL_REGISTRATION_AND_CALLBACK_CROSS_CHECK",
         "exactOriginalEnvDxeSha256":PE_SHA256,
@@ -229,6 +242,9 @@ def audit(folder:Path)->dict:
         "protocolInterfaceStructure":interface,
         "targetedOriginalXrefs":reference_checks,
         "staticCallbackFunction":implementation,
+        "originalCallbackExecutableBytes":executable,
+        "originalCallbackGhidraReadback":imported,
+        "ghidraFunctionAnalysisLimitation":failure,
         "staticRegistrationCallPatternVerified":True,
         "staticCallbackFunctionIdentified":implementation is not None,
         "runtimeRegistrationSuccessful":False,
@@ -278,6 +294,29 @@ def markdown(record:dict)->str:
                "Reference count: "+str(ref["referenceCount"])]
         rows += ["- "+at for at in ref["sourceInstructionAddresses"]]
         rows+=[""]
+    executable=record["originalCallbackExecutableBytes"]
+    if executable is not None:
+        rows+=["## Independently mapped original callback executable", "",
+               "Original static coordinate: "+executable["coordinate"],
+               "Original PE file offset: "+executable["fileOffset"],
+               "Executable section: "+executable["sectionName"],
+               "SHA256 of 64 original instruction bytes: "+executable["bytesSha256"],
+               "Original code bytes: "+executable["bytesHex"],""]
+    confirmed=record["originalCallbackGhidraReadback"]
+    if confirmed is not None:
+        rows+=["Ghidra imported bytes match original pinned PE: "+
+               str(confirmed["importedBytesEqualOriginal"]),
+               "REA byte evidence: "+confirmed["originalGhidraEvidenceId"],""]
+    unresolved=record["ghidraFunctionAnalysisLimitation"]
+    if unresolved is not None:
+        rows+=["## Ghidra callback function analysis limitation","",
+               "Status: "+unresolved["status"]]
+        for saved in unresolved["files"]:
+            rows+=["Original saved file: "+saved["filename"],
+                   "SHA256: "+saved["sha256"],
+                   "Diagnostic excerpt:", "~~~text",saved["excerpt"],"~~~",""]
+        rows+=["The lack of a function dossier does not disprove the callback.",
+               ""]
     cb=record["staticCallbackFunction"]
     if cb is not None:
         rows+=["## Callback function static decompilation","",
@@ -295,7 +334,7 @@ def markdown(record:dict)->str:
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--out",type=Path,default=REPORT_DIR)
-    p.add_argument("--verify-single",choices=["registration","interface","callback"]
+    p.add_argument("--verify-single",choices=["registration","interface","callback","callback-bytes"]
                    +[a for a,_ in XREF_TARGETS])
     opts=p.parse_args()
     try:
@@ -308,6 +347,14 @@ def main()->int:
                 x=interface_readback(opts.out)
                 print("[VERIFIED ORIGINAL INTERFACE]",x["sourceStaticAddress"],
                       "callback-qword",x["getRamPartitionsSlotRawQword"])
+            elif opts.verify_single=="callback-bytes":
+                x=interface_readback(opts.out)
+                at=x["unrelocatedStaticFunctionCoordinateCandidate"]
+                if at is None:
+                    raise ExtractionError("Callback PE address not statically usable")
+                evidence=imported_code_match(opts.out,at)
+                print("[VERIFIED ORIGINAL CALLBACK EXECUTABLE]",at,
+                      evidence["bytesSha256"],evidence["originalGhidraEvidenceId"])
             elif opts.verify_single=="callback":
                 x=interface_readback(opts.out)
                 at=x["unrelocatedStaticFunctionCoordinateCandidate"]
@@ -336,7 +383,16 @@ def main()->int:
     for x in result["targetedOriginalXrefs"]:
         print("[XREFS]",x["label"],x["referenceCount"],
               ",".join(x["sourceInstructionAddresses"][:14]))
-    print("[CALLBACK VERIFIED]",result["staticCallbackFunctionIdentified"])
+    print("[ORIGINAL EXECUTABLE CALLBACK BYTES]",
+          result["originalCallbackExecutableBytes"] is not None)
+    print("[GHIDRA CALLBACK BYTES MATCH ORIGINAL]",
+          result["originalCallbackGhidraReadback"] is not None)
+    print("[CALLBACK FUNCTION DECOMPILED]",result["staticCallbackFunctionIdentified"])
+    if result["ghidraFunctionAnalysisLimitation"] is not None:
+        limitation=result["ghidraFunctionAnalysisLimitation"]
+        print("[CALLBACK ANALYSIS STATUS]",limitation["status"])
+        for artifact in limitation["files"]:
+            print("[GHIDRA ERROR]",artifact["filename"],artifact["excerpt"][:300])
     print("[REPORT]",opts.out/"rea-envdxe-ram-registration-callback.md")
     print("[LIMIT] No live DRAM table/physical kernel load/working Root My Galaxy payload")
     return 0
