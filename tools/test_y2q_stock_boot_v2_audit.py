@@ -92,6 +92,7 @@ class BootHeaderTests(unittest.TestCase):
                   mock.patch.object(audit, "EXPECTED_BOOT_BYTES", len(boot))):
                 report = audit.analyze(root)
             self.assertTrue(report["originalBootImageHashVerified"])
+            self.assertTrue(report["allEmbeddedPayloadPinsMatch"])
             self.assertFalse(report["originalFileHashesVerified"])
             for component in ("kernel", "ramdisk", "dtb"):
                 record = report["payloadComparisons"][component]
@@ -149,6 +150,7 @@ class BootHeaderTests(unittest.TestCase):
                 report = audit.analyze(root)
             self.assertFalse(report["payloadComparisons"]["kernel"]
                              ["embeddedRegionMatchesPinnedSha256"])
+            self.assertFalse(report["allEmbeddedPayloadPinsMatch"])
             self.assertIsNone(report["payloadComparisons"]["kernel"]
                               ["referenceEqualsImageRegion"])
 
