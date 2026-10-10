@@ -132,6 +132,50 @@ def btf_candidates(kernel: Path) -> dict:
     }
 
 
+def stage4_factory_evidence(evidence: dict) -> dict:
+    """Summarize owner-attested factory firmware audits without claiming live handoff.
+
+    This is evidence MANIFEST provenance; a hash recorded in the manifest
+    is not equivalent to checking the original BL tar.md5 again locally.
+    """
+    s = evidence.get("hxl1Stage4BootloaderDiscovery", {})
+    archive = s.get("archive", {})
+    bl = s.get("ownerBootloaderElfAuditVerified", {})
+    boot = s.get("followupBootImageV2Audit", {})
+    fdt = s.get("followupFdtStructureAndRootIdentity", {})
+    bl_verified = (
+        archive.get("sha256") ==
+        "f6048fb50cd83741951552866c4dcf26e6165b0a67a232b81028c266bef22d6b"
+        and archive.get("fileEntriesCount") == 27
+        and bl.get("regression", {}).get("passed") == 10
+        and bl.get("artifactIntegrity", "").startswith("[PASS]"))
+    boot_verified = (
+        boot.get("regression", {}).get("passed") == 13
+        and boot.get("bootImageIntegrity") == "PRESENT_PIN_VERIFIED"
+        and all(x.get("checksumPinMatch") is True
+                for x in boot.get("embeddedComponents", {}).values()
+                if x is not boot.get("embeddedComponents", {}).get("second"))
+        and all(k in boot.get("embeddedComponents", {})
+                for k in ("kernel", "ramdisk", "dtb")))
+    fdt_verified = (
+        fdt.get("regression", {}).get("passed") == 10
+        and fdt.get("bootAndEmbeddedDtbSha256Verified") is True
+        and fdt.get("contiguousCompleteRegionCoverage") is True
+        and fdt.get("allFdtStructuresPass") is True
+        and len(fdt.get("candidates", [])) == 4
+        and all(x.get("tokenStatus") == "PASS"
+                for x in fdt.get("candidates", [])))
+    return {
+        "ownerManifestVerifiesExactHxl1BL": bl_verified,
+        "ownerManifestVerifiesBootV2AndEmbeddedPayloads": boot_verified,
+        "ownerManifestVerifiesFourFdtTokenStreams": fdt_verified,
+        "actualKernelPhysicalLoadVerified": False,
+        "runtimeSelectedDtbVerified": False,
+        "note": "Owner-reported verification recorded in evidence.json, not fresh "
+                "hash checks by this readiness script; physical load/handoff open.",
+    }
+
+
 def gate(stage: int, name: str, state: str, detail: str, next_proof: str) -> dict:
     if state not in {"COMPLETE", "PARTIAL", "OPEN", "BLOCKED", "DEFERRED"}:
         raise GateError(f"invalid gate status {state}")
@@ -146,6 +190,7 @@ def analyze(evidence: dict, artifacts: Path, source: Path, repo: Path) -> dict:
     btf = btf_candidates(artifacts / "kernel.bin") if (
         actual["kernel.bin"]["state"] == "MATCH") else {
             "status": "NOT_VERIFIED", "candidates": []}
+    factory = stage4_factory_evidence(evidence)
     device = evidence.get("hxl1LiveBootSecurityState20261010", {})
     elf = artifacts / "hxl1-research/vmlinux-stock.elf"
     nm = artifacts / "hxl1-research/vmlinux-stock.nm"
@@ -207,9 +252,21 @@ def analyze(evidence: dict, artifacts: Path, source: Path, repo: Path) -> dict:
              "or matching debugging information; do not use cross-device offsets"),
         gate(4, "Physical load and BL handoff",
              "COMPLETE" if physical_load_verified else "OPEN",
-             "ARM64 Image text_offset=0x80000 does NOT establish Qualcomm physical load",
-             "Locate matching HXL1 BL archive, verify provenance and decode "
-             "boot handoff or establish through independent safe physical evidence"),
+             ("Owner manifest: exact HXL1 BL/ELF verified="
+              f"{factory['ownerManifestVerifiesExactHxl1BL']}; "
+              "boot v2 and embedded hashes verified="
+              f"{factory['ownerManifestVerifiesBootV2AndEmbeddedPayloads']}; "
+              "four FDT semantic streams verified="
+              f"{factory['ownerManifestVerifiesFourFdtTokenStreams']}. "
+              "Neither ELF PT_LOAD segments nor stock boot header kernel_addr "
+              "establish the actually booted Linux physical base."),
+             ("Investigate original Qualcomm bootloader's selected DTB and "
+              "physical Android kernel handoff with independent read-only "
+              "evidence; do not reuse a bootloader ELF PT_LOAD address.")
+             if factory["ownerManifestVerifiesExactHxl1BL"]
+             else ("Verify exact HXL1 BL archive provenance and investigate "
+                   "original boot.img DTBs, then establish physical handoff "
+                   "without using another device's load assumptions.")),
         gate(5, "Per-build slide and runtime prerequisites",
              "COMPLETE" if slide_verified else "OPEN",
              "Stock KASLR, trace-event ID, worker return and original P0 page "
@@ -251,6 +308,7 @@ def analyze(evidence: dict, artifacts: Path, source: Path, repo: Path) -> dict:
         "gates": statuses,
         "artifactIntegrity": actual,
         "sourceIntegrity": src,
+        "factoryStage4EvidenceFromManifest": factory,
         "rawBtfSearch": btf,
         "recoveredElfFilesLocated": elf_available,
         "nativeTargetRegistered": target_available,
@@ -281,6 +339,20 @@ def summary(data: dict) -> str:
     for g in data["gates"]:
         rows.append(f"| {g['stage']} | {g['title']} | {g['state']} "
                     f"| {g['nextProof']} |")
+    f4 = data["factoryStage4EvidenceFromManifest"]
+    rows += [
+        "", "## Factory firmware progress (owner-attested manifest)", "",
+        "- Exact original HXL1 BL, extracted ABL/XBL ELF: " +
+        str(f4["ownerManifestVerifiesExactHxl1BL"]),
+        "- Original stock boot.img v2 and embedded kernel/ramdisk/DTB: " +
+        str(f4["ownerManifestVerifiesBootV2AndEmbeddedPayloads"]),
+        "- Four original FDT semantic token streams: " +
+        str(f4["ownerManifestVerifiesFourFdtTokenStreams"]),
+        "- Actual physical Linux kernel handoff: **NOT VERIFIED**",
+        "- Bootloader-selected runtime DTB: **NOT VERIFIED**",
+        "", "The manifest records the owner's prior hash-checked WSL runs; "
+        "this readiness run does not re-hash the 89 MiB original BL archive.",
+    ]
     rows += ["", "## Verified local inputs", ""]
     for name, item in data["artifactIntegrity"].items():
         rows.append(f"- Original {name}: {item['state']}")
