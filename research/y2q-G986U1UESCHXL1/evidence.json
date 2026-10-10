@@ -840,6 +840,26 @@
     "btfPresenceVerified": false,
     "vulnerableSourceLogicPresentInExactRunningBinaryVerified": false,
     "exploitExecuted": false,
-    "next": "Read-only ARM64 Image header verification and symbol/BTF presence inspection against original kernel.bin."
+    "next": "Read-only ARM64 Image header verification and symbol/BTF presence inspection against original kernel.bin.",
+    "ownerReportedHeaderAt": "2026-10-10",
+    "arm64ImageHeader": {
+      "magic": "ARM\\x64",
+      "validMagic": true,
+      "fileBytes": 51957772,
+      "textOffsetHex": "0x80000",
+      "imageSizeHex": "0x433b000",
+      "flagsHex": "0xa",
+      "kernelImageFileClassification": "Linux kernel ARM64 boot executable Image, little-endian, 4K pages",
+      "physicalLoadAddressEstablished": false,
+      "note": "Header image_size is effective required memory span and need not equal byte length on disk; text_offset does not identify SoC physical load address."
+    },
+    "toolingReported": {
+      "llvmNm": "/usr/bin/llvm-nm",
+      "vmlinuxToElf": "not installed",
+      "bpftool": "not installed",
+      "attemptedApt": "sudo apt install bpftool",
+      "aptResult": "Ubuntu noble bpftool virtual package; choose linux-tools-common; on WSL2 linux-tools-common may only be a wrapper lacking a matching running-kernel binary."
+    },
+    "recoveredElfBuilt": false
   }
 }
