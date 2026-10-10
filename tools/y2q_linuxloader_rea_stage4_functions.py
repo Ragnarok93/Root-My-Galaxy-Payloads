@@ -6,6 +6,9 @@ from pathlib import Path
 import re
 import sys
 
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from tools.y2q_linuxloader_rea_stage4_xrefs import (
     LOADER_SHA256, REFS, AuditError, digest, parse_xrefs, validate_seed,
 )
