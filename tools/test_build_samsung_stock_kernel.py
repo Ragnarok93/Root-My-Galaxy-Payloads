@@ -133,6 +133,47 @@ class ImageBuildPlanTests(unittest.TestCase):
             self.assertEqual((makefile.read_bytes(), config.read_bytes()), before)
             self.assertFalse((args.output_dir / "arch/arm64/boot/Image").exists())
 
+    def test_probe_requires_cross_assembler_and_checks_external_route(self):
+        with tempfile.TemporaryDirectory() as temp:
+            args, comparison, makefile, config = self.setup_case(temp)
+            prefix = args.gcc_prefix
+            with self.assertRaisesRegex(ValueError, "AArch64 GNU assembler not executable"):
+                module.check_arm64_external_assembler(args.clang, prefix)
+            create_exe(Path(prefix + "as"))
+            class ProbeResult:
+                returncode = 0
+                stdout = ""
+                stderr = " \\"%s\\" \\"-EL\\"\n" % (prefix + "as")
+            with patch.object(module.subprocess, "run", return_value=ProbeResult()) as run:
+                observed = module.check_arm64_external_assembler(args.clang, prefix)
+                self.assertEqual(observed["assembler"], prefix + "as")
+                invoked = run.call_args.args[0]
+                self.assertIn("--target=aarch64-linux-gnu", invoked)
+                self.assertIn("-no-integrated-as", invoked)
+                self.assertIn("-B" + prefix, invoked)
+
+    def test_opt_in_external_assembler_adds_target_flags_without_source_changes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            args, comparison, makefile, config = self.setup_case(temp)
+            args.external_arm64_as = True
+            args.verbose = True
+            before = (makefile.read_bytes(), config.read_bytes())
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \
+                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \
+                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \
+                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"), \
+                 patch.object(module, "check_arm64_external_assembler",
+                              return_value={"assembler": args.gcc_prefix + "as"}):
+                result, _ = module.plan(args)
+            self.assertIn("KCFLAGS=--target=aarch64-linux-gnu -B" + args.gcc_prefix,
+                          result["command"])
+            self.assertIn("KAFLAGS=--target=aarch64-linux-gnu -B" + args.gcc_prefix,
+                          result["command"])
+            self.assertIn("V=1", result["command"])
+            self.assertEqual(result["crossAssemblerProbe"]["assembler"], args.gcc_prefix + "as")
+            self.assertEqual((makefile.read_bytes(), config.read_bytes()), before)
+
     def test_rejects_unexpected_security_difference(self):
         with tempfile.TemporaryDirectory() as temp:
             args, comparison, makefile, config = self.setup_case(temp)
