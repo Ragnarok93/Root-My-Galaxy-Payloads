@@ -1060,11 +1060,42 @@
       "failureBranch": "2171-2186: nonzero non-success ret clears this->pi_state, calls put_pi_state and breaks"
     },
     "corroboratesDifferentWaiterTaskArgument": true,
-    "waiterTaskFieldInitializationEstablished": false,
+    "waiterTaskFieldInitializationEstablished": true,
     "waiterEnqueuedBeforeRollbackEstablished": false,
     "completeTaskBlocksOnRtMutexLogicReviewed": false,
     "originalKernelSourceBugCorrelationVerified": true,
     "deviceRuntimeExploitabilityVerified": false,
-    "next": "Read bounded rtmutex.c task_blocks_on_rt_mutex and rt_mutex_dequeue definitions plus futex.c requeue_pi_wake_futex body; establish where waiter->task is initialized and rollback conditions, without runtime crash PoC."
+    "next": "Read bounded rtmutex.c task_blocks_on_rt_mutex and rt_mutex_dequeue definitions plus futex.c requeue_pi_wake_futex body; establish where waiter->task is initialized and rollback conditions, without runtime crash PoC.",
+    "ownerFollowupAt": "2026-10-10",
+    "sourceFileSha256": {
+      "rtmutex": "36b187173cfb3934a5c9d51952bce58c2f41701d3585326f18cd3965e46a21f9",
+      "futex": "493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5"
+    },
+    "confirmedSourceLifecycle": {
+      "initWaiter": "rtmutex.c:1149-1155 rt_mutex_init_waiter clears RB pi/tree entries and initializes waiter->task=NULL",
+      "earlyDeadlock": "rtmutex.c:950-951 owner == task returns -EDEADLK before task association or enqueue",
+      "initialized": "rtmutex.c:953-957 task->pi_lock, waiter->task=task, waiter->lock=lock, waiter->prio=task->prio, deadline",
+      "enqueued": "rtmutex.c:962 rt_mutex_enqueue(lock,waiter)",
+      "blockedOn": "rtmutex.c:964 task->pi_blocked_on=waiter",
+      "reverseDequeueGuard": "rtmutex.c:295-301 rt_mutex_dequeue returns without removing RB node if RB_EMPTY_NODE",
+      "wrongCleanup": "rtmutex.c:1077-1080 remove_waiter acquires current->pi_lock, dequeues waiter, clears current->pi_blocked_on",
+      "proxyStart": "rtmutex.c:1756-1761 immediate success returns 1 before task_blocks_on_rt_mutex; failure after task_blocks_on_rt_mutex may have enqueued",
+      "wrapperCleanup": "rtmutex.c:1804-1806 if (unlikely(ret)) remove_waiter(lock,waiter) -- includes success and error",
+      "futexWake": "futex.c:1837-1844 requeue_pi_wake_futex unqueues futex_q, sets rt_waiter NULL, wakes q->task",
+      "futexRetOne": "futex.c:2159-2170 ret == 1 triggers requeue_pi_wake_futex(this)",
+      "futexRetError": "futex.c:2171-2186 nonzero error clears this->pi_state and drops ref"
+    },
+    "waiterEnqueueSiteEstablished": true,
+    "potentialErrorAfterEnqueueEstablished": true,
+    "earlyReturnWithoutEnqueueEstablished": true,
+    "sourceLevelWrongTaskCleanupEstablished": true,
+    "controlFlowInterpretation": "If task_blocks_on_rt_mutex has enqueued a waiter and subsequently returns an error, wrapper cleanup uses current instead of waiter->task, leaving task->pi_blocked_on stale. For early -EDEADLK or immediate ret=1, waiter may remain unqueued; rb-empty guard prevents tree erase but current->pi_blocked_on is still cleared. Exact circumstances and runtime effects remain unverified.",
+    "remainingSemanticQuestions": [
+      "Inspect task_blocks_on_rt_mutex after line 968 for exact error-return and queued waiter state transitions",
+      "Verify waiter->task vs current task values along actual futex requeue context",
+      "Correlate pi-state instructions beyond previously verified sites",
+      "No live UAF, kernel write or root demonstrated"
+    ],
+    "status": "source waiter initialization and queue lifecycle confirmed; device exploitability and root remain unverified"
   }
 }
