@@ -14,6 +14,10 @@ from pathlib import Path
 import struct
 import sys
 
+# Both supported entrypoints work: "python3 tools/this_script.py" and
+# "python3 -m unittest tools/test_..." from the repository root.
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.y2q_stock_boot_v2_audit import PINS, AuditError, boot_header, pinned
 
 FDT_MAGIC = b"\xd0\x0d\xfe\xed"
