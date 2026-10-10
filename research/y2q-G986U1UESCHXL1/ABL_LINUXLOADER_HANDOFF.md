@@ -1069,3 +1069,62 @@ The S20+ need not be connected. No boot-time physical RAM value, selected
 kernel base, KASLR state, GhostLock exploitation, KernelSU or root is proven.
 
 After the conditional loop-back correction in the **synthetic test fixture** (not the production firmware parser), GitHub Actions run [38070524299](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38070524299) completed **SUCCESS** on commit `bd7f4c8`. This is CI fixture coverage only; the author's 20-byte original HXL1 Ghidra read is still required to promote the actual full callback CFG.
+
+
+## 2026-10-10 14:16 CDT — Owner verified full original EnvDxe GetRamPartitions CFG
+
+The owner's WSL2 run on commit `38d9ecc` of
+`bash tools/run_y2q_hxl1_envdxe_callback_cfg.sh` succeeded:
+**1,389/1,389 regression tests PASS**; original Ghidra bytes at `0x2048`,
+length 20, match the stock PE, evidence
+`ev_44ecb24f96a48a1569a5f95502a5250871d2f44b33252f1ded58c4afcc2c58f7`,
+SHA256 `1172139c93e7d9749dd58687c7ad351d20932cc889b15ab6d027b64645900372`.
+Three nonredundant Ghidra reads establish continuous exact original callback
+instructions `[0x1f74,0x205c)`, SHA256 of this interval
+`07c2e497ce789d732a1603f7910ec189ca78bfd4aa0c2575e229e911915c1eca`.
+The AArch64 *static* CFG has one reachable `RET` at `0x1fe4`, no
+out-of-window successors, and four reachable calls:
+`BL 0x1fa4 -> 0x52cc`,
+`BL 0x1ff0 -> 0x2618`,
+`BL 0x2004 -> 0x52cc`,
+`BL 0x2050 -> 0x26bc`.
+The prior false "post-callback" assumption was eliminated. Callback
+`B.cond 0x1fc4 -> 0x1fe8` bypasses early return, and conditional
+`B.cond 0x2048 -> 0x2030` loops through the record copier before
+`B 0x2058 -> 0x1fd8` eventually reaches the return.
+This confirms static reachable translation of internal `0x48`-byte
+records to two 64-bit fields with output stride `0x10`.
+
+**New evidence-gated work, targeted without repeating prior reads.**
+`tools/y2q_hxl1_envdxe_callee_provenance.py` and
+`tools/run_y2q_hxl1_envdxe_callee_provenance.sh` authenticate and read
+three original executable helper targets and three corresponding exact
+Ghidra code/xref sets:
+- `0x26bc` (192 bytes), directly called from `0x2050` by verified CFG;
+- `0x25d8` (160 bytes), directly called from `0x2638` within the
+  previously authenticated `0x2618` code;
+- `0x3d04` (160 bytes), directly called from `0x3c60` and `0x3c74`
+  in the previously authenticated `0x3c3c` copy helper.
+
+All new reads validate SHA256-pinned original PE executable mappings, exact
+Ghidra provider/subject/operation/coordinates, complete imported byte equality,
+and presence of previously observed original callsite xrefs. The auditor
+retains direct ARM64 branches without assuming Ghidra-defined full functions
+or semantic function names. Unit tests include 1,536 independent bit mutations
+of imported executable data (each of 64 first bytes in each of three distinct
+targets, 8 bits per byte) plus 16 additional parent/provenance/negative cases.
+Together with the prior 1,389 tests the new runner executes **2,941
+offline tests**. The newly committed test suite requires GitHub Actions and
+owner WSL validation before any newly queried firmware bytes can be claimed.
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_envdxe_callee_provenance.sh
+
+Resulting `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-callee-provenance.md`
+should be inspected for code paths that reveal allocator/return semantics
+at `0x26bc` and helpers. Do **not** label unknown functions as allocation,
+free, validation or partition access based only on their caller.
+The owner device remains UID 2000 with enforced SELinux; firmware
+observation does not imply installed root, runtime RAM table, numerical
+physical kernel load, verified GhostLock applicability or KernelSU.
