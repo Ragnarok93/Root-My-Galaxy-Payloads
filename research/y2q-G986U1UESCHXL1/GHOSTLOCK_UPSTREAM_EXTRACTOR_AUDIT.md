@@ -191,3 +191,25 @@ The generated report re-confirmed `kernel.bin` SHA256 `ffbc90af676558557eb917687
 **Gate verdict:** `PASS_STATIC_SYMBOL_AND_IMAGE_CORRELATION_ONLY`. This particular validation is **COMPLETE**, while the overall Stage 3 factory structure-layout provenance remains **PARTIAL** and Stage 4 physical bootloader handoff **OPEN**. The validated virtual symbols do not prove live virtual address mapping, a physical kernel load, runtime CVE reachability, working GhostLock root, or KernelSU. No new runtime support entry or native exploit payload is authorized by these results.
 
 **Next evidence focus:** inventory original factory-produced debug/type metadata, if any, from *independently sourced matching HXL1 build artifacts* rather than repeating tests on the known incomplete Clang18 partial compilation. Do not substitute a neighbouring Snapdragon or kernel-family ABI.
+
+## Original HXL1 `xbl_config.elf` standard-FDT survey — owner WSL2, 2026-10-10
+
+The owner reran the original Samsung-firmware hash check and an exhaustive raw four-byte FDT-magic scan against the *already checksum-pinned* decompressed `bl-stock/xbl_config.elf`.
+
+```text
+[PASS] Original HXL1 xbl_config.elf SHA256
+File size: 98176
+Raw FDT magic occurrences: 0
+Semantically validated FDTs: 0
+[LIMIT] No runtime DTB selection or physical handoff established
+```
+
+Pinned SHA256: `757fc6ef87134283d37fa4ee57f5180e3849107e216f48f379323ce473f40d7f`. The scan checked for **every raw `d0 0d fe ed` signature** in the entire 98,176-byte file; none was found. Consequently there were no candidates to pass to the semantic FDT parser.
+
+**Interpretation:** `xbl_config.elf` contains no directly recognizable, uncompressed standard FDT. GhostLock upstream's `--xbl-config` physical-load derivation, which requires an embedded FDT memory map with unique `NOMAP` and `Kernel` entries, has **no matching input in this original file**. Do not pass this original file as if it supplied a verified physical kernel handoff; do not override `--phys` or adopt a value from other SoCs.
+
+**Limitations:** this does not prove a non-FDT configuration is absent, establish whether the image has compressed/packed data, or rule out FDTs elsewhere in the HXL1 BL/boot package. The earlier ELF classification of this exact `xbl_config.elf` as ELF64 class + `e_machine=40` (ARM) remains unusual and is not evidence that its Linux kernel bootloader uses an ARM32 program entry; its six ELF program headers describe this bootloader component only. The Linux image's embedded DTBs (three large Kona SoC candidates plus one 173-byte RTIC/MP_DATA FDT) remain distinct from the `xbl_config.elf` file. No on-device access or changes occurred.
+
+A public third-party tool at https://github.com/Project-Aloha/XBLConfigReader explicitly documents support for **SM8450 and newer**, not this Kona/SM8250-class target; do not assume that later-generation `xbl_config` formats or memory-map conventions apply to the Samsung S20+.
+
+**Next research:** perform a checksum-pinned read-only FDT-signature inventory on the other original `abl.elf` and `xbl.elf` images. Record any validated standard FDT as *static firmware metadata only*. A zero result closes only the uncompressed FDT survey of these three images; it does not close Stage 4 runtime bootloader-handoff investigation.
