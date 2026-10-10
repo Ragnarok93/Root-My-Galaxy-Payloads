@@ -2438,7 +2438,7 @@
     "workingKernelSu": false,
     "verifiedStockIdentity": true,
     "verifiedStockOriginalSourceHashes": true,
-    "nextOwnerAction": "Run stage-3 read-only source/debug information inventory (new tools/y2q_stage3_layout_inventory.py and six tests); determine whether matching HXL1 BL is available in archived firmware or outside limited find paths.",
+    "nextOwnerAction": "Locate exact original clang 10.0.6 and any retained matching HXL1 build DWARF objects; otherwise produce a compiler-labelled provisional source-layout model and compare selected field offsets independently with original kernel ARM64 instructions. Separately locate the matching Samsung firmware BL archive, not source wrapper.",
     "noPhoneChanges": true,
     "noCrossDeviceOffsets": true,
     "noPrematureSupportFeedRegistration": true,
@@ -2503,16 +2503,83 @@
     "helper": "tools/y2q_stage3_layout_inventory.py",
     "tests": "tools/test_y2q_stage3_layout_inventory.py",
     "committedAt": "2026-10-10",
-    "ownerExecuted": false,
+    "ownerExecuted": true,
     "expectedOutputs": [
       "/home/main/s20-artifacts/hxl1-research/stage3-layout-inventory.json",
       "/home/main/s20-artifacts/hxl1-research/stage3-layout-inventory.md"
     ],
     "scope": "Pinned original stock Image/config source hashes, exact vendor source struct definition locations and reconstructed ELF DWARF section inventory only",
     "fullCompiledStructOffsetsVerified": false,
-    "hasFullOriginalDebugInformation": "UNDETERMINED",
+    "hasFullOriginalDebugInformation": "NOT_FOUND_IN_RECONSTRUCTED_ELF_OR_RAW_KERNEL; ORIGINAL_UNSTRIPPED_DEBUG_ARTIFACT_UNKNOWN",
     "physicalLoadKnown": false,
     "crossDeviceConstantsAllowed": false,
-    "onPhoneEffects": false
+    "onPhoneEffects": false,
+    "ownerExecution": {
+      "observedAt": "2026-10-10T06:28:55Z",
+      "ownerPulledThrough": "9736ae7",
+      "unitTests": {
+        "passed": 6,
+        "total": 6,
+        "failed": 0,
+        "errors": 0,
+        "durationSeconds": 0.018,
+        "result": "OK"
+      },
+      "originalFirmwareAndSourcePins": "MATCH",
+      "kernelConfig": {
+        "CONFIG_DEBUG_INFO": "y",
+        "CONFIG_DEBUG_INFO_BTF": "NOT_LISTED",
+        "CONFIG_DEBUG_INFO_DWARF4": "n",
+        "CONFIG_DEBUG_INFO_REDUCED": "n",
+        "CONFIG_DEBUG_INFO_SPLIT": "n",
+        "CONFIG_ARM64": "y",
+        "CONFIG_64BIT": "y",
+        "CONFIG_CC_IS_CLANG": "y",
+        "CONFIG_RANDSTRUCT": "NOT_LISTED",
+        "CONFIG_GCC_PLUGIN_RANDSTRUCT": "NOT_LISTED"
+      },
+      "exactSourceDefinitions": {
+        "task_struct": "include/linux/sched.h:821",
+        "rt_mutex_waiter": "kernel/locking/rtmutex_common.h:27",
+        "rt_mutex": "include/linux/rtmutex.h:30",
+        "file_operations": "include/linux/fs.h:1778",
+        "page": "include/linux/mm_types.h:70",
+        "cred": "include/linux/cred.h:146",
+        "configfs_buffer": "fs/configfs/file.c:45"
+      },
+      "analysisElf": {
+        "sectionState": "SECTIONS_FOUND",
+        "dwarfDebugSectionsDetected": false,
+        "btfSectionDetected": false,
+        "symbolNamesFound": [
+          "_text",
+          "_stext",
+          "start_kernel",
+          "remove_waiter",
+          "rt_mutex_start_proxy_lock",
+          "init_task"
+        ],
+        "note": "Reconstructed symbolized ELF lacks .debug_* and .BTF sections, but CONFIG_DEBUG_INFO=y suggests original build may have emitted DWARF into a separate unstripped artifact; no original unstripped ELF has been found."
+      },
+      "report": "/home/main/s20-artifacts/hxl1-research/stage3-layout-inventory.json",
+      "markdown": "/home/main/s20-artifacts/hxl1-research/stage3-layout-inventory.md",
+      "result": "PASS_SOURCE_AND_DEBUG_METADATA_INVENTORY_ONLY",
+      "configuredStructOffsetsVerified": false,
+      "liveRamAbiParityVerified": false,
+      "physicalDeviceTouched": false
+    }
+  },
+  "hxl1Stage4BootloaderDiscovery": {
+    "observedAt": "2026-10-10T06:28:55Z",
+    "commandScope": "find /mnt/c/Users $HOME/Downloads -maxdepth 6 under G986 filename patterns",
+    "matches": [
+      "/mnt/c/Users/Admin/Downloads/SM-G986U.zip"
+    ],
+    "classification": "Matches the known Samsung open-source release wrapper filename, containing source TAR/ZIP revisions, not normally a firmware BL image.",
+    "existingKnownWrapperSha256": "940fe6bbcfe3dcd372ad662dd24b56e0a3ba1a965666b04051fe9941bab4986d",
+    "foundCopySha256JustVerified": false,
+    "matchingOriginalBLDiscovered": false,
+    "potentialOtherSources": "Exact full stock firmware ZIP may reside outside searched directories or have a filename that does not match BL*G986* / *G986*.zip; source-only SM-G986U.zip is not a BL archive.",
+    "physicalLoadAddressVerified": false
   }
 }
