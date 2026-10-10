@@ -451,6 +451,22 @@
       ],
       "retargetedFirmwareImage": false,
       "bootloaderUnlocked": false
+    },
+    "thirdImageBuildAttempt": {
+      "date": "2026-10-09",
+      "target": "G986U1UESCHXL1",
+      "output": "/home/main/src/samsung-y2q-hxl1-config-clang18",
+      "log": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-build-03.log",
+      "result": "FAILED: Clang external assembler resolved native /usr/bin/as (x86-64) instead of AArch64 cross-as",
+      "clang": "/usr/lib/llvm-18/bin/clang",
+      "realCcAndCfpCcOverrideApplied": true,
+      "python2InterpreterWorking": true,
+      "firstFailure": "/usr/bin/as: unrecognized option '-EL'",
+      "followup": "clang: error: assembler command failed with exit code 1; scripts/mod/empty.o",
+      "noImageBuilt": true,
+      "secgetspfMissingStillWarning": true,
+      "fixCandidate": "opt-in --external-arm64-as uses Clang --target=aarch64-linux-gnu and -B/usr/bin/aarch64-linux-gnu- through target KCFLAGS/KAFLAGS; verifies Clang -### external assembler selection, V=1 logs",
+      "caveat": "The cross-as option has only been tested in synthetic GitHub CI; must test against user's real WSL build."
     }
   }
 }
