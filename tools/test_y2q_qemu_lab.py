@@ -125,6 +125,60 @@ class LabTests(unittest.TestCase):
                  mock.patch.object(lab.subprocess, "run", return_value=bad):
                 self.assertEqual(lab.boot(args), 3)
 
+    def test_bounded_pi_reuses_preserved_kasan_kernel_without_build(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            args = args_for(root, action="boot")
+            original = root / "preserved-kasan/kernel-build"
+            image = original / "arch/arm64/boot/Image"
+            image.parent.mkdir(parents=True)
+            image.write_bytes(b"precompiled KASAN ARM64 kernel")
+            (original / ".config").write_text(
+                "CONFIG_KASAN=y\nCONFIG_KASAN_OUTLINE=y\n"
+                "CONFIG_DEBUG_RT_MUTEXES=y\n"
+            )
+            args.kernel_image = image
+            args.output.mkdir(parents=True)
+            (args.output / "initramfs.cpio.gz").write_bytes(b"new guest initramfs")
+            markers = (
+                "RMG_QEMU_LAB_FUTEX=PASS_BASIC_WAIT_EAGAIN_ONLY\n"
+                "RMG_QEMU_LAB_FUTEX_WAKE=PASS_ZERO_WAITERS\n"
+                "RMG_QEMU_LAB_FUTEX_PI_LOCK=PASS_UNCONTENDED\n"
+                "RMG_QEMU_LAB_FUTEX_PI_TRYLOCK=PASS_UNCONTENDED\n"
+                "RMG_QEMU_LAB_COMPLETE=PASS_BOUNDED_PI_NOT_GHOSTLOCK\n"
+            )
+            result = subprocess.CompletedProcess(["qemu"], 0, markers, "")
+            with mock.patch.object(lab.shutil, "which", return_value="/usr/bin/qemu-system-aarch64"), \
+                 mock.patch.object(lab.subprocess, "run", return_value=result) as run:
+                self.assertEqual(lab.boot(args), 0)
+                argv = run.call_args.args[0]
+                self.assertEqual(argv[argv.index("-kernel") + 1], str(image))
+                self.assertEqual(argv[argv.index("-initrd") + 1],
+                                 str(args.output / "initramfs.cpio.gz"))
+            reports = list(args.output.glob("qemu-boot-*.json"))
+            self.assertEqual(len(reports), 1)
+            import json
+            report = json.loads(reports[0].read_text())
+            self.assertEqual(report["status"], "PASS_BOUNDED_PI")
+            self.assertTrue(report["kasanRtMutexConfigVerified"])
+            self.assertTrue(report["boundedFutexPiChecksPassed"])
+            self.assertEqual(image.read_bytes(),
+                             b"precompiled KASAN ARM64 kernel")
+
+    def test_incomplete_pi_output_cannot_pass(self):
+        with tempfile.TemporaryDirectory() as td:
+            args = args_for(Path(td), action="boot")
+            path = args.output / "kernel-build/arch/arm64/boot/Image"
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"kernel")
+            (args.output / "initramfs.cpio.gz").write_bytes(b"ramdisk")
+            incomplete = subprocess.CompletedProcess(["qemu"], 0,
+                "RMG_QEMU_LAB_COMPLETE=PASS_BOUNDED_PI_NOT_GHOSTLOCK\n"
+                "RMG_QEMU_LAB_FUTEX=PASS_BASIC_WAIT_EAGAIN_ONLY\n", "")
+            with mock.patch.object(lab.shutil, "which", return_value="/usr/bin/qemu-system-aarch64"), \
+                 mock.patch.object(lab.subprocess, "run", return_value=incomplete):
+                self.assertEqual(lab.boot(args), 3)
+
     def test_build_status_reads_latest_compiler_line(self):
         with tempfile.TemporaryDirectory() as td:
             log = Path(td) / "kernel-build.log"
@@ -173,7 +227,7 @@ class LabTests(unittest.TestCase):
             self.assertNotIn(forbidden, guest)
         self.assertIn("panic=-1", script)
         self.assertIn('"cortex-a57"', script)
-        self.assertIn("RMG_QEMU_LAB_COMPLETE=PASS_BOOT_ONLY_NOT_GHOSTLOCK", guest)
+        self.assertIn("RMG_QEMU_LAB_COMPLETE=PASS_BOUNDED_PI_NOT_GHOSTLOCK", guest)
 
 
 if __name__ == "__main__":
