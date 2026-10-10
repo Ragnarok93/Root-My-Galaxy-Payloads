@@ -706,3 +706,27 @@ This result closes the previous uncertainty about module provenance and wrong st
     bash tools/run_y2q_hxl1_envdxe_entry_strings.sh
 
 Report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-entry-strings-audit.md`. If the entrypoint or searches cannot be authenticated, report the exact gap and inspect the original REA saved JSON. **Do not invent dynamic firmware partition bases, per-boot KASLR, runtime kernel_phys_load, root or KernelSU.**
+
+
+## October 10, 2026, 14:24 UTC — original EnvDxe entrypoint validated; RAM-partition table strings recovered
+
+Owner executed tools/run_y2q_hxl1_envdxe_entry_strings.sh after updating to commit f8ed48c. **All 13 synthetic tests passed**. The original EnvDxe PE SHA256 is **9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670**; the earlier exact-GUID REA readback and **zero direct GUID xrefs** remained authenticated.
+
+New actual original-Ghidra evidence:
+
+- PE entry `0x1000`, Ghidra function `entry` at `0x1000`, HighFunction p-code available; evidence ID `ev_6e9f1cc76c0eb2c339a47b5f1bc4dcf864cbda2f84f423528af76880a7d2098e`. Its decompiled control flow makes two distinct calls: `FUN_000010f4()` for driver/runtime initialization and `FUN_00001150(...)` for the main driver initializer. The source observed two callees, zero callers. Neither call is yet proven to register EFI_RAMPARTITION.
+- Ghidra `search_strings` for RamPartition: **2** matches: `0xa87e` = `RamPartitionTableLib.c`, and `0xa895` = `mRamPartitionTableEntryCount <= 4`; evidence ID `ev_0844542ffbb6954d1356e88a2bcf533a309fdfc20735842a56b8bc36902d1b2b`. The assertion indicates compiled code checking a **<=4** bound; it is NOT an observed runtime entry count and supplies no numerical RAM base.
+- Ghidra search for GetRamPartitions: **0** strings; evidence ID `ev_fbc59b6cb6449dddbd54577438fd28093e32b19b4f58efa191e4a3680a0f66fe`. Absence of literal compiled function name is NOT evidence of function absence.
+- Ghidra search for EnvDxe: **1** at `0x90bf` = `EnvDxe.c`; evidence ID `ev_80c4f38fbf6400b57c67ee8a89adf5170457ba154668aefc488228d0c1b514fc`.
+
+**Next precise original PE step** in the same existing branch: `tools/run_y2q_hxl1_envdxe_ram_source_xrefs.sh`, targeting xrefs of exactly the three proven original strings at `0xa87e`, `0xa895`, `0x90bf`, plus authentic original REA/Ghidra function dossiers for the two entrypoint direct calls at `0x10f4` and `0x1150`. Each REA result is checked for original EnvDxe SHA256, Ghidra provider, operation and requested address, and actual body membership (for function queries); the full pseudocode is retained. Cached verified evidence is reused; conflicting/partial evidence is never overwritten. **14 additional synthetic fixtures** test wrong hash/provider/query, invalid references, absent pseudocode, Ghidra-body validity and non-promotion of zero xrefs to absent installation. CI is wired.
+
+Operator commands (no phone needed):
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_envdxe_ram_source_xrefs.sh
+
+Report: `~/s20-artifacts/hxl1-research/xbl-rampartition/rea-envdxe-ram-source-xrefs.md`.
+
+This changes investigative dimensions from absent GUID xrefs to actual startup function call tree and diagnostic strings. Next proof is the exact firmware initializer path to `InstallMultipleProtocolInterfaces` and the actual GetRamPartitions callback implementation. Even proving both functions statically does not provide XBL runtime DRAM partition entries, UEFI KernelBaseAddr variable values, actual per-boot KASLR, device physical kernel load address, exploitability or KernelSU.
