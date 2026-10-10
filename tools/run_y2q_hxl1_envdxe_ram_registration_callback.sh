@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Stage 4: doubled substantive work in one run.
-# 43 offline tests; original registration+interface+4 xrefs+optional callback.
+# 45 offline tests; original registration+interface+8 xrefs+optional callback.
 # Original firmware from pinned HXL1 XBL only; NO ADB/phone/root/flash.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -10,7 +10,7 @@ EFI="$OUT/EnvDxe-HXL1.efi"
 REA="$HOME/src/rea/scripts/rea.mjs"
 PIN=9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670
 
-echo "=== 43 offline original EnvDxe RAM-registration/callback tests ==="
+echo "=== 45 offline original EnvDxe RAM-registration/callback tests ==="
 python3 -m unittest -q \
   tools/test_y2q_hxl1_envdxe_ram_registration_interface.py \
   tools/test_y2q_hxl1_envdxe_ram_registration_callback.py
@@ -71,7 +71,7 @@ else
       --out "$OUT" --verify-single interface
 fi
 
-echo "=== Four original targeted reference checks ==="
+echo "=== Eight original targeted reference checks ==="
 while IFS='|' read -r label address; do
   f="$OUT/rea-envdxe-ram-protocol-xrefs-$label.json"
   if python3 tools/y2q_hxl1_envdxe_ram_registration_callback.py \
@@ -102,6 +102,10 @@ protocol-interface|0xd1d0
 get-ram-partitions-slot|0xd1e8
 registration-function|0x205c
 smem402-table-supplier|0x53b0
+ram-table-v1-parser|0x5430
+ram-table-header-validator|0x5288
+smem-generic-item-accessor|0x7d08
+other-protocol-installer|0x23b0
 XREFS
 
 echo "=== Optional actual callback function if pointer is statically usable ==="
