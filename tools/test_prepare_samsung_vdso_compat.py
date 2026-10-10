@@ -1,11 +1,13 @@
 """Synthetic regression tests: isolated copied source, exact stable patches, tree digests."""
 import importlib.util
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 SCRIPT = Path(__file__).with_name("prepare_samsung_vdso_compat.py")
+sys.path.insert(0, str(SCRIPT.parent))
 spec = importlib.util.spec_from_file_location("samsung_vdso_compat", SCRIPT)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
