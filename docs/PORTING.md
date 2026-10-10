@@ -9,6 +9,18 @@ It separates already verified identity/source evidence from unverified
 vulnerability, symbol/layout, KernelSU, and app-integration gates. Do not
 copy this 6.1 example's offsets, boot-header assumptions or module binaries.
 
+The HXL1 porting process is being tracked with the **read-only,
+nine-stage** checker `tools/y2q_porting_readiness.py`, which
+reads the exact research evidence and retained original artifacts
+and produces `~/s20-artifacts/hxl1-research/port-readiness.md`.
+This source- and SHA-256-gated status report is NOT an exploit
+payload, a live vulnerability test or a support-feed candidate.
+Execute it before attempting to use another device's offsets or
+declaring any of stages 3–8 complete. The physical stock bootloader
+is confirmed locked, but bootloader unlocking is *not* required
+for runtime-vulnerability research; a deployable kernel/module
+integration remains a separate gate.
+
 The separate Galaxy S24 `S921BXXSFDZF2` record, including every changed offset and
 firmware hash, is in
 [`SM-S921B-S921BXXSFDZF2.md`](SM-S921B-S921BXXSFDZF2.md).
