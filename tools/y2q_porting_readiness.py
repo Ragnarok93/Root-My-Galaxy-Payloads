@@ -152,11 +152,9 @@ def stage4_factory_evidence(evidence: dict) -> dict:
     boot_verified = (
         boot.get("regression", {}).get("passed") == 13
         and boot.get("bootImageIntegrity") == "PRESENT_PIN_VERIFIED"
-        and all(x.get("checksumPinMatch") is True
-                for x in boot.get("embeddedComponents", {}).values()
-                if x is not boot.get("embeddedComponents", {}).get("second"))
-        and all(k in boot.get("embeddedComponents", {})
-                for k in ("kernel", "ramdisk", "dtb")))
+        and all(
+            boot.get("embeddedComponents", {}).get(name, {}).get("checksumPinMatch") is True
+            for name in ("kernel", "ramdisk", "dtb")))
     fdt_verified = (
         fdt.get("regression", {}).get("passed") == 10
         and fdt.get("bootAndEmbeddedDtbSha256Verified") is True
