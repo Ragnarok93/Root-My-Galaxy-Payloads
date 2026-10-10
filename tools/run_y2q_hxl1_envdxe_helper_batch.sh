@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Original HXL1 EnvDxe: corrected callback ownership, 8 code windows, 4 xrefs.
-# 658 independent offline tests: previously authenticated 324 + new 334.
+# 659 independent offline tests: previously authenticated 325 + new 334.
 # SHA-pinned PE only. NEVER connects to or modifies S20+, bootloader, kernel.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -10,7 +10,7 @@ EFI="$OUT/EnvDxe-HXL1.efi"
 REA="$HOME/src/rea/scripts/rea.mjs"
 PIN=9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670
 
-echo "=== 658 meaningful original XBL EnvDxe regression tests ==="
+echo "=== 659 meaningful original XBL EnvDxe regression tests ==="
 python3 -m unittest -q \
   tools/test_y2q_hxl1_envdxe_ram_registration_interface.py \
   tools/test_y2q_hxl1_envdxe_ram_registration_callback.py \
