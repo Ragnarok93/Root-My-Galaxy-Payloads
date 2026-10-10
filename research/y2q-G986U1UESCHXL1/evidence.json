@@ -817,5 +817,29 @@
     "moduleLoadVerified": false,
     "publicationAllowed": false,
     "nextResearch": "Verify original retained boot.img/kernel.bin against recorded hashes, identify exact stock kernel binary format and inspect read-only disassembly/source correspondence; avoid crash-oriented reproduction until recovery plan is established."
+  },
+  "originalFirmwareBinaryVerification": {
+    "ownerReportedAt": "2026-10-10",
+    "method": "sha256sum and file on WSL2 original retained artifacts",
+    "files": {
+      "boot.img": {
+        "path": "/home/main/s20-artifacts/boot.img",
+        "sha256": "bd8987c28ef0b9fdb56ad3e82ce3b45929c5e53717525769e5625dd1e17f7dc8",
+        "matchesExistingExtractionManifest": true
+      },
+      "kernel.bin": {
+        "path": "/home/main/s20-artifacts/kernel.bin",
+        "sha256": "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123",
+        "matchesExistingExtractionManifest": true,
+        "fileIdentification": "Linux kernel ARM64 boot executable Image, little-endian, 4K pages"
+      }
+    },
+    "originalExtractedImagesIntegrityVerified": true,
+    "bootedKernelByteIdentityVerified": false,
+    "symbolRecoveryCompleted": false,
+    "btfPresenceVerified": false,
+    "vulnerableSourceLogicPresentInExactRunningBinaryVerified": false,
+    "exploitExecuted": false,
+    "next": "Read-only ARM64 Image header verification and symbol/BTF presence inspection against original kernel.bin."
   }
 }
