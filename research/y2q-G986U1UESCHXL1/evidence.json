@@ -2400,7 +2400,7 @@
         "number": 4,
         "category": "physical load address",
         "state": "OPEN",
-        "basis": "Actual original HXL1 BL archive checksum pinned and ABL/XBL/XBL_CONFIG ELF tests 10/10 passed. Original boot.img v2 tests 13/13 passed, kernel/ramdisk/DTB embedded SHA pins match, nominal kernel_addr=0x8000, dtb_addr=0x1f00000. Runtime BL physical kernel placement still OPEN."
+        "basis": "Original exact BL SHA pinned; ABL/XBL/XBL_CONFIG audited (10 tests passed); Android stock boot v2 header and 3 embedded component SHA pins matched (13 tests passed). Four contiguous FDT v17 semantic token streams verified (10 tests passed): kona v2.1, kona v2, kona v1, one minimal 173-byte tree. Actual runtime DTB selection and Linux physical handoff remain open."
       },
       {
         "number": 5,
@@ -2438,7 +2438,7 @@
     "workingKernelSu": false,
     "verifiedStockIdentity": true,
     "verifiedStockOriginalSourceHashes": true,
-    "nextOwnerAction": "Run the semantic FDT-token and root identity audit and its 10 tests; four contiguous FDT v17 header candidates are verified, but runtime selection, overlays and physical kernel base are not.",
+    "nextOwnerAction": "Owner semantic FDT audit 10/10 passed, all 4 DTBs valid. Correct readiness stage 4 outdated request for matching BL archive; original exact BL present and verified, but runtime-selected DTB and physical handoff still OPEN.",
     "noPhoneChanges": true,
     "noCrossDeviceOffsets": true,
     "noPrematureSupportFeedRegistration": true,
@@ -2783,7 +2783,7 @@
     }
   },
   "hxl1Stage4BootloaderDiscovery": {
-    "observedAt": "2026-10-10T07:54:05Z",
+    "observedAt": "2026-10-10T08:09:37Z",
     "commandScope": "find /mnt/c/Users $HOME/Downloads -maxdepth 6 under G986 filename patterns",
     "matches": [
       "/mnt/c/Users/Admin/Downloads/SM-G986U.zip"
@@ -2859,7 +2859,7 @@
         "sizeBytes": 68536429
       }
     ],
-    "nextEvidenceAction": "Run semantic FDT stream validator against four hash-pinned HXL1 DTB headers, classify 173-byte final FDT, compare root model/compatible strings of larger candidates. Stage 4 original ABL-to-Linux physical handoff remains OPEN.",
+    "nextEvidenceAction": "Record three Qualcomm kona v2.1/v2/v1 DTB root model variants and minimal fourth FDT. Study high-level bootloader DTB selection metadata or read-only kernel-reported running device-tree identity; do not equate plausible FDTs or boot.img header kernel_addr=0x8000 with actual runtime physical load.",
     "stockBootloaderImagesExtracted": true,
     "originalFactoryPhysicalKernelEntryVerified": false,
     "deviceFlashed": false,
@@ -3188,11 +3188,80 @@
         "node/property counts",
         "bounded root model and compatible printable ASCII strings"
       ],
-      "noteworthy": "Fourth header is only 173 bytes; full FDT structure may be minimal or fail semantic validation. Determine by executing new tool. Do not label it a dummy or runtime-selected tree before results.",
+      "noteworthy": "Owner confirmed the 173-byte candidate passes full token stream validation and contains one node/two properties, without root model/compatible; purpose/runtime selection unknown.",
       "output": "/home/main/s20-artifacts/hxl1-research/stock-fdt-semantic-audit.{json,md}",
-      "status": "COMMITTED_10_TESTS_NOT_YET_OWNER_VERIFIED",
+      "status": "OWNER_EXECUTED_10_OF_10_TESTS_PASS_ALL_FOUR_STRUCTURES_PASS",
       "actualSelectedRuntimeDtbKnown": false,
-      "actualKernelPhysicalAddressKnown": false
+      "actualKernelPhysicalAddressKnown": false,
+      "ownerVerifiedAt": "2026-10-10T08:09:37Z",
+      "ownerPulledThrough": "633e85d",
+      "regression": {
+        "total": 10,
+        "passed": 10,
+        "failed": 0,
+        "errors": 0,
+        "seconds": 0.006
+      },
+      "bootAndEmbeddedDtbSha256Verified": true,
+      "contiguousCompleteRegionCoverage": true,
+      "allFdtStructuresPass": true,
+      "candidates": [
+        {
+          "index": 1,
+          "offsetWithinDtbRegion": "0x0",
+          "sizeBytes": 528520,
+          "sha256": "b3aeb34a66528accde7ff21e1739224aa89a327595b99ea781bf4eb7b195b422",
+          "tokenStatus": "PASS",
+          "rootModel": "Qualcomm Technologies, Inc. kona v2.1 SoC",
+          "rootCompatible": [
+            "qcom,kona"
+          ],
+          "nodeCount": 3268,
+          "propertyCount": 15719
+        },
+        {
+          "index": 2,
+          "offsetWithinDtbRegion": "0x81088",
+          "sizeBytes": 528516,
+          "sha256": "d68acf630e4473bcc0341d83055f8308ccdaeb745f779e93d335ec58e7fec0d6",
+          "tokenStatus": "PASS",
+          "rootModel": "Qualcomm Technologies, Inc. kona v2 SoC",
+          "rootCompatible": [
+            "qcom,kona"
+          ],
+          "nodeCount": 3268,
+          "propertyCount": 15719
+        },
+        {
+          "index": 3,
+          "offsetWithinDtbRegion": "0x10210c",
+          "sizeBytes": 523066,
+          "sha256": "b463d63283610c577a1d0ad9c003d323dee6a79bb30e408c739110d45ba8d57f",
+          "tokenStatus": "PASS",
+          "rootModel": "Qualcomm Technologies, Inc. kona v1 SoC",
+          "rootCompatible": [
+            "qcom,kona"
+          ],
+          "nodeCount": 3230,
+          "propertyCount": 15464
+        },
+        {
+          "index": 4,
+          "offsetWithinDtbRegion": "0x181c46",
+          "sizeBytes": 173,
+          "sha256": "0bd849a7ed78287c8d0214ffeb56b3980a4379190a7e147adbfa063c9d712f0c",
+          "tokenStatus": "PASS",
+          "rootModel": null,
+          "rootCompatible": [],
+          "nodeCount": 1,
+          "propertyCount": 2,
+          "interpretation": "Semantically valid minimal FDT, but neither its purpose nor runtime selection is verified."
+        }
+      ],
+      "reportPaths": [
+        "/home/main/s20-artifacts/hxl1-research/stock-fdt-semantic-audit.json",
+        "/home/main/s20-artifacts/hxl1-research/stock-fdt-semantic-audit.md"
+      ]
     }
   }
 }
