@@ -40,6 +40,36 @@ def sha256_file(path):
     return digest.hexdigest()
 
 
+def find_python2(explicit=None):
+    """Find genuine Python 2.7; never accept a Python 3 compatibility symlink."""
+    if explicit is not None:
+        binary = Path(explicit).expanduser().absolute()
+        if binary.name != "python2":
+            raise ValueError("--python2 must name an executable 'python2' (for /usr/bin/env python2)")
+        if not binary.is_file() or not os.access(binary, os.X_OK):
+            raise ValueError("Python 2 executable not found: " + str(binary))
+        executable = str(binary)
+    else:
+        executable = shutil.which("python2")
+        if not executable:
+            raise ValueError(
+                "Samsung's kernel invokes /usr/bin/env python2. "
+                "Install real Python 2.7 in an isolated prefix; do NOT alias python2 to python3."
+            )
+    try:
+        probe = subprocess.run(
+            [executable, "-c",
+             "import sys; sys.stdout.write('%d.%d' % sys.version_info[:2])"],
+            capture_output=True, text=True, timeout=8, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ValueError("could not run Python 2: " + str(error)) from error
+    if probe.returncode != 0 or probe.stdout.strip() != "2.7":
+        raise ValueError("python2 must be a genuine Python 2.7 runtime, observed: " +
+                         (probe.stdout + " " + probe.stderr).strip()[:200])
+    return executable
+
+
 def valid_external_path(root, output, candidate):
     path = candidate.expanduser().absolute()
     if (path == root or root in path.parents or path == output
@@ -113,6 +143,7 @@ def plan(args):
             raise ValueError(f"{label} unavailable: {path}")
     if not shutil.which("python"):
         raise ValueError("Samsung's older kernel build scripts require unversioned python")
+    python2 = find_python2(getattr(args, "python2", None))
 
     source_audit = source_preflight_run(argparse.Namespace(
         source_dir=source,
@@ -152,6 +183,7 @@ def plan(args):
         "command": cmd,
         "image": str(artifact),
         "log": str(log) if log else None,
+        "python2": python2,
         "status": "dry_run",
         "kernelCompiled": False,
         "signed": False,
@@ -165,9 +197,13 @@ def execute_build(info):
     with log.open("x", encoding="utf-8", errors="replace") as logfile:
         logfile.write("COMMAND: " + " ".join(info["command"]) + "\n")
         logfile.flush()
+        environment = dict(os.environ)
+        # /usr/bin/env python2 follows PATH, even when build scripts have
+        # hard-coded shebangs. Scope overrides to this subprocess ONLY.
+        environment["PATH"] = str(Path(info["python2"]).parent) + os.pathsep + environment.get("PATH", "")
         proc = subprocess.Popen(info["command"], stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True, errors="replace",
-                                bufsize=1)
+                                bufsize=1, env=environment)
         try:
             for line in proc.stdout:
                 logfile.write(line)
@@ -200,6 +236,8 @@ def main():
     parser.add_argument("--clang", type=Path, default=Path("/usr/bin/clang"))
     parser.add_argument("--gcc-prefix", default="/usr/bin/aarch64-linux-gnu-")
     parser.add_argument("--jobs", type=int, default=2)
+    parser.add_argument("--python2", type=Path,
+                        help="Path to genuine Python 2.7 named python2; added to build subprocess PATH only")
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--log", type=Path)
     parser.add_argument("--json", type=Path)
