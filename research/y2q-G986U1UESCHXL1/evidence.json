@@ -2438,7 +2438,7 @@
     "workingKernelSu": false,
     "verifiedStockIdentity": true,
     "verifiedStockOriginalSourceHashes": true,
-    "nextOwnerAction": "Analyze exact checksum-verified DTB payload embedded inside original stock boot.img to classify FDT/QCDT and identify memory/reserved-memory data, separately from original BL ELF PT_LOAD, while preserving physical handoff as OPEN.",
+    "nextOwnerAction": "Validate original HXL1 embedded DTB format via stock_dtb_inventory scanner and 10 new host unit tests. Original v2 boot-image header fields and 3 embedded component SHA256 pins verified; physical kernel runtime loading still OPEN.",
     "noPhoneChanges": true,
     "noCrossDeviceOffsets": true,
     "noPrematureSupportFeedRegistration": true,
@@ -2859,7 +2859,7 @@
         "sizeBytes": 68536429
       }
     ],
-    "nextEvidenceAction": "Use pinned original boot.img embedded DTB region (offset 0x3240000 length 1580275) for read-only device tree format and memory map inventory. Do not assume kernel_addr 0x8000 describes effective Qualcomm ABL physical handoff; AOSP base plus offset conventions may apply.",
+    "nextEvidenceAction": "Owner to run 10 read-only stock DTB inventory tests and probe pinned embedded 1,580,275-byte DTB region to classify DTB wrapper/container before examining any memory nodes.",
     "stockBootloaderImagesExtracted": true,
     "originalFactoryPhysicalKernelEntryVerified": false,
     "deviceFlashed": false,
@@ -3106,6 +3106,19 @@
         "/home/main/s20-artifacts/hxl1-research/stock-boot-v2-audit.md"
       ],
       "noPhoneAccess": true
+    },
+    "followupEmbeddedDtbInventory": {
+      "tool": "tools/y2q_stock_dtb_inventory.py",
+      "tests": "tools/test_y2q_stock_dtb_inventory.py",
+      "ci": ".github/workflows/y2q-identity-probe.yml",
+      "pin": "a6104cdba11e0cd3d6ddaba6819098ab01f0dc0e8e7fd333137c88ad07d9d0ce",
+      "input": "original SHA256-pinned boot.img DTB region 0x3240000 length 1580275",
+      "objective": "Classify original region prefix as standard FDT / Qualcomm QCDT / Android DT table / unknown, count header-validated FDT v17+ candidates, output SHA and bounds for candidate blobs.",
+      "caveat": "This does not yet parse memory ranges, choose specific runtime DTB or infer physical kernel handoff.",
+      "status": "COMMITTED_AWAITING_OWNER_EXECUTION",
+      "expectedTestCount": 10,
+      "expectedOutput": "/home/main/s20-artifacts/hxl1-research/stock-dtb-inventory.{json,md}",
+      "phoneModified": false
     }
   }
 }
