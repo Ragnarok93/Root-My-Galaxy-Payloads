@@ -108,6 +108,36 @@ class ExtractionTests(unittest.TestCase):
             self.assertFalse(result["kernelPhysicalAddressVerified"])
             self.assertFalse(result["androidKernelHandoffIdentified"])
 
+    def test_hxl1_large_dos_stub_accepts_pe_at_0xe58(self):
+        # Original HXL1 LinuxLoader: e_lfanew=0xe58, PE32+ 0xf0-byte
+        # optional header, 3 COFF sections; it used to fail the 0x800 cap.
+        data = bytearray(0x2000)
+        data[:2] = b"MZ"
+        struct.pack_into("<I", data, 0x3c, 0xe58)
+        original = pe()
+        header_bytes = 24 + 0xf0 + 40
+        data[0xe58:0xe58 + header_bytes] = original[0x80:0x80 + header_bytes]
+        struct.pack_into("<H", data, 0xe58 + 6, 3)
+        observed = abl.identify_pe(bytes(data))
+        self.assertIsNotNone(observed)
+        self.assertEqual(observed["dosPeHeaderOffset"], "0xe58")
+        self.assertEqual(observed["sectionCount"], 3)
+        self.assertEqual(observed["coffMachine"], "0xaa64")
+
+    def test_hxl1_pe_header_must_stay_inside_actual_file(self):
+        data = bytearray(pe())
+        struct.pack_into("<I", data, 0x3c, len(data) - 20)
+        self.assertIsNone(abl.identify_pe(bytes(data)))
+
+    def test_hxl1_pe_section_table_truncation_rejected(self):
+        data = bytearray(0x1000)
+        data[:2] = b"MZ"
+        struct.pack_into("<I", data, 0x3c, 0xe58)
+        original = pe()
+        data[0xe58:0xe58 + 24 + 0xf0] = original[0x80:0x80 + 24 + 0xf0]
+        struct.pack_into("<H", data, 0xe58 + 6, 96)
+        self.assertIsNone(abl.identify_pe(bytes(data)))
+
     def test_wrong_architecture_pe_rejected(self):
         wrong = bytearray(pe())
         struct.pack_into("<H", wrong, 0x84, 0x8664)
