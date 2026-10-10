@@ -98,6 +98,16 @@ class Hxl1Smem402ProtocolTests(unittest.TestCase):
         self.assertFalse(result["kernelPhysicalLoadVerified"])
         self.assertFalse(result["deviceModified"])
 
+    def test_registration_verdict_fields_remain_consistent(self):
+        result=self.audit()
+        self.assertIn("efiRamProtocolRegistrationProven",result)
+        self.assertIn("ramProtocolImplementationRegistrationConfirmed",result)
+        self.assertIs(result["efiRamProtocolRegistrationProven"], False)
+        self.assertIs(result["ramProtocolImplementationRegistrationConfirmed"], False)
+        self.assertEqual(result["efiRamProtocolRegistrationProven"],
+                         result["ramProtocolImplementationRegistrationConfirmed"])
+        self.assertFalse(result["physicalBaseMemoryMeasured"])
+
     def test_true_ram_protocol_guid_is_classified_but_not_registration(self):
         self.guid["normalized_result"]["bytes_hex"]=impl.GUID_LE.hex()
         self.persist()
