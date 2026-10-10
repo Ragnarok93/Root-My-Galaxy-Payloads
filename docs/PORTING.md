@@ -1,8 +1,15 @@
 # Firmware-to-profile porting procedure
 
 This document records the exact procedure used for the Galaxy S24 FE Korean
-firmware `S721NKSSCDZF3`. Do not reuse its values for another build. The
-separate Galaxy S24 `S921BXXSFDZF2` record, including every changed offset and
+firmware `S721NKSSCDZF3`. Do not reuse its values for another build.
+
+For the research-only US Galaxy S20+ (`SM-G986U1`, HXL1, Linux 4.19.113,
+locked bootloader), use the [nine-stage HXL1 port adaptation](SM-G986U1-G986U1UESCHXL1.md).
+It separates already verified identity/source evidence from unverified
+vulnerability, symbol/layout, KernelSU, and app-integration gates. Do not
+copy this 6.1 example's offsets, boot-header assumptions or module binaries.
+
+The separate Galaxy S24 `S921BXXSFDZF2` record, including every changed offset and
 firmware hash, is in
 [`SM-S921B-S921BXXSFDZF2.md`](SM-S921B-S921BXXSFDZF2.md).
 That model uses Exynos 2400 and is not a reference for the Snapdragon E3Q
