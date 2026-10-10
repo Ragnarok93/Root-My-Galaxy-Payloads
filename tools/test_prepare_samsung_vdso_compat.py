@@ -77,6 +77,68 @@ class VdsoCompatTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "stock source changed"):
                 module.verify_compat(stock, dest)
 
+    def test_format_option_creates_new_three_patch_tree_without_mutating_vdso_tree(self):
+        with tempfile.TemporaryDirectory() as temp:
+            stock, vdso = self.fixture(temp)
+            original_line = (
+                '        pr_info("SYSREG, after zeroing out master key, mk=%lx\\n", ropp_master_key);\n'
+            )
+            (stock / "init").mkdir()
+            (stock / module.INIT_MAIN).write_text(
+                "void init_ropp(void) {\n" + original_line +
+                "        BUG_ON(0 != ropp_master_key);\n}\n"
+            )
+            before = module.tree_digest(stock)
+            with patch.object(module, "source_gate"):
+                _, _, default_patches = module.plan(stock, vdso, stock / "audit.json")
+            base_manifest = module.create(stock, vdso, default_patches)
+            before_vdso = module.tree_digest(vdso)
+            expanded = Path(temp) / "new-format-source"
+            with patch.object(module, "source_gate"):
+                _, _, formatted_patches = module.plan(
+                    stock, expanded, stock / "audit.json", format_fix=True
+                )
+            self.assertEqual(set(formatted_patches), set(module.PATCHES) | {module.INIT_MAIN})
+            self.assertEqual(formatted_patches[module.INIT_MAIN]["replacements"], 1)
+            manifest = module.create(stock, expanded, formatted_patches)
+            self.assertEqual(manifest["schema"], 2)
+            self.assertEqual(manifest["kind"], module.FORMAT_KIND)
+            self.assertIn(
+                'mk=%llx\\n", (unsigned long long)ropp_master_key);',
+                (expanded / module.INIT_MAIN).read_text()
+            )
+            self.assertEqual(module.verify_compat(stock, expanded)["schema"], 2)
+            self.assertEqual(module.verify_compat(stock, vdso)["schema"], 1)
+            self.assertEqual(module.tree_digest(stock), before)
+            self.assertEqual(module.tree_digest(vdso), before_vdso)
+            self.assertEqual(base_manifest["kind"], module.VDSO_KIND)
+
+    def test_format_patch_requires_one_exact_original_call(self):
+        good = 'pr_info("SYSREG, after zeroing out master key, mk=%lx\\n", ropp_master_key);'
+        changed, count = module.upstream_fixes(good, module.INIT_MAIN)
+        self.assertEqual(count, 1)
+        self.assertIn(
+            'mk=%llx\\n", (unsigned long long)ropp_master_key);', changed
+        )
+        with self.assertRaisesRegex(ValueError, "expected 1 exact matches"):
+            module.upstream_fixes(good + "\n" + good, module.INIT_MAIN)
+        with self.assertRaisesRegex(ValueError, "expected 1 exact matches"):
+            module.upstream_fixes(changed, module.INIT_MAIN)
+
+    def test_format_compat_manifest_rejects_mutated_security_source(self):
+        with tempfile.TemporaryDirectory() as temp:
+            stock, new = self.fixture(temp)
+            (stock / "init").mkdir()
+            (stock / module.INIT_MAIN).write_text(
+                'pr_info("SYSREG, after zeroing out master key, mk=%lx\\n", ropp_master_key);\n'
+            )
+            with patch.object(module, "source_gate"):
+                _, _, edits = module.plan(stock, new, stock / "audit.json", True)
+            module.create(stock, new, edits)
+            (new / module.INIT_MAIN).write_text("malicious change\n")
+            with self.assertRaisesRegex(ValueError, "patched compatibility file changed"):
+                module.verify_compat(stock, new)
+
     def test_refuse_existing_destination_even_when_empty(self):
         with tempfile.TemporaryDirectory() as temporary:
             stock, dest = self.fixture(temporary)
