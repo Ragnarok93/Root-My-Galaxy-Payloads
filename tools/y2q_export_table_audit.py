@@ -74,6 +74,9 @@ def main() -> int:
             raise ValueError(f"Required symbol not resolved: {name}")
         return item[0]
 
+    if options["CONFIG_MODVERSIONS"] != "y":
+        raise ValueError("STOP: selected kernel must enable CONFIG_MODVERSIONS")
+
     base = address("_text")
     if base != 0xFFFFFF8008080000:
         raise ValueError(f"STOP: unexpected recovered _text base {base:#x}")
@@ -103,8 +106,10 @@ def main() -> int:
     gpl_crc_end = symbols.get("__stop___kcrctab_gpl", (None, "U"))[0]
     if (gpl_end - gpl_begin) % 8:
         raise ValueError("GPL export table has a non-integral PREL32 entry count")
-    if (gpl_crc is not None and gpl_crc != crc_end:
+    if gpl_crc is not None and gpl_crc != crc_end:
         raise ValueError("GPL CRC table must begin where normal CRC table ends")
+    if gpl_crc_end is not None and gpl_crc is None:
+        raise ValueError("GPL CRC end found without GPL CRC start")
     if gpl_crc_end is not None and gpl_crc is not None:
         if (gpl_crc_end - gpl_crc) != ((gpl_end - gpl_begin) // 8) * 4:
             raise ValueError("GPL export count and GPL CRC slot count disagree")
