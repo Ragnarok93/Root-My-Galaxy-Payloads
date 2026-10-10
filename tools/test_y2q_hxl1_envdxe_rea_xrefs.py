@@ -31,6 +31,19 @@ class OriginalEnvDxeXrefsTests(unittest.TestCase):
                             "preferredImageVirtualAddress":"0xe118"}
         }
         self.write_manifest()
+        self.readback={
+            "operation":"read_bytes",
+            "provider":{"id":"ghidra"},
+            "subject":{"digest":{"sha256":self.sha},"architecture":"arm64"},
+            "parameters":{"address":"0xe118","length":16},
+            "normalized_result":{
+                "address":"0xe118","requested_bytes":16,
+                "returned_bytes":16,"complete":True,
+                "bytes_hex":audit.GUID_LE.hex(),
+            },
+            "evidence_id":"ev_original_readback",
+        }
+        self.write_readback()
         self.evidence={
             "operation":"xrefs",
             "provider":{"id":"ghidra"},
@@ -46,6 +59,9 @@ class OriginalEnvDxeXrefsTests(unittest.TestCase):
 
     def write_evidence(self):
         (self.folder/audit.XREF_NAME).write_text(json.dumps(self.evidence))
+
+    def write_readback(self):
+        (self.folder/audit.READBACK_NAME).write_text(json.dumps(self.readback))
 
     def verify(self):
         with patch.object(audit,"PE_SHA256",self.sha):
@@ -102,6 +118,28 @@ class OriginalEnvDxeXrefsTests(unittest.TestCase):
         self.pe[0]^=1
         (self.folder/audit.OUT_NAME).write_bytes(self.pe)
         with self.assertRaisesRegex(ExtractionError,"bytes, SHA256"):
+            self.verify()
+
+    def test_rea_readback_is_byte_verified_before_xrefs(self):
+        result=self.verify()
+        self.assertTrue(result["importedGuidBytesVerified"])
+        self.assertEqual(result["guidByteReadbackEvidenceId"],"ev_original_readback")
+
+    def test_import_address_mismatch_is_a_hard_stop(self):
+        self.readback["normalized_result"]["bytes_hex"]="00"*16
+        self.write_readback()
+        with self.assertRaisesRegex(ExtractionError,"image base"):
+            self.verify()
+
+    def test_missing_import_readback_never_promotes_xrefs(self):
+        (self.folder/audit.READBACK_NAME).unlink()
+        with self.assertRaisesRegex(ExtractionError,"Evidence absent"):
+            self.verify()
+
+    def test_foreign_readback_provider_rejected(self):
+        self.readback["provider"]["id"]="hopper"
+        self.write_readback()
+        with self.assertRaisesRegex(ExtractionError,"provenance mismatch"):
             self.verify()
 
     def test_guid_must_map_to_pe_section(self):
