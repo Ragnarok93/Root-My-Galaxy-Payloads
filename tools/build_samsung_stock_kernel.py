@@ -171,6 +171,10 @@ def plan(args):
         "CROSS_COMPILE=" + cross_prefix,
         "CLANG_TRIPLE=aarch64-linux-gnu-",
         "REAL_CC=" + str(compiler),
+        # Samsung's later CFP compiler path selects scripts/gcc-wrapper.py
+        # with $(CFP_CC), independent of REAL_CC. Make command-line values
+        # override ordinary Makefile assignments without editing vendor files.
+        "CFP_CC=" + str(compiler),
         "DTC_EXT=" + str(dtc),
         "CONFIG_BUILD_ARM64_DT_OVERLAY=y",
         "-j" + str(args.jobs), "Image",
@@ -188,7 +192,8 @@ def plan(args):
         "kernelCompiled": False,
         "signed": False,
         "flashable": False,
-        "note": "Experimental Clang18/GCC13 stock Image compatibility build, not a Samsung factory-identical binary.",
+        "compilerRouting": {"REAL_CC": str(compiler), "CFP_CC": str(compiler)},
+        "note": "Experimental Clang18/GCC13 stock Image compatibility build with CFP compiler override, not a Samsung factory-identical binary.",
     }, report
 
 
