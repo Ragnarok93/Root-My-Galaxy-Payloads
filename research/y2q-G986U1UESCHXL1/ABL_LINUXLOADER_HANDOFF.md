@@ -273,3 +273,32 @@ bash tools/analyze_y2q_hxl1_linuxloader_rea.sh
 ```
 
 The Ghidra installer needs no device access and the static LinuxLoader analysis remains separate from proving any kernel physical handoff. Stage 4 stays OPEN.
+
+## October 10 — REA/Ghidra provider operational on actual HXL1 LinuxLoader
+
+The owner ran SHA256-pinned Ghidra permission restoration and native REA analysis on WSL2. Results:
+
+- **7/7** ZIP-mode regression tests passed.
+- The official NSA 12.1.4 release ZIP and **all 134 selected installed executable files** passed byte-level verification against the original archive before `chmod`; executable modes were restored on **134/134** files.
+- The **actual REA 6.3.0 Ghidra doctor passed**, using Ghidra 12.1.4 and full Ubuntu OpenJDK 21, under Node 24.21.0.
+- The already-recovered LinuxLoader remained SHA256 **`5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003`**.
+- `tools/analyze_y2q_hxl1_linuxloader_rea.sh` completed successfully and saved REA's `binary_overview` plus three `search_strings` queries (`bootimg`, `kernel`, `dtb`) and raw LLVM output in the local HXL1 research folder.
+- **Important limit:** successful overview/search proves Ghidra provider admission and static search execution, NOT that the kernel placement function, chosen DTB, or physical Linux handoff was recovered. The actual REA JSON search matches were not included in the user's terminal output and must not be invented.
+
+### Next evidence gate: already-saved REA strings, then selected xrefs/decompilation
+
+The new offline `tools/y2q_linuxloader_rea_stage4_seeds.py` verifies the original LinuxLoader SHA256, then reads existing `rea-ghidra-search-bootimg.json`, `rea-ghidra-search-kernel.json`, and `rea-ghidra-search-dtb.json`. For each, it requires a REA `search_strings` Evidence record whose provider is `ghidra`, whose target digest and architecture match the exact recovered PE and AArch64, and whose actual query matches the filename. It reports every Ghidra analyzed string address and value, retains evidence IDs, and explicitly refuses to translate these static addresses into a Linux physical load. Missing or invalid query evidence stays marked unverified. Offline fixture regressions cover foreign digests, providers, query mismatches, malformed addresses, failure payloads, and zero hits without false conclusions.
+
+To inspect only saved existing evidence (NO Ghidra execution and no firmware extraction), run:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools/test_y2q_linuxloader_rea_stage4_seeds.py
+python3 tools/y2q_linuxloader_rea_stage4_seeds.py
+cat ~/s20-artifacts/hxl1-research/abl-linuxloader/rea-stage4-seed-audit.md
+```
+
+**Then** choose 1–3 concrete REA-reported analyzed string addresses with strong Android boot-loader relevance. Use the fork's exact `rea xrefs /absolute/path/LinuxLoader-HXL1.efi ADDRESS --provider ghidra --json`, `rea function ... PROCEDURE`, `rea decompile ... PROCEDURE`, and `rea trace-native-values ... PROCEDURE` on discovered enclosing functions. Record exact evidence IDs and input SHA256; do not infer original runtime execution from pseudocode. Use source-linked instructions and actual AArch64 function argument/register flow to determine image placement and the final branch/jump. The EFI's `entryPointRva=0x1000` and `preferredImageBase=0x0` are **EFI executable** metadata, not Linux physical kernel addresses.
+
+**Stage 4 physical kernel placement remains OPEN**, even though the REA/Ghidra toolchain stage is COMPLETE.
