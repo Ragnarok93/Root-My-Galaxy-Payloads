@@ -1138,7 +1138,15 @@
       "CONFIG_MODVERSIONS": "y",
       "CONFIG_MODULE_SIG_FORCE": "y",
       "CONFIG_TRIM_UNUSED_KSYMS": "n",
-      "CONFIG_SECURITY_DEFEX": "y"
+      "CONFIG_SECURITY_DEFEX": "y",
+      "CONFIG_PREEMPT": "y",
+      "CONFIG_SMP": "y",
+      "CONFIG_MODULE_UNLOAD": "y",
+      "CONFIG_MODULE_SIG": "y",
+      "CONFIG_MODULE_SIG_ALL": "y",
+      "CONFIG_MODULE_SIG_SHA512": "y",
+      "CONFIG_SECURITY_SELINUX": "y",
+      "CONFIG_SECURITY_SELINUX_DEVELOP": "y"
     },
     "recoveredElfSymbols": {
       "selinux_state": {
@@ -1169,6 +1177,13 @@
       "root_task_group": {
         "nmType": "T",
         "reconstructedVA": "0xffffff800b211c00"
+      },
+      "selinux_enforcing": {
+        "nmType": "T",
+        "reconstructedVA": "0xffffff800a4dd200",
+        "confirmedFromOriginalNm": true,
+        "realDataVsTextTypeIndependentlyVerified": false,
+        "originalRawImageBytesInspected": false
       }
     },
     "assessment": {
@@ -1194,10 +1209,43 @@
       "supportFeedAllowed": false
     },
     "nextReadOnlyChecks": [
-      "Inspect exact .config for SMP/PREEMPT/MODULE_UNLOAD/MODULE_SIG/SELINUX and MODULE_FORCE_LOAD flags to predict but not assume vermagic.",
-      "Use stock source/kernel Module.symvers or export tables to distinguish symbols present from exported symbols and CRCs.",
-      "Inspect nearby selinux-related nm symbols and code for the actual 4.19 global representation; do not reuse the 5.x/6.x selinux_state symbol.",
-      "Do not compile or claim a KernelSU module until specific 4.19 compatibility and accepted loader path are established."
-    ]
+      "Inspect recovered kallsyms listing for __ksymtab_* / __kcrctab_* / __crc_* entries and bounds; names alone do not guarantee standard module EXPORT_SYMBOL.",
+      "Inspect exact vendor source for where selinux_enforcing is defined and where SELinux state is represented.",
+      "Check recovery ELF and original image for export CRC table semantics; preserve lack of original Module.symvers.",
+      "Inspect source declarations for KDP helpers without inferring they are absent from missing nm name matches.",
+      "No KernelSU 4.19 module has been compiled, signed, loaded, initialized or device-tested."
+    ],
+    "ownerVerifiedBuildConfigAt": "2026-10-10",
+    "ownerSymbolSearch": {
+      "searchPattern": " (selinux_state|selinux_enforcing|selinux_initialized|kdp_usecount_inc_not_zero|kdp_usecount_dec_and_test|kdp_assign_pgd)$",
+      "matched": [
+        "U selinux_state",
+        "ffffff800a4dd200 T selinux_enforcing"
+      ],
+      "noResultsFor": [
+        "selinux_initialized",
+        "kdp_usecount_inc_not_zero",
+        "kdp_usecount_dec_and_test",
+        "kdp_assign_pgd"
+      ],
+      "negativeMatchesDoNotProveFeatureAbsent": true,
+      "recoveredElfMayMisclassifySymbolType": true
+    },
+    "moduleSymversSearch": {
+      "root": "/home/main/src/samsung-y2q-hxl1-stock",
+      "found": false,
+      "query": "find ... -name Module.symvers -type f -print",
+      "meaning": "Matching stock export CRC manifest not available from this source tree. Source tree alone is not a completed kernel build and no CRC parity established."
+    },
+    "conclusions": {
+      "signatures": "CONFIG_MODULE_SIG_ALL builds signed modules at modules_install; CONFIG_MODULE_SIG_FORCE requires a trusted verifier key for normal insertion; signing with a newly self-generated key is not sufficient on stock phone",
+      "selinuxDevelop": "Development-mode support does not mean SELinux is currently permissive or that a locked phone authorizes setting it permissive",
+      "noKprobes": "CONFIG_KPROBES=n",
+      "moduleAbiver": "CONFIG_MODVERSIONS=y plus missing Module.symvers blocks stock export CRC validation; possible offline table recovery must be independently verified",
+      "estimatedVermagic": "4.19.113-27095354 SMP preempt mod_unload modversions aarch64 (config-derived expectation only, not checked against stock modinfo)"
+    },
+    "moduleLoadVerified": false,
+    "deviceRootVerified": false,
+    "supportFeedAllowed": false
   }
 }
