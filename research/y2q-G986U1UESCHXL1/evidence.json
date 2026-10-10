@@ -884,7 +884,48 @@
       "outputFileSha256Verified": false,
       "guessedBaseIndependentlyVerified": false,
       "stockSymbolBytesValidatedAgainstRawImage": false,
-      "notADeviceRootTest": true
+      "notADeviceRootTest": true,
+      "ownerReportedElfLayoutAt": "2026-10-10",
+      "recoveredElfSha256": "e15f67e8253396d9e6463e5dfd78d67e324a7149842a7fbccb973ec0fd36ecdb",
+      "recoveredElfType": "ELF64 EXEC AArch64 little-endian; reconstructed unstripped analysis ELF",
+      "syntheticEntryPoint": "0xffffff800a600870",
+      "elfLoadSegments": [
+        {
+          "fileOffset": "0x240",
+          "vaddr": "0xffffff8008080000",
+          "filesz": "0x2695260",
+          "memsz": "0x2695260",
+          "flags": "RWE",
+          "align": 0
+        },
+        {
+          "fileOffset": "0x26954a0",
+          "vaddr": "0xffffff800aa5a650",
+          "filesz": "0x7b29bc",
+          "memsz": "0x7b29bc",
+          "flags": "RWE",
+          "align": 0
+        },
+        {
+          "fileOffset": "0x2e47e5c",
+          "vaddr": "0xffffff800b20d00c",
+          "filesz": "0x0",
+          "memsz": "0x1000000",
+          "flags": "RWE",
+          "align": 0
+        }
+      ],
+      "symbols": {
+        "_text": "0xffffff8008080000",
+        "_stext": "0xffffff8008080800",
+        "__rt_mutex_start_proxy_lock": "0xffffff8008147744",
+        "rt_mutex_start_proxy_lock": "0xffffff8008147d14",
+        "remove_waiter": "0xffffff8008147db4",
+        "start_kernel": "0xffffff800a600870"
+      },
+      "bytesAtSymbolLocationsComparedToOriginalKernel": false,
+      "runtimeKASLRAddressKnown": false,
+      "note": "RWE/align0 LOAD segments and entry pointing at start_kernel reflect a reconstructed analysis ELF, not measured page protections, SoC physical address or boot entry. Relative mapping for first LOAD may be tested against original raw kernel at symbol VA-minus-_text."
     },
     "recoveredSymbolsProvisional": true
   }
