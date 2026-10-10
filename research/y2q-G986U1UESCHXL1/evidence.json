@@ -603,6 +603,43 @@
       "imageCompiled": false,
       "signed": false,
       "deviceChanged": false
+    },
+    "eighthImageBuildAttempt": {
+      "reportedAt": "2026-10-09T20:02:32-05:00",
+      "firmware": "G986U1UESCHXL1",
+      "buildLog": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-build-08.log",
+      "result": "FAILED in main ARM64 kernel/init compilation from Samsung gcc-wrapper refusing two Clang warnings",
+      "crossArm64LinkerSucceeded": true,
+      "vdsoSharedObjectCreated": true,
+      "vdsoObjcopySucceeded": true,
+      "mainKernelCompilationReached": true,
+      "errors": [
+        {
+          "file": "include/linux/seq_buf.h",
+          "line": 35,
+          "warning": "-Wpointer-sign",
+          "diagnostic": "assigning unsigned char * to char *",
+          "fatalBy": "scripts/gcc-wrapper.py",
+          "objects": [
+            "init/main.o",
+            "arch/arm64/kernel/process.o"
+          ]
+        },
+        {
+          "file": "arch/arm64/include/asm/sec_debug.h",
+          "line": 113,
+          "warning": "-Wunused-but-set-variable",
+          "diagnostic": "which_el set but never used",
+          "fatalBy": "scripts/gcc-wrapper.py",
+          "object": "arch/arm64/kernel/fpsimd.o"
+        }
+      ],
+      "otherObservedWarning": "arch/arm64/kernel/entry.S:488 DWARF2 supports one section per compilation unit; monitor if fatal in other builds",
+      "sourceIntegrity": "stock audited tree unchanged; only prior two upstream fixes in isolated compat source",
+      "nextAttempt": "opt-in --suppress-legacy-core-warnings adds ONLY -Wno-pointer-sign and -Wno-unused-but-set-variable to target KCFLAGS, requires IAS, cgroup layout compatibility, cross GNU ARM64 linker, and validates both named Clang diagnostics are emitted then suppressed while unrelated -Wunused-parameter remains active",
+      "builtImage": false,
+      "phoneTouched": false,
+      "bootloaderLocked": true
     }
   }
 }
