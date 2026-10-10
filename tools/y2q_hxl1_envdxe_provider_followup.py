@@ -172,7 +172,7 @@ def main() -> int:
             target = next(q for q in TARGETS if q[0] == opts.verify_single)
             authenticate_parent(opts.out)
             item = audit_one(opts.out,target)
-            print("[GHDIRA ORIGINAL FUNCTION VERIFIED]",item["label"],
+            print("[GHIDRA ORIGINAL FUNCTION VERIFIED]",item["label"],
                   item["functionEntry"],item["evidenceId"])
             return 0
         results=audit(opts.out)
