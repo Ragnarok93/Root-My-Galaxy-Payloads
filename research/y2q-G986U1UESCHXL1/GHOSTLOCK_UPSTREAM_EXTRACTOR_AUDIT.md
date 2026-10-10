@@ -173,3 +173,21 @@ cat ~/s20-artifacts/hxl1-research/ghostlock-symbol-crosscheck.md
 ```
 
 **Evidence classification:** `PASS_STATIC_SYMBOL_AND_IMAGE_CORRELATION_ONLY`. Do **not** promote Stage 3 beyond **PARTIAL**, Stage 4 beyond **OPEN**, or GhostLock/KernelSU beyond **BLOCKED** based on this check. No payload or production profile is generated.
+
+## Owner-verified pinned static cross-check — 2026-10-10
+
+The owner pulled commit `bd35b06`, ran `python3 -m unittest -v tools/test_y2q_ghostlock_static_audit.py` and observed **12/12 tests PASS**. They then ran the new audit against the original local HXL1 artifacts with **all three data checks PASS**:
+
+```text
+[PASS] Exact original stock Image SHA256 + 64-byte sample verified
+[PASS] GhostLock image-relative symbol matches recovered stock NM
+[PASS] Isolated upstream report carries no physical-load inference
+[report] /home/main/s20-artifacts/hxl1-research/ghostlock-symbol-crosscheck.json
+[LIMIT] No physical kernel handoff, factory layout, GhostLock root or KernelSU
+```
+
+The generated report re-confirmed `kernel.bin` SHA256 `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`, `_text=0xffffff8008080000`, `remove_waiter=0xffffff8008147db4`, image-relative delta `0xc7db4`, and SHA256 `4428228c0bd3bb7bb6d742b9f43b28f0ff2316fc458fcd36a1aab59991b124c4` for its 64-byte sample.
+
+**Gate verdict:** `PASS_STATIC_SYMBOL_AND_IMAGE_CORRELATION_ONLY`. This particular validation is **COMPLETE**, while the overall Stage 3 factory structure-layout provenance remains **PARTIAL** and Stage 4 physical bootloader handoff **OPEN**. The validated virtual symbols do not prove live virtual address mapping, a physical kernel load, runtime CVE reachability, working GhostLock root, or KernelSU. No new runtime support entry or native exploit payload is authorized by these results.
+
+**Next evidence focus:** inventory original factory-produced debug/type metadata, if any, from *independently sourced matching HXL1 build artifacts* rather than repeating tests on the known incomplete Clang18 partial compilation. Do not substitute a neighbouring Snapdragon or kernel-family ABI.
