@@ -38,6 +38,24 @@ Schema version 3 keeps each exploit and KernelSU artifact once. Its flat
 The port is based on the exploit source published at
 <https://github.com/NebuSec/CyberMeowfia/tree/main/IonStack/CVE-2026-43499/exploit>.
 
+## Galaxy S20+ HXL1 investigation (not a supported exploit)
+
+The `SM-G986U1` / `G986U1UESCHXL1` / `4.19.113-27095354`
+research profile is intentionally **absent** from the supported payload
+feed. A 4.19 GhostLock reference on another phone is **not** a verified
+S20+ root exploit.
+
+`tools/y2q_research_toolchain.py` provides an exact-firmware,
+audited-stock-source scan, a separately built inert Android ARM64
+identity-check shared library, and a deterministic diagnostic bundle.
+No Samsung kernel rebuild is needed for the Android NDK library. None
+of these operations attempts kernel exploitation, privilege escalation,
+KernelSU loading, or flash modification.
+
+See [the HXL1 research instructions](research/y2q-G986U1UESCHXL1/ROOT_PAYLOAD_RESEARCH.md)
+for command examples, evidence requirements, reference-repository
+differences and outstanding vulnerability/recovery gates.
+
 ## Feed delivery
 
 Root My Galaxy resolves the payload repository's current commit first and
