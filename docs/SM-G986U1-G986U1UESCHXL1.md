@@ -4094,6 +4094,61 @@ signature and hook backend gates remain unresolved.
 
 ---
 
+## October 10 — watching a silent upstream Linux 4.19 ARM64 build
+
+The owner's initial QEMU lab transcript shows:
+
+- Upstream `linux-4.19.325.tar.xz` downloaded completely
+  (approximately 101 MiB), and extracted.
+- The static AArch64 PID1 diagnostic and gzip cpio
+  initramfs built successfully and have SHA-256 hashes.
+- Linux 4.19.325 ARM64 `defconfig` and `olddefconfig`
+  succeeded, without KASAN.
+- The Linux kernel build launched as
+  `make ... ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j1 Image`.
+  It writes all output to
+  `~/s20-artifacts/qemu-lab/kernel-build.log`
+  and intentionally showed no further output in the
+  original version of the helper.
+
+**This is not evidence of a failure.** The CLI cannot
+report success until `make` returns and the ARM64
+`arch/arm64/boot/Image` file is verified. The original
+four-command shell sequence will automatically
+attempt `boot` after `build` exits; wait for a distinct
+`[OK]` or `[STOP]` message before evaluating it.
+
+Monitor without interrupting or launching a second
+build by opening a **separate WSL shell**:
+
+```bash
+tail -n 25 -f ~/s20-artifacts/qemu-lab/kernel-build.log
+
+# Or read current status without a streaming terminal:
+stat -c 'bytes=%s changed=%y' ~/s20-artifacts/qemu-lab/kernel-build.log
+tail -n 30 ~/s20-artifacts/qemu-lab/kernel-build.log
+
+# Identify compiler/make processes:
+ps -eo pid,etime,%cpu,%mem,stat,comm |
+  grep -E 'PID|make|gcc|cc1|as|ld'
+
+# Inspect errors without assuming that every "error" word is fatal:
+grep -nEi 'fatal error:|error:|Error [0-9]+|Killed|Out of memory' \
+  ~/s20-artifacts/qemu-lab/kernel-build.log | tail -n 20
+```
+
+**Improvement committed for future builds:** the
+host helper now prints a short read-only progress
+heartbeat every **15 seconds** with elapsed time,
+log size, and the latest compiler line. It does not
+alter compiler settings or affect a Python process
+already running an earlier copy. No reason to
+restart a healthy build merely to obtain heartbeats.
+The diagnostic remains entirely separate from the
+physical Samsung device and is not a root exploit.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
