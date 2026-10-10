@@ -134,5 +134,8 @@ for keyword in bootimg kernel dtb; do
     > "$OUT/rea-ghidra-search-$keyword.json" \
     2> "$OUT/rea-ghidra-search-$keyword-errors.txt" || true
 done
+echo "=== Inspect the already-saved REA string evidence without re-import ==="
+python3 -m unittest -q tools/test_y2q_linuxloader_rea_stage4_seeds.py
+python3 tools/y2q_linuxloader_rea_stage4_seeds.py --out "$OUT"
 echo "[PASS] Original HXL1 loader and REA/Ghidra evidence saved under $OUT"
 echo "[LIMIT] Static PE evidence does not establish actual Linux physical handoff"
