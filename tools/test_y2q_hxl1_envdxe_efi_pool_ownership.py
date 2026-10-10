@@ -133,12 +133,12 @@ class PoolSemanticsTests(unittest.TestCase):
 
     def test_missing_allocated_original_sha_rejected(self):
         self.callee["originalEnvDxeSha256"]="bad"
-        with self.assertRaisesRegex(ExtractionError,"original source evidence"):
+        with self.assertRaisesRegex(ExtractionError,"source evidence or runtime proof boundary"):
             self.evaluate()
 
     def test_false_runtime_root_claim_rejected(self):
         self.cb["exploitOrRootAchieved"]=True
-        with self.assertRaisesRegex(ExtractionError,"original source evidence"):
+        with self.assertRaisesRegex(ExtractionError,"source evidence or runtime proof boundary"):
             self.evaluate()
 
     def test_missing_original_ghidra_attestation_rejected(self):
