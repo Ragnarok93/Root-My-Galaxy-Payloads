@@ -1184,6 +1184,156 @@ investigation rather than broadly disabling warning checks or editing
 Samsung's original source. Neither a compiled Image nor firmware
 modification has yet occurred; the phone's bootloader remains locked.
 
+## October 9: sixth Image build reaches VDSO, two exact upstream IAS fixes identified
+
+The owner ran sixth stock-kernel `Image` compatibility test with
+`--integrated-arm64-as --suppress-cgroup-layout-warning`, where the
+Clang 18 cgroup layout diagnostic was successfully suppressed.
+The build generated `include/generated/asm-offsets.h` and then failed
+while preparing `arch/arm64/kernel/vdso`:
+
+```text
+arch/arm64/kernel/vdso/gettimeofday.S:230:24: error: too many positional arguments
+arch/arm64/kernel/vdso/gettimeofday.S:253:24: error: too many positional arguments
+arch/arm64/kernel/vdso/gettimeofday.S:274:24: error: too many positional arguments
+arch/arm64/kernel/vdso/note.S:31:1: error: changed section flags for .note.Linux, expected: 0x2
+```
+
+Both match documented **upstream** Linux assembly fixes:
+
+1. The Linux 4.19-stable patch
+   [arm64: vdso: remove commas between macro name and arguments](https://www.spinics.net/lists/arm-kernel/msg893332.html)
+   removes a comma from exactly three `clock_gettime_return, shift=1`
+   calls, leaving the macro definition and other code untouched.
+2. Linux commit
+   [51da9dfb7f20911ae4e79e9b412a9c2d4c373d4b: elfnote mark all .note sections SHF_ALLOC](https://lists.openwall.net/linux-kernel/2020/03/25/1250)
+   changes the assembly `ELFNOTE_START(name, type, "")`
+   invocation in `include/linux/elfnote.h` to use `"a"`.
+   This matches the mixed flags from a build-salt note in
+   `note.S`.
+
+**Do not apply either patch to the audited original Samsung tree.**
+That would invalidate the original stock-source fingerprint and
+could confuse experimental kernel output with firmware-identical
+Samsung source.
+
+### Create a separate, auditable experimental build-source copy
+
+The repository's new `tools/prepare_samsung_vdso_compat.py` utility
+implements the **two exact upstream changes only**, with strict
+replacement counts (3 + 1) and no fuzzy patching. It uses
+`shutil.copytree` (not hard links), keeping the source pristine.
+
+An initial read-only preflight checks original Samsung kernel 4.19,
+the original device defconfig hashes, and 40/40 overlay checksums.
+After copying, the tool verifies that the complete copied tree
+matches the original after accounting **only** for the two patched
+file hashes. It writes a provenance manifest
+`.samsung-vdso-compat.json` containing SHA-256 for both original
+and changed files plus complete original/copied tree digests.
+
+The copy may require substantial WSL filesystem space. Before
+executing, inspect free space with `df -h ~/src`.
+
+Dry-run:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+df -h ~/src
+
+python3 tools/prepare_samsung_vdso_compat.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --compat-source-dir ~/src/samsung-y2q-hxl1-vdso-ias-compat \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json
+```
+
+If the dry-run finds the **exact four changes**, create the
+experimental source-copy and its provenance manifest:
+
+```bash
+python3 tools/prepare_samsung_vdso_compat.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --compat-source-dir ~/src/samsung-y2q-hxl1-vdso-ias-compat \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --execute
+```
+
+If the target exists, the command refuses to overwrite it.
+It leaves `~/src/samsung-y2q-hxl1-stock` **unchanged** and does
+not compile kernel Image, alter the phone, or write a bootloader
+payload.
+
+### Seventh off-device Image trial using source compatibility copy
+
+The existing `tools/build_samsung_stock_kernel.py` now supports
+`--compat-source-dir`. Its `--source-dir` remains the original,
+40-overlay audited Samsung source. When a compat tree is selected,
+it verifies both complete SHA-256 tree digests against the
+provenance manifest before constructing the Make command against
+the isolated compatibility tree.
+
+Continue to use the **same** generated `.config` in the out-of-tree
+`O=` directory, with its already verified SHA-256, **same**
+Clang 18 + isolated Python 2.7, the integrated ARM64 assembler, and
+the narrowly scoped cgroup warning suppression.
+
+Dry-run:
+
+```bash
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --compat-source-dir ~/src/samsung-y2q-hxl1-vdso-ias-compat \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --integrated-arm64-as \
+  --suppress-cgroup-layout-warning \
+  --verbose \
+  --jobs 2
+```
+
+When it prints `DRY RUN PASSED` and `Build source` shows
+the *compatibility* copy, retry with fresh logs and report:
+
+```bash
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --compat-source-dir ~/src/samsung-y2q-hxl1-vdso-ias-compat \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --integrated-arm64-as \
+  --suppress-cgroup-layout-warning \
+  --verbose \
+  --jobs 2 \
+  --execute \
+  --log ~/s20-artifacts/samsung-hxl1-image-clang18-build-07.log \
+  --json ~/s20-artifacts/samsung-hxl1-image-clang18-report-07.json
+```
+
+If Make fails, extract the first errors (including those reported
+by Samsung's warning-enforcing wrapper):
+
+```bash
+grep -nE 'error:|forbidden warning|fatal error:|Error [0-9]+|No such file|unrecognized option' \
+  ~/s20-artifacts/samsung-hxl1-image-clang18-build-07.log | head -100
+tail -n 90 ~/s20-artifacts/samsung-hxl1-image-clang18-build-07.log
+```
+
+**Integrity and safety:** This trial is **not strictly stock source**
+because the experimental copy contains two documented upstream
+compatibility patches. Build outputs are unsigned, cannot normally
+boot on the owner's locked SM-G986U1, and must never be treated as
+Samsung's release kernel. No device flash, signing, rooting or custom
+kernel boot is involved.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
