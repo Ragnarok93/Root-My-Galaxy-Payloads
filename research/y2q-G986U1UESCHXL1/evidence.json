@@ -759,6 +759,34 @@
     "bootBinaryCrossCheckedInCandidate": false,
     "deviceTestedForCVE": false,
     "rootGranted": false,
-    "safeNextTask": "Review full remove_waiter() implementation against upstream commit, inspect original extracted kernel.bin for symbols/BTF, and preserve strict non-deployability until validated."
+    "safeNextTask": "Review full remove_waiter() implementation against upstream commit, inspect original extracted kernel.bin for symbols/BTF, and preserve strict non-deployability until validated.",
+    "ownerConfirmedAt": "2026-10-10",
+    "rtmutexSourceSha256": "36b187173cfb3934a5c9d51952bce58c2f41701d3585326f18cd3965e46a21f9",
+    "rtmutexSourceBytes": 52229,
+    "futexSourceSha256": "493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5",
+    "futexSourceBytes": 109407,
+    "sourceAuditVerifiedOverlayFiles": 40,
+    "sourceAuditDeviceConfigHashesVerified": true,
+    "heuristicSignals": {
+      "remove_waiterDefinitionFound": true,
+      "usesCurrentInRemoveWaiter": true,
+      "usesWaiterTaskInRemoveWaiter": false,
+      "proxyLockDefinitionFound": true,
+      "futexRequeueCallsProxyLock": true
+    },
+    "confirmedSourceLineNumbers": {
+      "remove_waiterDefinition": 1068,
+      "slowlockRemoveWaiterCall": 1271,
+      "proxyLockDefinition": 1797,
+      "proxyLockRollbackRemoveWaiter": 1806,
+      "otherRemoveWaiterRollback": 1912,
+      "futexProxyLockCall": 2156,
+      "additionalInternalProxyLockCall": 2914
+    },
+    "bootArtifactChecks": {},
+    "bootArtifactsPassedIntoThisScan": false,
+    "sourceSemanticReviewComplete": false,
+    "status": "plausible source-level issue pending inspection of complete function and all callers; not device exploit proof",
+    "nextReadOnlyInspection": "nl -ba ~/src/samsung-y2q-hxl1-stock/kernel/locking/rtmutex.c | sed -n '1060,1145p;1792,1815p;1875,1920p'; nl -ba ~/src/samsung-y2q-hxl1-stock/kernel/futex.c | sed -n '2138,2185p'"
   }
 }
