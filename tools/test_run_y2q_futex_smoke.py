@@ -128,7 +128,7 @@ class TestWslFutexRunner(unittest.TestCase):
                     if len(args) == 5 and args[3] == "shell" \
                             and args[4].startswith("/data/local/tmp/"):
                         return command_result(
-                            f"RESULT={expected_status}\n",
+                            f"RESULT={expected_status}\r\n",
                             returncode=0 if success else 4
                         )
                     return command_result()
