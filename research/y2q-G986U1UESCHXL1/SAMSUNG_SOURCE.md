@@ -1334,6 +1334,118 @@ boot on the owner's locked SM-G986U1, and must never be treated as
 Samsung's release kernel. No device flash, signing, rooting or custom
 kernel boot is involved.
 
+## October 9: seventh Image build passes VDSO assembly, fails at native x86 linker
+
+With the verified source-copy containing **only two upstream
+compatibility patches**, the seventh experimental build passed
+the previous assembler errors in `gettimeofday.S` and `note.S`.
+It compiled these objects successfully:
+
+- `arch/arm64/kernel/vdso/gettimeofday.o`
+- `arch/arm64/kernel/vdso/note.o`
+- `arch/arm64/kernel/vdso/sigreturn.o`
+
+It then failed while linking `arch/arm64/kernel/vdso/vdso.so.dbg`:
+
+```text
+/usr/bin/ld: unrecognised emulation mode: aarch64linux
+Supported emulations: elf_x86_64 elf32_x86_64 elf_i386 ...
+clang: error: linker command failed with exit code 1
+```
+
+This is a **host linker selection problem**, not an assembler
+issue: `/usr/bin/ld` is x86-64, whereas
+`/usr/bin/aarch64-linux-gnu-ld` is installed for the ARM64 target.
+Samsung's compiler invocation contains `--prefix=/usr/bin/`,
+which selects the native linker by default.
+
+### Eighth compatibility trial — explicit ARM64 GNU ld
+
+The guarded build helper now accepts `--cross-arm64-linker`. Under
+`--integrated-arm64-as` it adds to *C* flags only:
+
+- `--ld-path=/usr/bin/aarch64-linux-gnu-ld` (select exact linker)
+- `-Wno-unused-command-line-argument`
+
+The second flag is needed because the very same Samsung
+`$(c_flags)` reaches **both** normal C compilation and the VDSO
+link command. Clang 18 diagnoses `--ld-path` as an unused argument
+on `-c` commands; Samsung's `gcc-wrapper.py` rejects even that
+warning. It is **not** a blanket warnings disable: the wrapper
+remains intact; Clang 18's original source layout warning is still
+the separately gated `-Wno-gnu-variable-sized-type-not-at-end`.
+
+The new preflight:
+
+1. Confirms the GNU AArch64 linker exists and is executable.
+2. Inspects Clang's actual `-###` linker selection with Samsung
+   `--prefix=/usr/bin/` and requires **the exact AArch64 ld path**,
+   not host `/usr/bin/ld`.
+3. Compiles and links a tiny disposable ARM64 shared object and
+   validates ELF magic, little-endian class, `ET_DYN`, and
+   `EM_AARCH64` in the output bytes.
+
+No original Samsung files, the experimental source-copy, the
+generated `.config`, or the phone are modified by this probe.
+
+Pull branch and run the eighth dry-run:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --compat-source-dir ~/src/samsung-y2q-hxl1-vdso-ias-compat \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --integrated-arm64-as \
+  --suppress-cgroup-layout-warning \
+  --cross-arm64-linker \
+  --verbose \
+  --jobs 2
+```
+
+Only if the dry-run passes, run the same complete build command
+with `--execute` and **fresh** log/report filenames:
+
+```bash
+python3 tools/build_samsung_stock_kernel.py \
+  --source-dir ~/src/samsung-y2q-hxl1-stock \
+  --compat-source-dir ~/src/samsung-y2q-hxl1-vdso-ias-compat \
+  --output-dir ~/src/samsung-y2q-hxl1-config-clang18 \
+  --audit-json ~/s20-artifacts/samsung-hxl1-source-audit.json \
+  --comparison-json ~/s20-artifacts/samsung-hxl1-generated-vs-device.json \
+  --clang /usr/bin/clang \
+  --gcc-prefix /usr/bin/aarch64-linux-gnu- \
+  --python2 ~/opt/samsung-kernel-python2/bin/python2 \
+  --integrated-arm64-as \
+  --suppress-cgroup-layout-warning \
+  --cross-arm64-linker \
+  --verbose \
+  --jobs 2 \
+  --execute \
+  --log ~/s20-artifacts/samsung-hxl1-image-clang18-build-08.log \
+  --json ~/s20-artifacts/samsung-hxl1-image-clang18-report-08.json
+```
+
+If it fails, extract **the earliest linker diagnostics** and
+Samsung wrapper failures:
+
+```bash
+grep -nE 'error:|forbidden warning|fatal error:|Error [0-9]+|unrecognised|undefined reference|No such file' \
+  ~/s20-artifacts/samsung-hxl1-image-clang18-build-08.log | head -100
+tail -n 90 ~/s20-artifacts/samsung-hxl1-image-clang18-build-08.log
+```
+
+This is still an experimental, unsigned, off-device Image-only
+test of Clang18/GCC13 against Samsung Linux 4.19.113, not a
+flashable custom kernel for the locked SM-G986U1.
+
 ## What we will compare
 
 1. Source `Makefile` version versus the device's `4.19.113-27095354`.
