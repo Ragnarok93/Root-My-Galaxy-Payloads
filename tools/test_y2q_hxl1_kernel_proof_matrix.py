@@ -127,7 +127,7 @@ class StageThreeEvidenceTests(unittest.TestCase):
         md=mod.markdown(self.run_audit())
         self.assertIn("rt_mutex_waiter",md)
         self.assertIn("Clang18",md)
-        self.assertIn("kernel physical",md)
+        self.assertIn("runtime physical kernel load",md)
         self.assertIn("Root",md) if "Root" in md else self.assertIn("root",md)
         self.assertIn("Deployment permitted:** NO",md)
 
