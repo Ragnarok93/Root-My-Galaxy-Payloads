@@ -159,10 +159,11 @@ int main(int argc, char **argv) {
         puts("NOTE=NOT_GHOSTLOCK_NOT_EXPLOIT_NOT_KERNELSU_NOT_ROOT");
         return 0;
     }
-    if (lock_result == 3 || try_result == 3) {
-        puts("RESULT=INCONCLUSIVE_PI_UNAVAILABLE");
-        return 3;
+    /* An actual semantic failure must not be hidden by another unavailable op. */
+    if (lock_result == 4 || try_result == 4) {
+        puts("RESULT=FAIL_PI_SEMANTICS");
+        return 4;
     }
-    puts("RESULT=FAIL_PI_SEMANTICS");
-    return 4;
+    puts("RESULT=INCONCLUSIVE_PI_UNAVAILABLE");
+    return 3;
 }
