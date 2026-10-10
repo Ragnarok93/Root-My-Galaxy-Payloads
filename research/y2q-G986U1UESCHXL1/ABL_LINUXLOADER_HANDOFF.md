@@ -76,3 +76,44 @@ bash tools/recover_y2q_hxl1_linuxloader.sh
 If the native decoder fails, the tool reports all verified inner files and sections before running the independent decoder, so even a failure yields targeted evidence rather than another FDT or strings survey. Results stay local under `~/s20-artifacts/hxl1-research/abl-linuxloader/` and no bootloader code is executed.
 
 Physical Linux kernel handoff, actual DTB selection, factory ABI and live exploitability all remain UNVERIFIED.
+
+
+## October 10 — real stock LinuxLoader file identified; REA fork integration
+
+Owner executed the recovery wrapper through commit `2ac62f2`; all **10 local synthetic regression tests** passed. **Both** original ABL format decoders independently identified the full, decoded nested EFI firmware filesystem. The mature `uefi-firmware==1.16` reported:
+
+- Outer FV `0x3000` / `0x220000`; inner FV `0x692180` after LZMA.
+- Inner applications: `Odin` (FFS `aba3b456-5469-414a-9f79-47cecbd7c04e`), **`LinuxLoader`** (FFS `f536d559-459f-48fa-8bbc-43b554ecae8d`), `Cryptest`, and `QuestSOD`.
+- LinuxLoader UI section `0x15` reads `LinuxLoader`; executable section `0x10`, 3,575,808 bytes **of section payload**, beginning `MZ`.
+- Independently dumped exactly this file in `independent-unpacked/.../file-f536d559-459f-48fa-8bbc-43b554ecae8d/section1.pe`. The stock ABL SHA256 was independently checked again.
+- **Actual cause of the independent recovery selector's zero candidates:** it only searched `.pe32` / `.efi` filenames, not the `.pe` suffix used by the independent decoder. This is a tool bug, not absence of the stock LinuxLoader.
+- **Separate issue still unresolved:** custom `identify_pe` rejected all four `MZ` PE-section payloads. The reason (COFF architecture, DOS e_lfanew, optional-header variant or validator constraint) is NOT established from the first-64-byte diagnostic. Do not silently call the recovered bytes a verified AArch64 PE32+ image.
+
+### Fixed recovery: exact GUID + UI + actual .pe suffix
+
+`tools/recover_y2q_hxl1_linuxloader.sh` now accepts `.pe` and requires both exact FFS GUID and sibling UTF-16 UI `LinuxLoader`. It reports the actual DOS `e_lfanew`, optional-header magic, COFF machine and section count before accepting the strict checker. If the full native AArch64-PE validator still rejects the bytes, it **preserves them as `LinuxLoader-HXL1.unclassified.pe`**, with original SHA256/FFS/UI evidence and explicitly unverified architecture, so independent LLVM and decompiler inspection can proceed. It does not fake a successful validated-PE outcome.
+
+### Direct use of our REA fork (not a generic npm version)
+
+The owner has `Ragnarok93/rea`: https://github.com/Ragnarok93/rea, `main` reviewed at commit `46c9cba03a52b8ec382a686cd70ded6128225db8`. Its own reverse-engineer-anything SKILL.md specifies that actual native shipped binaries go to the **Ghidra/Hopper/IDA native provider**; its firmware-analysis workflow uses separately supplied Binwalk/Unblob, which would repeat already completed ABL extraction and is *not the next useful tool*. Its native Ghidra provider enables function overview, pseudocode, cross-references and value-flow evidence for investigating image placement and boot handoff, subject to the actual PE import and Ghidra availability. The skill does **not** register a working MCP server or install Ghidra by itself.
+
+`tools/analyze_y2q_hxl1_linuxloader_rea.sh`:
+1. Fails closed unless the **original stock ABL hash** and recovered loader digest/provenance match;
+2. collects actual `file`, `llvm-readobj`, and `llvm-objdump` header/assembly reports;
+3. calls the **user's fork** `~/src/rea/scripts/rea.mjs`, after checking its Node 22.19+, 24.11+, or 26+ requirement, for a Ghidra provider overview and focused loader searches;
+4. does NOT clone/install a toolchain or Ghidra silently, change agent settings, execute the firmware PE, read the device, or assert kernel physical loading.
+
+**Commands after this commit:**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/recover_y2q_hxl1_linuxloader.sh || true
+bash tools/analyze_y2q_hxl1_linuxloader_rea.sh
+cat ~/s20-artifacts/hxl1-research/abl-linuxloader/linuxloader-file-classification.txt
+cat ~/s20-artifacts/hxl1-research/abl-linuxloader/independent-uefi-recovery.json
+```
+
+The `|| true` does **not** mark a failed extractor as a success: the second command authenticates an actually recovered file against evidence and refuses missing/mismatched outputs. We run it because the current strict validator's unresolved PE variant may still cause the initial wrapper to return 2 **after** preserving authentic GUID/UI-bound bytes.
+
+For deeper actual handoff work, once Ghidra admission is demonstrated, follow relevant `LinuxLoader` PE functions from Android boot-v2 header handling to `Image.text_offset`, memory allocation/placement and final AArch64 indirect jump. Record concrete disassembly and value-flow references and cite them separately from assumptions. Neither successful Ghidra import nor decompilation alone yields a physical kernel address.
