@@ -85,12 +85,26 @@ def fixture(base_path: Path, crc_mode: str = "absent", invalid_gpl_crc: bool = F
     return kernel_path, nm_path, cfg_path, hashlib.sha256(raw).hexdigest()
 
 class ExportAuditTests(unittest.TestCase):
-    def run_fixture(self, mode="absent", invalid_gpl_crc=False):
+    def run_fixture(self, mode="absent", invalid_gpl_crc=False, with_source=False):
         with tempfile.TemporaryDirectory() as td:
             kernel, nm, cfg, sha = fixture(Path(td), mode, invalid_gpl_crc)
             args = ["y2q_export_table_audit.py", "--kernel-bin", str(kernel),
                     "--nm", str(nm), "--config-gz", str(cfg),
                     "--names", "commit_creds", "system_unbound_wq"]
+            if with_source:
+                src = Path(td) / "source"
+                (src / "include/linux").mkdir(parents=True)
+                (src / "kernel").mkdir()
+                (src / "include/linux/export.h").write_text(
+                    "#if defined(CONFIG_MODULE_REL_CRCS)\n"
+                    " .long __crc_sym - .\n#else\n .long __crc_sym\n#endif\n"
+                )
+                (src / "kernel/module.c").write_text(
+                    "if (IS_ENABLED(CONFIG_MODULE_REL_CRCS))\n"
+                    "  crcval = resolve_rel_crc(crc);\n"
+                    "else\n  crcval = *crc;\n"
+                )
+                args.extend(["--source-dir", str(src)])
             output = io.StringIO()
             with mock.patch.object(audit, "HXL1_SHA256", sha), \
                  mock.patch.object(sys, "argv", args), \
@@ -110,6 +124,23 @@ class ExportAuditTests(unittest.TestCase):
             self.assertEqual(item["candidateCrcAssumingAbsolute"],
                              item["crcSlotLittleEndianU32"])
             self.assertNotIn("candidateCrc", item)
+
+    def test_source_verified_direct_crc(self):
+        result = self.run_fixture(with_source=True)
+        self.assertEqual(result["config"]["CONFIG_MODULE_REL_CRCS"], "absent")
+        self.assertEqual(result["sourceCrcVerification"]["directCrcSourceBranchVerified"], "true")
+        self.assertEqual(result["symbols"][0]["sourceConsistentDirectCrc"], "0x12345678")
+        self.assertEqual(result["symbols"][1]["sourceConsistentDirectCrc"], "0x12345679")
+
+    def test_bad_samsung_source_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            src = Path(td)
+            (src / "include/linux").mkdir(parents=True)
+            (src / "kernel").mkdir()
+            (src / "include/linux/export.h").write_text("invalid")
+            (src / "kernel/module.c").write_text("invalid")
+            with self.assertRaisesRegex(ValueError, "CRC guard"):
+                audit.check_stock_source_crc(src)
 
     def test_explicitly_disabled_relative_crc(self):
         result = self.run_fixture("n")
