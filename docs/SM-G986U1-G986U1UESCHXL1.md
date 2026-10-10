@@ -77,6 +77,69 @@ does not close Stage 3.
 
 ---
 
+## October 10, 07:32 UTC — 10/10 original BL ELF tests pass; investigate original boot.img v2 next
+
+The owner ran `tools/test_y2q_stock_bl_elf_audit.py` and reported
+**10/10 PASS**, followed by a successful **original SHA256-pinned
+ABL/XBL/XBL_CONFIG offline audit**. The report found all three ELF
+entry points inside executable PT_LOAD segments, and one cross-image
+ABL/XBL overlap of `[0x9fc00000, 0x9fc20000)` = `131072` bytes.
+This is *bootloader-segment overlap*, not a Linux kernel physical
+loading observation.
+
+The owner also ran an ASCII `strings -a -n 8` grep of the exact
+original `abl.elf` for
+`kernel|bootimg|boot image|ramdisk|dtbo|device tree|load address|android boot`
+and received **zero matches**. That only rejects the specified
+minimum-eight-printable-character keyword search. It neither
+demonstrates missing loader code nor establishes encryption or packing.
+
+### Move to original Android boot header, not another kernel build
+
+The existing original HXL1 `~/s20-artifacts/boot.img` is
+**Android boot-image header version 2**, whose published format
+includes `kernel_addr`, `ramdisk_addr`,
+`second_addr`, `tags_addr` and
+`dtb_addr` *declarations*, plus sizes and page-aligned
+payload slots. The original locally retained `boot.img`,
+`kernel.bin`, `ramdisk.img` and `dtb.img` already
+have independently pinned SHA256 hashes.
+
+Authoritative reference: Android Open Source Project,
+[Boot image header](https://source.android.com/docs/core/architecture/bootloader/boot-image-header);
+[AOSP bootimg.h v2](https://android.googlesource.com/platform/system/tools/mkbootimg/+/refs/heads/android16-release/include/bootimg/bootimg.h).
+
+The repository now contains `tools/y2q_stock_boot_v2_audit.py`,
+`tools/test_y2q_stock_boot_v2_audit.py` and
+CI regression coverage. The utility reads and verifies original
+hash-pinned files, parses the v2 header fields, checks component
+bounds, compares original packed payload bytes against independently
+extracted originals, and writes reports under `hxl1-research`.
+It does not modify the original firmware or connect to the phone.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools/test_y2q_stock_boot_v2_audit.py
+python3 tools/y2q_stock_boot_v2_audit.py
+cat ~/s20-artifacts/hxl1-research/stock-boot-v2-audit.md
+```
+
+Interpret original boot-header `kernel_addr` or
+`dtb_addr` as *declared address fields*. The AOSP
+format specifies intended component locations, but exact
+Samsung HXL1 ABL execution, relocation behavior,
+effective physical load base, register handoff and KASLR
+**still require separate runtime-independent corroboration**.
+If independently extracted components differ from the
+packed header region, document the mismatch rather than
+fabricating an explanation or marking the whole firmware invalid.
+
+**Status: BL ELF provenance PASS, factory boot-header audit
+pending, Stage 4 physical kernel handoff OPEN.**
+
+---
+
 ## October 10, 07:24 UTC — three original Qualcomm BL images independently decoded
 
 The owner executed the *hash-gated original BL TAR extraction* under
