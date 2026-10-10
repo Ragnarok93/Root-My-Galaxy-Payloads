@@ -77,6 +77,9 @@ class Walker:
         self.fv_headers = []
         self.identified = []
         self.notes = []
+        self.ffs_files = []
+        self.sections = []
+        self.unrecognized_executable_sections = []
 
     def tick(self):
         self.visited_objects += 1
@@ -92,6 +95,16 @@ class Walker:
             self.identified.append({"image": payload, "info": info,
                                     "trace": list(trace), "fileGuid": file_guid,
                                     "ui": ui})
+        else:
+            self.unrecognized_executable_sections.append({
+                "trace": list(trace), "fileGuid": file_guid, "ui": ui,
+                "payloadBytes": len(payload),
+                "first64Hex": payload[:64].hex(),
+                "signature": ("MZ" if payload.startswith(b"MZ") else
+                              "TE-VZ" if payload.startswith(b"VZ") else
+                              "OTHER"),
+                "sha256": digest(payload),
+            })
 
     def search_fv(self, data: bytes, trace: list[str], depth: int) -> None:
         if depth > MAX_DEPTH:
@@ -149,7 +162,14 @@ class Walker:
             ftype = blob[cursor + 18]
             path = trace + [f"FFS[{file_guid}] type=0x{ftype:x} offset=0x{cursor:x}"]
             body = blob[cursor + header_size:cursor + fsize]
-            self.parse_sections(body, path, file_guid, depth + 1)
+            self.ffs_files.append({
+                "trace": list(path), "fileGuid": file_guid,
+                "fileType": f"0x{ftype:02x}", "offset": cursor,
+                "fileSize": fsize, "fileHeaderSize": header_size,
+                "bodyPrefixHex": body[:32].hex(),
+            })
+            if ftype != 0xF0:  # EFI_FV_FILETYPE_FFS_PAD
+                self.parse_sections(body, path, file_guid, depth + 1)
             cursor = aligned(cursor + fsize, 8)
 
     def parse_sections(self, data: bytes, trace: list[str], ffs_guid: str,
@@ -180,6 +200,15 @@ class Walker:
                     ui = candidate[:120]
         for offset, stype, payload in sections:
             path = trace + [f"SECTION[0x{stype:02x}] offset=0x{offset:x}"]
+            self.sections.append({
+                "trace": list(path),
+                "fileGuid": ffs_guid,
+                "ui": ui,
+                "sectionType": f"0x{stype:02x}",
+                "sectionBodyBytes": len(payload),
+                "first64Hex": payload[:64].hex(),
+                "sha256": digest(payload),
+            })
             if stype == 0x10:
                 self.add_pe(payload, path, ui, ffs_guid)
             elif stype == 0x17:
@@ -209,8 +238,24 @@ class Walker:
                     continue
                 self.parse_sections(decoded, path + [f"LZMA[{UUID(bytes_le=guid)}] decoded={len(decoded)}"],
                                     ffs_guid, depth + 1)
+            elif stype == 0x12:
+                # EFI_SECTION_TE contains a Terse Executable ("VZ") header.
+                # Record, never silently call it PE32+ or rewrite/rebase it.
+                self.add_pe(payload, path, ui, ffs_guid)
             elif stype == 0x01:
-                self.notes.append(f"Unsupported standard-compression section at {path[-1]}")
+                if len(payload) >= 5:
+                    declared_len = struct.unpack_from("<I", payload)[0]
+                    mode = payload[4]
+                    if mode == 0 and declared_len == len(payload) - 5:
+                        self.parse_sections(
+                            payload[5:], path + ["EFI_NOT_COMPRESSED"],
+                            ffs_guid, depth + 1, parent_ui=ui)
+                    else:
+                        self.notes.append(
+                            f"Unsupported standard compression mode={mode} "
+                            f"declared_uncompressed={declared_len} at {path[-1]}")
+                else:
+                    self.notes.append(f"Truncated standard-compression section at {path[-1]}")
 
     def extract(self, original: bytes) -> dict:
         self.search_fv(original, ["original-pinned-abl.elf"], 0)
@@ -255,6 +300,9 @@ def run(source: Path, dest: Path, *, pinned_hash: str = ORIGINAL_ABL_SHA256,
                 for x in walker.identified[:32]
             ],
             "objectsInspected": walker.visited_objects,
+            "ffsFiles": walker.ffs_files[:128],
+            "sections": walker.sections[:256],
+            "nonPeExecutableSections": walker.unrecognized_executable_sections[:32],
             "diagnosticNotes": walker.notes[:64],
             "physicalKernelLoadVerified": False,
             "phoneModified": False,
