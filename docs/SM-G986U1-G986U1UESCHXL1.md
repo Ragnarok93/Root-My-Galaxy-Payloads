@@ -23,6 +23,41 @@ kernel compilation errors to perform the firmware-to-profile audit.
 - [Support feed selection limitations](../support/README.md)
 - [KernelSU module constraints and Samsung adaptations](../kernelsu/README.md)
 
+## October 10, 07:03 UTC — individual task field consistency with original HXL1 Image
+
+The owner inspected the full previously preserved Samsung Clang18
+task_struct DWARF report and confirmed two named fields match the
+**independently audited original kernel.bin ARM64 instruction
+displacements**:
+
+| task_struct field | Modern Clang18 DWARF byte offset | Original stock Image access displacement | Status |
+|---|---:|---:|---|
+| pi_lock | 2248 / 0x8c8 | 0x8c8 | MATCH: this field only |
+| pi_blocked_on | 2296 / 0x8f8 | 0x8f8 | MATCH: this field only |
+
+The compiler difference remains material and **the full 3904-byte
+Clang18 structure is not proven factory-ABI-equivalent**. These are
+two independent, field-specific corroborations, not a device
+root or CVE test.
+
+The same owner report shows cred and file_operations emitted
+in init/main.o DWARF. It did NOT emit rt_mutex or
+rt_mutex_waiter in that single compilation unit, and the
+partial build still lacks kernel/locking/rtmutex.o and
+kernel/futex.o. Not emitted in one object does not mean
+absent from source/kernel.
+
+A useful next *read-only* check is to survey the already
+present Samsung ARM64 .o files for the RT-mutex DWARF types.
+If none contains these types, classify them as **not
+available in this partial build** and do not manufacture
+field offsets.
+
+Stage 3 remains PARTIAL; Stages 4–8 are unchanged.
+No phone operations or production payload changes were made.
+
+---
+
 ## October 10, 06:59 UTC — complete experimental task_struct reports agree
 
 The owner extracted full pahole task_struct reports from three independent
