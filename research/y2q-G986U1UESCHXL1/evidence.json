@@ -836,11 +836,11 @@
     },
     "originalExtractedImagesIntegrityVerified": true,
     "bootedKernelByteIdentityVerified": false,
-    "symbolRecoveryCompleted": false,
+    "symbolRecoveryCompleted": true,
     "btfPresenceVerified": false,
     "vulnerableSourceLogicPresentInExactRunningBinaryVerified": false,
     "exploitExecuted": false,
-    "next": "Read-only ARM64 Image header verification and symbol/BTF presence inspection against original kernel.bin.",
+    "next": "Review recovered ELF section mapping, _text/_stext/start_kernel/rtmutex symbols and function disassembly; check raw ARM64 bytes and BTF separately; keep base provisional.",
     "ownerReportedHeaderAt": "2026-10-10",
     "arm64ImageHeader": {
       "magic": "ARM\\x64",
@@ -860,6 +860,32 @@
       "attemptedApt": "sudo apt install bpftool",
       "aptResult": "Ubuntu noble bpftool virtual package; choose linux-tools-common; on WSL2 linux-tools-common may only be a wrapper lacking a matching running-kernel binary."
     },
-    "recoveredElfBuilt": false
+    "recoveredElfBuilt": true,
+    "ownerReportedElfRecoveryAt": "2026-10-10",
+    "elfRecovery": {
+      "input": "/home/main/s20-artifacts/kernel.bin",
+      "output": "/home/main/s20-artifacts/hxl1-research/vmlinux-stock.elf",
+      "outputClassification": "ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV), statically linked, not stripped",
+      "recoveredLinuxVersion": "4.19.113-27095354",
+      "recoveredToolchainBanner": "clang version 10.0.6 for Android NDK",
+      "observedKallsymsSymbols": 145434,
+      "llvmNmLines": 145433,
+      "kallsymsOffsetsFileOffset": "0x01e80700",
+      "kallsymsNamesFileOffset": "0x01f0ea00",
+      "kallsymsTokenTableFileOffset": "0x020f2200",
+      "relocationTableStart": "0x2695260",
+      "relocationTableEnd": "0x29da650",
+      "relocationEntriesObserved": 142890,
+      "relocationsApplied": 142860,
+      "guessedBase": "0xffffff8008080000",
+      "negativeOffsetsPercent": 0,
+      "absoluteAddressesPercent": 100,
+      "warnsOnOffsetRepresentation": true,
+      "outputFileSha256Verified": false,
+      "guessedBaseIndependentlyVerified": false,
+      "stockSymbolBytesValidatedAgainstRawImage": false,
+      "notADeviceRootTest": true
+    },
+    "recoveredSymbolsProvisional": true
   }
 }
