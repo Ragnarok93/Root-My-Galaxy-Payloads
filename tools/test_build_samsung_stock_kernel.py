@@ -328,6 +328,47 @@ class ImageBuildPlanTests(unittest.TestCase):
             self.assertEqual(result["crossAssemblerProbe"]["assembler"], args.gcc_prefix + "as")
             self.assertEqual((makefile.read_bytes(), config.read_bytes()), before)
 
+    def test_separate_upstream_compatibility_source_is_opt_in_and_verified(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            args, _, makefile, config = self.setup_case(temporary)
+            alternative = Path(temporary) / "isolated-vdso-source"
+            alternative.mkdir()
+            (alternative / "Makefile").write_bytes(makefile.read_bytes())
+            create_exe(alternative / "tools/dtc")
+            args.compat_source_dir = alternative
+            original = config.read_bytes()
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \
+                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \
+                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \
+                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"), \
+                 patch.object(module, "verify_compat",
+                              return_value={"firmware": module.FIRMWARE}) as verifier:
+                result, _ = module.plan(args)
+            verifier.assert_called_once_with(args.source_dir, alternative)
+            self.assertEqual(result["buildSource"], str(alternative))
+            self.assertIn(str(alternative), result["command"])
+            self.assertIn("DTC_EXT=" + str(alternative / "tools/dtc"), result["command"])
+            self.assertEqual(config.read_bytes(), original)
+            self.assertEqual(result["upstreamCompatibilityManifest"]["firmware"],
+                             module.FIRMWARE)
+
+    def test_refuse_compat_tree_with_mutated_stock_makefile(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            args, _, makefile, config = self.setup_case(temporary)
+            alternative = Path(temporary) / "isolated-vdso-source"
+            alternative.mkdir()
+            (alternative / "Makefile").write_text("untrusted makefile")
+            create_exe(alternative / "tools/dtc")
+            args.compat_source_dir = alternative
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \
+                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \
+                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \
+                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"):
+                with self.assertRaisesRegex(ValueError, "unexpected Samsung Makefile"):
+                    module.plan(args)
+
     def test_rejects_unexpected_security_difference(self):
         with tempfile.TemporaryDirectory() as temp:
             args, comparison, makefile, config = self.setup_case(temp)
