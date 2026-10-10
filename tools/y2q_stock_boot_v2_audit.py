@@ -87,39 +87,64 @@ def boot_header(raw: bytes) -> dict:
     }
 
 def analyze(root: Path) -> dict:
-    artifacts = {name: pinned(root/name, digest) for name, digest in PINS.items()}
-    boot = artifacts["boot.img"]
+    # boot.img is the only mandatory stand-alone artifact; its exact SHA256
+    # always guards the header and embedded regions we inspect.
+    boot = pinned(root / "boot.img", PINS["boot.img"])
     if len(boot) != 67108864:
         raise AuditError("original HXL1 boot.img size changed")
     h = boot_header(boot)
     checks = {}
+    extracted = {"boot.img": "PRESENT_PIN_VERIFIED"}
     for component, filename in (("kernel", "kernel.bin"), ("ramdisk", "ramdisk.img"),
                                 ("dtb", "dtb.img")):
         segment = h["regions"][component]
-        data = boot[segment["offset"]:segment["offset"]+segment["size"]]
+        data = boot[segment["offset"]:segment["offset"] + segment["size"]]
+        embedded_hash = sha(data)
+        reference = root / filename
+        if reference.is_symlink():
+            raise AuditError("original artifact is symlinked: " + str(reference))
+        if reference.exists():
+            external = pinned(reference, PINS[filename])
+            file_status = "PRESENT_PIN_VERIFIED"
+            exact_match = external == data
+            external_size = len(external)
+        else:
+            file_status = "MISSING_OPTIONAL"
+            exact_match = None  # Not False: absent separate copy cannot disagree.
+            external_size = None
+        extracted[filename] = file_status
         checks[component] = {
             "referenceArtifact": filename,
-            "referenceSize": len(artifacts[filename]),
+            "referenceFileStatus": file_status,
+            "referenceSize": external_size,
             "headerDeclaredSize": len(data),
-            "referenceEqualsImageRegion": data == artifacts[filename],
-            "imageRegionSha256": sha(data),
+            "referenceEqualsImageRegion": exact_match,
+            "imageRegionSha256": embedded_hash,
+            "embeddedRegionMatchesPinnedSha256": embedded_hash == PINS[filename],
+            "pinnedExpectedSha256": PINS[filename],
         }
     return {
         "firmware": "G986U1UESCHXL1",
-        "originalFileHashesVerified": True,
+        "originalBootImageHashVerified": True,
+        "separateArtifactAvailability": extracted,
+        "originalFileHashesVerified": all(
+            state == "PRESENT_PIN_VERIFIED" for state in extracted.values()),
         "bootHeader": h,
         "payloadComparisons": checks,
         "runtimeKernelPhysicalAddressVerified": False,
         "originalBootloaderHandoffRegistersVerified": False,
         "deviceModified": False,
-        "warning": "These addresses are original boot.img header declarations only; "
-                   "ABL relocation and actual booted memory remain unverified.",
+        "warning": "Header addresses are original boot.img declarations only. "
+                   "An absent separately extracted component is not evidence "
+                   "of corrupted boot.img; use embedded-region checksum separately. "
+                   "ABL relocation and booted memory remain unverified.",
     }
+
 
 def markdown(r: dict) -> str:
     h = r["bootHeader"]
     lines = ["# HXL1 original Android boot image v2", "",
-             "**Original artifacts hash-verified; no actual boot handoff measured.**",
+             "**Original boot.img SHA-256 verified; no actual boot handoff measured.**",
              "", f"- Header: v{h['headerVersion']}",
              f"- Page size: {h['pageSize']} bytes",
              f"- Board name: {h['boardName']}",
@@ -127,17 +152,27 @@ def markdown(r: dict) -> str:
              "| Field | Value |", "|---|---|"]
     for name, value in h["declaredAddressFields"].items():
         lines.append(f"| {name} | 0x{value:x} |")
-    lines += ["", "## Packing and original component agreement", "",
-              "| Region | Offset | Bytes | Matches pinned extraction |",
-              "|---|---|---:|---|"]
+    lines += ["", "## Packed regions and independent artifact status", "",
+              "| Region | Offset | Bytes | Separate file | Embedded SHA matches recorded pin | Same as separate file |",
+              "|---|---|---:|---|---|---|"]
     for key in ("kernel", "ramdisk", "second", "dtb"):
         region = h["regions"][key]
         check = r["payloadComparisons"].get(key)
+        status = check["referenceFileStatus"] if check else "NOT_APPLICABLE"
+        pin_match = check["embeddedRegionMatchesPinnedSha256"] if check else "n/a"
+        match = check["referenceEqualsImageRegion"] if check else "n/a"
+        if match is None:
+            match = "NOT_TESTED_MISSING_FILE"
         lines.append(f"| {key} | 0x{region['offset']:x} | {region['size']} | "
-                     f"{check['referenceEqualsImageRegion'] if check else 'n/a'} |")
-    lines += ["", "Header-provided addresses do not establish the true "
-              "runtime physical kernel base or Qualcomm ABL handoff.", ""]
+                     f"{status} | {pin_match} | {match} |")
+    lines += ["", "An absent separately extracted component is not a checksum failure. "
+              "If its embedded SHA matches the independently recorded pin, "
+              "the original packed region is still verified. If it differs, "
+              "report the discrepancy without calling it equivalent.",
+              "Header fields do not establish Linux's true runtime physical base "
+              "or Qualcomm ABL handoff.", ""]
     return "\n".join(lines)
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
@@ -154,11 +189,14 @@ def main() -> int:
     except (AuditError, OSError, struct.error) as exc:
         print("[STOP]", exc, file=sys.stderr)
         return 2
-    print("[PASS] Original boot.img/kernel.bin/ramdisk.img/dtb.img hashes")
+    print("[PASS] Original HXL1 boot.img SHA256")
+    for name, status in report["separateArtifactAvailability"].items():
+        print("[artifact]", name, status)
     for k, v in report["bootHeader"]["declaredAddressFields"].items():
         print("[header]", k, f"0x{v:x}")
     for k, v in report["payloadComparisons"].items():
-        print("[payload]", k, "identical_to_reference=",v["referenceEqualsImageRegion"])
+        print("[payload]", k, "embedded_pin_match=", v["embeddedRegionMatchesPinnedSha256"],
+              "matches_optional_file=", v["referenceEqualsImageRegion"])
     print("[report]", output)
     print("[report]", output.with_suffix(".md"))
     print("[LIMIT] Header addresses are NOT verified runtime kernel addresses")
