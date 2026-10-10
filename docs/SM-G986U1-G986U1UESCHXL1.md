@@ -3192,6 +3192,81 @@ support feed.
 
 ---
 
+## October 9 — original HXL1 CRC slot audit completed
+
+The owner ran the new read-only `y2q_export_table_audit.py`
+against the verified `kernel.bin`
+(SHA-256 `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`)
+and the recovered `vmlinux-stock.nm`.
+
+**Source from audit output:**
+
+- `CONFIG_HAVE_ARCH_PREL32_RELOCATIONS=y`
+- `CONFIG_MODVERSIONS=y`
+- `CONFIG_MODULE_REL_CRCS` **absent** (not shown as explicitly `n`)
+- `CONFIG_MODULE_SIG_FORCE=y`
+- ordinary `__ksymtab`: **7,427** entries; ordinary `__kcrctab`: **7,427** entries
+- GPL `__ksymtab_gpl`: **5,283** entries; `__kcrctab_gpl` spans
+  `0xffffff800a50721c` through `0xffffff800a50c4a8`:
+  **5,283** four-byte slots
+
+For the following five exports, direct PREL32 target
+decoding agrees with recovered `kallsyms` **and** raw
+symbol names agree exactly:
+
+| Kernel export | Namespace | Raw CRC bytes | Little-endian candidate |
+|---|---|---|---|
+| `commit_creds` | ordinary | `794fccf2` | `0xf2cc4f79` |
+| `prepare_kernel_cred` | ordinary | `5caf6fb8` | `0xb86faf5c` |
+| `init_task` | ordinary | `e2bd0572` | `0x7205bde2` |
+| `module_layout` | ordinary | `758162b6` | `0xb6628175` |
+| `system_unbound_wq` | GPL-only | `3246c1d4` | `0xd4c14632` |
+
+**Interpretation:** in Linux 4.19, `CONFIG_MODULE_REL_CRCS`
+selects relative-offset decoding. If the macro is
+undefined, the default branch uses direct 32-bit CRC
+words (see `include/linux/export.h` and `kernel/module.c`).
+The absent option in HXL1's exact extracted configuration
+is therefore **consistent with** direct CRC slots.
+The entries above are still only **candidates** until the
+Samsung-specific source and independent CRC evidence are
+checked. Do not misstate this as fully recovered
+`Module.symvers` or a loadable signed module.
+
+**Code-quality follow-up:** the auditor's subsequent GPL
+CRC count amendment introduced an unmatched parenthesis
+in an `if` statement. That syntax defect was corrected
+and a synthetic regression suite added in
+`tools/test_y2q_export_table_audit.py`.
+The `y2q-identity-probe.yml` CI now compiles and runs
+the export audit tests when those two files change.
+
+### Next read-only WSL2 command
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 -m py_compile tools/y2q_export_table_audit.py
+python3 -m unittest -v tools/test_y2q_export_table_audit.py
+
+# Confirm Samsung's exact CRC decoding branches.
+rg -n -C 4 'CONFIG_MODULE_REL_CRCS|__CRC_SYMBOL|__kcrctab' \
+  ~/src/samsung-y2q-hxl1-stock/include/linux/export.h \
+  ~/src/samsung-y2q-hxl1-stock/kernel/module.c
+
+python3 tools/y2q_export_table_audit.py \
+  --kernel-bin ~/s20-artifacts/kernel.bin \
+  --nm ~/s20-artifacts/hxl1-research/vmlinux-stock.nm \
+  --config-gz ~/s20-artifacts/config.gz
+```
+
+**Scope:** no on-device kernel modifications or loading;
+runtime bootloader, signature, RKP/KDP and KernelSU 4.19
+compatibility gates remain unverified and closed.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
