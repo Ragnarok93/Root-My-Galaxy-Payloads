@@ -251,3 +251,25 @@ bash tools/analyze_y2q_hxl1_linuxloader_rea.sh
 The first command will download a substantial official archive and may need `sudo` for Java; users preferring to check an existing installation first can omit `--install`. Failures retain direct doctor diagnostics rather than repeating firmware signatures or PE extraction.
 
 **Next *technical* target after successful REA/Ghidra provider import:** use recovered AArch64 loader PE decompilation, cross-refs and p-code value flow to reconstruct actual Linux Image allocation, DTB selection and final indirect control transfer. Stage 4 remains OPEN until the executable's dataflow supplies independently corroborated physical handoff evidence; no root or KernelSU is yet demonstrated.
+
+
+## 2026-10-10: Ghidra 12.1.4 verified installed, but missing Unix execute permissions are likely
+
+Owner ran the Ghidra provisioning utility through commit `29e67f6`. The full `openjdk-21-jdk` suite installed on Ubuntu 24.04; the official 2026-09-21 NSA Ghidra 12.1.4 archive downloaded in full (**543 MiB**) and passed SHA256 `ddac49f903da9d5bac833e5cc79395098b9c33cfd3279be5f31bd00387d2d4db`; the archive was successfully extracted to `/home/main/opt/ghidra_12.1.4_PUBLIC`. The script exported `GHIDRA_INSTALL_DIR` and `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64`, and the original independently SHA-pinned LinuxLoader remained intact. REA's doctor still reported **provider not ready**. The log did not include the *new* doctor JSON fields from after installation, so no specific failed check should be falsely attributed to the report.
+
+**Concrete installer bug:** it used Python `zipfile.ZipFile.extractall()`, which does **not preserve Unix executable permissions** in the extracted files. REA fork `src/ghidra/GhidraInstallation.ts` explicitly requires `host.executable(support/analyzeHeadless)` and a compatible executable `Ghidra/Features/Decompiler/os/linux_x86_64/decompile`, making missing executable bits the leading hypothesis. `support/launch.sh` must also be executable for Ghidra's launcher. The failing doctor must be rerun after repair to establish whether this is the only issue.
+
+**Targeted repair:** `tools/y2q_repair_ghidra_executable_modes.py` reads the **already-downloaded** official ZIP, rejects an incorrect SHA256, and checks byte-for-byte identity of every selected installed executable against its pinned original ZIP member. It restores archived execute permissions as appropriate plus those for three specific required Ghidra scripts/native tools; all targeted file verification completes before any chmod operations. It never touches Samsung firmware, REA binaries, Java or user projects. Seven offline fixture tests cover idempotence, no modification on dry run, tamper rejection and symlink refusal.
+
+`tools/setup_y2q_rea_ghidra_wsl.sh` now invokes the repair automatically for this exact existing Ghidra archive/installation (including in **diagnose** mode), then runs REA's real Ghidra doctor. On failure it prints the exact failed `ghidra` provider checks rather than only a file path.
+
+**Use this command next, without --install**; do not redownload or re-extract anything:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/setup_y2q_rea_ghidra_wsl.sh
+bash tools/analyze_y2q_hxl1_linuxloader_rea.sh
+```
+
+The Ghidra installer needs no device access and the static LinuxLoader analysis remains separate from proving any kernel physical handoff. Stage 4 stays OPEN.
