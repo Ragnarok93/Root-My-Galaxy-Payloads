@@ -580,6 +580,29 @@
       "imageCompiled": false,
       "deviceModified": false,
       "bootloaderLocked": true
+    },
+    "seventhImageBuildAttempt": {
+      "date": "2026-10-09",
+      "firmware": "G986U1UESCHXL1",
+      "originalSource": "/home/main/src/samsung-y2q-hxl1-stock",
+      "buildSource": "/home/main/src/samsung-y2q-hxl1-vdso-ias-compat",
+      "buildOutput": "/home/main/src/samsung-y2q-hxl1-config-clang18",
+      "log": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-build-07.log",
+      "dryRunPassed": true,
+      "originalConfigHashPreserved": true,
+      "completed": [
+        "two upstream VDSO IAS fixes verified via compatibility manifest",
+        "VDSO gettimeofday.o compiled",
+        "VDSO note.o compiled",
+        "VDSO sigreturn.o compiled"
+      ],
+      "fatalStage": "VDSO linking of arch/arm64/kernel/vdso/vdso.so.dbg",
+      "failure": "/usr/bin/ld: unrecognised emulation mode: aarch64linux; Supported emulations are x86_64/i386",
+      "rootCause": "Clang driver links using /usr/bin/ld host x86 instead of GNU AArch64 cross-ld; Samsung Kbuild --prefix=/usr/bin/ steers linker lookup",
+      "nextFix": "Use opt-in explicit --ld-path=/usr/bin/aarch64-linux-gnu-ld via KCFLAGS, with -Wno-unused-command-line-argument restricted to required Clang driver argument unused during -c invocations; preflight verify driver -### actual selected linker and compile+link temporary AArch64 ELF ET_DYN shared object.",
+      "imageCompiled": false,
+      "signed": false,
+      "deviceChanged": false
     }
   }
 }
