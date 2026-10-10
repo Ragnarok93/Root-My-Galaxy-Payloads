@@ -3631,6 +3631,61 @@ unresolved gates. Keep HXL1 research-only.
 
 ---
 
+## October 10: physical shell can read `sched_switch` format but not global event index
+
+The owner executed the **read-only** tracepoint metadata command
+on the stock `SM-G986U1` running `G986U1UESCHXL1`.
+
+**Both paths** (`/sys/kernel/tracing` and
+`/sys/kernel/debug/tracing`) gave these results:
+
+- `ls -lZ available_events`: **Permission denied**;
+  global event enumeration was *not* obtained.
+  This output alone does not identify whether DAC,
+  SELinux, or another access mechanism denied
+  the specific operation.
+- `events/sched/sched_switch/format`:
+  readable by `uid=2000(shell)`. File appears
+  `-r--r--r-- root root u:object_r:debugfs_tracing:s0`.
+- Event name `sched_switch`, **ID 56**;
+  its byte layout was reported by the original
+  kernel metadata and is valid for that original
+  tracepoint on this boot.
+
+| Field | Byte offset | Size |
+|---|---:|---:|
+| `common_type` | 0 | 2 |
+| `common_flags` | 2 | 1 |
+| `common_preempt_count` | 3 | 1 |
+| `common_pid` | 4 | 4 |
+| `prev_comm` | 8 | 16 |
+| `prev_pid` | 24 | 4 |
+| `prev_prio` | 28 | 4 |
+| `prev_state` | 32 | 8 |
+| `next_comm` | 40 | 16 |
+| `next_pid` | 56 | 4 |
+| `next_prio` | 60 | 4 |
+
+The listed `sched_switch` fields end at
+**byte 64**; this is a known-format metadata
+result, **not a live capture**. The shell
+command did not read `tracing_on`, `enable`,
+`trace_pipe` or the binary ring-buffer records.
+It did not attach programs, create probes, change
+settings, or trigger a futex/RT-mutex workload.
+
+**Updated status:** read-only individual event-format
+access **verified**; global `available_events`
+enumeration **denied**; event enabling, live
+capture, BPF program load, GhostLock exploit
+and Root/KernelSU remain **unverified**.
+This closes the existing bounded tracing-permission
+inventory. Further trace scans should be driven by
+a specific diagnostic question, rather than
+mistaken for a new KernelSU hook backend.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
