@@ -1407,7 +1407,78 @@
         "Check Samsung HXL1 kernel/module.c and include/linux/export.h for MODULE_REL_CRCS and CRC runtime dereference",
         "Compare at least one CRC against independent known-valid stock module metadata before treating reconstructed CRCs as finalized",
         "No module signature trust or KernelSU 4.19 hooks/loader validated"
-      ]
+      ],
+      "ownerVerifiedRawAudit": {
+        "providedOn": "2026-10-09",
+        "command": "python3 tools/y2q_export_table_audit.py --kernel-bin ~/s20-artifacts/kernel.bin --nm ~/s20-artifacts/hxl1-research/vmlinux-stock.nm --config-gz ~/s20-artifacts/config.gz",
+        "sourceKernelSha256": "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123",
+        "config": {
+          "CONFIG_HAVE_ARCH_PREL32_RELOCATIONS": "y",
+          "CONFIG_MODVERSIONS": "y",
+          "CONFIG_MODULE_REL_CRCS": "absent",
+          "CONFIG_MODULE_SIG_FORCE": "y"
+        },
+        "normalExportCount": 7427,
+        "normalCrcCount": 7427,
+        "gplExportCount": 5283,
+        "gplCrcCount": 5283,
+        "gplCrcBoundary": {
+          "startVA": "0xffffff800a50721c",
+          "stopVA": "0xffffff800a50c4a8"
+        },
+        "namesAndTargetVaVerified": true,
+        "entries": [
+          {
+            "name": "commit_creds",
+            "namespace": "normal",
+            "tableIndex": 1208,
+            "targetVA": "0xffffff80080e8534",
+            "rawCrcSlot": "794fccf2",
+            "candidateU32": "0xf2cc4f79"
+          },
+          {
+            "name": "prepare_kernel_cred",
+            "namespace": "normal",
+            "tableIndex": 5090,
+            "targetVA": "0xffffff80080e8b8c",
+            "rawCrcSlot": "5caf6fb8",
+            "candidateU32": "0xb86faf5c"
+          },
+          {
+            "name": "init_task",
+            "namespace": "normal",
+            "tableIndex": 3148,
+            "targetVA": "0xffffff800ac2f9c0",
+            "rawCrcSlot": "e2bd0572",
+            "candidateU32": "0x7205bde2"
+          },
+          {
+            "name": "module_layout",
+            "namespace": "normal",
+            "tableIndex": 4233,
+            "targetVA": "0xffffff800819979c",
+            "rawCrcSlot": "758162b6",
+            "candidateU32": "0xb6628175"
+          },
+          {
+            "name": "system_unbound_wq",
+            "namespace": "gpl",
+            "tableIndex": 4316,
+            "targetVA": "0xffffff800ac1e708",
+            "rawCrcSlot": "3246c1d4",
+            "candidateU32": "0xd4c14632"
+          }
+        ],
+        "interpretation": "Direct 32-bit CRC values are plausible because CONFIG_MODULE_REL_CRCS is absent and upstream Linux 4.19 defines a direct slot in that case; Samsung's exact module.c/export.h branch and an independent known CRC have not yet been checked.",
+        "kernelModuleAbiVerified": false,
+        "deviceModuleLoadVerified": false,
+        "rootVerified": false,
+        "caveats": [
+          "Recovered ELF symbols/virtual addresses are offline references, not live runtime KASLR addresses",
+          "Module signing and Samsung RKP/DEFEX constraints remain active",
+          "Export presence does not establish a compatible KernelSU implementation"
+        ]
+      }
     }
   }
 }
