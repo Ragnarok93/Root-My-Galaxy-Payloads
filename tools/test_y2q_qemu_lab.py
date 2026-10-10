@@ -125,6 +125,42 @@ class LabTests(unittest.TestCase):
                  mock.patch.object(lab.subprocess, "run", return_value=bad):
                 self.assertEqual(lab.boot(args), 3)
 
+    def test_build_status_reads_latest_compiler_line(self):
+        with tempfile.TemporaryDirectory() as td:
+            log = Path(td) / "kernel-build.log"
+            log.write_text("  CC      kernel/sched/core.o\n"
+                           "  CC      mm/memory.o\n")
+            with mock.patch.object(lab.time, "monotonic", return_value=150.0):
+                line = lab.build_progress_line(log, 95.0)
+                self.assertIn("elapsed=55s", line)
+                self.assertIn("mm/memory.o", line)
+                self.assertNotIn("kernel/sched/core.o", line)
+                missing = lab.build_progress_line(Path(td) / "absent.log", 95.0)
+                self.assertIn("not yet readable", missing)
+
+    def test_build_status_heartbeat_does_not_touch_build(self):
+        with tempfile.TemporaryDirectory() as td:
+            log = Path(td) / "kernel-build.log"
+            log.write_text("  CC      kernel/locking/rtmutex.o\n")
+            stop = lab.threading.Event()
+            with mock.patch("builtins.print") as output:
+                monitor = lab.threading.Thread(
+                    target=lab.report_build_progress,
+                    args=(log, stop, 0.0, 0.025),
+                    daemon=True)
+                monitor.start()
+                # Bounded wait for the thread's 25ms heartbeat to execute.
+                for _ in range(30):
+                    if output.called:
+                        break
+                    lab.time.sleep(0.01)
+                stop.set()
+                monitor.join(timeout=1)
+                self.assertTrue(output.called)
+                self.assertIn("rtmutex.o", output.call_args.args[0])
+            self.assertEqual(
+                log.read_text(), "  CC      kernel/locking/rtmutex.o\n")
+
     def test_no_phone_or_exploit_calls_in_lab(self):
         script = LAB_FILE.read_text()
         guest = lab.GUEST_SOURCE.read_text()
