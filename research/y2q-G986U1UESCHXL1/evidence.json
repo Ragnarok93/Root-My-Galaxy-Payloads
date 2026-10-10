@@ -1120,5 +1120,84 @@
     },
     "sourceLevelPathForCveConfirmed": true,
     "hardwareTriggerObserved": false
+  },
+  "hxl1KernelSuReadiness": {
+    "observedAt": "2026-10-10",
+    "firmware": "G986U1UESCHXL1",
+    "completeKernelRelease": "4.19.113-27095354",
+    "source": "Owner WSL2 gzip -dc config.gz and llvm-nm -n recovered original HXL1 kernel ELF output",
+    "config": {
+      "CONFIG_KALLSYMS": "y",
+      "CONFIG_KALLSYMS_ALL": "y",
+      "CONFIG_UH_RKP": "y",
+      "CONFIG_KDP_CRED": "y",
+      "CONFIG_KDP_NS": "y",
+      "CONFIG_KPROBES": "n",
+      "CONFIG_MODULES": "y",
+      "CONFIG_MODULE_FORCE_LOAD": "n",
+      "CONFIG_MODVERSIONS": "y",
+      "CONFIG_MODULE_SIG_FORCE": "y",
+      "CONFIG_TRIM_UNUSED_KSYMS": "n",
+      "CONFIG_SECURITY_DEFEX": "y"
+    },
+    "recoveredElfSymbols": {
+      "selinux_state": {
+        "address": null,
+        "nm": "U selinux_state",
+        "status": "undefined in recovered ELF; not a verified address, data layout or export"
+      },
+      "call_usermodehelper_exec_work": {
+        "nmType": "t",
+        "reconstructedVA": "0xffffff80080d84f4"
+      },
+      "rt_mutex_start_proxy_lock": {
+        "nmType": "T",
+        "reconstructedVA": "0xffffff8008147d14"
+      },
+      "remove_waiter": {
+        "nmType": "t",
+        "reconstructedVA": "0xffffff8008147db4"
+      },
+      "system_unbound_wq": {
+        "nmType": "T",
+        "reconstructedVA": "0xffffff800ac1e708"
+      },
+      "init_task": {
+        "nmType": "T",
+        "reconstructedVA": "0xffffff800ac2f9c0"
+      },
+      "root_task_group": {
+        "nmType": "T",
+        "reconstructedVA": "0xffffff800b211c00"
+      }
+    },
+    "assessment": {
+      "stockKernelHasModuleFramework": true,
+      "normalUnsignedModuleLoadingPermitted": false,
+      "moduleSignatureTrustedKeyAvailable": "not established",
+      "moduleVersionCrcCompatibilityVerified": false,
+      "exactTargetVermagicVerified": false,
+      "kprobeHooksAvailable": false,
+      "allNeededKernelSuSymbolsExported": false,
+      "note": "Kallsyms names/symbols in recovered vmlinux do not show EXPORT_SYMBOL status; modules need export/relocation analysis. No recovered U symbol address may be treated as usable. CONFIG_TRIM_UNUSED_KSYMS=n does not prove every symbol exported.",
+      "crossDeviceKsuVersion": "Existing repository late-load artifacts are firmware/KMI-specific and include KernelSU v3.2.5 Samsung adaptations for newer kernels; upstream older non-GKI guidance references v0.9.5 and cannot directly establish this fork's 4.19 feasibility.",
+      "samsungMitigations": [
+        "UH_RKP",
+        "KDP_CRED",
+        "KDP_NS",
+        "SECURITY_DEFEX"
+      ],
+      "moduleSignaturesVsManualRelocation": "Manual relocation is a separate loader design and does not remove normal init_module signature verification or privilege requirements by itself.",
+      "moduleLoadVerified": false,
+      "ksuInitializationVerified": false,
+      "deviceRootVerified": false,
+      "supportFeedAllowed": false
+    },
+    "nextReadOnlyChecks": [
+      "Inspect exact .config for SMP/PREEMPT/MODULE_UNLOAD/MODULE_SIG/SELINUX and MODULE_FORCE_LOAD flags to predict but not assume vermagic.",
+      "Use stock source/kernel Module.symvers or export tables to distinguish symbols present from exported symbols and CRCs.",
+      "Inspect nearby selinux-related nm symbols and code for the actual 4.19 global representation; do not reuse the 5.x/6.x selinux_state symbol.",
+      "Do not compile or claim a KernelSU module until specific 4.19 compatibility and accepted loader path are established."
+    ]
   }
 }
