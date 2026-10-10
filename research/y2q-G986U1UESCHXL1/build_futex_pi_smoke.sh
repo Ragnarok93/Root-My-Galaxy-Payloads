@@ -2,8 +2,8 @@
 # Offline Android ARM64 build of the benign HXL1 futex-PI smoke test.
 # Produces an ordinary user-space executable, NOT a root/kernel payload.
 set -euo pipefail
-ROOT="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-NDK="\${ANDROID_NDK_HOME:?Set ANDROID_NDK_HOME to the installed Android NDK}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NDK="${ANDROID_NDK_HOME:?Set ANDROID_NDK_HOME to the installed Android NDK}"
 CLANG="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang"
 if [[ ! -x "$CLANG" ]]; then
   echo "Missing Android ARM64 compiler: $CLANG" >&2
