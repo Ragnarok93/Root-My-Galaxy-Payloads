@@ -903,6 +903,45 @@ kernel currently running in handset RAM, establish runtime
 KASLR or demonstrate successful triggering, exploitation,
 root access, or KernelSU compatibility.
 
+**Precision about the comparison window:** the original 64-byte
+byte-for-byte check at `remove_waiter` includes `mrs x20, SP_EL0`
+(`+0x34`) and the `pi_lock` address calculation (at `+0x38`),
+but **does not** yet include the `pi_blocked_on` clear
+at `+0x68`. Likewise, the `bl remove_waiter` instruction
+is `+0x44` from `rt_mutex_start_proxy_lock`, just outside
+that function's first 64-byte check. These instructions
+are visible in the recovered ELF disassembly, but independently
+check their four-byte words against the original raw Image:
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+
+raw = (Path.home() / "s20-artifacts/kernel.bin").read_bytes()
+elf = (Path.home() / "s20-artifacts/hxl1-research/vmlinux-stock.elf").read_bytes()
+base = 0xffffff8008080000
+load_offset = 0x240
+sites = {
+    "current via SP_EL0":       0xffffff8008147de8,
+    "current pi_lock offset":   0xffffff8008147dec,
+    "current pi_blocked_on = 0":0xffffff8008147e1c,
+    "proxy calls remove_waiter":0xffffff8008147d58,
+}
+for label, va in sites.items():
+    off = va - base
+    a = raw[off:off + 4]
+    b = elf[off + load_offset:off + load_offset + 4]
+    if len(a) != 4 or len(b) != 4:
+        raise SystemExit(f"STOP: short instruction at {label}")
+    print(f"{label}: raw={a.hex()} elf={b.hex()} match={a == b}")
+PY
+```
+
+A mismatch means the instruction from the reconstructed ELF
+must not be treated as validated raw image bytes. Even four
+matches do not establish live-device code identity or runtime
+exploitability.
+
 ### Next read-only semantic-review excerpts
 
 Inspect the complete proxy-start state transition, including
