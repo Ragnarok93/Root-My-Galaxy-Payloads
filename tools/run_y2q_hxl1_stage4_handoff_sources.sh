@@ -38,7 +38,7 @@ node -e 'process.exit(process.platform==="linux"&&Number(process.versions.node.s
   echo "[STOP] Native Linux Node.js 24 required" >&2; exit 2;
 }
 
-echo "=== Three REA/Ghidra static supporting function observations ==="
+echo "=== Four targeted REA/Ghidra static supporting function observations ==="
 while read -r label address; do
   target="$OUT/rea-stage4-source-$label.json"
   if python3 tools/y2q_linuxloader_rea_stage4_sources.py \
@@ -59,6 +59,7 @@ done <<'FUNCTIONS'
 base-memory-provider 0x1f018
 kaslr-initializer 0x20838
 exit-boot-services 0x1e868
+ram-partition-reader 0x1eca0
 FUNCTIONS
 
 python3 tools/y2q_linuxloader_rea_stage4_sources.py --out "$OUT"
