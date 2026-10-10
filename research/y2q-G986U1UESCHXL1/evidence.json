@@ -2372,7 +2372,7 @@
     "targetGuide": "docs/SM-G986U1-G986U1UESCHXL1.md",
     "scanner": "tools/y2q_porting_readiness.py",
     "scannerTests": "tools/test_y2q_porting_readiness.py",
-    "scannerState": "committed, owner has not yet executed",
+    "scannerState": "owner executed successfully: seven unit tests PASS, nine-stage report generated, exact original artifact/source hashes passed",
     "scannerOutputs": [
       "/home/main/s20-artifacts/hxl1-research/port-readiness.json",
       "/home/main/s20-artifacts/hxl1-research/port-readiness.md"
@@ -2438,9 +2438,81 @@
     "workingKernelSu": false,
     "verifiedStockIdentity": true,
     "verifiedStockOriginalSourceHashes": true,
-    "nextOwnerAction": "Run python3 -m unittest -v tools/test_y2q_porting_readiness.py then python3 tools/y2q_porting_readiness.py and provide report; check whether exact HXL1 BL archive is retained",
+    "nextOwnerAction": "Run stage-3 read-only source/debug information inventory (new tools/y2q_stage3_layout_inventory.py and six tests); determine whether matching HXL1 BL is available in archived firmware or outside limited find paths.",
     "noPhoneChanges": true,
     "noCrossDeviceOffsets": true,
-    "noPrematureSupportFeedRegistration": true
+    "noPrematureSupportFeedRegistration": true,
+    "ownerPreflightVerification": {
+      "reportedAt": "2026-10-10T06:18:09Z",
+      "pulledToCommit": "19e9336",
+      "hostRegression": {
+        "total": 7,
+        "passed": 7,
+        "errors": 0,
+        "failures": 0,
+        "durationSeconds": 0.027,
+        "status": "OK"
+      },
+      "originalInputs": {
+        "boot.img": "SHA256 MATCH",
+        "kernel.bin": "SHA256 MATCH",
+        "config.gz": "SHA256 MATCH",
+        "kernel/locking/rtmutex.c": "SHA256 MATCH",
+        "kernel/futex.c": "SHA256 MATCH"
+      },
+      "recoveredElfAndNm": "available",
+      "rawBtfScan": {
+        "status": "NO_RAW_BTF_CANDIDATE",
+        "scope": "original kernel.bin only; does not prove that no external DWARF/BTF can exist"
+      },
+      "readinessReport": "/home/main/s20-artifacts/hxl1-research/port-readiness.json",
+      "markdownReport": "/home/main/s20-artifacts/hxl1-research/port-readiness.md",
+      "stages": {
+        "complete": [
+          1,
+          2
+        ],
+        "partial": [
+          3
+        ],
+        "open": [
+          4,
+          5,
+          6
+        ],
+        "blocked": [
+          7,
+          8
+        ],
+        "deferred": [
+          9
+        ]
+      },
+      "blArtifactSearch": {
+        "command": "find \"$HOME/s20-artifacts\" \"$HOME/src\" -maxdepth 4 -type f \\( -iname 'BL*G986*' -o -iname 'sboot.bin*' \\) -print",
+        "output": "no matches",
+        "scope": "Only two directory roots to depth 4; not proof no BL elsewhere or inside archives"
+      },
+      "actualExploitBuilt": false,
+      "targetHeaderCreated": false,
+      "deviceModified": false,
+      "sourceOnly": false
+    }
+  },
+  "hxl1Stage3LayoutInventory": {
+    "helper": "tools/y2q_stage3_layout_inventory.py",
+    "tests": "tools/test_y2q_stage3_layout_inventory.py",
+    "committedAt": "2026-10-10",
+    "ownerExecuted": false,
+    "expectedOutputs": [
+      "/home/main/s20-artifacts/hxl1-research/stage3-layout-inventory.json",
+      "/home/main/s20-artifacts/hxl1-research/stage3-layout-inventory.md"
+    ],
+    "scope": "Pinned original stock Image/config source hashes, exact vendor source struct definition locations and reconstructed ELF DWARF section inventory only",
+    "fullCompiledStructOffsetsVerified": false,
+    "hasFullOriginalDebugInformation": "UNDETERMINED",
+    "physicalLoadKnown": false,
+    "crossDeviceConstantsAllowed": false,
+    "onPhoneEffects": false
   }
 }
