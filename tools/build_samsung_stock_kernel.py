@@ -250,6 +250,76 @@ def check_cgroup_layout_warning_compat(compiler):
             "sourceFilesChanged": False}
 
 
+CROSS_LINKER_UNUSED_ARG_SUPPRESSION = "-Wno-unused-command-line-argument"
+
+
+def check_arm64_cross_linker(compiler, linker):
+    """Verify driver linker selection plus an actual little-endian ARM64 ELF DSO.
+
+    Samsung's VDSO link uses CC + c_flags, which includes KCFLAGS.
+    --ld-path forces the cross linker despite vendor --prefix=/usr/bin/.
+    Because c_flags are also used with -c, Clang 18 warns that --ld-path
+    is unused. Suppress ONLY that diagnostic; retain all other warnings
+    and Samsung's strict gcc-wrapper.py.
+    """
+    if not linker.is_file() or not os.access(linker, os.X_OK):
+        raise ValueError("AArch64 GNU cross-linker missing or not executable: " + str(linker))
+    ld_opt = "--ld-path=" + str(linker)
+    base = [
+        str(compiler), "--target=aarch64-linux-gnu",
+        "--prefix=/usr/bin/", "-no-integrated-as", "-integrated-as",
+        "-EL", ld_opt, CROSS_LINKER_UNUSED_ARG_SUPPRESSION,
+    ]
+    command = base + [
+        "-###", "-shared", "-nostdlib", "-Wl,-soname=linux-vdso.so.1",
+        "-x", "c", "/dev/null", "-o", "/dev/null",
+    ]
+    try:
+        result = subprocess.run(
+            command, capture_output=True, text=True, timeout=15, check=False
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ValueError("AArch64 linker driver inspection failed: " + str(error)) from error
+    output = result.stdout + result.stderr
+    expected = '"' + str(linker) + '"'
+    selected = any(line.lstrip().startswith(expected) for line in output.splitlines())
+    if result.returncode != 0 or not selected:
+        raise ValueError("Clang did not select requested ARM64 GNU linker " +
+                         str(linker) + " under Samsung --prefix: " + output[-800:])
+    with tempfile.TemporaryDirectory(prefix="samsung-y2q-ld-probe-") as folder:
+        dso = Path(folder) / "test-vdso.so"
+        actual = base + [
+            "-shared", "-nostdlib", "-Wl,-soname=linux-vdso.so.1",
+            "-x", "c", "-", "-o", str(dso),
+        ]
+        try:
+            compiled = subprocess.run(
+                actual,
+                input="int samsung_y2q_vdso_link_probe(void) { return 1; }\n",
+                capture_output=True, text=True, timeout=25, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise ValueError("AArch64 DSO test link failed: " + str(error)) from error
+        if compiled.returncode != 0 or not dso.is_file():
+            raise ValueError("Clang failed to link AArch64 test DSO: " +
+                             (compiled.stdout + compiled.stderr)[-1000:])
+        with dso.open("rb") as stream:
+            elf = stream.read(20)
+        if (len(elf) != 20 or elf[:4] != b"\x7fELF" or elf[4] != 2
+                or elf[5] != 1 or elf[16:18] != b"\x03\x00"
+                or elf[18:20] != b"\xb7\x00"):
+            raise ValueError("AArch64 GNU linker did not produce ELF64 LE ET_DYN EM_AARCH64")
+    return {
+        "mode": "explicit-aarch64-gnu-linker",
+        "linker": str(linker),
+        "driverInspected": True,
+        "actualSharedObjectLinked": True,
+        "validatedElf": "ELF64 LE ET_DYN AArch64",
+        "unusedArgumentWarningSuppressed": CROSS_LINKER_UNUSED_ARG_SUPPRESSION,
+        "probeCommands": [command, actual],
+    }
+
+
 def plan(args):
     source = args.source_dir.expanduser().resolve()
     build_source = (args.compat_source_dir.expanduser().absolute()
@@ -326,6 +396,11 @@ def plan(args):
         if not getattr(args, "integrated_arm64_as", False):
             raise ValueError("--suppress-cgroup-layout-warning requires --integrated-arm64-as")
         cgroup_warning_probe = check_cgroup_layout_warning_compat(compiler)
+    cross_linker_probe = None
+    if getattr(args, "cross_arm64_linker", False):
+        if not getattr(args, "integrated_arm64_as", False):
+            raise ValueError("--cross-arm64-linker requires --integrated-arm64-as")
+        cross_linker_probe = check_arm64_cross_linker(compiler, ld)
     if args.execute and args.log is None:
         raise ValueError("--execute requires --log outside the source and output directories")
     log = valid_external_path(source, output, args.log) if args.log else None
@@ -366,6 +441,13 @@ def plan(args):
             # not emit. Samsung's fatal-warning wrapper still sees all other
             # warnings; the original cgroup data structures stay unchanged.
             cflags += " " + CGROUP_SUPPRESSION
+        if cross_linker_probe:
+            # Samsung's VDSO link invokes CC with $(c_flags), not $(LD).
+            # Keep the driver link override in KCFLAGS; -c would otherwise
+            # emit -Wunused-command-line-argument, forbidden by Samsung's
+            # strict wrapper. Disable only this one unused-argument warning.
+            cflags += " --ld-path=" + str(ld)
+            cflags += " " + CROSS_LINKER_UNUSED_ARG_SUPPRESSION
         cmd.extend(["KCFLAGS=" + cflags, "KAFLAGS=" + extra])
     if getattr(args, "verbose", False):
         cmd.append("V=1")
@@ -388,6 +470,7 @@ def plan(args):
         "compilerRouting": {"REAL_CC": str(compiler), "CFP_CC": str(compiler)},
         "crossAssemblerProbe": assembler_probe,
         "cgroupLayoutWarningCompatibilityProbe": cgroup_warning_probe,
+        "aarch64LinkerProbe": cross_linker_probe,
         "note": "Experimental Clang18/GCC13 stock Image compatibility build with CFP compiler override, not a Samsung factory-identical binary.",
     }, report
 
@@ -442,6 +525,8 @@ def main():
                         help="Experimental external GNU assembler: fail closed if Samsung --prefix selects /usr/bin/as")
     parser.add_argument("--integrated-arm64-as", action="store_true",
                         help="Probe Clang's integrated AArch64 assembler with vendor flags and test ELF, then override KCFLAGS/KAFLAGS")
+    parser.add_argument("--cross-arm64-linker", action="store_true",
+                        help="Opt-in explicit AArch64 cross linker (--ld-path) with verified temporary ELF64 DSO; requires integrated assembler")
     parser.add_argument("--suppress-cgroup-layout-warning", action="store_true",
                         help="Opt-in single Clang 18 -Wno-gnu-variable-sized-type-not-at-end; requires integrated ARM64 assembler and diagnostic probe")
     parser.add_argument("--verbose", action="store_true",
