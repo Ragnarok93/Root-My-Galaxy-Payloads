@@ -152,6 +152,82 @@ class ImageBuildPlanTests(unittest.TestCase):
                 self.assertIn("-no-integrated-as", invoked)
                 self.assertIn("-B" + prefix, invoked)
 
+    def test_integrated_arm64_probe_compiles_elf64_aarch64_disposable_object(self):
+        with tempfile.TemporaryDirectory() as temp:
+            args, _, _, _ = self.setup_case(temp)
+            class Driver:
+                returncode = 0
+                stdout = ""
+                stderr = (
+                    ' "/usr/bin/clang" "-cc1" "-triple" "aarch64-unknown-linux-gnu" '
+                    '"-emit-obj" "-o" "/dev/null"'
+                )
+            class Compiler:
+                returncode = 0
+                stdout = ""
+                stderr = ""
+            observed_commands = []
+            def call(command, **kwargs):
+                observed_commands.append(command)
+                if "-###" in command:
+                    return Driver()
+                target = Path(command[-1])
+                target.write_bytes(
+                    b"\\x7fELF" + bytes([2, 1, 1]) + bytes(11)
+                    + b"\\xb7\\x00" + bytes(32)
+                )
+                return Compiler()
+            with patch.object(module.subprocess, "run", side_effect=call):
+                result = module.check_arm64_integrated_assembler(args.clang)
+            self.assertEqual(result["mode"], "clang-integrated-aarch64")
+            self.assertTrue(result["actualObjectCompiled"])
+            self.assertIn("--prefix=/usr/bin/", observed_commands[0])
+            self.assertLess(observed_commands[0].index("-no-integrated-as"),
+                            observed_commands[0].index("-integrated-as"))
+
+    def test_integrated_arm64_probe_refuses_external_host_as(self):
+        with tempfile.TemporaryDirectory() as temp:
+            args, _, _, _ = self.setup_case(temp)
+            class BadDriver:
+                returncode = 0
+                stdout = ""
+                stderr = ' "/usr/bin/as" "-EL" "-o" "/dev/null"'
+            with patch.object(module.subprocess, "run", return_value=BadDriver()):
+                with self.assertRaisesRegex(ValueError, "did not select integrated"):
+                    module.check_arm64_integrated_assembler(args.clang)
+
+    def test_opt_in_integrated_assembler_routes_kcflags_and_kaflags(self):
+        with tempfile.TemporaryDirectory() as temp:
+            args, _, makefile, config = self.setup_case(temp)
+            args.integrated_arm64_as = True
+            args.verbose = True
+            unchanged = (makefile.read_bytes(), config.read_bytes())
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \\
+                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \\
+                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \\
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \\
+                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"), \\
+                 patch.object(module, "check_arm64_integrated_assembler",
+                              return_value={"mode": "clang-integrated-aarch64", "actualObjectCompiled": True}):
+                result, _ = module.plan(args)
+            self.assertIn("KCFLAGS=--target=aarch64-linux-gnu -integrated-as", result["command"])
+            self.assertIn("KAFLAGS=--target=aarch64-linux-gnu -integrated-as", result["command"])
+            self.assertEqual(result["command"][-1], "Image")
+            self.assertEqual((makefile.read_bytes(), config.read_bytes()), unchanged)
+
+    def test_assembler_modes_are_mutually_exclusive(self):
+        with tempfile.TemporaryDirectory() as temp:
+            args, _, makefile, config = self.setup_case(temp)
+            args.integrated_arm64_as = True
+            args.external_arm64_as = True
+            with patch.object(module, "GENERATED_CONFIG_SHA256", module.sha256_file(config)), \\
+                 patch.object(module, "MAKEFILE_SHA256", module.sha256_file(makefile)), \\
+                 patch.object(module, "source_preflight_run", return_value=mocked_preflight()), \\
+                 patch.object(module.shutil, "which", return_value="/usr/bin/python"), \\
+                 patch.object(module, "find_python2", return_value="/opt/legacy/python2"):
+                with self.assertRaisesRegex(ValueError, "choose one assembler mode"):
+                    module.plan(args)
+
     def test_opt_in_external_assembler_adds_target_flags_without_source_changes(self):
         with tempfile.TemporaryDirectory() as temp:
             args, comparison, makefile, config = self.setup_case(temp)
