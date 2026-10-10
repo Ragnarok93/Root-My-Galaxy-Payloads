@@ -467,6 +467,32 @@
       "secgetspfMissingStillWarning": true,
       "fixCandidate": "opt-in --external-arm64-as uses Clang --target=aarch64-linux-gnu and -B/usr/bin/aarch64-linux-gnu- through target KCFLAGS/KAFLAGS; verifies Clang -### external assembler selection, V=1 logs",
       "caveat": "The cross-as option has only been tested in synthetic GitHub CI; must test against user's real WSL build."
+    },
+    "fourthImageBuildAttempt": {
+      "date": "2026-10-09",
+      "firmware": "G986U1UESCHXL1",
+      "mode": "Clang18 + GCC13 --external-arm64-as with KCFLAGS/KAFLAGS plus V=1",
+      "log": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-build-04.log",
+      "result": "FAILED, still routed to /usr/bin/as with unrecognized option -EL",
+      "verifiedFlags": [
+        "REAL_CC=/usr/lib/llvm-18/bin/clang",
+        "CFP_CC=/usr/lib/llvm-18/bin/clang",
+        "--target=aarch64-linux-gnu",
+        "--prefix=/usr/bin/",
+        "-no-integrated-as",
+        "-B/usr/bin/aarch64-linux-gnu-"
+      ],
+      "observedActualAssembler": "/usr/bin/as (x86-64 native)",
+      "aarch64AssemblerInstalled": "GNU binutils 2.42",
+      "blockingError": "/usr/bin/as: unrecognized option '-EL'; clang: error: assembler command failed with exit code 1; scripts/mod/empty.o",
+      "rootCauseHypothesis": "Samsung's --prefix=/usr/bin/ in Clang command prioritizes native GNU assembler and defeats standalone -B prefix; confirmed in independent Clang 17 driver reproduction with vendor-like flags",
+      "nextWork": "Add realistic vendor-flag cross-assembler validation (fail closed) and opt-in integrated Clang ARM64 assembler mode that overrides -no-integrated-as with a trailing -integrated-as; prove probe emits a real little-endian ELF64 EM_AARCH64 object in disposable temp directory, no source or .config modification",
+      "kernelImageProduced": false,
+      "deviceChanged": false,
+      "otherWarnings": [
+        "secgetspf missing (not fatal at this failure point)",
+        "arch/arm64 .inst assembler warning (not fatal here)"
+      ]
     }
   }
 }
