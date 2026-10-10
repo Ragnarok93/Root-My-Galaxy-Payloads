@@ -788,5 +788,34 @@
     "sourceSemanticReviewComplete": false,
     "status": "plausible source-level issue pending inspection of complete function and all callers; not device exploit proof",
     "nextReadOnlyInspection": "nl -ba ~/src/samsung-y2q-hxl1-stock/kernel/locking/rtmutex.c | sed -n '1060,1145p;1792,1815p;1875,1920p'; nl -ba ~/src/samsung-y2q-hxl1-stock/kernel/futex.c | sed -n '2138,2185p'"
+  },
+  "hxl1GhostLockSourceSemanticReview": {
+    "reportedByDeviceOwnerAt": "2026-10-10",
+    "sourceRoot": "/home/main/src/samsung-y2q-hxl1-stock",
+    "files": {
+      "kernel/locking/rtmutex.c": "36b187173cfb3934a5c9d51952bce58c2f41701d3585326f18cd3965e46a21f9",
+      "kernel/futex.c": "493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5"
+    },
+    "sourceBugPatternConfirmed": true,
+    "sourceBug": "CVE-2026-43499 rtmutex proxy-lock rollback uses current instead of waiter->task",
+    "evidence": {
+      "removeWaiter": "rtmutex.c:1068-1119",
+      "wrongLock": "rtmutex.c:1077 locks current->pi_lock, not waiter->task->pi_lock",
+      "wrongBlockedOn": "rtmutex.c:1079 resets current->pi_blocked_on, not waiter->task->pi_blocked_on",
+      "wrongPriorityChainTask": "rtmutex.c:1115-1116 passes current as task parameter to rt_mutex_adjust_prio_chain",
+      "proxyLockCall": "rtmutex.c:1797-1806 forwards (lock,waiter,task) to __rt_mutex_start_proxy_lock and then calls remove_waiter(lock,waiter) on nonzero result",
+      "futexCall": "futex.c:2154-2158 forwards this->rt_waiter and this->task to rt_mutex_start_proxy_lock",
+      "distinctTaskPotential": "The proxy-lock caller passes this->task; the current running task need not be the task associated with that waiter."
+    },
+    "officialReference": "https://lists.openwall.net/linux-cve-announce/2026/05/21/7",
+    "confidence": "Matching source logic confirmed from owner-provided exact excerpts and recorded hashes. Completeness of vendor source reconstruction and identity with running binary not established.",
+    "originalExtractedKernelByteCorrelationVerified": false,
+    "sourceCodeCVEPatternVerified": true,
+    "runtimeVulnerabilityDemonstrated": false,
+    "exploitableOnDeviceDemonstrated": false,
+    "rootGranted": false,
+    "moduleLoadVerified": false,
+    "publicationAllowed": false,
+    "nextResearch": "Verify original retained boot.img/kernel.bin against recorded hashes, identify exact stock kernel binary format and inspect read-only disassembly/source correspondence; avoid crash-oriented reproduction until recovery plan is established."
   }
 }
