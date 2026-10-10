@@ -390,6 +390,41 @@
       "logPath": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-build.log",
       "reportPath": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-report.json",
       "nextStep": "Read-only inspect Makefile secgetspf reference, install genuine Python 2.7 in isolated user-owned prefix, retry with --python2 and new log/report paths; do not substitute python3 as python2 or edit stock source"
+    },
+    "isolatedPython2": {
+      "ownerReportDate": "2026-10-09",
+      "version": "2.7.18",
+      "installationPath": "/home/main/opt/samsung-kernel-python2",
+      "installMethod": "CPython 2.7.18 compiled from official source; altinstall in user-owned prefix",
+      "installSucceeded": true,
+      "verifiedVersionOutput": "Python 2.7.18",
+      "optionalModulesNotBuilt": [
+        "_bsddb",
+        "_hashlib",
+        "_tkinter",
+        "bsddb185",
+        "dbm",
+        "dl",
+        "gdbm",
+        "imageop",
+        "nis",
+        "sunaudiodev"
+      ],
+      "installedModulesObserved": [
+        "_ssl",
+        "zlib",
+        "_sha",
+        "_sha256",
+        "_sha512",
+        "bz2",
+        "_ctypes"
+      ],
+      "warnings": [
+        "OpenSSL 0x00000000 is too old for _hashlib; available openssl 3 may not expose historic OpenSSL interfaces to Python2's _hashlib compilation",
+        "Missing Tcl/Tk headers; not relevant to kernel scripts"
+      ],
+      "kernelBuildRetried": false,
+      "nextStep": "Verify isolated bin/python2 symlink and run build_samsung_stock_kernel.py --execute --python2 with fresh -02 log/report; investigate secgetspf independently if still reported."
     }
   }
 }
