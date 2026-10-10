@@ -18,7 +18,7 @@
 4. **Recovered `vmlinux-stock.nm` is a plausible `--kallsyms` input:** `kallsyms::parse` accepts `<8–16-digit hex address> <symbol type> <symbol name>` and requires nonzero `_text` or `_head`. Check the exact file rather than asserting parsing has succeeded.
 5. **No raw BTF is present in the pinned HXL1 raw Image scan.** The extractor must not create fake factory `rt_mutex` / `rt_mutex_waiter` field offsets. The local corrected DWARF scan found zero complete definitions in 77 retained experimental objects.
 6. **Bootloader XBL physical mapping not established:** upstream `fdt.rs` can inspect `xbl_config` FDT memory-map layouts on supported boot chains, but the original HXL1 BL `xbl_config.elf` has atypical ELF metadata, and neither it nor boot header `kernel_addr=0x8000` has yielded a verified Linux physical handoff. Do not use `--phys` to paper over this.
-7. Upstream `Cargo.toml` specifies Rust `rust-version = 1.97.1`, and the binary lands in `build/extract/release/ghostlock-extract`. Record the upstream Git commit and binary hash for every attempt.
+7. Upstream `Cargo.toml` specifies Rust `rust-version = 1.97.1`; the binary's actual path depends on Cargo configuration lookup. Record the upstream Git commit, `cargo metadata` target directory, and binary hash for every attempt.
 
 ### Proposed strictly offline first pass (not executed by this report)
 
@@ -61,3 +61,53 @@ Use GhostLock upstream source as an **independent analysis baseline**, not an ex
 - Verified upstream `tools/extract_rs/Cargo.toml` requires `rust-version = "1.97.1"` and `edition = "2024"`. Rust 1.97.1 was officially published 2026-07-16 (https://blog.rust-lang.org/2026/07/16/Rust-1.97.1/).
 
 **Next action:** install 1.97.1 with `rustup` alongside the system Rust, use `rustup run 1.97.1 cargo test` and `rustup run 1.97.1 cargo build --release` without changing the upstream manifest, then run the exact original `kernel.bin` + original `vmlinux-stock.nm` `--analysis` path with host-only logs. Do not infer vulnerability or physical addresses from a build passing.
+
+## First completed upstream analysis and host `/proc/iomem` contamination — 2026-10-10
+
+Owner built the extractor successfully using the Rust 1.97.1 toolchain. Running `cargo` with `--manifest-path` from the repository root put the binary in **`tools/extract_rs/target/release/ghostlock-extract`**, not `build/extract/release/` (the nested `.cargo/config.toml` was not in the active Cargo configuration search path). Prefer `cargo metadata --no-deps --format-version 1 --manifest-path ...` to locate the `target_directory` dynamically.
+
+The Linux x86-64 ELF binary was verified with SHA256:
+`aeab4c182a87711c817ae752d8e9b6414c30f33627bd02bd30fb05b1df5036b0`.
+
+The owner's first run used the original raw HXL1 `kernel.bin`, original `vmlinux-stock.nm`, and `--analysis`, and returned exit code **0**, with:
+
+- Release `4.19.113-27095354`; `kernel_family: unverified (no family layout will be emitted)`.
+- No embedded BTF, no `rt_mutex_waiter` type, no measured `mm_struct` size.
+- Static `remove_waiter@0xc7db4 unpatched` classifier; upstream `derive.rs` uses detection of an ARM64 `mrs ..., sp_el0` read in the disassembled function. This is **only a binary-pattern classifier**, corroborative of the original source comparison; it is **not** a demonstrated runtime CVE, validated exploit primitive, or root capability. An absent pattern should likewise not be mistaken for comprehensive patch verification.
+- `multicast_waiter: available` because the upstream route checker accepts **either** `ip_mc_msfadd` or `ip_mc_source`; here `ip_mc_msfadd` was absent. `select_stack` appeared available at *symbol-presence* level; the select/pselect layout was **not attempted (no BTF)**. `tcp_zerocopy` was missing.
+- **No suggested route** and **low confidence**. Do not take any `available` label as a working exploitation path.
+
+### CRITICAL invalid physical load value
+
+Upstream logged:
+
+```text
+info: iomem source /proc/iomem
+info: iomem; kernel_phys_load=0xfffff800 kernel_phys_offset=0x0
+kernel_phys_load        0xfffff800 (iomem)
+```
+
+This was an extractor **running inside WSL2**, which automatically read the **WSL2 host** `/proc/iomem`, combined its addresses with **Samsung kernel** `_text` / `_stext` symbols, and derived an invalid mixed-provenance quantity (upstream `main.rs` masks that subtraction to 32 bits). It is **NOT** the Galaxy S20+ physical Linux handoff, DRAM base, or a profile constant. Classify as **`INVALID_HOST_IOMEM_CONTAMINATION`**; Stage 4 remains **OPEN**.
+
+Code verification: upstream `tools/extract_rs/src/iomem.rs::load` uses the host's `/proc/iomem` if `--iomem` is omitted. If `--iomem` is explicitly provided, it reads *only that path*, including an empty file; it does not fall back to host `/proc/iomem`.
+
+### Host-only corrected offline rerun
+
+```bash
+cd ~/src/ghostlock-app-upstream
+OUT="$HOME/s20-artifacts/hxl1-research"
+mkdir -p "$OUT"
+: > "$OUT/ghostlock-empty-host-iomem.txt"
+BIN="$PWD/tools/extract_rs/target/release/ghostlock-extract"
+"$BIN" "$HOME/s20-artifacts/kernel.bin" \
+  --kallsyms "$OUT/vmlinux-stock.nm" \
+  --iomem "$OUT/ghostlock-empty-host-iomem.txt" \
+  --analysis \
+  > "$OUT/ghostlock-upstream-analysis-isolated.txt" \
+  2> "$OUT/ghostlock-upstream-diagnostics-isolated.txt"
+echo "exit=$?"
+cat "$OUT/ghostlock-upstream-analysis-isolated.txt"
+cat "$OUT/ghostlock-upstream-diagnostics-isolated.txt"
+```
+
+Expected safe outcome: `kernel_phys_load` should remain **unset** (unless new legitimate, explicit device-side evidence is provided). If the isolated run still supplies a physical kernel address, stop and identify its source rather than accepting it. No `--phys`, built-in profile registration, runtime GhostLock invocation, or privilege elevation is authorized by this study.
