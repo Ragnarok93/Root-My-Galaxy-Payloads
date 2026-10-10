@@ -1557,13 +1557,64 @@
         "userSpacePrivilegeEscalationPayloadValidated": false,
         "kernelSuHooksCompatible": false,
         "deviceModuleLoadTestPassed": false,
-        "productionSupportAllowed": false
+        "productionSupportAllowed": false,
+        "stockBpfSyscallBuilt": true,
+        "stockFtraceFrameworkBuilt": true,
+        "stockFunctionTracerBuilt": false,
+        "stockKprobesBuilt": false,
+        "verifiedKernelSuHookBackend": false
       },
       "nextNonDestructiveChecks": [
-        "Confirm exact CONFIG_KRETPROBES, CONFIG_FTRACE, CONFIG_FUNCTION_TRACER, CONFIG_DYNAMIC_FTRACE, CONFIG_FTRACE_SYSCALLS and CONFIG_BPF settings in stock config.",
-        "Inventory security protections and kernel interface semantics without attempting text modification or unsigned module insertion.",
-        "Do not reuse modules, vermagic, CRCs or probe hooks from newer devices; do not claim feasibility without a working authorized load mechanism and hook design."
-      ]
+        "Inspect exact stock config for PERF_EVENTS, TRACEPOINTS, BPF_EVENTS/JIT, UPROBES, FUNCTION_GRAPH_TRACER, DYNAMIC_FTRACE and KRETPROBES; do not infer runtime permissions.",
+        "Audit only whether a legitimate module load or alternative integrated-kernel path can be authorized; a root prerequisite cannot be supplied by export names/CRCs.",
+        "Avoid claiming KernelSU v3.2.5 compatibility, successful root, kernel text modification, or using production support feed."
+      ],
+      "ownerTracingCapabilityInventory": {
+        "observedAt": "2026-10-10",
+        "source": "owner WSL gzip -dc exact HXL1 original kernel config.gz, grep selected tracing/BPF feature flags",
+        "exactObservedValues": {
+          "CONFIG_BPF": "y",
+          "CONFIG_BPF_SYSCALL": "y",
+          "CONFIG_KPROBES": "n",
+          "CONFIG_FTRACE": "y",
+          "CONFIG_FUNCTION_TRACER": "n",
+          "CONFIG_FTRACE_SYSCALLS": "n"
+        },
+        "notPrintedByThisGrep": [
+          "CONFIG_KRETPROBES",
+          "CONFIG_DYNAMIC_FTRACE"
+        ],
+        "caveats": [
+          "Output lines missing for KRETPROBES/DYNAMIC_FTRACE do not by themselves prove those CONFIG symbols' values; Linux 4.19 Kconfig dependencies imply they cannot enable under KPROBES=n and FUNCTION_TRACER=n respectively.",
+          "CONFIG_FTRACE=y is a tracing framework gate; absence of FUNCTION_TRACER prevents normal ftrace function entry hooks.",
+          "CONFIG_BPF_SYSCALL=y does not establish unprivileged BPF access, kernel probe capability, arbitrary credential changes, or a KernelSU hook.",
+          "Tracepoints and perf may support observation if enabled and permissioned, not unconditional interception.",
+          "CONFIG_MODULE_SIG_FORCE=y plus Samsung RKP/KDP/DEFEX remain separate unsolved load/write/credential policy gates."
+        ],
+        "checkedPatchDependencies": [
+          "register_kprobe and register_kretprobe in kernelsu/patches/KernelSU-v3.2.5-samsung-kdp-rkp-defex.patch cannot serve as stock HXL1 fallback under CONFIG_KPROBES=n",
+          "CONFIG_KSU_SAMSUNG_NO_PATCH_TEXT intentionally returns -EOPNOTSUPP for live patch path"
+        ],
+        "inference": "Current Samsung v3.2.5 late-load patch has no demonstrated compatible stock-HXL1 function interception mechanism.",
+        "deviceCodeExecutionObserved": false,
+        "productionSupportAllowed": false,
+        "nextReadOnlyCapabilityKeys": [
+          "CONFIG_BPF_EVENTS",
+          "CONFIG_BPF_JIT",
+          "CONFIG_BPF_JIT_ALWAYS_ON",
+          "CONFIG_PERF_EVENTS",
+          "CONFIG_TRACEPOINTS",
+          "CONFIG_EVENT_TRACING",
+          "CONFIG_KPROBE_EVENTS",
+          "CONFIG_UPROBES",
+          "CONFIG_UPROBE_EVENTS",
+          "CONFIG_FUNCTION_GRAPH_TRACER",
+          "CONFIG_DYNAMIC_FTRACE",
+          "CONFIG_KRETPROBES",
+          "CONFIG_HAVE_KPROBES",
+          "CONFIG_HAVE_KRETPROBES"
+        ]
+      }
     }
   }
 }
