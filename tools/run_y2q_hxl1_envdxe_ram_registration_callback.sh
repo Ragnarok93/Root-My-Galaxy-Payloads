@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Stage 4: doubled substantive work in one run.
-# 79 offline tests; upstream+registration+interface+8 xrefs+callback raw recovery.
+# 121 offline tests; upstream+registration+interface+8 xrefs+callback raw recovery.
 # Original firmware from pinned HXL1 XBL only; NO ADB/phone/root/flash.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -10,12 +10,13 @@ EFI="$OUT/EnvDxe-HXL1.efi"
 REA="$HOME/src/rea/scripts/rea.mjs"
 PIN=9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670
 
-echo "=== 79 offline original EnvDxe RAM-registration/callback tests ==="
+echo "=== 121 offline original EnvDxe RAM-registration/callback tests ==="
 python3 -m unittest -q \
   tools/test_y2q_hxl1_envdxe_ram_registration_interface.py \
   tools/test_y2q_hxl1_envdxe_ram_registration_callback.py \
   tools/test_y2q_hxl1_envdxe_ram_registration_parent_chain.py \
-  tools/test_y2q_hxl1_envdxe_callback_raw_proof.py
+  tools/test_y2q_hxl1_envdxe_callback_raw_proof.py \
+  tools/test_y2q_hxl1_envdxe_callback_mutations.py
 
 echo "=== Authenticate exact original EnvDxe and previously verified registration ==="
 [[ -f "$EFI" && ! -L "$EFI" && -f "$REA" ]] || {
