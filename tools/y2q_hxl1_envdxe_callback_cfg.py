@@ -38,6 +38,17 @@ REQUIRED_BRANCHES={
     0x2010:("B",0x1fd8),
     0x2018:("B",0x1fd8),
 }
+# Condition-code bits are not part of an ARM64 conditional branch target.
+# Enforce each complete original word as well as the branch target, so a
+# condition flip cannot silently pass our static reachability proof.
+BRANCH_WORDS={
+    0x1fa4:0x94000cca,
+    0x1fc4:0x54000129,
+    0x1ff0:0x9400018a,
+    0x2004:0x94000cb2,
+    0x2010:0x17fffff2,
+    0x2018:0x17fffff0,
+}
 # These are raw words from the original 96-byte, Ghidra-matched 0x1fe8
 # segment. They constrain the observed 72-byte temporary-record and
 # 16-byte output-record strides without guessing the unknown boot data.
@@ -161,6 +172,9 @@ def analyze(folder:Path)->dict:
     raw,reads=full_bytes(folder)
     edge_map={int(e["instructionAddress"],16):e for e in arm64_edges(raw,BASE)}
     for at,(kind,target) in REQUIRED_BRANCHES.items():
+        expected_word=BRANCH_WORDS[at]
+        if struct.unpack_from("<I",raw,at-BASE)[0]!=expected_word:
+            raise ExtractionError("Original callback ARM64 branch opcode changed: "+hex(at))
         e=edge_map.get(at)
         if e is None or e["mnemonicClass"]!=kind or e["directBranchTarget"]!=hex(target):
             raise ExtractionError("Original HXL1 callback control-flow identity changed: "+hex(at))
