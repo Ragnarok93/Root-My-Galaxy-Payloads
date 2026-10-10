@@ -1674,13 +1674,117 @@
           "Check whether relevant existing scheduler/futex/lock event definitions are readable; no event enable, BPF attach, sysctl writes or tracing_on changes.",
           "Maintain separation between observation and exploit/root/KernelSU feasibility."
         ],
-        "tracingFileContentsReadVerified": false,
+        "tracingFileContentsReadVerified": true,
         "traceEventsAttachVerified": false,
         "bpfProgramLoadVerified": false,
         "perfEventOpenVerified": false,
         "moduleLoadVerified": false,
         "rootVerified": false,
-        "productionSupportAllowed": false
+        "productionSupportAllowed": false,
+        "ownerEventMetadataCheckAt": "2026-10-10",
+        "traceEventMetadata": {
+          "transcriptCommand": "adb shell; ls -lZ $root/available_events $root/events/sched/sched_switch/format; -r and sed 1,20",
+          "paths": [
+            "/sys/kernel/tracing",
+            "/sys/kernel/debug/tracing"
+          ],
+          "globalAvailableEvents": {
+            "observedStatus": "Permission denied on ls -lZ; no contents printed",
+            "exposedByShell": false,
+            "cause": "The command does not distinguish VFS permissions versus SELinux denial; do not ascribe a specific cause without AVC or mode data",
+            "globalEnumerationVerified": false
+          },
+          "schedulerTracepoint": {
+            "name": "sched_switch",
+            "formatReadableByShell": true,
+            "selinuxFileLabel": "u:object_r:debugfs_tracing:s0",
+            "fileMode": "-r--r--r--",
+            "owner": "root",
+            "group": "root",
+            "eventId": 56,
+            "recordFormat": [
+              {
+                "field": "common_type",
+                "offset": 0,
+                "size": 2,
+                "signed": false
+              },
+              {
+                "field": "common_flags",
+                "offset": 2,
+                "size": 1,
+                "signed": false
+              },
+              {
+                "field": "common_preempt_count",
+                "offset": 3,
+                "size": 1,
+                "signed": false
+              },
+              {
+                "field": "common_pid",
+                "offset": 4,
+                "size": 4,
+                "signed": true
+              },
+              {
+                "field": "prev_comm",
+                "offset": 8,
+                "size": 16,
+                "signed": false
+              },
+              {
+                "field": "prev_pid",
+                "offset": 24,
+                "size": 4,
+                "signed": true
+              },
+              {
+                "field": "prev_prio",
+                "offset": 28,
+                "size": 4,
+                "signed": true
+              },
+              {
+                "field": "prev_state",
+                "offset": 32,
+                "size": 8,
+                "signed": true
+              },
+              {
+                "field": "next_comm",
+                "offset": 40,
+                "size": 16,
+                "signed": false
+              },
+              {
+                "field": "next_pid",
+                "offset": 56,
+                "size": 4,
+                "signed": true
+              },
+              {
+                "field": "next_prio",
+                "offset": 60,
+                "size": 4,
+                "signed": true
+              }
+            ],
+            "layoutMinBytes": 64,
+            "eventEnabled": false,
+            "eventEnabledNote": "Not queried; false means NOT VERIFIED enabled, not that it is disabled",
+            "liveEventCaptureVerified": false,
+            "liveFutexTraceVerified": false,
+            "parserEndianAndAlignment": "As reported by this AArch64 kernel's tracepoint format, not generalized to all kernels"
+          },
+          "conclusion": "Owner shell can read one individual scheduler tracepoint format but cannot list the global available_events file. This is evidence of metadata visibility only, not privilege, event enablement, a GhostLock runtime trigger, or KernelSU hooks.",
+          "nextReadOnlyChecks": [
+            "Do not repeat broad tracefs scans absent a concrete diagnostic need.",
+            "When a read-only tracepoint decoder is needed, consume the known per-event format instead of assuming shell-readable available_events.",
+            "Pivot to authorized loading/hooking feasibility; maintain root/module/vulnerability exploit verification as false."
+          ]
+        },
+        "tracingFileContentsReadScope": "sched_switch format only"
       }
     }
   }
