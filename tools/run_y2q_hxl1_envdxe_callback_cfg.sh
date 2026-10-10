@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Original S20+ HXL1 EnvDxe: repair incorrect end-of-callback assumption.
-# 659 previously authenticated tests + 729 new, distinct source/bit-level
+# 659 previously authenticated tests + 730 new, distinct source/bit-level
 # regressions. ONE new 20-byte Ghidra read; reuse original 128+96 bytes.
 # NO phone access, privileged commands, memory dumps or firmware writes.
 set -euo pipefail
@@ -11,7 +11,7 @@ EFI="$OUT/EnvDxe-HXL1.efi"
 REA="$HOME/src/rea/scripts/rea.mjs"
 PIN=9502aa29ce9c1081833d763d56e42b999a181c146b827f907a2c6ba9a3481670
 
-echo "=== 1388 host-only original EnvDxe provenance and callback-CFG tests ==="
+echo "=== 1389 host-only original EnvDxe provenance and callback-CFG tests ==="
 python3 -m unittest -q \
   tools/test_y2q_hxl1_envdxe_ram_registration_interface.py \
   tools/test_y2q_hxl1_envdxe_ram_registration_callback.py \
