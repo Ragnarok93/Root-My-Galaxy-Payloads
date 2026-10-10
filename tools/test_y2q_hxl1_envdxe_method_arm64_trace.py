@@ -161,6 +161,53 @@ class FourMethodProvenanceTests(unittest.TestCase):
         for _,_,at in mod.EXPECTED_SLOTS:
             self.assertEqual(self.window(at)["staticAddress"],at)
 
+    def test_method_08_does_not_own_neighbor_method_20_call(self):
+        result=self.full()
+        item=next(x for x in result["methods"] if x["role"]=="method-08")
+        bounded=item["boundedInterpretation"]
+        self.assertEqual(bounded["exclusiveUpperBound"],"0x1f0c")
+        self.assertNotIn("0x1f40",
+            [x["instructionAddress"] for x in bounded["inRegionControlFlow"]])
+        self.assertIn("0x1f40",
+            [x["instructionAddress"] for x in
+             bounded["overlappingNeighborInstructionsNotAttributed"]])
+
+    def test_method_20_cannot_claim_getram_direct_helper_call(self):
+        result=self.full()
+        item=next(x for x in result["methods"] if x["role"]=="method-20")
+        bounded=item["boundedInterpretation"]
+        self.assertEqual(bounded["exclusiveUpperBound"],"0x1f74")
+        self.assertNotIn("0x1fa4",
+            [x["instructionAddress"] for x in bounded["inRegionControlFlow"]])
+
+    def test_getram_ret_boundary_excludes_adjacent_0x2618_call(self):
+        result=self.full()
+        item=next(x for x in result["methods"] if x["role"]=="get-ram-partitions")
+        bounded=item["boundedInterpretation"]
+        self.assertEqual(bounded["exclusiveUpperBound"],"0x1fe8")
+        self.assertNotIn("0x1ff0",
+            [x["instructionAddress"] for x in bounded["inRegionControlFlow"]])
+        self.assertIn("0x1ff0",
+            [x["instructionAddress"] for x in
+             bounded["overlappingNeighborInstructionsNotAttributed"]])
+
+    def test_getram_owns_0x1fa4_52cc_call_with_provisional_bound(self):
+        result=self.full()
+        item=next(x for x in result["methods"] if x["role"]=="get-ram-partitions")
+        self.assertIn("0x52cc",[
+            x["directBranchTarget"]
+            for x in item["boundedInterpretation"]["inRegionControlFlow"]
+            if x["mnemonicClass"]=="BL"])
+        self.assertFalse(item["boundedInterpretation"]["boundaryIsVerifiedGhidraFunctionEnd"])
+
+    def test_no_terminal_return_is_not_claimed_as_callback_extent(self):
+        docs=[{"role":"get-ram-partitions","originalCode":{
+            "staticAddress":"0x1f74","size":128,
+            "edges":[{"instructionAddress":"0x1fa4","mnemonicClass":"BL",
+                      "directBranchTarget":"0x52cc"}]}}]
+        with self.assertRaisesRegex(ExtractionError,"no observed return"):
+            mod.slot_bounded_edges(docs)
+
     def test_fifth_direct_callee_window_is_proven_in_same_pass(self):
         result=self.full()
         self.assertEqual(len(result["methods"]),4)
