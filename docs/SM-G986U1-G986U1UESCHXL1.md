@@ -23,6 +23,76 @@ kernel compilation errors to perform the firmware-to-profile audit.
 - [Support feed selection limitations](../support/README.md)
 - [KernelSU module constraints and Samsung adaptations](../kernelsu/README.md)
 
+## October 10, 06:18 UTC — nine-stage port checker verified on original HXL1 files
+
+The owner pulled commit 19e9336 and executed
+tools/test_y2q_porting_readiness.py (7/7 PASS in 0.027 seconds)
+and tools/y2q_porting_readiness.py successfully.
+
+The report verified the original boot.img, kernel.bin,
+config.gz, rtmutex.c and futex.c against all five pinned
+SHA-256 values and found the existing stock recovered ELF/NM
+in the expected research directory.
+
+The stage results were exactly:
+
+| State | Stage numbers |
+|---|---|
+| COMPLETE | 1, 2 |
+| PARTIAL | 3 |
+| OPEN | 4, 5, 6 |
+| BLOCKED | 7, 8 |
+| DEFERRED | 9 |
+
+The original kernel.bin scan yielded
+NO_RAW_BTF_CANDIDATE. This means the scanner did not find
+a valid, uncompressed raw BTF header in that extracted
+Image. It is not proof that external debug information
+does not exist, and it provides no trusted structure
+offsets. The recovered analysis ELF may have section
+headers or debug sections, which have not yet been read
+with this new tool.
+
+The bounded file search for BL*G986* or sboot.bin*
+under ~/s20-artifacts and ~/src (maxdepth=4) yielded no
+matches. This does NOT establish that the original
+firmware's BL archive is missing everywhere; it may be
+outside those search roots or remain packed inside a
+Samsung firmware ZIP.
+
+### Next immediate stage-3 operation — original source and debug inventory
+
+Run the newly committed read-only checker:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    python3 -m unittest -v tools/test_y2q_stage3_layout_inventory.py
+    python3 tools/y2q_stage3_layout_inventory.py
+    cat ~/s20-artifacts/hxl1-research/stage3-layout-inventory.md
+
+It checks original Image/config/Samsung source SHA-256
+pins again, extracts available IKCONFIG debug flags, finds
+source definition locations for task_struct, rt_mutex,
+rt_mutex_waiter, file_operations, page, cred and
+configfs_buffer, and inspects reconstructed ELF section
+names for DWARF/BTF. It does NOT produce or certify
+numeric offsets or run a vulnerable kernel code path.
+
+The previous source and disassembly audit already confirms
+a narrow subset of relevant original instructions, but
+compiled full object layouts remain unverified until
+independent provenance exists. When that inventory returns,
+evaluate whether original matching debug information or a
+compatible source-build layout checker is available.
+Keep stage 3 PARTIAL even if every source declaration is
+located. Stage 4 remains OPEN until HXL1-specific BL or
+equivalent physical handoff evidence is verified.
+
+No native root exploit, KernelSU loader or support-feed
+entry was created or authorized in this phase.
+
+---
+
 ## Current porting priority — nine-stage HXL1 gate audit (October 10)
 
 **This project prioritizes completing the original Root My Galaxy
