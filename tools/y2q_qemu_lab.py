@@ -31,6 +31,8 @@ import shutil
 import stat
 import subprocess
 import sys
+import threading
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 GUEST_SOURCE = ROOT / "research/y2q-G986U1UESCHXL1/qemu_lab_init.c"
@@ -236,6 +238,28 @@ def configure(args: argparse.Namespace) -> None:
     print(f"     KASAN requested: {args.kasan}")
 
 
+def build_progress_line(log: Path, started: float) -> str:
+    """A short, read-only status line from the current kernel-build log."""
+    elapsed = int(max(0, time.monotonic() - started))
+    try:
+        size = log.stat().st_size
+        with log.open("rb") as stream:
+            stream.seek(max(0, size - 4096))
+            lines = stream.read().decode("utf-8", "replace").splitlines()
+        last = next((line.strip() for line in reversed(lines) if line.strip()),
+                    "(no compiler output yet)")
+        return f"[build] elapsed={elapsed}s log={size // 1024}KiB latest: {last[:160]}"
+    except OSError as exc:
+        return f"[build] elapsed={elapsed}s log not yet readable: {exc}"
+
+
+def report_build_progress(log: Path, stop: threading.Event, started: float,
+                          interval: float = 15.0) -> None:
+    """Heartbeat only. Never touches the compiler, sources, or build output."""
+    while not stop.wait(interval):
+        print(build_progress_line(log, started), flush=True)
+
+
 def build(args: argparse.Namespace) -> None:
     check_kernel_source(args.source, args.vendor)
     if not (args.output / "kernel-build/.config").is_file():
@@ -246,9 +270,24 @@ def build(args: argparse.Namespace) -> None:
     log = args.output / "kernel-build.log"
     cmd = kernel_args(args) + [f"-j{args.jobs}", "Image"]
     print("+", " ".join(cmd), flush=True)
-    print(f"[log] {log} (build output captured to avoid console flooding)")
-    with log.open("w") as stream:
-        result = subprocess.run(cmd, stdout=stream, stderr=subprocess.STDOUT)
+    print(f"[log] {log} (build output captured to avoid console flooding)", flush=True)
+    print("[build] A status line will appear every 15s; "
+          "tail -f the log from another terminal for full compiler output.",
+          flush=True)
+    stop = threading.Event()
+    started = time.monotonic()
+    monitor = threading.Thread(
+        target=report_build_progress, args=(log, stop, started),
+        name="rmg-build-status", daemon=True)
+    try:
+        with log.open("w") as stream:
+            monitor.start()
+            result = subprocess.run(cmd, stdout=stream, stderr=subprocess.STDOUT)
+    finally:
+        stop.set()
+        if monitor.ident is not None:
+            monitor.join(timeout=2)
+    print(build_progress_line(log, started), flush=True)
     if result.returncode:
         excerpt = "\n".join(log.read_text(errors="replace").splitlines()[-35:])
         raise LabError(f"Kernel build failed ({result.returncode}). Last lines:\n{excerpt}")
