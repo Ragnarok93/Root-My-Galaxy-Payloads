@@ -1532,6 +1532,38 @@
         "moduleLoadVerified": false,
         "rootVerified": false
       }
+    },
+    "compatibilityGateAudit": {
+      "recordedAt": "2026-10-09",
+      "derivedFrom": [
+        "original device kernel config.gz (CONFIG_KPROBES unset; CONFIG_MODULE_SIG_FORCE=y; CONFIG_UH_RKP=y; CONFIG_KDP_CRED=y; CONFIG_SECURITY_DEFEX=y)",
+        "kernelsu/README.md v3.2.5 Samsung late-load reference builds 5.10/5.15/6.1/6.6; no HXL1 4.19",
+        "kernelsu/patches/KernelSU-v3.2.5-samsung-kdp-rkp-defex.patch"
+      ],
+      "currentPatchLimits": {
+        "samsungSetresuidFallback": "register_kretprobe(&setresuid_kretprobe); fallback gated on CONFIG_KRETPROBES",
+        "samsungSucompatFallback": "register_kprobe(...) for execve/newfstatat/faccessat/statx/faccessat2; requires compiled KPROBES support",
+        "samsungDefexHook": "register_kprobe(&defex_enforce_kprobe) when CONFIG_KSU_SAMSUNG_DEFEX selected",
+        "noTextPatch": "CONFIG_KSU_SAMSUNG_NO_PATCH_TEXT makes ksu_patch_text return -EOPNOTSUPP",
+        "sourceCompatibleWithHxl1": false,
+        "reason": "Observed CONFIG_KPROBES=n makes existing kprobe/kretprobe fallback unavailable; no alternate 4.19-safe hooking route validated."
+      },
+      "gateStatus": {
+        "stockModuleFramework": true,
+        "exportedSymbolsWithDirectCrcChecked": 5,
+        "existingSamsungKsuModuleUsableForHxl1": false,
+        "externalModuleSignatureAuthorized": false,
+        "bootloaderUnlocked": false,
+        "userSpacePrivilegeEscalationPayloadValidated": false,
+        "kernelSuHooksCompatible": false,
+        "deviceModuleLoadTestPassed": false,
+        "productionSupportAllowed": false
+      },
+      "nextNonDestructiveChecks": [
+        "Confirm exact CONFIG_KRETPROBES, CONFIG_FTRACE, CONFIG_FUNCTION_TRACER, CONFIG_DYNAMIC_FTRACE, CONFIG_FTRACE_SYSCALLS and CONFIG_BPF settings in stock config.",
+        "Inventory security protections and kernel interface semantics without attempting text modification or unsigned module insertion.",
+        "Do not reuse modules, vermagic, CRCs or probe hooks from newer devices; do not claim feasibility without a working authorized load mechanism and hook design."
+      ]
     }
   }
 }
