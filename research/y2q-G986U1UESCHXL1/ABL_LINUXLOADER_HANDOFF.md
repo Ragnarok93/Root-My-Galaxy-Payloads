@@ -605,3 +605,36 @@ bash tools/run_y2q_hxl1_ram_partition_protocol.sh
 Expected host output location: `~/s20-artifacts/hxl1-research/abl-linuxloader/rea-stage4-ram-partition-protocol.md`. If the GUID differs, stop and investigate; a generic Qualcomm header is not proof that Samsung's stock HXL1 vendor protocol has the same GUID. Even when the GUID is confirmed, no original XBL protocol **implementation**, runtime partition data or numerical physical kernel base is established by ABL alone.
 
 **Stage 4 state:** Original UEFI RAM partition source flow and static kernel handoff verified; live BaseMemory/physical kernel entry **UNVERIFIED**. GhostLock exploitability **UNVERIFIED** despite clean futex-PI prerequisites.
+
+
+## 2026-10-10 13:38 — real HXL1 EFI_RAMPARTITION protocol GUID/ABI VERIFIED
+
+The owner ran `bash tools/run_y2q_hxl1_ram_partition_protocol.sh` against the original, SHA256-pinned stock `LinuxLoader-HXL1.efi`, with **17/17** synthetic tests passing.
+
+- Exact source: PE SHA256 `5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003`.
+- REA 6.3.0 / Ghidra 12.1.4 `read_bytes` at static PE address **`0xEF880`**, length **16**, confirmed GUID **`5172ffb5-4253-7d51-c641-a701f973103c`**, with evidence ID `ev_f40a34471b26b4710436e575866b7a2a2dee173a3d19854da13c67aca3ac4813`.
+- Original `FUN_0001eca0` uses the UEFI `LocateProtocol` entry at `BootServices+0x140`, then calls the protocol's `GetRamPartitions` function at `protocol+0x18`. It queries required count first, then allocates **16 × partition count** and fetches actual partition records.
+- Original `FUN_0001f018` consumes the 16-byte descriptors and derives a firmware `BaseMemory` value for later `BootLinux` placement logic. Public Qualcomm protocol `RamPartitionEntry` ABI: `UINT64 Base` at offset 0 and `UINT64 AvailableLength` at offset 8. The original stock GUID and ABI agree with the public `EFIRamPartition.h`. Reference: https://www.cnblogs.com/schips/p/qualcomm_about_uefi.html .
+
+**Protocol ABI now verified in the actual stock ABL consumer.** Crucially, this is not proof of the implementation location, runtime partition count/entries, success of protocol registration on the phone, `BaseMemory`, selected KASLR branch, or a numerical kernel physical load address.
+
+### Provider-side next target: XBL DXE firmware EnvDxe candidate
+
+Public Qualcomm bootloader source descriptions locate `SetupRamPartitionProtocol` in `boot_images/QcomPkg/Drivers/EnvDxe/EnvDxe.c`, which creates `RamPartitionProtocol` and registers `gEfiRamPartitionProtocolGuid` via `InstallMultipleProtocolInterfaces`. This is a **reference implementation location**, not proof the original Samsung HXL1 binary includes a literal uncompressed EnvDxe module at a known offset. References: https://www.cnblogs.com/linhaostudy/p/18358956 and https://www.cnblogs.com/schips/p/qualcomm_about_uefi.html .
+
+Original stock inputs have already been identified and SHA256-pinned by `tools/y2q_stock_bl_elf_audit.py`:
+
+- `~/s20-artifacts/hxl1-research/bl-stock/xbl.elf` — `78d1bff9ef5c2aa626652390c112f0bf81869bb1f9a05fcd8a8e3dfff8f8b357`.
+- `~/s20-artifacts/hxl1-research/bl-stock/xbl_config.elf` — `757fc6ef87134283d37fa4ee57f5180e3849107e216f48f379323ce473f40d7f`.
+
+New `tools/y2q_hxl1_xbl_ram_guid_locator.py` performs a **targeted byte-exact** EFI GUID lookup in only these two original local ELFs, validating their existing SHA256 and ELF identity first. It reports original file offsets and whether the result falls within a PT_LOAD file-backed segment; any ELF virtual coordinate refers to **XBL itself, not the Linux kernel**. It records canonical-order bytes separately to avoid accidentally treating reversed GUID bytes as UEFI objects. **No literal match is still inconclusive**, because DXE firmware contents may be compressed, nested, or not directly visible in PT_LOAD file bytes. A GUID match alone does not prove the registering function.
+
+Ten offline fixture tests and `tools/run_y2q_hxl1_xbl_ram_guid_locator.sh` were added. Execute exactly once on the WSL2 host:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_xbl_ram_guid_locator.sh
+```
+
+Output: `~/s20-artifacts/hxl1-research/xbl-rampartition/original-xbl-rampartition-guid.md`. If a genuine 16-byte little-endian GUID is present within an original XBL ELF load segment, investigate the containing firmware module/actual registration xrefs. If absent, perform only a *targeted* firmware-volume/decompression inspection for the named provider driver, not a repeat of broad DTB/FDT/image surveys. Root/KernelSU remain absent; physical kernel load remains unverified.
