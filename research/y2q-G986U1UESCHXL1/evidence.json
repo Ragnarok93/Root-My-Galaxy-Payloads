@@ -2438,7 +2438,7 @@
     "workingKernelSu": false,
     "verifiedStockIdentity": true,
     "verifiedStockOriginalSourceHashes": true,
-    "nextOwnerAction": "Inspect existing Samsung Clang18 experimental O= output for retained .o with DWARF and for generated config/hash; avoid rebuilding kernel and avoid importing QEMU4.19.325 structure offsets. Optionally demonstrate pahole on QEMU only to calibrate.",
+    "nextOwnerAction": "Run seven read-only Clang18 object-inventory regression tests and pinned-object scanner, then confirm provisional type availability with pahole. Never transplant upstream QEMU or provisional modern-toolchain layouts into target.h without original firmware corroboration.",
     "noPhoneChanges": true,
     "noCrossDeviceOffsets": true,
     "noPrematureSupportFeedRegistration": true,
@@ -2651,6 +2651,62 @@
       "noGenuineMatchingClang10Yet": true,
       "noS20CompiledStructLayoutProven": true,
       "stockSourceStillUnmodified": true
+    },
+    "ownerPartialSamsungDwarfDiscovery": {
+      "observedAt": "2026-10-10T06:41:05Z",
+      "ownerPulledThrough": "22134b5",
+      "generatedConfig": {
+        "path": "/home/main/src/samsung-y2q-hxl1-config-clang18/.config",
+        "sha256": "97cf1d93f86251294951ff235e76281e9e3705d5745be6b44f130fc3aa501c09",
+        "matchesPinnedExperimentalSamsungConfig": true,
+        "compiler": "Clang 18.1.3 modern experimental kernel build, not OEM Clang 10.0.6"
+      },
+      "retainedObjectCount": 85,
+      "objectRoot": "/home/main/src/samsung-y2q-hxl1-config-clang18",
+      "verifiedSampleObjects": [
+        {
+          "path": "init/main.o",
+          "elf": "ELF64 little-endian AArch64 relocatable",
+          "dwarfInfo": true,
+          "dwarfAbbrev": true,
+          "relocationDebugInfo": true,
+          "symtab": true
+        },
+        {
+          "path": "arch/arm64/kernel/process.o",
+          "elf": "ELF64 little-endian AArch64 relocatable",
+          "dwarfInfo": true,
+          "dwarfAbbrev": true,
+          "relocationDebugInfo": true,
+          "symtab": true
+        },
+        {
+          "path": "arch/arm64/kernel/fpsimd.o",
+          "elf": "ELF64 little-endian AArch64 relocatable",
+          "dwarfInfo": true,
+          "dwarfAbbrev": true,
+          "relocationDebugInfo": true,
+          "symtab": true
+        }
+      ],
+      "distinction": "Actual incomplete Samsung HXL1 compilation objects exist, unlike upstream QEMU-only objects from preceding narrow search. DWARF presence does not establish stock Clang10 ABI or live memory layouts.",
+      "factoryCompilerCompatible": false,
+      "originalStockUnstrippedDwarfFound": false,
+      "originalCompiledStructureLayoutsVerified": false,
+      "rootPayloadCreated": false,
+      "physicalPhoneModified": false
+    },
+    "followupPartialObjectAudit": {
+      "tool": "tools/y2q_partial_samsung_dwarf_audit.py",
+      "regression": "tools/test_y2q_partial_samsung_dwarf_audit.py",
+      "githubAction": ".github/workflows/y2q-identity-probe.yml",
+      "status": "COMMITTED_BUT_NOT_YET_EXECUTED_BY_OWNER",
+      "expectedOutputs": [
+        "/home/main/s20-artifacts/hxl1-research/samsung-clang18-dwarf-inventory.json",
+        "/home/main/s20-artifacts/hxl1-research/samsung-clang18-dwarf-inventory.md"
+      ],
+      "scope": "Read-only checksum guard on original source, actual runtime IKCONFIG and preserved modern Clang18 .config; audit ARM64 object/debug availability without emitting/validating exploit offsets.",
+      "productionProfileAuthorized": false
     }
   },
   "hxl1Stage4BootloaderDiscovery": {
