@@ -1318,7 +1318,7 @@
         "Loaded-stock-kernel signature enforcement requires accepted signing key",
         "Samsung __rticdata and __kdp_ro are protected-data annotations; no write access established"
       ],
-      "status": "Stock export names, targets, GPL/ordinary entry parity and direct CRC semantics source-verified; independent deployed-kernel validation, signing and module loading unresolved",
+      "status": "HXL1 original-firmware PREL32 export metadata and direct source CRC branch validated for five selected symbols; next gate KernelSU 4.19 code compatibility and a legitimate loading mechanism",
       "ownerExecutedAuditAt": "2026-10-10",
       "ownerOriginalAuditOutput": {
         "status": "read-only provisional symbol and CRC audit; NO module-load approval",
@@ -1494,6 +1494,43 @@
         "testsPassed": 5,
         "newAuditOption": "--source-dir ~/src/samsung-y2q-hxl1-stock",
         "scope": "read-only offline analysis only"
+      },
+      "ownerFinalSourceAwareVerification": {
+        "reportedAt": "2026-10-09",
+        "status": "PASS for read-only original-firmware export metadata and exact Samsung source direct CRC branch",
+        "pythonCompile": "passed (no errors)",
+        "regressionTests": {
+          "passed": 7,
+          "total": 7,
+          "durationSeconds": 0.021
+        },
+        "exactFirmwareSha256": "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123",
+        "originalFirmwareMatched": true,
+        "sourceDir": "/home/main/src/samsung-y2q-hxl1-stock",
+        "sourceCrcVerification": {
+          "directCrcSourceBranchVerified": true,
+          "exportHeader": "include/linux/export.h",
+          "moduleLoader": "kernel/module.c",
+          "interpretation": "CONFIG_MODULE_REL_CRCS absent; direct CRC branch selected",
+          "independentModuleSymversOrCompiledFirmwareParity": false
+        },
+        "counts": {
+          "normalExports": 7427,
+          "normalCrcSlots": 7427,
+          "gplExports": 5283,
+          "gplCrcSlots": 5283
+        },
+        "exportNameAndTargetMatches": 5,
+        "sourceConsistentDirectCrcs": {
+          "commit_creds": "0xf2cc4f79",
+          "prepare_kernel_cred": "0xb86faf5c",
+          "init_task": "0x7205bde2",
+          "module_layout": "0xb6628175",
+          "system_unbound_wq": "0xd4c14632"
+        },
+        "note": "Read-only tool execution confirms input file identity, five exported symbol names and target VA correspondences, and direct CRC interpretation as specified by exact original Samsung source. Does not prove signed module accepted, runtime kernel identity/slide, exploit, root or KernelSU module compatibility.",
+        "moduleLoadVerified": false,
+        "rootVerified": false
       }
     }
   }
