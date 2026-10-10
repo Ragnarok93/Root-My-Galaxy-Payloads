@@ -186,6 +186,68 @@ on the physical phone simply to close this evidence gate.
 
 ---
 
+## October 10: original HXL1 firmware Image cryptographically verified
+
+The owner supplied the following **real WSL2 file checks**, against
+the original Samsung firmware extraction (not the Clang18 rebuild):
+
+```text
+/home/main/s20-artifacts/boot.img
+bd8987c28ef0b9fdb56ad3e82ce3b45929c5e53717525769e5625dd1e17f7dc8
+
+/home/main/s20-artifacts/kernel.bin
+ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123
+
+file kernel.bin:
+Linux kernel ARM64 boot executable Image, little-endian, 4K pages
+```
+
+Both hashes **match the already recorded official firmware extraction
+artifacts** in `evidence.json`. This closes the *file integrity and raw
+ARM64 format recognition* checkpoints. It does **not** establish
+byte-for-byte correspondence between original extracted kernel and
+the image currently executing in RAM.
+
+### Next: read-only stock ARM64 Image header and tool availability
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 - <<'PY'
+from pathlib import Path
+import struct
+p = Path.home() / "s20-artifacts/kernel.bin"
+with p.open("rb") as fh:
+    header = fh.read(64)
+if len(header) != 64 or header[0x38:0x3c] != b"ARM\x64":
+    raise SystemExit("STOP: invalid or unsupported ARM64 Image header")
+text_offset, image_size, flags = struct.unpack_from("<QQQ", header, 8)
+print("Image:", p)
+print("file bytes:", p.stat().st_size)
+print(f"magic: {header[0x38:0x3c].hex()}")
+print(f"text_offset: 0x{text_offset:x}")
+print(f"image_size: 0x{image_size:x}")
+print(f"flags: 0x{flags:x}")
+PY
+command -v vmlinux-to-elf || true
+command -v llvm-nm || true
+command -v bpftool || true
+```
+
+Use `vmlinux-to-elf` only on the confirmed original ARM64
+`kernel.bin` if that utility is installed. Extracted symbols may
+be partial/inaccurate; any names or addresses must be verified
+against the actual instruction bytes and source. Do not use
+generated Clang18 objects as stand-ins for firmware symbols.
+
+**BTF is still unknown.** The S24 FE's BTF location and structure
+offsets cannot be copied here. Search for, then validate the complete
+little-endian BTF header and section bounds; an absence of candidates
+in a raw Image is not proof that this build never generated BTF.
+Do not run a CVE PoC or module loader at this stage.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
