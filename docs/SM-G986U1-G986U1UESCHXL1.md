@@ -23,6 +23,30 @@ kernel compilation errors to perform the firmware-to-profile audit.
 - [Support feed selection limitations](../support/README.md)
 - [KernelSU module constraints and Samsung adaptations](../kernelsu/README.md)
 
+## October 10, 06:59 UTC — complete experimental task_struct reports agree
+
+The owner extracted full pahole task_struct reports from three independent
+Samsung-source Clang18 objects: init/init_task.o, init/main.o, and
+arch/arm64/kernel/process.o. The complete 310-line reports were
+identical under cmp. Each records **3904 bytes (0xf40), 61 cachelines,
+199 members, 19 holes totaling 131 bytes**. These figures describe
+the **experimental Clang18 configured build**, not the original
+OEM Clang10 image or live kernel.
+
+Reports retained under
+~/s20-artifacts/hxl1-research/task-struct-review/.
+Independent original-firmware ABI equivalence, other object definitions,
+and any runtime behavior remain unverified. Stage 3 is still **PARTIAL**.
+
+Next: compare selected field references from this full DWARF report with
+the already preserved original-stock instruction review, recording each
+agreement and disagreement separately. It is also useful to inspect which
+additional types are present in the existing incomplete objects. Do not
+substitute a whole experimental type layout into a production target
+based only on three within-build matches.
+
+---
+
 ## October 10, 06:41 UTC — retained Samsung Clang18 DWARF verified (Stage 3 partial)
 
 The owner pulled 22134b5 and inspected the retained
