@@ -20,6 +20,14 @@ MAX_HITS = 10000
 class EvidenceError(ValueError):
     pass
 
+class CorruptEvidenceLocation(EvidenceError):
+    """REA claimed a Ghidra address, but the location is invalid.
+
+    Do not convert an invalid address into an ordinary missing-query
+    status: stop the complete audit so a corrupted source cannot be
+    silently mixed with well-formed Ghidra evidence.
+    """
+
 def digest(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as stream:
@@ -54,8 +62,10 @@ def parse_saved(path: Path, query: str) -> dict:
         if not isinstance(item, dict):
             raise EvidenceError("Non-object REA search hit")
         a, v = item.get("address"), item.get("value")
-        if not isinstance(a, str) or not ADDRESS.fullmatch(a) or not isinstance(v, str):
-            raise EvidenceError("Invalid address or text in REA search hit")
+        if not isinstance(a, str) or not ADDRESS.fullmatch(a):
+            raise CorruptEvidenceLocation("Invalid address in REA search hit")
+        if not isinstance(v, str):
+            raise EvidenceError("Invalid text in REA search hit")
         hits.append({"address": a, "value": v})
     return {
         "query": query, "status": "VERIFIED_STATIC_SEARCH",
@@ -72,6 +82,10 @@ def analyze(directory: Path) -> dict:
         path = directory / ("rea-ghidra-search-" + q + ".json")
         try:
             observations.append(parse_saved(path, q))
+        except CorruptEvidenceLocation:
+            # Invalid analysis coordinates are a hard stop, unlike an
+            # absent/foreign search result that can be shown as unverified.
+            raise
         except (EvidenceError, OSError, ValueError) as exc:
             observations.append({"query": q, "status": "UNVERIFIED_EVIDENCE",
                                  "inputFile": str(path), "reason": str(exc),
