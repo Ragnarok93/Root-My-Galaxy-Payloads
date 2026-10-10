@@ -104,14 +104,19 @@ def upstream_fixes(source_text, path):
             source_text,
         )
     elif path == INIT_MAIN:
-        # Preserve the exact log message and all security/ROPPI logic.
-        # u64 is unsigned long long on this target; %lx expects ulong.
-        changed, n = re.subn(
-            r'(?m)^([ \t]*)pr_info\("SYSREG, after zeroing out master key, mk=%lx\\n", ropp_master_key\);([ \t]*)
+        # Preserve the log message and all security initialization logic.
+        # Match the complete existing expression exactly once.
+        before = 'pr_info("SYSREG, after zeroing out master key, mk=%lx\\n", ropp_master_key);'
+        after = 'pr_info("SYSREG, after zeroing out master key, mk=%llx\\n", (unsigned long long)ropp_master_key);'
+        n = source_text.count(before)
+        changed = source_text.replace(before, after)
+    else:
+        raise ValueError("unsupported compatibility patch: " + path)
+    expected = {**PATCHES, **FORMAT_PATCH}[path]['expectedReplacements']
     if n != expected:
-        raise ValueError(f"refusing upstream patch {path}: expected {expected} precise matches, found {n}")
+        raise ValueError(f"refusing compatibility patch {path}: expected {expected} exact matches, found {n}")
     if changed == source_text:
-        raise ValueError("upstream fix did not modify " + path)
+        raise ValueError("compatibility patch did not modify " + path)
     return changed, n
 
 
