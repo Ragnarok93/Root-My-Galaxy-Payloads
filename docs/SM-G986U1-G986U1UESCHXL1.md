@@ -77,6 +77,72 @@ does not close Stage 3.
 
 ---
 
+## October 10, 07:24 UTC — three original Qualcomm BL images independently decoded
+
+The owner executed the *hash-gated original BL TAR extraction* under
+`~/s20-artifacts/hxl1-research/bl-stock`, and GNU `readelf` decoded
+these exact ELF headers from the original matching
+`G986U1UESCHXL1` firmware:
+
+| Image | Owner SHA-256 | ELF format | Entry | Program headers |
+|---|---|---|---:|---:|
+| `abl.elf` | `6d717ef96e7355d72db1ac167ef1b74ff6ef33d22a8bfc08affc62f9cabcdeef` | ELF32 EM_ARM | `0x9fa00000` | 3 |
+| `xbl.elf` | `78d1bff9ef5c2aa626652390c112f0bf81869bb1f9a05fcd8a8e3dfff8f8b357` | ELF64 EM_AARCH64 | `0x148157a8` | 15 |
+| `xbl_config.elf` | `757fc6ef87134283d37fa4ee57f5180e3849107e216f48f379323ce473f40d7f` | ELF64 EM_ARM (nonstandard class/machine pairing) | `0x148d0000` | 6 |
+
+All images report no ELF section headers. This is normal
+for many production boot images and not evidence that
+symbol recovery, code execution or boot handoff is possible.
+EM_ARM in an ELF64 `xbl_config.elf` is not normal
+AArch64 machine metadata; do **not** automatically parse
+it as code for a standard ARM64 processor.
+
+**Actual bootloader program headers:**
+
+- ABL entry `0x9fa00000` lies within its `PT_LOAD`
+  RWE `[0x9fa00000, 0x9fc20000)` (size `0x220000`).
+- XBL entry `0x148157a8` lies within its initial
+  executable PT_LOAD `[0x14815000, 0x148764b0)`
+  (file size `0x614b0`).
+- A separate XBL RWE PT_LOAD `[0x9fc00000,
+  0x9fe70000)` partly intersects ABL's physical
+  PT_LOAD range by `0x20000` bytes (`128 KiB`). Because
+  the ELF images represent different boot-stage executables,
+  this may reflect memory reuse and does **not**
+  establish co-residency, execution order or a
+  Linux-kernel memory address.
+
+The repository now contains the dedicated read-only
+`tools/y2q_stock_bl_elf_audit.py` and regression tests
+`tools/test_y2q_stock_bl_elf_audit.py`. They enforce
+the owner's exact hash pins, read ELF32/ELF64 program
+headers, check if image entry points are inside
+executable LOAD segments, and report cross-image
+overlap. They intentionally reject the conclusion
+that an ABL or XBL `p_paddr` determines where
+Android's boot Image is placed.
+
+Run on existing WSL artifacts (no re-extraction or phone access):
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools/test_y2q_stock_bl_elf_audit.py
+python3 tools/y2q_stock_bl_elf_audit.py
+cat ~/s20-artifacts/hxl1-research/bl-stock-elf-audit.md
+```
+
+**Stage 4 remains OPEN** for the Android kernel's
+actual physical load and BL handoff, despite
+completion of the original BL archive and
+bootloader ELF extraction. Investigate the
+original `boot.img`, `dtbo`/DTB (if present),
+and ABL loader code as separate sources of
+evidence. No live memory analysis or payload
+address has been established.
+
+---
+
 ## October 10, 07:20 UTC — exact HXL1 BL package located and hashed (Stage 4 archive gate resolved)
 
 The owner's *already decompressed outer firmware ZIP* is under:
