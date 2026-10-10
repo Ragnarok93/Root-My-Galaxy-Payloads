@@ -18,6 +18,7 @@ PINS = {
     "ramdisk.img": "86b00ab1f20206ceedcc574423ef11417927aa1f773408ec2c2af4a855ea7586",
     "dtb.img": "a6104cdba11e0cd3d6ddaba6819098ab01f0dc0e8e7fd333137c88ad07d9d0ce",
 }
+EXPECTED_BOOT_BYTES = 67108864
 
 class AuditError(ValueError):
     pass
@@ -90,7 +91,7 @@ def analyze(root: Path) -> dict:
     # boot.img is the only mandatory stand-alone artifact; its exact SHA256
     # always guards the header and embedded regions we inspect.
     boot = pinned(root / "boot.img", PINS["boot.img"])
-    if len(boot) != 67108864:
+    if len(boot) != EXPECTED_BOOT_BYTES:
         raise AuditError("original HXL1 boot.img size changed")
     h = boot_header(boot)
     checks = {}
