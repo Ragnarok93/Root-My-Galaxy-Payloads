@@ -682,6 +682,36 @@
       "assessment": "Specific printf-family specifier / vararg type mismatch. Do not suppress global -Wformat: preserves meaningful checks. Need owner-provided exact statement around line 720 to select minimal type-correct source fix.",
       "nextInspectionCommand": "nl -ba ~/src/samsung-y2q-hxl1-vdso-ias-compat/init/main.c | sed -n '711,728p'",
       "caution": "Do not mutate original Samsung source or two-patch compatibility tree without generating a separately verified new copy/manifest. No tenth build yet."
+    },
+    "ninthImageFormatCorrectionPlan": {
+      "date": "2026-10-09",
+      "confirmedSamsungSourceOriginalLine720": "pr_info(\"SYSREG, after zeroing out master key, mk=%lx\\n\", ropp_master_key);",
+      "newSourceLine720": "pr_info(\"SYSREG, after zeroing out master key, mk=%llx\\n\", (unsigned long long)ropp_master_key);",
+      "securityContext": "After asm volatile mov xzr to ropp_master_key, before BUG_ON(0 != ropp_master_key), in Samsung ROPP/CFP initialization.",
+      "warning": "Clang18 -Wformat (u64 unsigned long long passed to %lx unsigned long) fatal under Samsung scripts/gcc-wrapper.py",
+      "scope": "One exact printf call changed (format specifier + explicit cast), no changes to asm volatile, BUG_ON, security config, ROPP, CFP or RKP behavior; preserved message text.",
+      "sourceIntegrity": {
+        "originalSource": "/home/main/src/samsung-y2q-hxl1-stock",
+        "existingTwoPatchSource": "/home/main/src/samsung-y2q-hxl1-vdso-ias-compat",
+        "newThreePatchSource": "/home/main/src/samsung-y2q-hxl1-vdso-ias-format-compat",
+        "newManifestSchema": 2,
+        "expectedChangedFiles": [
+          "arch/arm64/kernel/vdso/gettimeofday.S",
+          "include/linux/elfnote.h",
+          "init/main.c"
+        ],
+        "expectedTextualReplacementCounts": [
+          3,
+          1,
+          1
+        ],
+        "copyFrom": "original audited Samsung source, never existing compatibility tree",
+        "wholeTreeSha256Reproducible": true
+      },
+      "implemented": "tools/prepare_samsung_vdso_compat.py --init-format-fix with fail-closed exact call and required replacement count; verify_compat accepts precisely the legacy two-patch or explicitly manifested three-patch variant.",
+      "next": "User should dry-run new source preparation, execute, dry-run builder --compat-source-dir new tree, and execute tenth build with new -10 logs/report only if tests and gates pass.",
+      "kernelBuilt": false,
+      "phoneUntouched": true
     }
   }
 }
