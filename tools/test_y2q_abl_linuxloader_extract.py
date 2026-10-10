@@ -119,6 +119,39 @@ class ExtractionTests(unittest.TestCase):
         with self.assertRaisesRegex(abl.ExtractError, "Expected one LinuxLoader"):
             abl.Walker().extract(bytes(damaged))
 
+    def test_megabyte_erased_tail_does_not_exhaust_object_limit(self):
+        # The real HXL1 4 MiB ABL has long padded firmware-volume regions.
+        # Erased FFS space is an end marker, not thousands of fake files.
+        image = fake_abl()
+        at = 0x3000
+        old_size = struct.unpack_from("<Q", image, at + 0x20)[0]
+        volume_data = bytearray(image[at:at + old_size])
+        new_size = 1024 * 1024
+        volume_data.extend(b"\\xff" * (new_size - old_size))
+        struct.pack_into("<Q", volume_data, 0x20, new_size)
+        enlarged = image[:at] + bytes(volume_data) + image[at + old_size:]
+        walker = abl.Walker()
+        entry = walker.extract(enlarged)
+        self.assertEqual(entry["image"], pe())
+        self.assertLess(walker.visited_objects, 100)
+        self.assertTrue(any("erased/free tail" in note for note in walker.notes))
+
+    def test_failed_original_produces_diagnostics_without_fake_pe(self):
+        damaged = bytearray(fake_abl())
+        damaged[0x3000 + 0x28:0x3000 + 0x2c] = b"bad!"
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "abl.elf"
+            source.write_bytes(damaged)
+            out = Path(temp) / "out"
+            with self.assertRaisesRegex(abl.ExtractError, "diagnostics:"):
+                abl.run(source, out, pinned_hash=abl.digest(damaged),
+                        pinned_size=len(damaged))
+            self.assertFalse((out / "LinuxLoader-HXL1.efi").exists())
+            import json
+            info = json.loads((out / "linuxloader-extraction-diagnostics.json").read_text())
+            self.assertEqual(info["status"], "NO_VERIFIED_LINUXLOADER")
+            self.assertFalse(info["physicalKernelLoadVerified"])
+
     def test_no_device_or_firmware_modification_paths(self):
         source = Path(abl.__file__).read_text()
         for token in ("subprocess.run(", "adb shell", "fastboot flash", "setresuid("):
