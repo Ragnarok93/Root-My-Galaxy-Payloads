@@ -4501,6 +4501,75 @@ requeue/race on the primary handset.
 
 ---
 
+## October 10, 05:51 UTC — original HXL1 versus two 2026 RT-mutex fixes
+
+The owner saved bounded original vendor source excerpts,
+then fetched and extracted published patch transcripts for:
+
+- **CVE-2026-43499**: Ubuntu 5.15 backport of
+  https://lists.ubuntu.com/archives/kernel-team/2026-July/169898.html
+  (upstream original fix 3bfdc63936dd).
+- **CVE-2026-53163**: Ubuntu 6.17 backport of
+  https://lists.ubuntu.com/archives/kernel-team/2026-July/170235.html
+  (upstream follow-up fix 40a25d59e85b).
+
+The two original Samsung source SHA-256 hashes still match
+the pinned values. Owner-side patch extraction yielded
+01-waiter-task-fix.txt and 02-unenqueued-waiter-fix.txt,
+and the observed diff lines confirm the following:
+
+| Invariant | Observed published correction |
+|---|---|
+| Waiter PI lock | current->pi_lock to waiter_task->pi_lock |
+| Blocked-on owner | current->pi_blocked_on to waiter_task->pi_blocked_on |
+| Priority chain target | current to waiter_task |
+| Waiter never enqueued | guard if (!waiter_task) |
+| Successful proxy acquisition | cleanup requires ret < 0, not any ret != 0 |
+
+**Do not conflate the CVEs:** the second issue was
+introduced by the fix for the first on newer kernels.
+It is not independently established as affecting
+the old Samsung 4.19 tree. Likewise, the upstream
+4.19.325 QEMU environment predates both 2026 patches;
+it is not a patched reference implementation.
+
+A new **read-only** audit helper verifies the
+original pinned SHA-256 hashes and that both
+owner-downloaded patch transcripts contain the
+expected changed lines. It writes only JSON and
+Markdown summaries outside the source tree:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools/test_y2q_rtmutex_fix_audit.py
+
+python3 tools/y2q_rtmutex_fix_audit.py \
+  --vendor "$HOME/src/samsung-y2q-hxl1-stock" \
+  --references "$HOME/s20-artifacts/hxl1-research/rtmutex-fix-review" \
+  --output "$HOME/s20-artifacts/hxl1-research/rtmutex-fix-review/audit.json"
+
+cat "$HOME/s20-artifacts/hxl1-research/rtmutex-fix-review/audit.md"
+```
+
+The guard requires the exact known
+rtmutex.c and futex.c source hashes,
+rejects missing or malformed downloaded patch
+transcripts, and detects incomplete diff edits.
+The helper does **not** patch or rebuild kernels
+or contact the Galaxy S20+. It is source evidence,
+not a vulnerability exploit or privilege escalation.
+The owner has not yet run this new audit.
+
+**Next gate:** owner verifies the report and any
+missing diff/source indicators. Then classify
+which invariants are demonstrated by source and
+which are still awaiting a matching vendor-kernel
+runtime. Review the KernelSU/locked-bootloader
+support gates separately before any device changes.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
