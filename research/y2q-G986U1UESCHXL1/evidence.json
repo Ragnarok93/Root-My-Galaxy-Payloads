@@ -2736,6 +2736,35 @@
       "conclusion": "The three Clang18 DWARF reports are text-identical. This establishes within-build type consistency only, not original OEM binary/runtime ABI equivalence.",
       "exactOriginalFirmwareLayoutVerified": false,
       "onPhoneTest": false
+    },
+    "ownerNamedFieldReview": {
+      "observedAt": "2026-10-10T07:03:26Z",
+      "method": "Owner read-only pahole, compared against earlier original kernel.bin instruction audit",
+      "taskStructIndividualChecks": [
+        {
+          "name": "pi_lock",
+          "clang18DwarfOffsetHex": "0x8c8",
+          "originalKernelInstructionDisplacement": "0x8c8",
+          "classification": "FIELD_MATCH"
+        },
+        {
+          "name": "pi_blocked_on",
+          "clang18DwarfOffsetHex": "0x8f8",
+          "originalKernelInstructionDisplacement": "0x8f8",
+          "classification": "FIELD_MATCH"
+        }
+      ],
+      "additionalDwarfTypeAvailability": {
+        "initMainCred": "PRESENT",
+        "initMainFileOperations": "PRESENT",
+        "initMainRtMutexWaiter": "NOT_EMITTED",
+        "initMainRtMutex": "NOT_EMITTED"
+      },
+      "interpretation": "Two individual field offsets agree between Clang18 source-derived DWARF and previously byte-audited stock Image instructions. No whole-struct OEM compiler ABI equivalence or runtime root proof follows.",
+      "originalStockCompleteTypeDebug": "NOT_FOUND",
+      "fullTargetLayoutVerified": false,
+      "rootPayloadVerified": false,
+      "next": "Survey already-built Samsung source objects for RT-mutex types, if emitted. Do not infer a type is absent from the kernel based on one compilation unit."
     }
   },
   "hxl1Stage4BootloaderDiscovery": {
