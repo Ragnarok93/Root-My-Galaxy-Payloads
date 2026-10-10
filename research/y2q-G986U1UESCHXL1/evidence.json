@@ -493,6 +493,41 @@
         "secgetspf missing (not fatal at this failure point)",
         "arch/arm64 .inst assembler warning (not fatal here)"
       ]
+    },
+    "fifthImageBuildAttempt": {
+      "reportedAt": "2026-10-09T19:32:21-05:00",
+      "source": "/home/main/src/samsung-y2q-hxl1-stock",
+      "output": "/home/main/src/samsung-y2q-hxl1-config-clang18",
+      "firmware": "G986U1UESCHXL1",
+      "compiler": "Ubuntu Clang 18.1.3 and GCC 13.3",
+      "mode": "--integrated-arm64-as, -integrated-as after vendor -no-integrated-as, V=1",
+      "log": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-build-05.log",
+      "report": "/home/main/s20-artifacts/samsung-hxl1-image-clang18-report-05.json",
+      "dryRunPassed": true,
+      "python2Working": true,
+      "compilerPathWorking": true,
+      "assemblerWorking": true,
+      "hostToolsCompleted": [
+        "scripts/mod/empty.o",
+        "scripts/mod/modpost",
+        "scripts/sign-file (OpenSSL 3 deprecated warnings nonfatal)",
+        "scripts/extract-cert (OpenSSL 3 deprecated warnings nonfatal)"
+      ],
+      "generatedHeaders": [
+        "kernel/bounds.s",
+        "include/generated/bounds.h"
+      ],
+      "fatalStage": "prepare0 / arch/arm64/kernel/asm-offsets.s",
+      "observedClangDiagnostic": "include/linux/cgroup-defs.h:475:16: warning: field 'cgrp' with variable sized type 'struct cgroup' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]",
+      "wrapperFatalResponse": "('error, forbidden warning:', 'cgroup-defs.h:475')",
+      "rootCause": "Samsung scripts/gcc-wrapper.py fails on any emitted Clang warning; Clang 18 diagnoses legacy GNU struct layout that Samsung's Clang 10.0.6 did not report in stock compilation",
+      "nextTrial": "Opt-in --suppress-cgroup-layout-warning with integrated ARM64 assembler adds only -Wno-gnu-variable-sized-type-not-at-end to KCFLAGS; Clang -fsyntax-only probe must verify baseline warning and suppression. Retain all other warning enforcement.",
+      "kernelImageProduced": false,
+      "phoneTouched": false,
+      "secondaryWarnings": [
+        "secgetspf missing (nonfatal to current compile stage)",
+        "arch/arm64 .inst unreliable disassembly warning"
+      ]
     }
   }
 }
