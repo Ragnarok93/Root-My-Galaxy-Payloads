@@ -45,8 +45,7 @@ def check_fdt_header(blob: bytes, at: int) -> dict | None:
         b"\x00\x00\x00\x09"
     ):
         return None
-    if blob[at + off_strings] != 0:
-        return None
+    # Unlike BTF, FDT strings may begin immediately with a property name.
     # The mem-reservation map must terminate with two zero 64-bit values.
     reservation = blob[at + off_reserved:at + off_struct]
     if len(reservation) < 16 or not any(
