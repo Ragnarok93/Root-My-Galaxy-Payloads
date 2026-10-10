@@ -225,3 +225,29 @@ bash tools/analyze_y2q_hxl1_linuxloader_rea.sh
 ```
 
 If REA's Ghidra doctor reports unmet prerequisites, REA's docs require an **existing official Ghidra 12.1.x** and compatible **64-bit full JDK 21+**, with `GHIDRA_INSTALL_DIR` and, if needed, `JAVA_HOME` set to actual Linux installation paths. No REA installer downloads Ghidra. REA's native Ghidra provider can then follow the original Android boot image parsing and kernel placement control flow. Stage 4 stays **OPEN** until original-loader code/dataflow actually proves a physical kernel load/handoff.
+
+
+## 2026-10-10 WSL2: REA toolchain repaired; Ghidra remains the sole provider blocker
+
+Owner ran `tools/bootstrap_y2q_rea_wsl.sh` from commit `5ac9416`. Results:
+
+- Pinned `nvm` installed native Linux Node **v24.21.0** and Linux npm **v11.19.0** under `/home/main/.nvm/versions/node/v24.21.0/bin/`; no more WSL UNC path / Windows npm.
+- Existing `Ragnarok93/rea` checkout remains at commit `46c9cba03a52b8ec382a686cd70ded6128225db8`, **REA 6.3.0**.
+- `npm ci` successfully installed 376 packages; `npm run build` completed 3/3 compilation/metadata/skill tasks. A warning about esbuild postinstall approval was nonfatal and did not block REA's TypeScript build.
+- The REA provider doctor reported **Ghidra not ready**. Report is on the owner's host at `~/s20-artifacts/hxl1-research/abl-linuxloader/rea-ghidra-doctor.json`; the exact doctor field values were **not yet pasted** and must not be invented. The REA analysis wrapper attempted native Ghidra and failed before importing PE, with diagnostics saved at `rea-ghidra-errors.txt`.
+- The original verified LinuxLoader remains exact, with SHA256 `5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003`. No LZMA unpack, kernel/physical address or device action is needed.
+
+**Provisioning strategy:** `tools/setup_y2q_rea_ghidra_wsl.sh` diagnoses existing installations by default. The explicit opt-in `--install` checks for a full Linux JDK 21+ and installs Ubuntu `openjdk-21-jdk` if absent (may prompt for sudo); obtains official **NationalSecurityAgency/ghidra Ghidra 12.1.4** 2026-09-21 release from GitHub, and independently validates SHA256 **`ddac49f903da9d5bac833e5cc79395098b9c33cfd3279be5f31bd00387d2d4db`** before extraction. Its expected original asset filename is `ghidra_12.1.4_PUBLIC_20260921.zip`; the official release archive is about 570 MB. The verified software lands under `~/opt/ghidra_12.1.4_PUBLIC`, not the root filesystem. The script saves local `GHIDRA_INSTALL_DIR`/JDK environment to `rea-ghidra-env.sh`, runs the **fork's real** `doctor --provider ghidra` and retains JSON+stderr. `tools/analyze_y2q_hxl1_linuxloader_rea.sh` sources that scoped environment before the Ghidra analysis. No agent/MCP registration or Ghidra provider success is assumed.
+
+**One actionable WSL2 command pair:**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/setup_y2q_rea_ghidra_wsl.sh --install
+bash tools/analyze_y2q_hxl1_linuxloader_rea.sh
+```
+
+The first command will download a substantial official archive and may need `sudo` for Java; users preferring to check an existing installation first can omit `--install`. Failures retain direct doctor diagnostics rather than repeating firmware signatures or PE extraction.
+
+**Next *technical* target after successful REA/Ghidra provider import:** use recovered AArch64 loader PE decompilation, cross-refs and p-code value flow to reconstruct actual Linux Image allocation, DTB selection and final indirect control transfer. Stage 4 remains OPEN until the executable's dataflow supplies independently corroborated physical handoff evidence; no root or KernelSU is yet demonstrated.
