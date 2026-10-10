@@ -20,6 +20,7 @@ from pathlib import Path
 
 from preflight_samsung_stock_build import run as source_preflight_run
 from prepare_samsung_vdso_compat import verify_compat
+from summarize_samsung_kernel_build import scan_log
 
 FIRMWARE = "G986U1UESCHXL1"
 MAKEFILE_SHA256 = "d7f9cb790c68a280b20db07c7bcd3f8a3cce3ad99494f72f849c6f3a24a6b79d"
@@ -585,6 +586,13 @@ def execute_build(info):
             raise
         logfile.write(f"\nMAKE_EXIT_CODE={rc}\n")
     info["returncode"] = rc
+    if rc != 0:
+        try:
+            info["failureSummary"] = scan_log(log, limit=20)
+        except (OSError, ValueError) as error:
+            # Never mask the original Make failure if optional summarization
+            # encounters a truncated/unreadable log.
+            info["failureSummaryError"] = str(error)
     image = Path(info["image"])
     if rc == 0 and image.is_file() and not image.is_symlink():
         info["imageSizeBytes"] = image.stat().st_size
