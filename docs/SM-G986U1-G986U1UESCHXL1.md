@@ -3479,6 +3479,75 @@ Keep HXL1 out of `support/targets-v3.json`.
 
 ---
 
+## October 10: tracing/BPF stock-config inventory complete
+
+The owner's latest read-only WSL2 check of exact HXL1
+`config.gz` supplies the remaining feature states:
+
+| Original stock kernel setting | Value | What it means |
+|---|---|---|
+| `CONFIG_PERF_EVENTS` | `y` | Kernel perf-event infrastructure; attachment can be permission-gated |
+| `CONFIG_TRACEPOINTS` | `y` | Static tracepoints compiled into the kernel |
+| `CONFIG_EVENT_TRACING` | `y` | Kernel trace-event framework |
+| `CONFIG_UPROBES`, `CONFIG_UPROBE_EVENTS` | `y`, `y` | User-space instruction probing and events, not generic kernel probes |
+| `CONFIG_BPF_EVENTS` | `y` | BPF event integration exists; hook types and privileges depend on exact kernel/policy |
+| `CONFIG_BPF_JIT` | **n** | Native-code JIT disabled; does **not** mean the BPF interpreter is absent |
+| `CONFIG_BPF`, `CONFIG_BPF_SYSCALL` | `y`, `y` (previous check) | Core and syscall compiled, no implication that the Android shell can use them |
+| `CONFIG_KPROBES` | **n** (previous check) | Kprobes and dependent kretprobe paths unavailable |
+| `CONFIG_FTRACE` | `y` (previous check) | Ftrace framework present |
+| `CONFIG_FUNCTION_TRACER`, `CONFIG_FTRACE_SYSCALLS` | **n**, **n** (previous check) | Function tracer and syscall-specific ftrace not compiled |
+
+Linux 4.19 kernel documentation differentiates
+[event tracing](https://www.kernel.org/doc/html/v4.19/trace/events.html),
+[tracepoints](https://www.kernel.org/doc/html/v4.19/trace/tracepoints.html),
+and [user-space uprobe events](https://www.kernel.org/doc/html/v4.19/trace/uprobetracer.html).
+None alone provides the existing KernelSU Samsung v3.2.5
+patch's `register_kprobe`, `register_kretprobe`,
+or arbitrary protected kernel-text modification requirements.
+
+**Conclusion:** basic read-only source/config capability
+inventory is complete. Further repeating stock
+`CONFIG_*` searches is unlikely to unlock root.
+The next meaningful gate is an **authorized and verifiable
+module loading path plus HXL1-specific KernelSU hook
+compatibility**, not another CRC or tracing scan.
+This has **not** been established for the locked
+`SM-G986U1`. `CONFIG_MODULE_SIG_FORCE=y`,
+Samsung `RKP/KDP/DEFEX` and missing function probes
+remain independent obstacles.
+
+### Optional non-root device permission inventory
+
+The following commands ask the phone only to **read**
+identity, kernel tracing availability and permission
+restrictions; they do **not** enable any event, attach
+BPF, mount anything or write kernel memory.
+
+```bash
+adb shell '
+id
+getenforce
+for p in /proc/sys/kernel/perf_event_paranoid \
+         /proc/sys/kernel/unprivileged_bpf_disabled; do
+    printf "%s: " "$p"
+    cat "$p" 2>/dev/null || echo unavailable
+done
+for p in /sys/kernel/tracing \
+         /sys/kernel/debug/tracing; do
+    ls -ld "$p" 2>/dev/null || echo "$p: inaccessible"
+done
+'
+```
+
+An unavailable path may be unmounted, access denied,
+or absent for this build. Do not treat it as proof of
+missing kernel support or assume root privileges
+from the Shizuku/ADB shell. The project's existing
+no-root/locked-bootloader status stays unchanged, and
+the HXL1 profile remains outside production support.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
