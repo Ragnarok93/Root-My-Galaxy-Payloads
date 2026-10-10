@@ -3336,6 +3336,88 @@ to insert signed kernel modules has been established.
 
 ---
 
+## October 9: owner verified source-aware CRC extraction; KernelSU 4.19 compatibility gate
+
+**Observed on owner WSL2:** `python3 -m py_compile
+tools/y2q_export_table_audit.py` completed without error;
+`python3 -m unittest -v tools/test_y2q_export_table_audit.py`
+passed **7/7 tests in 0.021 s**; and the real
+`--source-dir ~/src/samsung-y2q-hxl1-stock` audit passed.
+
+The script independently confirmed the original extracted
+`kernel.bin` SHA-256
+`ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`,
+the PREL32 names/targets of five exports, and matched the
+selected original-Image CRC slots to Samsung's
+`include/linux/export.h` and `kernel/module.c` logic.
+
+| Check | Result |
+|---|---|
+| Standard exports / standard CRC slots | 7,427 / 7,427 |
+| GPL exports / GPL CRC slots | 5,283 / 5,283 |
+| Independently name/value-correlated sampled exports | 5/5 |
+| Exact Samsung source direct-CRC branch | Confirmed for undefined `CONFIG_MODULE_REL_CRCS` |
+| Standalone stock `Module.symvers` | Not found |
+| Trusted signing key / accepted module | Not established |
+| Live root / KernelSU module on S20+ | Not established |
+
+Source-consistent exact Image CRC words:
+`commit_creds=0xf2cc4f79`,
+`prepare_kernel_cred=0xb86faf5c`,
+`init_task=0x7205bde2`,
+`module_layout=0xb6628175`,
+`system_unbound_wq=0xd4c14632` (GPL).
+
+This **completes the selected export/CRC semantic audit**.
+An externally generated, matching `Module.symvers`
+comparison is still absent, but repeating this
+same five-entry check is no longer the priority.
+
+### Harder blocker found in the existing KernelSU Samsung patch
+
+Direct repository review of
+`kernelsu/patches/KernelSU-v3.2.5-samsung-kdp-rkp-defex.patch`
+shows the current late-load fallback relies on:
+
+- `register_kretprobe(&setresuid_kretprobe)` for the
+  `__arm64_sys_setresuid` compatibility hook; that
+  branch is gated by `CONFIG_KRETPROBES`.
+- `register_kprobe(...)` for several sucompat
+  syscalls and the Samsung DEFEX enforcement hook.
+- `CONFIG_KSU_SAMSUNG_NO_PATCH_TEXT` makes
+  `ksu_patch_text(...)` explicitly return
+  `-EOPNOTSUPP`.
+
+**HXL1's actual `CONFIG_KPROBES=n` means these
+Samsung probe fallback hooks are not presently
+available**. The existing patch and prebuilt modules
+are therefore **not** shown compatible with
+Linux `4.19.113-27095354`. Coupled with
+`CONFIG_MODULE_SIG_FORCE=y` and Samsung
+`RKP/KDP/DEFEX`, successful offline export/CRC
+parsing does **not** supply a working loading or
+hooking method.
+
+Recommended **read-only** next gate:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+gzip -dc ~/s20-artifacts/config.gz |
+  grep -E '^(CONFIG_(KPROBES|KRETPROBES|FTRACE|FUNCTION_TRACER|DYNAMIC_FTRACE|FTRACE_SYSCALLS|BPF|BPF_SYSCALL|HAVE_KPROBES|HAVE_KRETPROBES)=|# CONFIG_(KPROBES|KRETPROBES|FTRACE|FUNCTION_TRACER|DYNAMIC_FTRACE|FTRACE_SYSCALLS|BPF|BPF_SYSCALL) is not set)' || true
+```
+
+This is a capability inventory, **not** permission
+to hook a protected kernel or load a module.
+Prioritize a sound legacy 4.19 implementation feasibility
+assessment, including an authorized loading path,
+over more CRC extraction or a full Image rebuild.
+Do not register HXL1 in the Root My Galaxy
+production support feed or present an exploit as working.
+
+---
+
 ## Adaptation map from PORTING.md
 
 | Original section | HXL1 status | What changes for y2q / 4.19 |
