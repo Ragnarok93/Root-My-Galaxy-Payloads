@@ -2400,7 +2400,7 @@
         "number": 4,
         "category": "physical load address",
         "state": "OPEN",
-        "basis": "Original exact HXL1 BL TAR/MD5 archive SHA256 pinned; 3 real bootloader ELF components SHA256 and headers recovered. Kernel physical load / register handoff still not verified."
+        "basis": "Original exact HXL1 BL TAR/MD5 SHA256 pinned; 3 matching ELF components and 10/10 bootloader-audit tests passed on owner WSL; header v2 follow-up ready. Actual kernel physical handoff still OPEN."
       },
       {
         "number": 5,
@@ -2438,7 +2438,7 @@
     "workingKernelSu": false,
     "verifiedStockIdentity": true,
     "verifiedStockOriginalSourceHashes": true,
-    "nextOwnerAction": "Verify owner extracted original HXL1 ABL (ELF32 ARM), XBL (ELF64 AArch64), atypical XBL_CONFIG (ELF64 ARM). Run 10 host-only bootloader ELF parser tests and hash pinned ELF audit, then pursue independent kernel handoff through original AP image/DTB and BL analysis; do not mistake XBL physical segment addresses for Linux kernel base.",
+    "nextOwnerAction": "Run eight checksum-pinned Android boot header v2 parser regression tests and factory boot.img audit for nominal component addresses and independently extracted payload bytes. Avoid equating factory header load addresses with actual runtime BL handoff.",
     "noPhoneChanges": true,
     "noCrossDeviceOffsets": true,
     "noPrematureSupportFeedRegistration": true,
@@ -2783,14 +2783,14 @@
     }
   },
   "hxl1Stage4BootloaderDiscovery": {
-    "observedAt": "2026-10-10T07:24:34Z",
+    "observedAt": "2026-10-10T07:32:41Z",
     "commandScope": "find /mnt/c/Users $HOME/Downloads -maxdepth 6 under G986 filename patterns",
     "matches": [
       "/mnt/c/Users/Admin/Downloads/SM-G986U.zip"
     ],
     "classification": "Matches the known Samsung open-source release wrapper filename, containing source TAR/ZIP revisions, not normally a firmware BL image.",
     "existingKnownWrapperSha256": "940fe6bbcfe3dcd372ad662dd24b56e0a3ba1a965666b04051fe9941bab4986d",
-    "foundCopySha256JustVerified": false,
+    "foundCopySha256JustVerified": true,
     "matchingOriginalBLDiscovered": true,
     "potentialOtherSources": "Exact full stock firmware ZIP may reside outside searched directories or have a filename that does not match BL*G986* / *G986*.zip; source-only SM-G986U.zip is not a BL archive.",
     "physicalLoadAddressVerified": false,
@@ -2859,7 +2859,7 @@
         "sizeBytes": 68536429
       }
     ],
-    "nextEvidenceAction": "Run repo hash-pinned read-only ELF parser and tests against already-extracted three original BL binaries. Then use original boot.img, BL string/code analysis and target device tree to investigate physical load handoff; no direct kernel physical base from BL ELF PT_LOAD/entry fields.",
+    "nextEvidenceAction": "Inspect original SHA256-pinned Android boot.img v2 header kernel_addr/ramdisk_addr/tags_addr/dtb_addr, verify packing against original extracted kernel.bin/ramdisk.img/dtb.img. Treat all header addresses as declared targets, not necessarily actual ABL runtime handoff. ABL grep -n8 yielded no matches; not proof of encryption.",
     "stockBootloaderImagesExtracted": true,
     "originalFactoryPhysicalKernelEntryVerified": false,
     "deviceFlashed": false,
@@ -2928,7 +2928,7 @@
       "elfEntryPointChecks": {
         "abl": "INSIDE_EXECUTABLE_PT_LOAD",
         "xbl": "INSIDE_EXECUTABLE_PT_LOAD",
-        "xblConfig": "NOT_YET_CHECKED"
+        "xblConfig": "INSIDE_EXECUTABLE_PT_LOAD"
       },
       "reportCaptures": {
         "abrHeaders": "/home/main/s20-artifacts/hxl1-research/bl-stock/abl.elf-elf-header.txt",
@@ -2944,8 +2944,85 @@
       "tool": "tools/y2q_stock_bl_elf_audit.py",
       "tests": "tools/test_y2q_stock_bl_elf_audit.py",
       "ci": ".github/workflows/y2q-identity-probe.yml",
-      "state": "COMMITTED; NOT YET OWNER-EXECUTED",
+      "state": "OWNER_EXECUTED_10_OF_10_UNIT_TESTS_PASS_AND_ORIGINAL_ELF_AUDIT_PASS",
       "output": "/home/main/s20-artifacts/hxl1-research/bl-stock-elf-audit.{json,md}"
+    },
+    "ownerBootloaderElfAuditVerified": {
+      "reportedAt": "2026-10-10T07:32:41Z",
+      "pullState": "Already up to date",
+      "testFile": "tools/test_y2q_stock_bl_elf_audit.py",
+      "regression": {
+        "passed": 10,
+        "total": 10,
+        "failures": 0,
+        "errors": 0,
+        "seconds": 0.004,
+        "status": "OK"
+      },
+      "artifactIntegrity": "[PASS] three original HXL1 BL image hashes and ELF headers",
+      "images": [
+        {
+          "name": "abl.elf",
+          "class": "ELF32",
+          "machine": 40,
+          "entry": "0x9fa00000",
+          "entryInExecutablePtLoad": true
+        },
+        {
+          "name": "xbl.elf",
+          "class": "ELF64",
+          "machine": 183,
+          "entry": "0x148157a8",
+          "entryInExecutablePtLoad": true
+        },
+        {
+          "name": "xbl_config.elf",
+          "class": "ELF64",
+          "machine": 40,
+          "entry": "0x148d0000",
+          "entryInExecutablePtLoad": true
+        }
+      ],
+      "ownerReportedCrossImagePhysicalLoadOverlap": {
+        "imagePair": "ABL PT_LOAD[2] / XBL PT_LOAD[8]",
+        "region": "[0x9fc00000, 0x9fc20000)",
+        "bytes": 131072,
+        "impliesLinuxLoadAddress": false,
+        "impliesCoResidency": false
+      },
+      "ownerReports": [
+        "/home/main/s20-artifacts/hxl1-research/bl-stock-elf-audit.json",
+        "/home/main/s20-artifacts/hxl1-research/bl-stock-elf-audit.md"
+      ],
+      "ablSearch": {
+        "command": "strings -a -n 8 abl.elf | grep -Ei 'kernel|bootimg|boot image|ramdisk|dtbo|device tree|load address|android boot' | sort -u | head -n 100",
+        "matches": 0,
+        "classification": "NO_MATCHING_PRINTABLE_ASCII_8_PLUS_KEYWORDS",
+        "absentBootFunctionsProved": false,
+        "possibleExplanations": [
+          "different terminology",
+          "few or stripped diagnostics",
+          "shorter strings",
+          "nontext/packed representation"
+        ],
+        "stringUniverseNotYetMeasured": true
+      },
+      "bootHandoffEstablished": false
+    },
+    "followupBootImageV2Audit": {
+      "format": "Android boot image header version 2 (already source-confirmed)",
+      "originalInputHashes": {
+        "boot.img": "bd8987c28ef0b9fdb56ad3e82ce3b45929c5e53717525769e5625dd1e17f7dc8",
+        "kernel.bin": "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123",
+        "ramdisk.img": "86b00ab1f20206ceedcc574423ef11417927aa1f773408ec2c2af4a855ea7586",
+        "dtb.img": "a6104cdba11e0cd3d6ddaba6819098ab01f0dc0e8e7fd333137c88ad07d9d0ce"
+      },
+      "script": "tools/y2q_stock_boot_v2_audit.py",
+      "tests": "tools/test_y2q_stock_boot_v2_audit.py",
+      "ci": ".github/workflows/y2q-identity-probe.yml",
+      "status": "COMMITTED; NOT YET OWNER-EXECUTED",
+      "output": "/home/main/s20-artifacts/hxl1-research/stock-boot-v2-audit.{json,md}",
+      "runtimeAddressVerified": false
     }
   }
 }
