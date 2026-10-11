@@ -234,3 +234,47 @@ recovered Image and disassembler only when essential. Distinguish
 original machine-code member-location candidates from independently
 established complete factory layouts. Continue only after evaluating
 this output, then select one remaining proof gap.
+
+
+### Owner checkpoint: stock `remove_waiter` call graph verified
+
+The owner's next read-only WSL check resolved **all six** selected
+original stock static-call destinations in
+`vmlinux-stock.nm`: `rt_mutex_adjust_prio_chain`,
+`rt_mutex_setprio`, `_raw_spin_lock`,
+`_raw_spin_lock_irq`, `_raw_spin_unlock`,
+and `_raw_spin_unlock_irq`. Original headers also confirm the
+presence and ordering of `rt_mutex.wait_lock/waiters/owner`
+and `task_struct.pi_lock/pi_waiters/pi_top_task/pi_blocked_on`.
+
+This completes the **targeted original call-identity check**; do
+not rerun it. It strengthens source-to-factory-instruction evidence,
+**not** complete factory field-layout provenance or root feasibility.
+
+**Next one evidence gate — original nested RT-mutex/waiter declarations:**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+STOCK="$HOME/src/samsung-y2q-hxl1-stock"
+for src in \
+  "$STOCK/kernel/locking/rtmutex.c" \
+  "$STOCK/kernel/locking/rtmutex_common.h" \
+  "$STOCK/include/linux/rtmutex.h"; do
+  if [ -f "$src" ]; then
+    echo "===== $src ====="
+    grep -nE -C 10 \
+      'struct rt_mutex_waiter[[:space:]]*\{|rt_mutex_top_waiter\(|rt_mutex_owner\(|task_blocked_on_lock\(' \
+      "$src" | head -n 175
+  fi
+done
+```
+
+Review only which original structures, inline helpers and pointer
+relationships the stock `remove_waiter` accesses can corroborate.
+A source-level nested definition, even with these corroborating
+machine instructions, does not authenticate *every* packed/aligned
+member in the OEM compiled binary. Retain Stage 3 **PARTIAL**
+and continue to Stage 4–5 runtime-evidence prerequisites as
+independent gates only when there is a specific remaining proof
+question. Nothing here authorizes kernel memory writes or a
+KernelSU support-feed entry.
