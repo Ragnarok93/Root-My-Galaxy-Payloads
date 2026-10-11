@@ -228,9 +228,12 @@ def function_record(ev: dict, xref: str) -> dict:
         key: sorted({m.group(0)[:80] for m in pat.finditer(pseudo)})[:16]
         for key, pat in VULN_REVIEW_MARKERS.items()
     }
+    flow = data.get("native_value_flow")
+    if not isinstance(flow, dict):
+        flow = {}
     return {
         "entry": entry, "name": proc.get("name"), "pcodeAvailable":
-            data.get("native_value_flow", {}).get("available") is True,
+            flow.get("available") is True,
         "pseudocodePresent": bool(pseudo.strip()), "pseudocodeCharacters": len(pseudo),
         "reviewMarkers": review, "reviewRequired": any(review.values()),
         "pseudocodeExcerpt": pseudo[:8000],
@@ -247,7 +250,7 @@ class Runner:
     def __init__(self, out: Path, script: Path, *, node: str = "node",
                  run_commands: bool = False, deadline: int = 240,
                  max_functions: int = 10, max_xrefs_per_seed: int = 2,
-                 max_traces: int = 0):
+                 max_traces: int = 0, seed_limit: int = 3):
         self.out = out
         self.script = script
         self.node = node
@@ -256,6 +259,7 @@ class Runner:
         self.max_functions = max_functions
         self.max_xrefs_per_seed = max_xrefs_per_seed
         self.max_traces = max_traces
+        self.seed_limit = seed_limit
         self.function_uses = 0
         self.trace_uses = 0
         self.planned: list[list[str]] = []
@@ -312,7 +316,7 @@ class Runner:
         }
         work = self.out / safe_segment(target.name)
         visited = set()
-        for label, term in SEEDS[target.name]:
+        for label, term in SEEDS[target.name][:self.seed_limit]:
             saved = work / f"search-{label}.json"
             try:
                 ev = self.obtain(
@@ -460,7 +464,7 @@ def run(args: argparse.Namespace) -> dict:
         out, args.rea, node=args.node, run_commands=args.execute,
         deadline=args.timeout, max_functions=args.max_functions,
         max_xrefs_per_seed=args.max_xrefs_per_seed,
-        max_traces=args.max_traces)
+        max_traces=args.max_traces, seed_limit=args.seed_limit)
     # Execution of uploaded firmware is never permitted; subprocess runs
     # ONLY the user's existing REA Node/Ghidra CLI on verified local copies.
     results = [runner.run_target(target) for target in targets]
@@ -493,11 +497,13 @@ def main() -> int:
     p.add_argument("--include-secure", action="store_true",
                    help="Also investigate VaultKeeper, XBL and TZ (Ghidra admission unverified)")
     p.add_argument("--max-functions", type=int, default=10)
+    p.add_argument("--seed-limit", type=int, default=3,
+                   help="Literal queries per module; increase to 6 after initial run")
     p.add_argument("--max-xrefs-per-seed", type=int, default=2)
     p.add_argument("--max-traces", type=int, default=0)
     p.add_argument("--timeout", type=int, default=240)
     a = p.parse_args()
-    if (not 1 <= a.max_functions <= 64 or not 1 <= a.max_xrefs_per_seed <= 5
+    if (not 1 <= a.seed_limit <= 6 or not 1 <= a.max_functions <= 64 or not 1 <= a.max_xrefs_per_seed <= 5
             or not 0 <= a.max_traces <= 8 or not 30 <= a.timeout <= 1200):
         p.error("budgets out of supported bounds")
     try:
