@@ -2,6 +2,35 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 15:04 UTC — original HXL1 SMC guest registers captured; fork RKP/KDP ID conflict
+
+The user ran the 13-unit secure monitor gate test group plus 5-unit QEMU GDB guard suite: **17/18 PASS, 1 FAIL** from a **test-only check-order defect**. The guard test expected existing-output rejection but its temporary HOME lacked the kernel image, and the shell checked for kernel presence first. GitHub code was fixed so existing output refusal precedes image checks, and original kernel SHA validation now precedes optional QEMU/GDB dependency checks. **The corrected suite's 5/5 owner/CI outcome is pending**, not claimed. The secure monitor gate analyzer itself PASSED and wrote `qemu-first-failure-20261011/secure-monitor-gate.json`.
+
+The **actual original HXL1 guest GDB breakpoint succeeded**, capturing pre-SMC registers at the SHA-pinned factory `SMC #0` instruction `d4000003`:
+
+```text
+HXL1_SMC_BREAKPOINT_HIT PC=0xffffff80080a5794
+X0=0xc300c002 X1=0x15 X2=0xffffff800a4dd0b8 X3=0x40000000
+X4=0x0 X5=0x0 X6=0x3f
+```
+
+**CRITICAL newly verified public-source vs fork incompatibility:** the upstream 10.2.2 Samsung production-QEMU fork classifies `X0=0xc300c002` as **KDP**, `X1=0x15` as **KDP_SET_NS_FLAGS**, and would write guest `vfsmount.mnt_flags`. But public **Samsung Snapdragon 865 Linux kernel source** `nwrafael/android_kernel_samsung_sm8250/include/linux/uh.h` defines `APP_RKP=2`, `UH_PREFIX=0xc300c000`, hence **the same X0 is `UH_APP_RKP`**. Its `include/linux/rkp.h` maps **X1=0x15** to **`RKP_GET_RKP_GET_BUFFER_BITMAP`** and invokes precisely `uh_call(UH_APP_RKP, 0x15, &rkp_s_bitmap_buffer, memstart_addr,0,0)` in `rkp_robuffer_init()`; X2 plausibly points at that global and X3 is QEMU's `0x40000000` DRAM start. This is the most specific stock guest boot-subsystem identification to date, **but the adjacent SM8250 source is not proof of exact HXL1 source mappings**. The fork's RKP commands `0x02/0x07/0x08` also differ from adjacent original source `0x11/0x12/0x13/0x14/0x15`. ***Do not reuse its KDP dispatch or generic fake-success SMC handler on HXL1.***
+
+A new `tools/y2q_hxl1_rkp_bitmap_abi_audit.py` and 15 synthetic regression tests were committed and wired to HXL1 CI, but the owner has **not yet run** them. The audit hashes and inspects **their retained original HXL1 source** `~/src/samsung-y2q-hxl1-stock/include/linux/uh.h` and `rkp.h`, parses the already retained GDB `X0…X6`, and checks the approximate original `vmlinux-stock.nm` symbol for `rkp_s_bitmap_buffer` against `X2`. It records a source-specific ABI match or mismatch in `~/s20-artifacts/hxl1-research/qemu-smc-registers-20261011/rkp-bitmap-source-abi.json`. No additional emulator launches are necessary for this proof gate.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v \
+  tools.test_y2q_hxl1_qemu_smc_register_capture \
+  tools.test_y2q_hxl1_rkp_bitmap_abi_audit
+python3 tools/y2q_hxl1_rkp_bitmap_abi_audit.py
+```
+
+**Next major engineering task only after exact ABI match:** derive the correct `RKP_GET_RKP_GET_BUFFER_BITMAP` guest-side return side effect and sparse bitmap ownership, then narrowly adapt a private QEMU secure monitor emulator. Do not alter stock Image, invoke the fork's KDP namespace-flags writer, patch away SMC, return generic success, or flash the physical device. Linux userspace boot, valid HXL1 kernel RT-mutex runtime, unlock and KernelSU remain unproven. Full trace and fork compatibility matrix: [Samsung QEMU adaptation note](SM-G986U1-HXL1-SAMSUNG-QEMU-ADAPTATION-20261011.md#1504-utc--gdb-captured-rkp-looking-bitmap-call-upstream-kdp-id-collision-discovered).
+
+---
+
 ## October 11, 14:48 UTC — stock QEMU SMC #0 decoded; UH guest register capture gate
 
 The owner ran the new original-image fault-site analyzer on WSL after `13/13 PASS` regression tests. It validated original stock HXL1 `kernel.bin` SHA `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`, found the three expected ELF-reconstructed Image offsets, and decoded actual original instruction words:
