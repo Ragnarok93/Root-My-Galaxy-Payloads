@@ -80,6 +80,73 @@ class IsolatedDwarfBuildTests(unittest.TestCase):
                         with patch.object(tool.prior,"find_python2",return_value="/usr/bin/python2"):
                             return tool.plan(self.args)
 
+    def test_python2_pyenv_installation_detected_without_global_path(self):
+        private=self.stock.parent/".pyenv/versions/2.7.18/bin/python2"
+        private.parent.mkdir(parents=True)
+        private.write_text("#!/bin/sh\\n")
+        class Interpreter:
+            returncode=0
+            stdout="2.7"
+            stderr=""
+        with patch.object(tool.shutil,"which",return_value=None):
+            with patch.object(tool.prior.subprocess,"run",return_value=Interpreter()) as runner:
+                found=tool.resolve_python2(None,home=self.stock.parent)
+        self.assertEqual(found,str(private))
+        self.assertEqual(runner.call_args.args[0][0],str(private))
+
+    def test_python2_explicit_override_validated_with_real_27_check(self):
+        private=self.stock.parent/"custom/python2"
+        private.parent.mkdir(parents=True)
+        private.write_text("#!/bin/sh\\n")
+        class Interpreter:
+            returncode=0
+            stdout="2.7"
+            stderr=""
+        with patch.object(tool.prior.subprocess,"run",return_value=Interpreter()):
+            self.assertEqual(tool.resolve_python2(private),str(private))
+
+    def test_python2_explicit_fake_python3_cannot_be_accepted(self):
+        private=self.stock.parent/"custom/python2"
+        private.parent.mkdir(parents=True)
+        private.write_text("#!/bin/sh\\n")
+        class Interpreter:
+            returncode=0
+            stdout="3.12"
+            stderr=""
+        with patch.object(tool.prior.subprocess,"run",return_value=Interpreter()):
+            with self.assertRaisesRegex(ValueError,"genuine Python 2.7"):
+                tool.resolve_python2(private)
+
+    def test_python2_path_alias_to_python3_not_permitted(self):
+        private=self.stock.parent/"custom/python2"
+        private.parent.mkdir(parents=True)
+        private.write_text("#!/bin/sh\\n")
+        class Interpreter:
+            returncode=0
+            stdout="3.9"
+            stderr=""
+        with patch.object(tool.shutil,"which",return_value=str(private)):
+            with patch.object(tool.prior.subprocess,"run",return_value=Interpreter()):
+                with self.assertRaisesRegex(ValueError,"genuine Python 2.7"):
+                    tool.resolve_python2(None,home=self.stock.parent)
+
+    def test_python2_not_installed_yields_explicit_remedy(self):
+        with patch.object(tool.shutil,"which",return_value=None):
+            with self.assertRaisesRegex(tool.TargetBuildError,"pyenv install 2.7.18"):
+                tool.resolve_python2(None,home=self.stock.parent)
+
+    def test_python2_shim_on_path_checked_as_python2_7(self):
+        private=self.stock.parent/"bin/python2"
+        private.parent.mkdir(parents=True)
+        private.write_text("#!/bin/sh\\n")
+        class Interpreter:
+            returncode=0
+            stdout="2.7"
+            stderr=""
+        with patch.object(tool.shutil,"which",return_value=str(private)):
+            with patch.object(tool.prior.subprocess,"run",return_value=Interpreter()):
+                self.assertEqual(tool.resolve_python2(None,home=self.stock.parent),str(private))
+
     def test_dry_run_never_writes_or_builds(self):
         info=self.plan()
         self.assertFalse(self.dest.exists())
