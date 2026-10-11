@@ -2,6 +2,29 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 14:11 UTC — QEMU offline exception-summary direct-script import fixed
+
+Owner pulled through `e8b771c` and ran the **seven** `tools.test_y2q_hxl1_qemu_exception_summary` unit tests: **7/7 PASS**. Then invoking `python3 tools/y2q_hxl1_qemu_exception_summary.py` failed immediately with:
+
+```text
+ModuleNotFoundError: No module named 'tools'
+```
+
+**Cause:** Python directly launching a script within `tools/` uses the `tools` directory as a script import path; the code tried `from tools import y2q_hxl1_qemu_trace_attest as att` without first adding the repository root. This is a Python entry-point regression, **not a QEMU exception, incorrect stock Image SHA, or kernel boot finding**. The exception-summary tool never reached the owner evidence files and did **not** create its intended `exception-summary.json` report.
+
+**Correction committed to GitHub:** only when run outside a package (`if not __package__`), prepend `Path(__file__).resolve().parents[1]` to `sys.path`. The module invocation form remains supported. Two new tests invoke the standalone script with `python3 -I` from an unrelated CWD, verify the CLI help imports and confirm that an existing JSON output is refused without overwriting it. The suite now contains **nine** tests. Their owner/CI pass has **not yet been observed**; do not claim otherwise.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_exception_summary
+python3 tools/y2q_hxl1_qemu_exception_summary.py
+```
+
+This reuses the already captured and verified `qemu-first-failure-20261011` trace and `offline-trace-format-v2.json` report; no new virtual-machine execution, firmware extraction or on-device activity is needed. Next review the exception counts, translated-PC samples, unmatched opcode comparisons and candidate factory Image offsets, taking care that `-d in_asm` is a **translation** trace and does not establish a final executed PC.
+
+---
+
 ## October 11, 14:01 UTC — original HXL1 instruction translation corroborated in QEMU
 
 Owner-run evidence is a material stage improvement: **19/19 offline opcode-attestor regression tests passed** and the previously saved 15-second stock-QEMU trace produced:
