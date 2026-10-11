@@ -73,6 +73,26 @@ The output directory **must not already exist**. The script captures `serial-con
 - First Linux boot banner: meaningful original-Image boot progress, but still not a successful source-faithful guest.
 - Panic or exception logs: retain original stack/PC and check **which** HXL1 initialization dependency failed; only then consider porting one clearly identified fork emulation handler.
 
+## 14:01 UTC — actual HXL1 factory-image translation verified
+
+**Owner WSL result:** `python3 -m unittest -v tools.test_y2q_hxl1_qemu_trace_attest` reported **19/19 PASS** (zero skip/error). Running the corrected `OBJD-T:`-capable parser against the prior retained 15-second QEMU log produced:
+
+```text
+[EVIDENCE] FACTORY_IMAGE_INSTRUCTION_CORRELATION
+[TRACE OPCODES] 11502
+[BASE] 0x40080000 compared 288 matched 270 tail-matched 0 entry-word True
+[BASE] 0x80080000 compared 0 matched 0 tail-matched 0 entry-word False
+[REPORT] /home/main/s20-artifacts/hxl1-research/qemu-first-failure-20261011/offline-trace-format-v2.json
+```
+
+This establishes **strong original factory Image byte/code correlation at QEMU guest PC addresses beginning at 0x40080000**. The original Image hash was previously pinned and verified, 270 distinct offsets matched, and the entry instruction was included. QEMU produced an early Linux instruction *translation* for the original Image, **not a proven complete Linux initialization or source-faithful guest**. 288 compared opcode lines with 270 distinct matched offsets does not mean 18 different factory instructions mismatch: repeated PC translations are possible, and the JSON's `mismatchedWordComparisons` and `firstMismatch` must be reviewed independently. `tail-matched 0` means the final sampled file section had no distinct matches at that *same fixed candidate base*, not necessarily that execution never later continued in kernel virtual addresses after MMU activation.
+
+**Critical QEMU semantics:** `-d in_asm` logs **translation blocks**, not every executed instruction. Guest PC disassembly is generally a guest virtual address once MMU mappings are enabled. QEMU `-d exec` logs before **executed** translation blocks. Without an exec trace, we **cannot** call the final logged `IN:` block the last executed location. Per QEMU `util/log.c` the `exec` category is separate from `in_asm`; do not infer a precise halt PC from translation order. This distinction must guide next instrumentation.
+
+**Next constrained gate:** summarize the **existing** `offline-trace-format-v2.json` and the exception/guest-error contexts already in `tcg-instructions.log`, including first/last image matches, early exceptions and log-repetition patterns. No more source or opcode provenance steps, kernel flash, emulator fork build, or device probes. Only after reading those observations decide whether a short bounded `-d exec,int,cpu_reset` trace or a GDB halt is necessary.
+
+---
+
 ## 13:43 UTC — no recognized opcode lines; trace-dialect fix
 
 Owner pulled through `bc86ca1` and reran the **original existing trace analysis**, with **12/12 synthetic tests PASSED**. Actual saved trace result:
