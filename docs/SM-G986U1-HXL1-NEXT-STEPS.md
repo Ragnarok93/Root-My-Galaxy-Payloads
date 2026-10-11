@@ -1,39 +1,46 @@
 # SM-G986U1 HXL1 — current porting execution guide
 
-## Current priority — validated REA DTB/DTBO index xrefs (October 11, 2026)
+## Current priority — proven shared REA DTB/DTBO cmdline function (October 11, 2026)
 
-**Owner hardware / stock REA evidence now confirmed:**
+**New, owner-executed REA/Ghidra findings on the SHA256-pinned original
+`LinuxLoader-HXL1.efi`**:
 
-| Original index string (Ghidra PE address) | Exact xref source | REA evidence ID |
+| Stock string | Exact REA string xref source | Ghidra owning function |
 |---|---|---|
-| `androidboot.dtb_idx=` (`0xbfd99`) | `0x2c350` | `ev_b31e5021edd1b1d5db9ff58336bb5e0f0abc3ff1d8e2189e6ce93363a5c796db` |
-| `androidboot.dtbo_idx=` (`0xbfd82`) | `0x2c308` | `ev_14dae88115f0805e73bc32804d89232d6212f4d3e65c777c335cd9ff09557a1b` |
+| `androidboot.dtb_idx=` at `0xbfd99` | `0x2c350` | `FUN_0002bdf8`, entry `0x2bdf8` |
+| `androidboot.dtbo_idx=` at `0xbfd82` | `0x2c308` | **the same** `FUN_0002bdf8` |
 
-Both responses were checked with the existing, original-SHA-pinned
-`y2q_linuxloader_rea_stage4_xrefs.parse_xrefs`. Exactly one
-original **static** reference was verified per literal string.
-The instruction sources are `0x48` (72 decimal) bytes apart,
-but **do not call them the same function before Ghidra function
-body validation**.
+The previously verified source xrefs have REA evidence
+`ev_b31e5021edd1b1d5db9ff58336bb5e0f0abc3ff1d8e2189e6ce93363a5c796db`
+and
+`ev_14dae88115f0805e73bc32804d89232d6212f4d3e65c777c335cd9ff09557a1b`.
+The independent function reports have distinct evidence IDs
+`ev_c2fd2200127d2a4bfef7b18a6ae80d09abcc09fe8d78e996af33dd3a635f51c4`
+and
+`ev_14f1e57b01fe90c2b5f6a15871dcf09b86d465d44550a7b7fcff5d97a393b81f`.
+Both contain the source instruction within Ghidra's
+`0x2bdf8–0x2cae3` function body and report available
+HighFunction p-code.
 
-The retained local evidence folder is
+**What this establishes:** the original binary's two
+`androidboot` index strings are referenced by the **same**
+cmdline builder. It does **not** establish whether it computes
+the indices itself, reads globals or receives values from
+the caller. The booted property values `dtb_idx=0` and
+`dtbo_idx=2` are separate selection domains and do not
+authenticate any particular offline base-FDT candidate or
+DTBO overlay entry. No original standalone DTBO image was
+found in the owner's filename-limited local artifact scan.
+
+### Immediate next REA pass — reuse cached functions, trace once
+
+Do **not** rerun `xrefs` or `function`. Both existing JSON
+function reports reside in
 `~/s20-artifacts/hxl1-research/abl-linuxloader/rea-dt-index-LBaPQ6`.
-The exact `LinuxLoader-HXL1.efi` digest remains
-`5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003`.
-No original DTBO image was found among the filenames searched
-under `~/s20-artifacts`. Two ADB reports reported
-`ro.boot.dtb_idx=0` and `ro.boot.dtbo_idx=2`, but
-neither a running DTB hash nor overlay entry table was obtained.
-Index-domain-to-offline-tree mapping is not proved.
-
-### Immediate next REA step: only two owning-function dossiers
-
-Run the **existing REA fork** on the **two already-verified xref
-source instruction addresses**, with the **existing**
-`tools/y2q_linuxloader_rea_stage4_functions.py::validated`
-function to authenticate the returned original PE, Ghidra operation,
-exact requested address and containing function body. Don't re-run
-the xrefs or run a new whole-image scan.
+First display only the index-constructing pseudocode lines,
+then invoke **the REA fork's native high-p-code value tracer
+once** on the already proven shared function. Preserve output
+and do not silently reuse incomplete traces:
 
 ```bash
 cd ~/src/Root-My-Galaxy-Payloads
@@ -46,8 +53,44 @@ EFI="$OUT/LinuxLoader-HXL1.efi"
 REA="$HOME/src/rea/scripts/rea.mjs"
 PIN=5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003
 
-test -d "$RUN" && test -f "$EFI" && test ! -L "$EFI" && test -f "$REA"
+test -d "$RUN" && test -f "$REA" && test -f "$EFI" && test ! -L "$EFI"
 printf '%s  %s\n' "$PIN" "$EFI" | sha256sum -c
+
+python3 - "$RUN" <<'PY'
+import re, sys
+from pathlib import Path
+from tools.y2q_linuxloader_rea_stage4_xrefs import parse_xrefs
+from tools.y2q_linuxloader_rea_stage4_functions import validated
+
+folder=Path(sys.argv[1])
+specs=[
+    ("dtb-index","0xbfd99","0x2c350"),
+    ("dtbo-index","0xbfd82","0x2c308"),
+]
+reports=[]
+for label,string_addr,source in specs:
+    x=parse_xrefs(folder/(label+"-xrefs.json"),string_addr)
+    assert x["sourceAddresses"]==[source],(label,x["sourceAddresses"])
+    f=validated(folder,label,source)
+    assert f["entry"]=="0x2bdf8" and f["pcodeAvailable"] is True
+    reports.append(f)
+    print("[VERIFIED]",label,f["entry"],f["evidenceId"])
+assert reports[0]["body"]==reports[1]["body"]
+
+lines=reports[0]["pseudocode"].splitlines()
+hits=[n for n,line in enumerate(lines) if
+      re.search(r"androidboot\.(?:dtb|dtbo)_idx",line)]
+print("[CMDLINE INDEX LITERAL MATCHES]",len(hits))
+shown=set()
+for n in hits:
+    for i in range(max(0,n-12),min(len(lines),n+17)):
+        if i not in shown:
+            print(f"{i+1:4}: {lines[i][:240]}")
+            shown.add(i)
+if not hits:
+    print("[LIMIT] Pseudocode does not expose either literal; use saved raw evidence")
+print("[LIMIT] Static cmdline formatting is not boot-time DTB selection")
+PY
 
 if test -s "$HOME/.nvm/nvm.sh"; then
   export NVM_DIR="$HOME/.nvm"
@@ -58,96 +101,67 @@ if test -s "$OUT/rea-ghidra-env.sh"; then
   . "$OUT/rea-ghidra-env.sh"
 fi
 
-# Keep the two source xref reports: read them, do NOT repeat the queries.
-for label in dtb-index dtbo-index; do
-  test -s "$RUN/$label-xrefs.json"
-done
-
-for spec in "dtb-index 0x2c350" "dtbo-index 0x2c308"; do
-  read -r label address <<< "$spec"
-  target="$RUN/rea-stage4-function-$label.json"
-  test ! -e "$target" || {
-    echo "[STOP] Existing function report: $target (no overwrites)"
+TRACE="$RUN/rea-shared-dtb-dtbo-native-values.json"
+if test -e "$TRACE"; then
+  echo "[PRESERVED EXISTING TRACE] $TRACE"
+else
+  PARTIAL="$RUN/rea-shared-dtb-dtbo-native-values.partial.json"
+  ERR="$RUN/rea-shared-dtb-dtbo-native-values.stderr.txt"
+  test ! -e "$PARTIAL" && test ! -e "$ERR" || {
+    echo "[STOP] Prior incomplete native trace exists; review it first"
     exit 2
   }
-  echo "[REA FUNCTION] $label $address"
-  node "$REA" function "$EFI" "$address" --provider ghidra --json \
-    > "$target"
-done
+  if node "$REA" trace-native-values "$EFI" 0x2bdf8 \
+      --provider ghidra --json > "$PARTIAL" 2> "$ERR"; then
+    mv "$PARTIAL" "$TRACE"
+    echo "[REA TRACE SAVED] $TRACE"
+  else
+    echo "[REA TRACE FAILED; PARTIAL PRESERVED] $PARTIAL"
+    sed -n '1,24p' "$ERR"
+    exit 2
+  fi
+fi
 
-python3 - "$RUN" <<'PY'
-import sys, re
+python3 - "$TRACE" <<'PY'
+import json,sys
 from pathlib import Path
-from tools.y2q_linuxloader_rea_stage4_xrefs import parse_xrefs
-from tools.y2q_linuxloader_rea_stage4_functions import validated
-
-folder=Path(sys.argv[1])
-records={}
-for label,string_addr,source in (
-    ("dtb-index","0xbfd99","0x2c350"),
-    ("dtbo-index","0xbfd82","0x2c308"),
-):
-    references=parse_xrefs(folder/(label+"-xrefs.json"),string_addr)
-    assert references["sourceAddresses"]==[source], (
-        label, references["sourceAddresses"])
-    result=validated(folder,label,source)
-    records[label]=result
-    print("[ORIGINAL GHIDRA]",label,"xref:",source)
-    print("  owning function:",result["entry"],result["name"])
-    print("  p-code available:",result["pcodeAvailable"],
-          "truncated:",result["pcodeTruncated"])
-    print("  evidence:",result["evidenceId"])
-    lines=result["pseudocode"].splitlines()
-    matches=[n for n,l in enumerate(lines) if
-             re.search(r"(?i)(dtb_idx|dtbo_idx|androidboot|cmdline)",l)]
-    shown=set()
-    if not matches:
-        print("  No relevant literal in pseudocode: first 35 lines only")
-        matches=list(range(min(35,len(lines))))
-    for n in matches[:12]:
-        for j in range(max(0,n-4),min(len(lines),n+6)):
-            if j not in shown:
-                print(f"    {j+1}: {lines[j][:250]}")
-                shown.add(j)
-print("[SHARED OWNING FUNCTION]",
-      records["dtb-index"]["entry"]==records["dtbo-index"]["entry"])
-print("[EVIDENCE]",folder)
-print("[LIMIT] Static formatting path, not verified boot-time index mapping")
+p=Path(sys.argv[1])
+d=json.loads(p.read_text())
+print("[TRACE FILE]",p)
+print("[OPERATION]",d.get("operation"))
+print("[PROVIDER]",d.get("provider"))
+print("[EVIDENCE]",d.get("evidence_id"))
+print("[ERROR]",d.get("error"))
+n=d.get("normalized_result",{})
+print("[RESULT KEYS]",sorted(n) if isinstance(n,dict) else type(n).__name__)
+print("[LIMIT] A bounded p-code trace does not measure physical runtime state")
 PY
 BASH
 ```
 
-If both xrefs share one function, inspect that **one** original
-function's relevant CFG/HighFunction p-code before invoking
-`trace-native-values`. If they differ, determine their caller
-relationship first. In either case follow the index value
-source rather than a raw string-address pointer, and preserve
-unknown indirect calls, memory aliases, runtime DTB selection,
-UEFI base/KASLR and unsigned kernel module loading.
+REA's [native investigation contract](https://github.com/Ragnarok93/rea/blob/main/docs/native-investigation.md)
+explains that `trace-native-values` follows HighFunction
+def-use and statically resolved call arguments. Its built-in
+budgets, pagination and omitted counts matter: absence from
+one page is not proof of absent dataflow. Missing memory alias,
+unresolved indirect calls, persistent-state updates and
+boot-time inputs remain unknown.
 
-REA CLI contracts:
-[CLI](https://github.com/Ragnarok93/rea/blob/main/docs/cli.md),
-[Ghidra function and p-code](https://github.com/Ragnarok93/rea/blob/main/docs/ghidra-provider.md),
-[bounded tracing](https://github.com/Ragnarok93/rea/blob/main/docs/native-investigation.md).
+**Next analysis decision:** inspect whichever operands feed the
+two actual command-line value formatting calls in the decompile.
+If they originate in a caller argument/global, follow the
+authenticated producer with a *targeted* REA query. Do not
+treat `FUN_0002bdf8` itself as the selector until the
+dataflow proves it. Avoid unrelated kernel-debug/root
+investigations while this narrow DT-index gate is open.
 
-**No exploitation, root, runtime physical load, working KernelSU
-or support-feed promotion is established**. Stages 3–5 remain
-partial/open; 7–8 blocked. No device modification.
-
+**Device safety boundary:** no Android device access, partition
+write, exploit test, kernel load, privilege escalation or
+KernelSU here. Symbol/structure work is still partial;
+physical handoff and per-boot slide remain open and
+KernelSU native integration remains blocked.
 
 ---
-
-**Status: RESEARCH ONLY. No HXL1 root, exploitable runtime primitive, KernelSU load, installable profile or support-feed entry has been demonstrated.**
-
-This is the **current operational entry point** for [`docs/PORTING.md`](PORTING.md)
-applied to **SM-G986U1 / G986U1UESCHXL1 / y2q / Android 13 /
-4.19.113-27095354**. The extensive
-[device adaptation](SM-G986U1-G986U1UESCHXL1.md) and
-[historical evidence log](../research/y2q-G986U1UESCHXL1/ROOT_PAYLOAD_RESEARCH.md)
-remain the evidence trail, **not a sequence of commands to rerun**.
-For Samsung KernelSU source and versioned artifacts consult
-[`kernelsu/README.md`](../kernelsu/README.md). Never transplant
-the S24 FE/S24 Ultra's Linux 6.1 values into HXL1's Linux 4.19.
 
 ## Exact gate state, as of October 11, 2026
 
