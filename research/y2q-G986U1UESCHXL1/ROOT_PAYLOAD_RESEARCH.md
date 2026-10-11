@@ -593,3 +593,51 @@ is not the stock Samsung Clang10 ABI, the kernel physical handoff is
 unknown, and no runtime GhostLock or KernelSU privilege path exists.
 This pipeline does not flash, boot, install, sign or modify an Android
 device.
+
+
+## October 10, 2026 — owner target-only dry run blocked by missing host Python 2.7
+
+The owner ran the new `run_y2q_hxl1_isolated_dwarf_objects.sh`
+after pulling `dcbdeca`. The **62/62 offline regression tests passed**,
+but the source/config build plan failed its **host toolchain preflight**
+before `olddefconfig`, `prepare` or either object was compiled:
+
+    [STOP] Samsung's kernel invokes /usr/bin/env python2.
+    Install real Python 2.7 in an isolated prefix; do NOT alias python2 to python3.
+
+This is **not a compiler error in rtmutex.o or futex.o**, and the
+fresh output directory was **not created** by this run.
+
+The driver now checks, in order, an explicitly passed `--python2` path,
+`python2` on `PATH`, and user-local `~/.pyenv/versions/2.7.18/bin/python2`,
+`~/.local/share/pyenv/versions/2.7.18/bin/python2`, and
+`~/.local/python2.7/bin/python2`. Every candidate **must actually
+execute as Python 2.7**, using the existing strict legacy-build version
+probe. Python 3 shims and aliases are rejected.
+
+If no isolated Python 2.7 already exists, one possible WSL/Ubuntu
+approach is to install from the maintained [pyenv](https://github.com/pyenv/pyenv)
+build tool without modifying the system-default Python interpreter:
+
+    sudo apt-get update
+    sudo apt-get install -y build-essential curl git make zlib1g-dev libssl-dev libbz2-dev libreadline-dev libsqlite3-dev libffi-dev liblzma-dev xz-utils
+    if [ ! -d "$HOME/.pyenv" ]; then git clone https://github.com/pyenv/pyenv.git "$HOME/.pyenv"; fi
+    "$HOME/.pyenv/bin/pyenv" install -s 2.7.18
+    "$HOME/.pyenv/versions/2.7.18/bin/python2" -c 'import sys; assert sys.version_info[:2] == (2, 7)'
+
+This is an **installation step on the owner's WSL host**, not an
+operation performed by this GitHub-only work. Python 2.7.18 has been
+end-of-life since 2020 and should be kept isolated for legacy build
+scripts, never selected as the system Python or used for online services.
+The official pyenv python-build instructions are at:
+https://github.com/pyenv/pyenv/blob/master/plugins/python-build/README.md
+
+Once a genuine Python2.7 is present, re-run the dry-run and only
+then separately opt in to `--execute`. To select a different
+already-installed interpreter:
+
+    bash tools/run_y2q_hxl1_isolated_dwarf_objects.sh --python2 /absolute/path/to/python2
+
+The subsequent Clang18 outputs and any DWARF records remain
+**experimental**; none of this proves a factory Clang10 structure
+layout, CVE applicability, root, physical addresses or KernelSU.
