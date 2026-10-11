@@ -9,6 +9,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
+import struct
 from pathlib import Path
 import sys
 
@@ -19,7 +21,8 @@ from tools import y2q_hxl1_qemu_fdt_canary as canary
 from tools import y2q_hxl1_qemu_virt_dtb_inventory as fdt
 
 BASELINE_RUNTIME_SHA="e842cd6cc6b7fc391420bd571dd0f9af3aec7f223101367ddcf14853bd3a7814"
-MARKER="HXL1_CANARY_DUMP_COMPLETED BYTES=1048576"
+MARKER="HXL1_CANARY_DUMP_COMPLETED BYTES="
+DECLARED_MARKER="HXL1_CANARY_GUEST_FDT_DECLARED_BYTES="
 TARGET="SM-G986U1/G986U1UESCHXL1"
 
 
@@ -30,8 +33,15 @@ class DeliveryError(ValueError):
 def report_delivery(source:bytes, override:bytes, baseline_runtime:bytes,
                     delivered:bytes, gdb:str, manifest:dict,
                     strict_sha:bool=True)->dict:
-    if len(delivered)!=canary.FDT_SIZE:
-        raise DeliveryError("Incomplete guest FDT binary dump")
+    if len(delivered)<fdt.HEADER_SIZE:
+        raise DeliveryError("Incomplete guest FDT header")
+    magic,total=struct.unpack_from(">II",delivered)
+    if magic!=fdt.MAGIC or not fdt.HEADER_SIZE<=total<=fdt.MAX_DTB:
+        raise DeliveryError("Invalid delivered guest FDT header or totalsize")
+    if len(delivered)!=total:
+        raise DeliveryError(
+            f"Truncated/overlong guest FDT: header totalsize={total} bytes, "
+            f"captured={len(delivered)} bytes; recapture using header-derived length")
     gen=fdt.parse_fdt(source)
     patched=fdt.parse_fdt(override)
     baseline=fdt.parse_fdt(baseline_runtime)
@@ -46,8 +56,13 @@ def report_delivery(source:bytes, override:bytes, baseline_runtime:bytes,
     if manifest.get("overrideFdtSha256")!=patched["qemuGeneratedFdtSha256"] or (
        manifest.get("purpose")!="FDT_SELF_RESERVATION_DELIVERY_CANARY_NOT_RKP_POOL"):
         raise DeliveryError("Original canary construction manifest does not match DTB")
-    if gdb.count(MARKER)!=1:
-        raise DeliveryError("GDB did not attest one complete guest FDT dump")
+    completed=re.findall(
+        r"(?m)^"+re.escape(MARKER)+r"(\\d+)$",gdb)
+    measured=re.findall(
+        r"(?m)^"+re.escape(DECLARED_MARKER)+r"(\\d+)$",gdb)
+    if len(completed)!=1 or len(measured)!=1 or (
+            int(completed[0])!=total or int(measured[0])!=total):
+        raise DeliveryError("GDB did not attest one complete header-sized guest FDT dump")
     stop=entry.parse_gdb(gdb)
     if stop.get("status")!="GUEST_ENTRY_FDT_HEADER_CORRELATED" or (
         stop.get("registers")!={"X0":hex(canary.FDT_PA),
@@ -56,8 +71,8 @@ def report_delivery(source:bytes, override:bytes, baseline_runtime:bytes,
     if stop.get("first16BytesHex")!=delivered[:16].hex():
         raise DeliveryError("GDB entry FDT header and full binary dump disagree")
     guest_total=guest["fdtTotalBytes"]
-    if guest_total>len(delivered):
-        raise DeliveryError("Delivered FDT total size exceeds complete saved buffer")
+    if guest_total!=len(delivered):
+        raise DeliveryError("Delivered guest FDT length changed since header check")
     expected_reserved=[expected["addedMemreserve"]]
     if guest["memoryReservationEntries"]!=expected_reserved:
         raise DeliveryError("Canary self-reservation not present exactly in guest FDT")
@@ -74,9 +89,10 @@ def report_delivery(source:bytes, override:bytes, baseline_runtime:bytes,
     # measured X0+totalsize. It cannot reserve a new free RKP pool.
     fdt_start=canary.FDT_PA
     fdt_end=fdt_start+guest_total
-    if not (fdt_start>=canary.FDT_PA and
-            fdt_end<=canary.FDT_PA+canary.FDT_SIZE):
-        raise DeliveryError("Canary does not cover delivered device-tree bytes")
+    reserve=expected["addedMemreserve"]
+    if not (fdt_start==int(reserve["start"],16) and
+            fdt_end<=int(reserve["endExclusive"],16)):
+        raise DeliveryError("Canary does not cover the complete page-rounded FDT")
 
     return {
         "target":TARGET,
@@ -86,6 +102,8 @@ def report_delivery(source:bytes, override:bytes, baseline_runtime:bytes,
         "deliveredGuestFdtSha256":guest["qemuGeneratedFdtSha256"],
         "deliveredGuestFdtPhysicalAddress":hex(canary.FDT_PA),
         "deliveredGuestFdtTotalSize":guest_total,
+        "captureLengthMatchesDeclaredFdtBytes":True,
+        "selfReservationCoversCompleteGuestFdt":True,
         "deliveredSelfReservation":guest["memoryReservationEntries"][0],
         "sameBaseGuestMemoryAsOwnerBaseline":True,
         "selfReservationSeenAtOriginalImageEntry":True,
