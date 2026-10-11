@@ -1,0 +1,162 @@
+# SM-G986U1 HXL1 — current porting execution guide
+
+**Status: RESEARCH ONLY. No HXL1 root, exploitable runtime primitive, KernelSU load, installable profile or support-feed entry has been demonstrated.**
+
+This is the **current operational entry point** for [`docs/PORTING.md`](PORTING.md)
+applied to **SM-G986U1 / G986U1UESCHXL1 / y2q / Android 13 /
+4.19.113-27095354**. The extensive
+[device adaptation](SM-G986U1-G986U1UESCHXL1.md) and
+[historical evidence log](../research/y2q-G986U1UESCHXL1/ROOT_PAYLOAD_RESEARCH.md)
+remain the evidence trail, **not a sequence of commands to rerun**.
+For Samsung KernelSU source and versioned artifacts consult
+[`kernelsu/README.md`](../kernelsu/README.md). Never transplant
+the S24 FE/S24 Ultra's Linux 6.1 values into HXL1's Linux 4.19.
+
+## Exact gate state, as of October 11, 2026
+
+| PORTING.md | State | Verified already | What *actually* remains |
+|---|---|---|---|
+| 1. Exact firmware | COMPLETE | Owner ADB / Shizuku model, fingerprint, HXL1 kernel, locked bootloader, SELinux enforcing, shell UID 2000 | Recheck only after a firmware change |
+| 2. Extract stock inputs | COMPLETE (offline originals) | Hash-pinned boot v2, ARM64 kernel Image, config, vendor source from 11 overlays, matching BL archive and parsed DTB streams | Only running-kernel/selected DTB identity is unproven; do not restart downloads |
+| 3. Kernel symbols/layouts | PARTIAL, **active gate** | Recovered original Image ELF/NM, source fix review, 11 raw Image code windows; two Clang18 rtmutex/futex objects and internally consistent DWARF | Prove source-to-factory-instruction semantics and **independent factory-compiled** layouts; no original BTF/DWARF established |
+| 4. Physical BL handoff | OPEN | Original ABL/XBL/XBL_CONFIG and Android boot-v2 fields; DTB candidates; some original EFI static flow | *Actually selected* boot chain/device tree and physical Linux load remain unknown |
+| 5. Per-boot runtime metadata | OPEN | Device-specific non-root identity and some tracefs metadata | Device runtime slide, trace/worker and physical fingerprint details, where accessible; never import another device's constants |
+| 6. Native target | OPEN | Firmware-locked inert Android diagnostic | Runnable HXL1 privilege chain, not just source code or Clang18 objects |
+| 7. KernelSU | BLOCKED | Stock CONFIG_MODULE_SIG_FORCE=y, CONFIG_KPROBES=n, Samsung RKP/KDP/DEFEX | Proven code loading, kernel 4.19 hooking and OEM-specific compatibility |
+| 8. App/feed | BLOCKED | Research-only identity gating | Actual hardware-verified secure integration; no HXL1 in `support/targets-v3.json` |
+| 9. Recovery/release | DEFERRED | Original evidence retained | Repeatable owned-device recovery/testing before any risky execution |
+
+**Treat the evidence source as immutable.** Original extracted
+`~/s20-artifacts/kernel.bin` SHA256:
+`ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`.
+The Clang18 two-object agreement is **experimental only**, *not*
+a Samsung factory Clang10 ABI match. Even factory code-window hashes do
+not themselves provide verified member offsets or runtime addresses.
+
+## Do this next — one gate at a time
+
+### A. Reconcile the documented nine-stage gates (run now)
+
+In WSL2:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 -m unittest -q tools/test_y2q_porting_readiness.py
+python3 tools/y2q_porting_readiness.py \
+  --output "$HOME/s20-artifacts/hxl1-research/port-readiness-20261011.json"
+
+cat "$HOME/s20-artifacts/hxl1-research/port-readiness-20261011.md"
+```
+
+**Pass:** tests pass; Stage 1 and Stage 2 COMPLETE; Stage 3
+PARTIAL; Stage 4–5 OPEN; Stage 6 OPEN; Stage 7–8 BLOCKED;
+Stage 9 DEFERRED; `payloadPortCompleted=false`.
+If anything disagrees, investigate the *specific input*; **do not
+mark a gate complete by editing the evidence manifest alone**. The
+readiness utility is the status authority for the nine gates, not
+how many auxiliary analyzers or Clang18 tests have passed.
+
+### B. Review original compiled kernel vs original source (next active step)
+
+Use the **already implemented** code-review tool, not another kernel
+build, BTF extractor or new symbolic-analysis framework:
+
+```bash
+bash tools/run_y2q_hxl1_stock_rtmutex_source_code_review.sh
+```
+
+**Input:** the already created original
+`~/s20-artifacts/hxl1-research/hxl1-stock-rtmutex-code-windows-v2.json`,
+hash-pinned original `kernel.bin`, `vmlinux-stock.nm`,
+and original Samsung `kernel/locking/rtmutex.c` and
+`kernel/futex.c`.
+
+**Pass:** all 11 original code windows independently match actual
+Image instruction words; original source hashes match; source
+functions `remove_waiter`, `rt_mutex_start_proxy_lock` and
+`futex_lock_pi` can be reviewed side-by-side. Save the fresh
+`hxl1-stock-rtmutex-source-code-01.md`/JSON. **No source-level
+operation has yet been proven to map to a specific factory structure
+offset by this name-based report.** Review it before any new tools
+or code are justified.
+
+### C. Samsung FUS metadata check — optional, *not a new prerequisite*
+
+The reference [`PORTING.md`](PORTING.md) uses
+[`samloader-rs`](https://github.com/topjohnwu/samloader-rs)
+to retrieve the **S721N/LUC** sample firmware. Those model/region and
+four-part version values **must not** be copied for the S20+.
+
+The original HXL1 kernel/boot/BL is already present and hash verified.
+`samloader-rs` can query *currently available* official Samsung FUS
+metadata, but `check-update --all` may not return an archived
+HXL1 version, and a different currently offered build must not
+replace the audited source or change the profile identity.
+
+If `samloader` is already installed, **first determine the owner's
+actual active sales/CSC code** from existing device metadata, then run:
+
+```bash
+samloader --version
+samloader check-update --model SM-G986U1 --region ACTUAL_CSC --all --verbose
+```
+
+Replace `ACTUAL_CSC` **only** with independently observed CSC/sales
+region (e.g. do not assume `XAA` simply because the model ends
+in `U1`). This is a network firmware listing only. Do **not** run
+`samloader download`, `flash`, `detect`, `reboot-download`,
+or PIT/partition commands as part of this audit.
+If the binary is absent or FUS omits HXL1, record
+`FUS_HISTORICAL_LOOKUP_UNAVAILABLE` and continue:
+existing original hash provenance remains intact.
+
+### D. After B passes: identify the *specific* unresolved factory gate
+
+Use the **already installed** tools for the actual gap:
+
+- `llvm-objdump` / `aarch64-linux-gnu-objdump`, `llvm-nm`,
+  recovered original `vmlinux-stock.elf` and source for
+  static source-to-code examination. Use Ghidra *only if* bounded
+  CLI disassembly is ambiguous and an address/branch-flow question
+  requires it.
+- `vmlinux-to-elf` has **already** been used. Its symbol recovery
+  is not factory DWARF. `pahole` worked for our **Clang18-built
+  objects**; their fields are not original layout evidence.
+- Original `kernel.bin` had **no valid bounded raw BTF candidate**
+  in the existing scan, and the reconstructed ELF exposes no
+  original verified DWARF/BTF. `bpftool` is useful only if an
+  **actual original BTF blob** is found; installing it alone cannot
+  create original type information.
+- Use existing HXL1 ABL/XBL, boot header and FDT reports for Stage 4,
+  **after defining a specific physical-handoff proof question**.
+  Static EFI RAM-region fields are not kernel load addresses.
+- Use existing **read-only ADB/Shizuku** capability/identity probes
+  for Stage 5 only when a concrete runtime question remains. Clearly
+  distinguish `uid=2000` shell privileges from an ordinary app.
+  Do not perform unsafe futex stress, kernel writes, or blind
+  memory probing.
+
+### E. Explicit stop/go policy
+
+**Stop:** If factory field association or the kernel-loading chain
+cannot be independently authenticated, record `UNVERIFIED`.
+No more full Samsung kernel Image compilations, repeat Clang18 layout
+extractions, speculative offset guessing, or redundant report
+generators solely to inflate the completed-test count.
+
+**Go:** Native device-specific implementation/KernelSU/app work can
+only proceed after independent, reproducible evidence exists
+for the exact shipping build and security constraints; do not
+publish a support feed entry from stock source resemblance or
+experimental DWARF alone.
+
+## How we collaborate
+
+Send the **Stage A readiness summary first**. If the nine states
+are as expected, run **Stage B** and send the original source/code
+excerpts (the runner prints them to the terminal). Review those
+specific instructions, decide what they prove, then choose exactly
+one next missing evidence gate. Do **not** execute all later stages
+in advance.
