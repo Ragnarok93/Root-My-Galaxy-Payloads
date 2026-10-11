@@ -67,11 +67,31 @@ New REA evidence `ev_e9e49405806db914b7e08b49c2f1a877473f1b9c05b0a4f0a64664ebcb7
 - **GUID authentication complete (owner's pinned-original WSL run, 2026-10-11):** PE address `0xef880` mapped to `.text` file offset `0xef880`. Extracted 16 bytes `b5 ff 72 51 53 42 51 7d c6 41 a7 01 f9 73 10 3c` decode via UEFI mixed-endian GUID as **`5172ffb5-4253-7d51-c641-a701f973103c`**, exactly matching `EFI_RAMPARTITION_PROTOCOL_GUID`. The entire EFI was SHA256 verified before extraction. **Outcome: exact binary GUID match, plus the previously demonstrated method offset `+0x18`, 16-byte records and two-pass count retrieval.**
 - The record first 64-bit value read by `FUN_0001f018` is now identified as `RamPartitionEntry.Base`; its minimum becomes `[sp+0x30]` in `FUN_00020a60`. `AvailableLength` is the second 64-bit member but is not consumed by this minimum calculation. No actual base, number of DRAM banks, final kernel physical address or live root permissions are inferred.
 
+## October 11 follow-up — alternate image mode switch authenticated
+
+**Pinned HXL1 evidence:** the GUID constant at original-PE `0xef940` is exactly `f57f73ed-0afc-4723-9374-2cebc0198ef9` (UEFI mixed-endian bytes `ed 73 7f f5 fc 0a 23 47 93 74 2c eb c0 19 8e f9`); the full original EFI was SHA256 verified on the owner's WSL run. At `FUN_00020a60+0x22680`, `LocateProtocol` with this GUID stores the resulting protocol pointer at global `0x3460b38`. The code derives `w21 = !EFI_ERROR(Status)`; a false status falls to the direct alternate-image call `0x228a8`, a success status enables the mediated branch `0x227d4`.
+
+**GUID exact match to Qualcomm source:** `gQcomScmModeSwithProtocolGuid`, Qualcomm **SCM Mode Switch** protocol. The published [EFIScmModeSwitch.h](https://github.com/Project-Aloha/mu_aloha_platforms/blob/7c81a0c77fbf77bc28a305e1e9d075f53648f93b/Platforms/QcomModulePkg/Include/Protocol/EFIScmModeSwitch.h) defines a *single function pointer at protocol offset zero* named `SwitchTo32bitMode`, and an `EFI_HLOS_BOOT_ARGS` structure of exactly `0x50` bytes, ten `UINT64` fields: `el1_x0`–`el1_x8` and `el1_elr`. Both identities match HXL1 static code. Qualcomm's [KernelModeSwitch.c](https://github.com/Daniel224455/xbl2nd/blob/7531648266d2b06f2224d0abb6864831fb655259/QcomPkg/Drivers/EnvDxe/KernelModeSwitch.c) documents an implementation issuing `TzFastcall(TZ_DO_MODE_SWITCH, ...)`. Do not claim that the *installed* S20+ SCM implementation has been directly disassembled.
+
+**HXL1 handoff argument layout is exact:**
+- At `0x227a4`, initializes `0x50` zero bytes at `sp+0x138`.
+- `0x227ac` stores `[sp+0x78]` (FDT pointer) at `sp+0x148` → argument `el1_x2` (offset `+0x10`).
+- `0x227b0` sets `el1_x4` to 0 via `sp+0x158` → offset `+0x20`.
+- `0x227b8` sets `el1_elr` to `[sp+0x60]` (entry) via `sp+0x180` → offset `+0x48`.
+- `FUN_0007a024` at `0x227cc` is a **copy/memcpy-style leaf routine** (45 instructions; no subordinate calls), with caller `x0=sp+0xe8`, `x1=sp+0x138`, `x2=0x50`; copies the prepared 80-byte structure to the argument area. Previously calling this a handoff-structure *constructor* was incorrect.
+- `0x227c8: ldr x20,[x8]` fetches the protocol's method at offset `0`; `0x227d4: blr x20` invokes the SCM mode switch with `x0=sp+0xe8`, matching indirect passing of an 80-byte argument structure under the AArch64 calling convention. A successful mode switch normally does not return; errors are handled in subsequent code.
+
+REA evidence `ev_26740999ffdeb8a45a8db28b0f429c9afff74f7267a42272877dfe48f07b257d` in `rea-instructions-handoff-helper-0x7a024.json` and shared owner evidence `ev_65699d02d3e20131f7204420e8baef7e80d6170f32030f65ae1fff6c98f16341`.
+
+**Three distinct candidate transfer mechanisms:** recognized ARM64 Image → direct `0x22854` with FDT in `x0`; alternate/32-bit-classified Image with SCM protocol → `0x227d4` mediated mode switch with `EFI_HLOS_BOOT_ARGS`; alternate format without protocol → `0x228a8` direct transfer with FDT in `x2`. This is verified **static branch behavior**; which path ran on a particular Samsung boot, CPU/MMU state, and actual booted DTB/entry addresses remain unmeasured.
+
+**Next priority:** isolate firmware cleanup and shutdown routines `0x1e868`, `0x1e9b8`, `0x2d878` at `0x2276c–0x2277c`; also qualify ARM64 direct path arguments `x1`, `x2`, `x3` against Linux boot protocol rather than asserting standard compliance. No root, unlock or KernelSU execution is demonstrated.
+
 ## Next bounded gates
 
 1. DONE: inspected cached caller, identified `UNCOMPRESSED_IMG` at `0xbcc59` and authenticated the conditional `0x210cc`. DONE: HXL1 GUID at `0xef880` matched Qualcomm RAM-partition protocol exactly. The conditional `0x210cc: orr x8,x0,x24; cbz x8,0x21180` determines whether service-supplied layout outputs or constant-offset layout is selected.
 2. DONE: classified `FUN_0001f018` as a **minimum-address reducer** and `FUN_0001eca0` as a cached EFI protocol record provider. Qualcomm `EFIRamPartition.h` ABI and original-HXL1 GUID are authenticated.
-3. Authenticate `0x227d4` callback/dispatch provider and branch gating; distinguish the observed register arguments from an asserted ARM execution-state switch.
+3. DONE: SCM mode-switch GUID, method, 80-byte argument layout and conditional 32-bit transition authenticated; next focus on firmware exit services and final ARM64 transfer CPU state.
 4. Compare offline candidate base FDT, overlays, and post-fixups with runtime-safe metadata if obtainable. There is no demonstrated bootloader unlock/root/KernelSU execution route. Keep the stock locked phone unchanged.
 
 **Readiness statement:** Static firmware-to-FDT/entry chain is substantially mapped, but final booted FDT bytes, absolute runtime addresses, stock-branch selection, relevant security boundaries and actual root payload execution remain unverified. Do not promote this research-only work to a flashable or executable profile.
