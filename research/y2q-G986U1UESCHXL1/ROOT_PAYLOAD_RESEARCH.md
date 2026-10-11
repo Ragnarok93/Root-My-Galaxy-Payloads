@@ -1171,3 +1171,60 @@ remain OPEN. Module signature enforcement, disabled kprobes
 and a locked bootloader keep KernelSU blocked until an
 authorized runtime privilege/loading and compatible
 Linux 4.19 hook path is demonstrated.
+
+
+## October 11, 2026 — original DTBO missing from scoped local artifact search; no more DTB scans
+
+Owner ran the current HXL1 next-steps host-only inventory check
+on branch `688574e`. The `find` command returned **no files**
+matching `dtbo.img`, `dtbo.img.lz4`, or `dtbo.bin`
+within **five directory levels of `~/s20-artifacts`**.
+Evidence status:
+`HXL1_ORIGINAL_DTBO_TABLE_NOT_IN_LOCAL_EVIDENCE`.
+This is a **bounded absence of the named extracted artifacts**,
+not proof that original Samsung firmware lacks a DTBO partition,
+and does not survey other host folders or alternative filenames.
+
+The owner simultaneously confirmed the **pre-existing,
+checksum-authenticated embedded base FDT inventory** is unchanged:
+
+| Candidate (offline report numbering) | Root model | SHA256 |
+|---|---|---|
+| 1 | Kona v2.1 | `b3aeb34a66528accde7ff21e1739224aa89a327595b99ea781bf4eb7b195b422` |
+| 2 | Kona v2 | `d68acf630e4473bcc0341d83055f8308ccdaeb745f779e93d335ec58e7fec0d6` |
+| 3 | Kona v1 | `b463d63283610c577a1d0ad9c003d323dee6a79bb30e408c739110d45ba8d57f` |
+| 4 | Minimal root FDT | `0bd849a7ed78287c8d0214ffeb56b3980a4379190a7e147adbfa063c9d712f0c` |
+
+The two existing ADB snapshots' `dtb_idx=0`, `dtbo_idx=2`
+still **cannot authenticate the final loaded base tree or
+overlay**. `dtbo_idx` is not an index into these four
+boot.img base FDT candidates. Do not repeat restricted ADB
+reads, static DTB scans, or initiate a replacement
+firmware download merely to fill this noncritical evidence gap.
+
+**Root-feasibility decision:** Stage 3 remains PARTIAL, Stage 4
+physical boot and Stage 5 per-boot runtime proofs OPEN;
+Stage 6 native target OPEN; Stage 7 KernelSU and Stage 8
+production feed BLOCKED. None of those classifications is
+advanced by absence of local DTBO files.
+
+The highest-impact **independent** unresolved question is
+whether the original HXL1 `remove_waiter` source issue is
+**dynamically reproducible and can provide controlled privileged
+code execution** under stock Samsung protections.
+Existing evidence establishes source-level bug-pattern and
+stock instruction correlations only; the QEMU laboratory
+runs **upstream 4.19.325**, not a bit-identical Samsung HXL1
+kernel, and has only passed bounded uncontended futex-PI tests,
+**not a vulnerability reproduction**. Any further vulnerability
+work should start with a *safe, isolated, instrumented,
+source-exact regression* (no real phone crash/race attempts),
+and must explicitly distinguish reachability/logic failure
+from an arbitrary kernel-write primitive or working root.
+
+Separately, `CONFIG_MODULE_SIG_FORCE=y` and
+`CONFIG_KPROBES=n` still block the current conventional
+unsigned module/kprobe KernelSU approach. Never infer
+KernelSU compatibility or a safe loader from a
+vulnerability source pattern alone. There is no basis
+for a working HXL1 root or installation claim yet.
