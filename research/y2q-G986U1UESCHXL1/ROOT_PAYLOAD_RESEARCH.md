@@ -813,3 +813,57 @@ Original symbolic virtual addresses do not establish live KASLR
 or physical kernel load. A modern Clang18 match, field guess,
 or original function-window hash cannot justify an executable
 GhostLock payload, privileged kernel patch or KernelSU install.
+
+
+## October 10–11, 2026 — owner verified 11 candidate stock RT-mutex code windows; full-symbol boundary correction
+
+The owner ran `bash tools/run_y2q_hxl1_stock_rtmutex_code_windows.sh`
+on the exact original HXL1 firmware and source. All **47/47 local
+regression checks passed**, stock SHA256 preflight matched and
+`aarch64-linux-gnu-objdump` decoded bounded original kernel Image
+instructions for **11 recovered labels**, including
+`rt_mutex_start_proxy_lock`, `rt_mutex_adjust_prio_chain`,
+`remove_waiter`, `rt_mutex_init_proxy_locked`,
+`rt_mutex_proxy_unlock`, `rt_mutex_trylock`,
+`rt_mutex_lock`, `rt_mutex_unlock`,
+`rt_mutex_lock_interruptible`, `rt_mutex_next_owner`, and
+`futex_lock_pi`. The selected `futex_wait_requeue_pi` name did not
+appear in this lookup; its absence from recovered kallsyms **does not
+prove that the kernel feature or associated code is missing**.
+The first report is preserved at
+`~/s20-artifacts/hxl1-research/hxl1-stock-rtmutex-code-windows.md`.
+
+**Important tool correctness correction:** The first implementation
+bounded each 192-byte code sample by the **next one of 12 selected
+names**, accidentally allowing a sample to include unselected function
+instructions that occur between those target names. No result can
+safely be described as an isolated function window from that algorithm.
+
+Version 2 uses the **entire original recovered ELF text-symbol address
+set**, retains duplicate-named non-target boundaries, finds the next
+strictly-greater text symbol for each selected function, and caps
+window bytes to that boundary or the configured 192-byte maximum.
+New targeted regressions cover intervening unselected functions,
+duplicate non-target symbol names, same-address aliases, data labels,
+misaligned boundaries, exact-end truncation, and reports showing how
+many full-map code boundaries were considered. Previous 47 tests and
+all existing CI checks pass. The code bytes remain original stock
+Image bytes; the mapping to function names still rests on *recovered*
+kallsyms and is not equivalent to independent OEM debug information.
+
+**Run version 2** to produce a fresh report without overwriting the
+owner's first snapshot:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_stock_rtmutex_code_windows.sh
+
+The corrected, separate report is:
+`~/s20-artifacts/hxl1-research/hxl1-stock-rtmutex-code-windows-v2.md`.
+
+This audit is **read-only**. Next step: inspect corrected instruction
+windows along with stock-source functions for unambiguous evidence of
+individual source-level accesses; until then **zero Samsung factory
+structure offsets have been authenticated**. A recovered symbol VA is
+not a running physical kernel address or known KASLR slide. A
+working root method and KernelSU remain blocked.
