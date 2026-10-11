@@ -18,8 +18,10 @@ import sys
 KERNEL_HASH = "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123"
 # Keep address-only and opcode-bearing log lines distinct. QEMU builds may
 # emit a translated PC without a machine word (or use an unsupported style).
-PC_LINE = re.compile(rb"(?m)^[ \t]*0x([0-9a-fA-F]{7,16}):(?=[ \t])")
+PC_LINE = re.compile(rb"(?m)^[ \t]*0x([0-9a-fA-F]{7,16}):(?=[ \t\r\n]|$)")
 INSTRUCTION = re.compile(rb"(?m)^[ \t]*0x([0-9a-fA-F]{7,16}):[ \t]+(?:0x)?([0-9a-fA-F]{8})(?=[ \t])")
+BARE_PC = re.compile(rb"^[ \t]*0x([0-9a-fA-F]{7,16}):[ \t]*$")
+RAW_TARGET = re.compile(rb"^[ \t]*OBJD-T:[ \t]*([0-9a-fA-F]+)[ \t]*$")
 HEAD_BYTES = 12 * 1024 * 1024
 TAIL_BYTES = 3 * 1024 * 1024
 MAX_EVIDENCE = 18
@@ -51,10 +53,48 @@ def sample_trace(path: Path) -> tuple[bytes,bytes,int]:
     return head,tail,size
 
 def parsed_words(blob: bytes):
-    # QEMU's -d in_asm emits physical AArch64 PC, opcode, mnemonic per line.
-    # Filter for actual 32-bit AArch64 opcodes; not arbitrary regex numbers.
-    for m in INSTRUCTION.finditer(blob):
-        yield int(m.group(1),16), int(m.group(2),16)
+    """Yield QEMU guest PC and AArch64 word, not emulator/host instructions.
+
+    QEMU can print '0xPC: opcode mnemonic', or a separate '0xPC:' followed
+    by one or more OBJD-T lines of raw LITTLE-ENDIAN guest bytes. Never
+    interpret OBJD-H (host JIT) bytes as target code.
+    """
+    base=None
+    offset=0
+    carry=b""
+    for line in blob.splitlines():
+        m=INSTRUCTION.match(line)
+        if m:
+            base=None
+            carry=b""
+            yield int(m.group(1),16),int(m.group(2),16)
+            continue
+        m=BARE_PC.match(line)
+        if m:
+            base=int(m.group(1),16)
+            offset=0
+            carry=b""
+            continue
+        m=RAW_TARGET.match(line)
+        if m and base is not None:
+            raw_hex=m.group(1)
+            if len(raw_hex)%2:
+                base=None
+                carry=b""
+                continue
+            data=carry+bytes.fromhex(raw_hex.decode("ascii"))
+            available=(len(data)//4)*4
+            for i in range(0,available,4):
+                yield base+offset,int.from_bytes(data[i:i+4],"little")
+                offset+=4
+            carry=data[available:]
+            continue
+        # Additional OBJD-T rows can be adjacent; reset on a new block or
+        # unrelated line, so disjoint fragments cannot be falsely stitched.
+        if line.startswith((b"IN:",b"OUT:",b"OBJD-H:",b"PROLOGUE:")):
+            base=None
+            offset=0
+            carry=b""
 
 def parsed_pc_lines(blob: bytes):
     # A PC without an opcode proves only that a log address was emitted.
@@ -66,7 +106,9 @@ def trace_format_summary(blob: bytes)->dict:
     # Bounded original samples preserve unknown QEMU disassembly dialects.
     first_lines=blob[:4500].decode("utf8","replace").splitlines()[:26]
     in_sections=len(re.findall(rb"(?m)^IN:[^\r\n]*$",blob))
+    raw_groups=len(re.findall(rb"(?m)^OBJD-T:[ \t]*[0-9a-fA-F]+",blob))
     return {"inAsmSectionMarkers":in_sections,
+            "rawTargetHexGroups":raw_groups,
             "pcAddressLinesSeen":bool(PC_LINE.search(blob)),
             "pcHeadSamples":[hex(p) for p in pcs],
             "unparsedFirstLines":first_lines}
@@ -225,7 +267,7 @@ def main()->int:
         print("[FORMAT] No parsable instruction words. This is not a kernel-entry test.")
         for key in ("traceFormatHead","traceFormatTail"):
             details=result[key]
-            print(f"[{key}] IN sections={details['inAsmSectionMarkers']} PC lines={details['pcAddressLinesSeen']}")
+            print(f"[{key}] IN sections={details['inAsmSectionMarkers']} PC lines={details['pcAddressLinesSeen']} OBJD-T groups={details['rawTargetHexGroups']}")
             print(f"[{key}] PC samples:", " ".join(details["pcHeadSamples"][:12]) or "[NONE]")
         print("[HEAD LINES, escaped]")
         for line in result["traceFormatHead"]["unparsedFirstLines"][:14]:
