@@ -68,6 +68,23 @@ class BitmapAbiTests(unittest.TestCase):
         src=t.parse_source(UH,RKP.replace("= 0x15","= 0x14"))
         out=t.analyze(src,t.parse_gdb_log(GDB),{"status":"MISSING"}, {})
         self.assertFalse(out["sourceCallCompatible"])
+    def test_rkp_alias_must_be_the_expected_app_macro(self):
+        wrong=UH.replace("#define UH_APP_RKP UH_APPID(APP_RKP)",
+                         "#define UH_APP_RKP UH_APPID(APP_INIT)")
+        with self.assertRaisesRegex(t.AuditError,"UH_APP_RKP"):
+            t.parse_source(wrong,RKP)
+    def test_bitmap_call_argument_order_is_not_inferred_from_keywords(self):
+        wrong=RKP.replace("(u64)&rkp_s_bitmap_buffer, (u64)memstart_addr",
+                          "(u64)memstart_addr, (u64)&rkp_s_bitmap_buffer")
+        src=t.parse_source(UH,wrong)
+        self.assertFalse(src["rkpRobufferInitPassesBitmapAndMemstart"])
+        self.assertFalse(t.analyze(src,t.parse_gdb_log(GDB),
+                                   {"status":"MISSING"}, {})["sourceCallCompatible"])
+    def test_nonstandard_app_id_macro_is_not_assumed(self):
+        wrong=UH.replace("| UH_PREFIX","^ UH_PREFIX")
+        src=t.parse_source(wrong,RKP)
+        self.assertFalse(src["appIdMacroShapeRecognized"])
+        self.assertIsNone(src["computedUhAppRkp"])
     def test_missing_robuffer_function_must_reject(self):
         with self.assertRaisesRegex(t.AuditError,"rkp_robuffer_init"):
             t.parse_source(UH,RKP.split("static inline void")[0])
