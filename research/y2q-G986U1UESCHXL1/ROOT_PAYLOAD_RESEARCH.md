@@ -1292,3 +1292,19 @@ functions and value origins are identified; do not blindly
 repeat prior broad searches. These are **static software facts**,
 not runtime index-domain-to-overlay mapping or evidence
 of actual `kernel_phys_load`, root or KernelSU.
+
+
+## Owner-verified REA cmdline index function — October 11 checkpoint
+
+The exact original HXL1 LinuxLoader (SHA256 `5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003`) returned two authenticated Ghidra source-reference instructions:
+
+- `androidboot.dtb_idx=` (string `0xbfd99`) -> reference instruction `0x2c350`.
+- `androidboot.dtbo_idx=` (string `0xbfd82`) -> reference instruction `0x2c308`.
+
+In the owner's next **two original REA `function` calls**, both sources were independently found inside **the same original `FUN_0002bdf8`** with entry `0x2bdf8`, body `0x2bdf8–0x2cae3`, and available HighFunction p-code.
+
+Evidence IDs: `ev_c2fd2200127d2a4bfef7b18a6ae80d09abcc09fe8d78e996af33dd3a635f51c4` for `0x2c350`, and `ev_14f1e57b01fe90c2b5f6a15871dcf09b86d465d44550a7b7fcff5d97a393b81f` for `0x2c308`. Both saved reports are under `~/s20-artifacts/hxl1-research/abl-linuxloader/rea-dt-index-LBaPQ6`; no raw REA JSON was committed.
+
+**Implication:** investigate one shared command-line builder's index formatting and caller-provided or global data, not two independent string routines. The already-analyzed BootLinux source calls `FUN_0002bdf8`. The evidence does not yet show the index value-producing instructions, their selection-domain ordering or the booted effective DTB bytes. The original overlay image is still absent from the owner's narrow artifact search; boot-time physical kernel entry and Root/KernelSU remain **unverified**.
+
+Next step is documented in `docs/SM-G986U1-HXL1-NEXT-STEPS.md`: extract relevant lines from the two saved REA function reports, validate their shared body, then run `trace-native-values` only once for `0x2bdf8`. No further firmware scan or device contact is needed for that step.
