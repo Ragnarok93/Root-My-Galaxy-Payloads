@@ -929,6 +929,96 @@ writes, exploit demonstrations or unlocked bootloader occurred.
 
 ---
 
+
+## October 11, 13:38 UTC — exact original AVB object producer located
+
+Owner ran the original-source callback field attribution tool. All
+three indirect call pointer-field offsets and full 1173-line 0x2274
+Ghidra caller context were successfully verified offline:
+
+- LinuxLoader 0x5950 CALLIND 0x5dc4 reads AvbOps-like
+  first-parameter field +0x40; associated decompiled callback
+  writes the lock-state output used for
+  androidboot.vbmeta.device_state.
+- LinuxLoader 0x5950 CALLIND 0x5ea4 and 0x6020 both read
+  field +0x48; neither is a proven lock-state implementation.
+- Ghidra reports 0x2274 local pbVar20 uses on lines
+  24, 303, 311, 313, 343, 344, 437, 636, 658, 738.
+  The **owner-proven constructor/result assignment** is at
+  pseudocode line 343:
+
+    pbVar20 = (byte *)FUN_0000b7a4(pcVar19);
+
+  The same Ghidra variable is then passed as argument 0 at
+  pseudocode line 437:
+
+    uVar9 = FUN_00005950(pbVar20,pcVar29,pcVar34);
+
+  Both lines are in the original 0x2274 Ghidra function; this
+  establishes a concrete **constructor or allocation-helper
+  candidate** at 0xb7a4. Formal control-flow domination,
+  callback assignments or the concrete type of the returned
+  object remain to be verified.
+- Other assignments at lines 303, 636 and 658 set the
+  decompiler variable pbVar20 to NULL or param_1.
+  Lines 636/658 appear in cleanup/error paths; **do not**
+  conclude param_1 is a second valid AvbOps constructor
+  from these observations.
+- Original 0x2274 code includes the error
+  "Failed to allocate AvbOps", and a cleanup call
+  FUN_0000b858(pbVar20), which independently strengthens
+  the allocation / lifetime-management interpretation but
+  does not prove callback-table field writes or lock policy.
+
+### Targeted new single-function static Ghidra probe
+
+- tools/y2q_hxl1_rea_avb_constructor.py
+- tools/test_y2q_hxl1_rea_avb_constructor.py
+- tools/run_y2q_hxl1_rea_avb_constructor.sh
+
+The tool revalidates the owner-pinned HXL1 archive and
+LinuxLoader source hash, original five Ghidra
+search/xref/function chains, existing Ghidra BLR
+instruction Evidence, saved graph pagination, and
+the original 0x2274 caller. It accepts exactly one
+new source-bound Ghidra function query:
+
+    rea function LinuxLoader-HXL1.efi 0xb7a4 --provider ghidra --json
+
+Actual binary path is taken from the verified owner hotspot
+inventory, not inferred from this documentation. Output is
+saved only to the separate original-evidence file
+rea-security-audit/LinuxLoader/function-0xb7a4.json.
+Pre-existing original files are never modified.
+
+It displays bounded constructor pseudocode including
+initial lines, candidate callback field offsets
++0x40/+0x48, lexical memory assignments, and
+direct callee references as an investigation queue.
+**Pseudocode text matching a memory assignment does
+not itself prove target pointer aliasing, a reachable
+write or secure authorization.**
+
+Owner-run WSL command:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_constructor.sh
+~~~
+
+Report:
+
+    ~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-constructor.md
+
+This is a host-only exact HXL1 static analysis operation,
+not a firmware patch, phone-side operation or unlock.
+The immediate research goal is to determine if 0xb7a4
+populates both callback table fields locally or
+delegates to another original static function.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
