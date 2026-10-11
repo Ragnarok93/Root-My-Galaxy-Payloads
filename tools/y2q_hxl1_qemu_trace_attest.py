@@ -16,7 +16,10 @@ import re
 import sys
 
 KERNEL_HASH = "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123"
-INSTRUCTION = re.compile(rb"(?m)^\s*0x([0-9a-fA-F]{7,16}):\s+([0-9a-fA-F]{8})(?=\s)")
+# Keep address-only and opcode-bearing log lines distinct. QEMU builds may
+# emit a translated PC without a machine word (or use an unsupported style).
+PC_LINE = re.compile(rb"(?m)^[ \t]*0x([0-9a-fA-F]{7,16}):(?=[ \t])")
+INSTRUCTION = re.compile(rb"(?m)^[ \t]*0x([0-9a-fA-F]{7,16}):[ \t]+(?:0x)?([0-9a-fA-F]{8})(?=[ \t])")
 HEAD_BYTES = 12 * 1024 * 1024
 TAIL_BYTES = 3 * 1024 * 1024
 MAX_EVIDENCE = 18
@@ -52,6 +55,21 @@ def parsed_words(blob: bytes):
     # Filter for actual 32-bit AArch64 opcodes; not arbitrary regex numbers.
     for m in INSTRUCTION.finditer(blob):
         yield int(m.group(1),16), int(m.group(2),16)
+
+def parsed_pc_lines(blob: bytes):
+    # A PC without an opcode proves only that a log address was emitted.
+    for m in PC_LINE.finditer(blob):
+        yield int(m.group(1), 16)
+
+def trace_format_summary(blob: bytes)->dict:
+    pcs=list(islice(parsed_pc_lines(blob),24))
+    # Bounded original samples preserve unknown QEMU disassembly dialects.
+    first_lines=blob[:4500].decode("utf8","replace").splitlines()[:26]
+    in_sections=len(re.findall(rb"(?m)^IN:[^\r\n]*$",blob))
+    return {"inAsmSectionMarkers":in_sections,
+            "pcAddressLinesSeen":bool(PC_LINE.search(blob)),
+            "pcHeadSamples":[hex(p) for p in pcs],
+            "unparsedFirstLines":first_lines}
 
 def candidate_bases(image:bytes, extra:list[int]) -> list[int]:
     text_offset=int.from_bytes(image[8:16],"little")
@@ -108,6 +126,8 @@ def analyze(image:bytes,head:bytes,tail:bytes,serial:bytes,extra_bases:list[int]
     if not image or image[0x38:0x3c]!=b"ARM\x64":
         raise EvidenceError("Invalid original ARM64 Image")
     bases=candidate_bases(image,extra_bases)
+    head_format=trace_format_summary(head)
+    tail_format=trace_format_summary(tail)
     results,head_count=match_words(image,head,bases)
     tail_records,tail_count=match_words(image,tail,bases)
     # Expose a small PC sample even if none match the hypothesized load bases.
@@ -141,9 +161,16 @@ def analyze(image:bytes,head:bytes,tail:bytes,serial:bytes,extra_bases:list[int]
     flags["linuxBootBannerSeen"]="booting linux on physical cpu" in text
     flags["linuxVersionSeen"]="linux version " in text
     flags["panicTextSeen"]="kernel panic" in text
-    status=("FACTORY_IMAGE_INSTRUCTION_CORRELATION" if
-            flags["factoryImageCorrelatedInHead"] or flags["factoryImageCorrelatedInTail"]
-            else "NO_FACTORY_IMAGE_INSTRUCTION_CORRELATION_IN_SAMPLED_TRACE")
+    if flags["factoryImageCorrelatedInHead"] or flags["factoryImageCorrelatedInTail"]:
+        status="FACTORY_IMAGE_INSTRUCTION_CORRELATION"
+    elif head_count+tail_count==0 and (
+            head_format["pcAddressLinesSeen"] or tail_format["pcAddressLinesSeen"]):
+        status="PC_ADDRESSES_PRESENT_BUT_NO_PARSEABLE_OPCODE_WORDS"
+    elif head_count+tail_count==0 and (
+            head_format["inAsmSectionMarkers"] or tail_format["inAsmSectionMarkers"]):
+        status="IN_ASM_SECTIONS_PRESENT_BUT_PC_FORMAT_UNKNOWN"
+    else:
+        status="NO_FACTORY_IMAGE_INSTRUCTION_CORRELATION_IN_SAMPLED_TRACE"
     return {
         "target":"SM-G986U1/G986U1UESCHXL1",
         "evidenceStatus":status,
@@ -152,6 +179,9 @@ def analyze(image:bytes,head:bytes,tail:bytes,serial:bytes,extra_bases:list[int]
         "originalTraceTotalBytes":total_size,
         "traceCoveragePartial":total_size>len(head)+len(tail),
         "parsedAarch64OpcodeLines":head_count+tail_count,
+        "traceFormatHead":head_format,
+        "traceFormatTail":tail_format,
+        "parsedOpcodeFormatRecognized":head_count+tail_count>0,
         "translatedPcHeadSample":head_pcs,
         "translatedPcTailSample":tail_pcs,
         "firstTraceLines":head[:2500].decode("utf8","replace").splitlines()[:14],
@@ -191,6 +221,15 @@ def main()->int:
         return 2
     print("[EVIDENCE]",result["evidenceStatus"])
     print("[TRACE OPCODES]",result["parsedAarch64OpcodeLines"])
+    if not result["parsedOpcodeFormatRecognized"]:
+        print("[FORMAT] No parsable instruction words. This is not a kernel-entry test.")
+        for key in ("traceFormatHead","traceFormatTail"):
+            details=result[key]
+            print(f"[{key}] IN sections={details['inAsmSectionMarkers']} PC lines={details['pcAddressLinesSeen']}")
+            print(f"[{key}] PC samples:", " ".join(details["pcHeadSamples"][:12]) or "[NONE]")
+        print("[HEAD LINES, escaped]")
+        for line in result["traceFormatHead"]["unparsedFirstLines"][:14]:
+            print("  ",repr(line[:240]))
     for r in result["candidateImageStarts"]:
         print("[BASE]",r["candidateImagePhysicalStart"],
               "compared",r["traceWordComparisonsInImageRange"],
