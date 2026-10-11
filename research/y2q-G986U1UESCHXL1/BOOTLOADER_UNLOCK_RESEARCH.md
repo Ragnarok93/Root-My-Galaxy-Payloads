@@ -841,6 +841,94 @@ bootloader unlock or vulnerability has been demonstrated.
 
 ---
 
+
+## October 11, 13:22 UTC — HXL1 AVB indirect callback field identity
+
+The owner ran original-HXL1 saved Ghidra/REA backward p-code
+slices, with zero new REA/Ghidra commands.
+
+**Verified original LinuxLoader 0x5950 callsite values:**
+
+| CALLIND native site | BLR register | Exact p-code LOAD | Base and displacement |
+|---|---|---|---|
+| 0x5dc4 | x8 | 0x5db4 | param_1 + 0x40 |
+| 0x5ea4 | x8 | 0x5e90 | param_1 + 0x48 |
+| 0x6020 | x8 | 0x600c | param_1 + 0x48 |
+
+All three are Ghidra-live CALLIND operations whose p-code target
+input[0] resolves through a single LOAD, CAST and INT_ADD rooted
+in function parameter 0. The three **concrete destinations remain
+unresolved** because no pointer-table initialization or memory alias
+target has been established.
+
+The strongest read_is_device_unlocked callback **callsite**
+is **0x5dc4**, because its +0x40 field invocation in original
+0x5950 pseudocode writes an output boolean, tests callback status,
+then constructs androidboot.vbmeta.device_state as locked/unlocked.
+The two +0x48 sites reuse a **different** pointer field and
+should not be conflated with this lock-state call.
+
+The Android Open Source Project libavb avb_ops.h explicitly
+defines read_is_device_unlocked and get_unique_guid_for_partition
+as **adjacent struct fields**, but exact numeric offsets differ
+across versions. The older interface with no extra fields
+places these at +0x38 / +0x40 on AArch64, whereas later revisions
+with cert_ops and get_preloaded_partition fields move them to
++0x48 / +0x50. Samsung HXL1's observed +0x40 / +0x48 **must not**
+be equated to either unverified upstream ABI version.
+AOSP source comparisons:
+https://android.googlesource.com/platform/external/avb/+/f242f0edbe0dd40f77ea04a05dd80f99b370996b/libavb/avb_ops.h
+https://android.googlesource.com/platform/external/avb/+/master/libavb/avb_ops.h
+
+**Odin original 0x1ec84** resolves as LOAD from a per-partition
+interface pointer at local_40+0x18. The initial pointer emerges
+from the original partition discovery helper 0x10e58, which
+iterates registered partition handles, obtains a protocol
+interface from DAT_0028cfa8+0x98, compares the partition name,
+and returns interface/handle pointers on a match. The p-code
+chain is capped at depth 7 and retains memory alias limitations.
+Neither a trusted OEM value producer nor storage authenticated
+integrity is proved.
+
+**LinuxLoader original caller 0x2274** invokes 0x5950 using
+pbVar20 as argument 0, observed at pseudocode line 437. The
+object initializer assigning +0x40/+0x48 to this object is
+still unknown. We cannot infer that pbVar20 is trusted, or that
+the Android boot-state property controls the separate signature
+and flashing authorization gates.
+
+New purely offline original-evidence analyzer:
+tools/y2q_hxl1_avb_callback_fields.py
+with synthetic tests tools/test_y2q_hxl1_avb_callback_fields.py.
+
+This script first re-validates the original SHA-pinned
+five Ghidra string/xref/function chains, four native BLR
+sites, source-bound p-code pages, and full 0x2274 dossier.
+It then:
+- fails closed unless observed target ADD displacements are
+  +0x40, +0x48, +0x48 via original parameter 0;
+- extracts all original 0x2274 pseudocode lines mentioning
+  pbVar20, assignments to that variable, and its call
+  to FUN_00005950;
+- compares two AOSP ABI variants *without* asserting
+  a Samsung type layout;
+- records the missing initializer, trusted lock-state source,
+  and image authorization as **unproved**.
+
+Owner-run command, no new REA or Ghidra required:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 tools/y2q_hxl1_avb_callback_fields.py
+cat ~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-callback-fields.md
+~~~
+
+No device state changes, firmware modifications, secure-storage
+writes, exploit demonstrations or unlocked bootloader occurred.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
