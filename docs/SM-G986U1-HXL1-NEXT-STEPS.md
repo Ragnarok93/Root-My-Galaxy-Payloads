@@ -2,6 +2,16 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 12:50 UTC — OEM C fragment passed; original opcode store path additionally bounded
+
+The owner's WSL source-fragment run PASSED the exact original Samsung RT-mutex SHA-gated native harness; **five unit tests passed, one optional ARM64 QEMU user test skipped** due to unavailable emulator/toolchain. Report: `~/s20-artifacts/hxl1-research/original-source-fragment-regression.json`. This fulfills the native verbatim-C fragment subgate only.
+
+The assistant independently used owner-uploaded stock-Image-derived code-slice and REA ZIPs to authenticate the full `remove_waiter` slice and interpret a **15-original-instruction bounded path** to `str xzr,[x20,#0x8f8]`. Both synthetic task-identity cases and **6/6 tests** passed, including byte tamper rejection. [Detailed constrained original ARM64 trace](SM-G986U1-HXL1-BOUNDED-ORIGINAL-BINARY-TRACE-20261011.md). The reusable script/tests/report were delivered separately in `HXL1-bounded-original-ARM64-trace.zip` and are **not yet checked into this GitHub repo**. This interpretation does not execute OEM code in a real ARM64 CPU or faithful guest, and it does not verify any kernel exploitation path.
+
+**Do not repeat these passing user-space/static tasks.** The consequential next feasibility decision is whether Samsung Linux 4.19.113 can be genuinely booted or otherwise safely executed in a source-faithful isolated guest, or whether an authorized live kernel-code-loading route exists. The installed upstream Linux 4.19.325 QEMU control is insufficient, and the locked stock build has forced module signatures and kprobes disabled. Stage 3 remains PARTIAL, KernelSU/deployment BLOCKED.
+
+---
+
 ## October 11, 12:35 UTC — original Samsung C function fragment execution preparation
 
 The owner executed the existing model on WSL at 12:30 UTC, with original Samsung C source SHA checks and ten compiled user-space scenarios `PASS`; report `~/s20-artifacts/hxl1-research/cleanup-model.json`. That model-only milestone is COMPLETE.
