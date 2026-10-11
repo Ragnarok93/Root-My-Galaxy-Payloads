@@ -1,0 +1,33 @@
+name: HXL1 Bootloader Offline Triage
+on:
+  push:
+    branches:
+      - feature/s20plus-investigation-shizuku-20261009
+    paths:
+      - 'tools/y2q_hxl1_bootloader_unlock_audit.py'
+      - 'tools/test_y2q_hxl1_bootloader_unlock_audit.py'
+      - 'tools/y2q_stock_bl_elf_audit.py'
+      - '.github/workflows/y2q-hxl1-bootloader-triage.yml'
+  pull_request:
+    paths:
+      - 'tools/y2q_hxl1_bootloader_unlock_audit.py'
+      - 'tools/test_y2q_hxl1_bootloader_unlock_audit.py'
+      - 'tools/y2q_stock_bl_elf_audit.py'
+      - '.github/workflows/y2q-hxl1-bootloader-triage.yml'
+permissions:
+  contents: read
+jobs:
+  synthetic-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install synthetic archive dependency
+        run: python -m pip install --disable-pip-version-check lz4
+      - name: Syntax check (no firmware required)
+        run: python -m py_compile tools/y2q_hxl1_bootloader_unlock_audit.py tools/test_y2q_hxl1_bootloader_unlock_audit.py
+      - name: Run synthetic-only regression tests
+        run: python -m unittest -v tools.test_y2q_hxl1_bootloader_unlock_audit
