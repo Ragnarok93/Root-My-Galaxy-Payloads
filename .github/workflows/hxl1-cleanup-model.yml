@@ -7,12 +7,16 @@ on:
       - tools/y2q_hxl1_cleanup_regression.py
       - tools/test_y2q_hxl1_cleanup_regression.py
       - tools/y2q_rtmutex_fix_audit.py
+      - tools/y2q_hxl1_original_cleanup_slice.py
+      - tools/test_y2q_hxl1_original_cleanup_slice.py
       - .github/workflows/hxl1-cleanup-model.yml
   pull_request:
     paths:
       - tools/y2q_hxl1_cleanup_regression.py
       - tools/test_y2q_hxl1_cleanup_regression.py
       - tools/y2q_rtmutex_fix_audit.py
+      - tools/y2q_hxl1_original_cleanup_slice.py
+      - tools/test_y2q_hxl1_original_cleanup_slice.py
       - .github/workflows/hxl1-cleanup-model.yml
   workflow_dispatch:
 permissions:
@@ -24,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Compile and test harmless user-space C ownership model
-        run: python3 -m unittest -v tools.test_y2q_hxl1_cleanup_regression
+        run: python3 -m unittest -v tools.test_y2q_hxl1_cleanup_regression tools.test_y2q_hxl1_original_cleanup_slice
       - name: Evidence scope
         run: |
           echo "Model-only assertions passed. This CI job does not check Samsung source SHA pins."
