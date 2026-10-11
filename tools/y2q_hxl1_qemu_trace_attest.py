@@ -7,6 +7,8 @@ translated boot-stub code. Reads bounded head/tail log samples to limit RAM.
 from __future__ import annotations
 
 import argparse
+from collections import deque
+from itertools import islice
 import hashlib
 import json
 from pathlib import Path
@@ -111,9 +113,9 @@ def analyze(image:bytes,head:bytes,tail:bytes,serial:bytes,extra_bases:list[int]
     # Expose a small PC sample even if none match the hypothesized load bases.
     # That enables an address-mapping diagnosis without sharing a huge TCG log.
     head_pcs=[{"pc":hex(pc),"word":f"{w:08x}"}
-              for pc,w in list(parsed_words(head))[:20]]
+              for pc,w in islice(parsed_words(head),20)]
     tail_pcs=[{"pc":hex(pc),"word":f"{w:08x}"}
-              for pc,w in list(parsed_words(tail))[-12:]]
+              for pc,w in deque(parsed_words(tail),maxlen=12)]
     # Preserve head and tail as separate observations rather than mistakenly
     # counting a repeated instruction in the tail as another independent match.
     head_results={r["candidateImagePhysicalStart"]:r for r in results}
