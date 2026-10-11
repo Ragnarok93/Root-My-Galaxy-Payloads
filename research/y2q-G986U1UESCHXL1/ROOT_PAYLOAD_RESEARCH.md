@@ -927,3 +927,79 @@ and `.json`. Original and v2 code-window reports remain preserved.
 source-to-binary dataflow remain unverified. Static symbol locations
 do not establish runtime physical kernel load, KASLR slide, exploit
 applicability or KernelSU. No compilation or phone changes occur.
+
+
+## October 11, 2026 — owner recovered full HXL1 stock `remove_waiter` code interval
+
+Owner executed a direct read-only Python/objdump procedure using the
+already existing `tools/y2q_hxl1_stock_rtmutex_code_windows.py`,
+original `kernel.bin`, and recovered `vmlinux-stock.nm`. The original
+kernel image SHA256 matched
+`ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`.
+The recovered `remove_waiter` symbol begins at static
+`0xffffff8008147db4` and the next *recovered* text-symbol boundary is
+`0xffffff8008147fec`, giving **568 original stock Image bytes**
+with SHA256
+`f50dd6d1df275e0854e7d255c7f47abff81e2b065977e4a11b56007aa89d0c44`.
+The previous 192-byte review was necessarily truncated; this pass
+captured a normal return at `0xffffff8008147f80`, exceptional
+`brk #0x800` paths at `0xffffff8008147fdc` and `...7fe0`,
+and trailing NOP/data. The 568-byte interval **is not entirely
+executable instructions** or a factory DWARF-authenticated function size.
+
+**Concrete stock-code observations and provenance limits:**
+
+- At entry `x0 = lock`, `x1 = waiter`; `x19` saves `lock`
+  and `x23` saves `waiter`, until later reassignments.
+  `ldr x22, [x0,#24]` followed by
+  `ldr x8,[x22,#56]` and `cmp x8,x19` is consistent with
+  a top-waiter pointer and the waiter's lock-pointer consistency check
+  on the owner-provided original `rtmutex.c`, but not a BTF field-name
+  record.
+- `mrs x20,sp_el0` is the standard current-task access pattern
+  in the observed kernel. `add x21,x20,#0x8c8` before lock calls
+  and `str xzr,[x20,#2296]` (hex `0x8f8`) between them
+  closely track original source lines 1077–1080
+  (`raw_spin_lock(&current->pi_lock)` and
+  `current->pi_blocked_on=NULL`); this is a **high-confidence
+  stock-compiled source/dataflow hypothesis**, not a second
+  independently authenticated debug-layout record.
+- `ldr x24,[x19,#32]` followed by
+  `and x21,x24,#~1` on the continuing path
+  is consistent with `rt_mutex_owner(lock)`'s tagged
+  owner-pointer handling. `add x22,x21,#0x8c8` supplies
+  a candidate owner-task spin-lock address.
+- Later `ldr x8,[x21,#2272]` (hex `0x8e0`),
+  `ldr x8,[x21,#2296]` (hex `0x8f8`), then
+  `ldr x23,[x8,#56]` are consistent with owner PI
+  waiter/blocking references and the original
+  `task_blocked_on_lock(owner)` flow.
+- The six argument-register values loaded before
+  `bl 0xffffff8008146ca4` match the original
+  `rt_mutex_adjust_prio_chain(owner,RT_MUTEX_MIN_CHAINWALK,
+  lock,next_lock,NULL,current)` calling convention.
+  The recovered symbol at that exact call destination is still to be
+  confirmed against the retained `vmlinux-stock.nm`.
+- Independently from the same stock kernel sample, the
+  `rt_mutex_start_proxy_lock` caller at
+  `0xffffff8008147d58` executes a direct
+  `bl 0xffffff8008147db4` on its error cleanup,
+  consistent with original source line 1806
+  `remove_waiter(lock,waiter)`. **Do not confuse**
+  this wrapper with the separate internal
+  `__rt_mutex_start_proxy_lock` called from
+  `futex_lock_pi`'s original C implementation.
+
+**Next useful existing-tool check, no new analyzer:**
+read the already pinned `vmlinux-stock.nm` names for
+`0xffffff8008146ca4`, `0xffffff80080fafb4`,
+`0xffffff800996d544`, `0xffffff800996d774`,
+`0xffffff800996d664`, and `0xffffff800996d83c`.
+Review the matching source definitions in stock
+`include/linux/rtmutex.h`, `include/linux/sched.h`, and
+`kernel/locking/rtmutex.c` before accepting a member association.
+An original source + original machine-code match is more informative
+than the experimental Clang18 object, but **does not by itself prove
+all OEM sizes, layouts, aliases or runtime kernel KASLR/base**.
+Stage 3 remains PARTIAL; KernelSU and live vulnerability feasibility
+are still unverified.
