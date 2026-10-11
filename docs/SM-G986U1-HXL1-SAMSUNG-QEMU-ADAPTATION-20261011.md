@@ -73,6 +73,18 @@ The output directory **must not already exist**. The script captures `serial-con
 - First Linux boot banner: meaningful original-Image boot progress, but still not a successful source-faithful guest.
 - Panic or exception logs: retain original stack/PC and check **which** HXL1 initialization dependency failed; only then consider porting one clearly identified fork emulation handler.
 
+## 22:00–22:09 UTC — 13/13 owner host tests and 135/135 isolated CI green
+
+The owner ran original native C pool tests (7) and sparse descriptor staging tests (6) on WSL: **13/13 PASS**, including 4KiB allocation tracking, sparse-unit boundaries, source-derived LE64 pointer chains and synthetic VA/PA mapping refusal. These are host-only tests and establish neither actual QEMU protected memory reservation nor guest boot.
+
+New committed `tools/hxl1_rkp_guest_commit.{h,c}` combines the proven staging code with pluggable physical read/write callbacks, a mandatory mapping-verifier callback, explicit all-vCPU-paused and guest-reservation attestations, four full original-memory snapshots, and **pointer-last** commit to the original `rkp_s_bitmap_buffer` guest global. Any I/O or verification fault causes reverse-order rollback. If restoring guest memory is impossible, it returns `ROLLBACK_FAILED` and flags uncertainty if the kernel pointer was even partially published. This is designed to prevent passing a guest past RKP initialization with a falsely valid pointer. It still has **no actual QEMU I/O backend**.
+
+[GitHub Actions workflow run 38179184038](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38179184038) completed **SUCCESS** with **135/135 regression tests PASS**, including all nine new fault-injection C commit fixtures. The workflow's earlier unrelated AArch64 C-fragment errors were fixed by installing `libc6-dev-arm64-cross`. The source-tested transactional code remains a test-double backed library, not a completed HXL1 secure-monitor emulator.
+
+**Next root cause gate:** capture and audit the *actual generated* QEMU `virt` FDT and memory map including RAM base, kernel Image load, possible initrd and FDT placements. Select physical memory for descriptor, bitmap and protected pool **only** after overlap/non-Linux-allocator validation. Integrate a guest page-table walker or emulator-supported MMU translation check and a halted-vCPU transaction context, then implement exact `X0=0xc300c002,X1=0x15` in a separate QEMU test build. The upstream fork's KDP namespace-flags handler and blanket success fallback are incompatible with confirmed HXL1 source and must not be reused unchanged.
+
+---
+
 ## 15:34 UTC — RKP paging/bitmap source preflight passes and C memory model scaffold added
 
 Owner-run `tools.test_y2q_hxl1_rkp_bitmap_preflight`: **14/14 PASS**. The actual exact-HXL1 `rkp-bitmap-preflight.json` source audit passed **all 14 named witnesses**, and the factory config confirmed 4 KiB pages; the output remained `[FORK] NOT READY; protected pool and descriptor reservation unimplemented`. This validates the source-derived layout and early paging dependencies but does **not** demonstrate guest memory reservation or firmware response bytes.
