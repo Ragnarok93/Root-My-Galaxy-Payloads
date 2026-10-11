@@ -2,7 +2,7 @@
 """Offline diagnostic ARM QEMU FDT self-reservation canary.
 
 Adds ONE FDT memreserve entry covering the *already occupied*, directly
-observed entry FDT span (0x48000000-0x48100000) to a SHA-pinned *copy* of
+observed entry FDT span at 0x48000000, rounded to its final page, to a SHA-pinned *copy* of
 QEMU's original generated DTB. This is NOT a usable RKP pool and is NOT
 a suggested free RAM address. No factory Image, guest or handset is changed.
 """
@@ -21,7 +21,8 @@ from tools import y2q_hxl1_qemu_boot_memory_audit as boot
 
 SOURCE_SHA=boot.EXPECTED_DTB_SHA
 FDT_PA=0x48000000
-FDT_SIZE=1048576
+FDT_SIZE=1048576  # previously observed baseline guest FDT length
+FDT_PAGE=4096  # confirmed stock HXL1 PAGE_SIZE; reserve final occupied FDT page
 EXPECTED_RAM_START=0x40000000
 EXPECTED_RAM_END=0xc0000000
 
@@ -51,7 +52,11 @@ def make_canary(original:bytes, check_pinned:bool=True)->tuple[bytes,dict]:
         raise CanaryError("Source reserve map is not empty")
     if total+16>fdt.MAX_DTB:
         raise CanaryError("Modified DTB would be too large")
-    inserted=struct.pack(">QQ",FDT_PA,FDT_SIZE)
+    override_total=total+16
+    fdt_reserved_bytes=(override_total+FDT_PAGE-1)&~(FDT_PAGE-1)
+    if FDT_PA+fdt_reserved_bytes>EXPECTED_RAM_END:
+        raise CanaryError("Original FDT plus reserve-map entry exceeds guest RAM")
+    inserted=struct.pack(">QQ",FDT_PA,fdt_reserved_bytes)
     result=bytearray(original[:off_reserve]+inserted+original[off_reserve:])
     # Preserve every prior FDT structure/name/property byte and all old
     # memreserve table contents; only shift their offsets by 16 bytes.
@@ -60,8 +65,8 @@ def make_canary(original:bytes, check_pinned:bool=True)->tuple[bytes,dict]:
     struct.pack_into(">I",result,12,off_strings+16)
     patched=bytes(result)
     parsed=fdt.parse_fdt(patched)
-    expected=[{"start":hex(FDT_PA),"endExclusive":hex(FDT_PA+FDT_SIZE),
-               "sizeBytes":FDT_SIZE}]
+    expected=[{"start":hex(FDT_PA),"endExclusive":hex(FDT_PA+fdt_reserved_bytes),
+               "sizeBytes":fdt_reserved_bytes}]
     if parsed["memoryReservationEntries"]!=expected:
         raise CanaryError("Canary entry not independently parsed")
     same_fields=("memoryRanges","reservedMemoryRanges",
@@ -80,6 +85,10 @@ def make_canary(original:bytes, check_pinned:bool=True)->tuple[bytes,dict]:
         "sourceGeneratedFdtSha256":baseline["qemuGeneratedFdtSha256"],
         "overrideFdtSha256":parsed["qemuGeneratedFdtSha256"],
         "addedMemreserve":expected[0],
+        "sourceFdtTotalSizeBytes":total,
+        "overrideFdtTotalSizeBytes":override_total,
+        "fdtReservationPageAlignment":FDT_PAGE,
+        "selfReservationIsPageRoundedToOverrideLength":True,
         "purpose":"FDT_SELF_RESERVATION_DELIVERY_CANARY_NOT_RKP_POOL",
         "onlyOriginalMemreserveMapChanged":True,
         "originalStructureAndStringsByteIdentical":True,
