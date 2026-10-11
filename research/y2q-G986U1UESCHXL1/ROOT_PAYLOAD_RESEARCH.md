@@ -1117,3 +1117,57 @@ now require independent, authorized **runtime** information and
 the Linux 4.19 privilege/module-hooking path; further Clang18
 compilation or identical RT-mutex lookups are not a substitute.
 Refer to the canonical [HXL1 execution guide](../../docs/SM-G986U1-HXL1-NEXT-STEPS.md).
+
+
+## October 11, 2026 — two saved stock HXL1 ADB reports reveal bootloader DTB/DTBO indices
+
+The owner inspected **existing** read-only ADB JSON reports only,
+without reconnecting the phone, modifying Android or collecting
+additional private boot arguments. The observations are identical:
+
+| Report UTC | `ro.boot.dtb_idx` | `ro.boot.dtbo_idx` | `/proc/iomem` | model/bootargs DTFS | physical load / per-boot KASLR |
+|---|---|---|---|---|---|
+| `20261010T130008Z` | `0` | `2` | `PERMISSION_DENIED` | `PERMISSION_DENIED` | unverified |
+| `20261010T130021Z` | `0` | `2` | `PERMISSION_DENIED` | `PERMISSION_DENIED` | unverified |
+
+`/proc/cmdline` was also `PERMISSION_DENIED`, and
+`/proc/bootconfig` `NOT_PRESENT`. These are captures 13 seconds
+apart, **not two independently verified boots**. The property
+values are meaningful runtime *bootloader-provided index clues*,
+not a file hash of the final running tree, a kernel physical
+address or a KASLR measurement.
+
+The original SHA256-pinned HXL1 boot-v2 embedded DTB region has
+**four contiguous FDTs**, in the offline inventory's **one-based**
+reporting order:
+
+| Offline candidate | Region byte offset | Original root model | SHA256 |
+|---|---|---|---|
+| 1 | `0x0` | Qualcomm Technologies, Inc. kona v2.1 SoC | `b3aeb34a66528accde7ff21e1739224aa89a327595b99ea781bf4eb7b195b422` |
+| 2 | `0x81088` | Qualcomm Technologies, Inc. kona v2 SoC | `d68acf630e4473bcc0341d83055f8308ccdaeb745f779e93d335ec58e7fec0d6` |
+| 3 | `0x10210c` | Qualcomm Technologies, Inc. kona v1 SoC | `b463d63283610c577a1d0ad9c003d323dee6a79bb30e408c739110d45ba8d57f` |
+| 4 | `0x181c46` | Minimal 173-byte FDT, no root model | `0bd849a7ed78287c8d0214ffeb56b3980a4379190a7e147adbfa063c9d712f0c` |
+
+**Do not convert** `ro.boot.dtb_idx=0` to offline
+candidate 1 without evidence that the same bootloader index
+domain (base, ordering, image component, and selection) applies.
+The four raw concatenated FDTs have **no Android DT_TABLE_MAGIC**
+wrapper in original `boot.img`. Actual index semantics or
+matching running-tree hash are not established.
+`ro.boot.dtbo_idx=2` refers to a *distinct DTBO selection domain*;
+the original selected DTBO table entry, overlay bytes, and
+provenance have not been authenticated by the existing four-FDT
+inventory. In particular **DO NOT call candidate 3 the selected
+DTBO** simply because its one-based index is 3.
+
+**Next only-if-useful existing-artifact gate:** First list any
+already present exact-original `dtbo.img` or `dtbo.img.lz4`
+under `~/s20-artifacts`, including provenance and hash if
+present. If none exists, record
+`HXL1_ORIGINAL_DTBO_TABLE_NOT_IN_LOCAL_EVIDENCE`.
+Do not rerun denied ADB commands or substitute a current
+Samsung FUS firmware/other device's DTBO. Stage 4 and Stage 5
+remain OPEN. Module signature enforcement, disabled kprobes
+and a locked bootloader keep KernelSU blocked until an
+authorized runtime privilege/loading and compatible
+Linux 4.19 hook path is demonstrated.
