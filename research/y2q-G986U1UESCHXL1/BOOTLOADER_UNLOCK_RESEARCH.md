@@ -293,6 +293,59 @@ bootloader unlock success**.
 
 ---
 
+
+## October 11, 11:30 UTC — verified first Odin/LinuxLoader Ghidra pass
+
+Owner-executed original HXL1 WSL run: **17** new REA operations;
+**six** Ghidra search results; **five** Ghidra function dossiers;
+**zero** reported errors. These are static original-binary code references,
+not an unlock or a vulnerability.
+
+| Module | Search string address | Verified reference source | Ghidra function |
+|---|---|---|---|
+| Odin: Oem unlock value | 0x83aa4 | 0x1ecc8 | 0x1ec00 |
+| Odin: custom binary blocked by OEM Lock | 0x8297d | 0x1b3d4 | 0x1b6a8 |
+| LinuxLoader: Skipping boot verification | 0xb2fa7 | 0x40f0 | 0x3f54 |
+| LinuxLoader: read_is_device_unlocked | 0xb3662 | 0x59d4 | 0x5950 |
+| LinuxLoader: device unlocked | 0xb2dc4 | 0x3f34 | 0x2274 |
+
+The direct Ghidra xref count for the separate Odin OEMLOCK string at
+0x827aa was **zero**; that is not evidence the lock code is absent.
+Odin source 0x1b3d4 is numerically *below* function entry 0x1b6a8.
+The first pass validated source membership in Ghidra's function-body
+AddressSet. Confirm ownership and control flow from original instructions
+before assuming this is a contiguous function.
+
+**New follow-up tool:** tools/y2q_hxl1_rea_decision_path_review.py
+(with tools/test_y2q_hxl1_rea_decision_path_review.py). It runs entirely
+against saved Ghidra JSON and SHA256-checked HXL1 exports; does not launch
+Ghidra, run native code, write firmware or communicate with the phone.
+It re-authenticates all five search->xref->body links and extracts
+bounded, line-numbered pseudocode context for actual inspection.
+
+Run in WSL:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_rea_decision_path_review
+python3 tools/y2q_hxl1_rea_decision_path_review.py
+cat ~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/decision-path-review.md
+~~~
+
+After examining saved original pseudocode, expand the original runner
+to additional searches and optional HighFunction dataflow if needed:
+
+~~~bash
+bash tools/run_y2q_hxl1_rea_security_audit.sh --seed-limit 6 --max-functions 24 --max-traces 2
+~~~
+
+Neither raw string hits nor isolated function pseudocode proves a
+trusted-state transition, input reachability, bounds-check bypass,
+a secure-world weakness or an installable custom image.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
