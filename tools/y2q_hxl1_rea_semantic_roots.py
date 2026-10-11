@@ -139,15 +139,17 @@ def inspect_focus(root: Path, out: Path, *, execute: bool,
         source_dir = root / "rea-security-audit" / module
         # Revalidate the *raw original Ghidra function result*, not the
         # lossy report snippets, before making any statement about code.
-        fn_name = f"function-{safe_segment(next(
-            item['xrefSource'] for item in saved['references']
-            if item['module'] == module and item['ghidraFunctionEntry'] == entry))}.json"
-        fn_path = source_dir / fn_name
+        evidence_sources = [
+            item["xrefSource"] for item in saved["references"]
+            if item["module"] == module and item["ghidraFunctionEntry"] == entry
+        ]
+        if len(evidence_sources) != 1:
+            raise TriageError(f"Original Ghidra xref source is ambiguous for {module}:{entry}")
+        source = evidence_sources[0]
+        fn_path = source_dir / f"function-{safe_segment(source)}.json"
         # Presently this path is the original owner-run function xref file.
         fn_ev = evidence(fn_path, sha=target.sha256, operation="analyze_function",
-                         parameter="procedure", value=next(
-                             item["xrefSource"] for item in saved["references"]
-                             if item["module"] == module and item["ghidraFunctionEntry"] == entry))
+                         parameter="procedure", value=source)
         fn = fn_ev["normalized_result"]
         if not isinstance(fn, dict) or not isinstance(fn.get("pseudocode"), str):
             raise TriageError(f"Missing original pseudocode for {module}:{entry}")
