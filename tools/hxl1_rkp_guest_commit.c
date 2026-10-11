@@ -57,7 +57,14 @@ static bool restore_attempted(commit_region *regions, size_t count,
         }
     }
     trace->rollback_complete=ok;
-    trace->pointer_published=false;
+    /* If the last (kernel global pointer) write was attempted and rollback
+     * failed, its actual state may still be partially/fully published.
+     * Never misreport it as safely cleared.
+     */
+    trace->publication_state_uncertain=!ok && regions[3].attempted;
+    if (ok) {
+        trace->pointer_published=false;
+    }
     return ok;
 }
 
