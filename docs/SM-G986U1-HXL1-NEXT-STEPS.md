@@ -2,6 +2,26 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 15:44 UTC — 7/7 host C pool tests passed; protected guest descriptor staging committed
+
+The owner pulled `2bd6696` and ran `tools.test_y2q_hxl1_rkp_pool_model`: **7/7 PASS** including strict-warning C compilation, externally reserved pool checks, 4 KiB page alloc/reuse/double-free tests, and 1 GiB sparse bitmap boundary. This is the first empirically successful **native host C** version of the RKP memory model; it is **not** an HXL1 UH hypervisor or source-faithful QEMU boot.
+
+**Immediately completed code:** `tools/hxl1_rkp_guest_stage.{h,c}`, `tools/hxl1_rkp_guest_stage_test.c`, and `tools/test_y2q_hxl1_rkp_guest_stage.py` plus HXL1 CI wiring. This stages a source-derived 32-byte descriptor, 64-bit `char **map` guest pointers, 1 GiB unit bytes and the global pointer slot `X2` as **HOST-ONLY** little-endian buffers. Every guest VA/PA relationship must be supplied by the adapter and validated through a mandatory callback; fake/overlapping/out-of-reservation mappings fail closed. No guest RAM writes, DTB changes, SMC interception or real physical page reservation are performed. **The new six-test staging suite has not yet been owner/CI-verified**. The complete [HXL1 RKP guest memory ABI and safety boundary](SM-G986U1-HXL1-RKP-QEMU-POOL-BOUNDARY-20261011.md) now details the remaining genuine QEMU integration proof gates.
+
+Next owner command:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v \
+  tools.test_y2q_hxl1_rkp_pool_model \
+  tools.test_y2q_hxl1_rkp_guest_stage
+```
+
+**Do not** use synthetic staging addresses on QEMU, claim the upstream fork `KDP_SET_NS_FLAGS` handles the actual stock HXL1 `RKP_GET_RKP_GET_BUFFER_BITMAP`, or treat passing host tests as boot/root. To integrate, first capture a real original `virt` guest RAM map and verify protected-pool reservation in the device tree and kernel memblock, then check guest virtual-to-physical mapping and implement write atomicity. The stock handset and firmware remain untouched.
+
+---
+
 ## October 11, 15:34 UTC — source-confirmed RKP preflight and host-only bitmap pool model
 
 Owner pulled through `5707559` and verified the exact original-source RKP bitmap preflight: **14/14 unit tests passed**, and **14/14 source-specific checks passed**: commands `0x11–0x15`, 1 GiB bitmap sparse unit, descriptor fields `start_addr/end_addr/maxn/map`, physical/page bit offset logic, 4 KiB factory kernel pages, `paging_init` bitmap call before normal kernel mappings, later RO/DBL bitmap/init commands, protected page allocation/free consumers. The script accurately printed **`[FORK] NOT READY; protected pool and descriptor reservation unimplemented`** and saved `~/s20-artifacts/hxl1-research/qemu-smc-registers-20261011/rkp-bitmap-preflight.json`.
