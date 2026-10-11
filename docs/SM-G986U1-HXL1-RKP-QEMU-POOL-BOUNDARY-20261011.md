@@ -48,6 +48,57 @@ git pull --ff-only
 python3 -m unittest -v tools.test_y2q_hxl1_rkp_pool_model
 ```
 
+## 15:44 UTC — 7/7 C-model tests and guest descriptor staging
+
+The owner pulled commit `2bd6696` and executed `python3 -m unittest -v tools.test_y2q_hxl1_rkp_pool_model`: **7/7 PASS**, including native C compilation with `-Werror`. This verifies **synthetic model behavior**, not firmware response or QEMU guest allocation. The model bit convention (1=protected-pool membership), pool-address fixtures, and free/allocated tracking remain *host hypotheses*.
+
+### Added next source-derived component: fail-closed, guest-pointer staging
+
+Committed `tools/hxl1_rkp_guest_stage.{h,c}`, `tools/hxl1_rkp_guest_stage_test.c`, and `tools/test_y2q_hxl1_rkp_guest_stage.py`. This QEMU-neutral serializer is the next narrowly reusable component. It accepts the existing host pool model and an **explicit set of four guest VA/PA mappings** (the observed original kernel global `X2` slot, 32-byte bitmap descriptor, `maxn*8` pointer table, and `maxn*32768` bit arrays). No virtual or physical address is guessed. Its caller must supply a **mandatory verify_mapping callback** that checks each claimed guest VA→PA mapping and writable backing; tests use a fictional map, whereas a future QEMU adapter must check the *actual* page tables and guest physical address space.
+
+The implementation rejects:
+- missing callback and failed mapping verification;
+- 8-byte alignment, overflow, and incorrect buffer lengths;
+- descriptor/table/bitmap regions outside the **externally reserved** physical range;
+- descriptor/table/bitmap overlap with the protected pool or each other;
+- global kernel pointer slot `X2` inside the external reservation, and VA aliasing.
+
+On a validated synthetic mapping, it creates **host-only** serialized little-endian data: `global_pointer[8]` points at descriptor VA; `descriptor[32]` contains start/end/maxn/map VA; the pointer table contains bitmap unit VAs; and copied bitmap host bytes contain the source-consistent 1GiB sparse-unit format. The host serializer does **not** invoke `address_space_write`, construct a QEMU DTB, reserve real QEMU RAM, inspect guest translation tables, or commit a single guest byte.
+
+**Six Python/unittest fixtures** compile the separate staging C program and test serialization, mapping rejection, non-overlap, bounded inputs, and memory lifetime. They were committed and enrolled in isolated CI, but **their WSL/CI execution has not yet been observed**.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v \
+  tools.test_y2q_hxl1_rkp_pool_model \
+  tools.test_y2q_hxl1_rkp_guest_stage
+```
+
+**Critical next adapter design:** QEMU must first reserve an HXL1-suitable real physical range *outside the kernel, device-tree, initrd and existing vendor carveouts*, expose a verified mapped VA to the bitmap descriptor and pointers, populate descriptor/bitmap physical memory before updating the **original** `rkp_s_bitmap_buffer` global `X2`, and implement failure/rollback semantics if any write fails. The source ABI tells us WHAT the kernel expects, not WHERE to place the backing memory. Do **not** hardcode the test's fictional `0x60000000` staging-region physical address, the fork's `0xa7000000` pool, or the synthetic `0xffffff800b000000` VA values.
+
+### Expected future integration boundary
+
+```text
+Original G986U1UESCHXL1 Image / SHA pin
+             |
+    SMC X0=c300c002, X1=15, X2=original symbol VA
+             |
+    HXL1-gated UH dispatcher (NOT YET IMPLEMENTED)
+             |
+    VM-specific VA-to-PA and reserved memory verifier (NOT IMPLEMENTED)
+             |
+    host staging buffers (IMPLEMENTED / owner test PENDING)
+             |
+    QEMU guest writes with checks + rollback (NOT IMPLEMENTED)
+             |
+    source-faithful bitmap pointer/desc + later RKP cmds (NOT IMPLEMENTED)
+```
+
+This architecture deliberately does not confuse an isolated host test with proof of real guest memory or UH protocol correctness.
+
+---
+
 ## Required proof gates before a functional QEMU adapter
 
 | Gate | Acceptance criterion | Present status |
