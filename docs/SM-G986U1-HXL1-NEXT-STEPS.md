@@ -2,6 +2,37 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 22:53 UTC — canary guest capture was truncated; v2 fixed and regression-tested
+
+Owner WSL pulled through `0b616b0` and ran the original `tools.test_y2q_hxl1_qemu_fdt_canary`: **17/17 PASS**. It built the original diagnostic self-reservation `canary-override.dtb` with SHA `85dcc18460e79d8543d0972a34c56844206696ea2030c7eb0f783412166fa440`. The local original-image QEMU/GDB script printed a **false-positive full-FDT capture success** (its own condition only checked an unvarying **1 MiB dump**). The next offline verifier failed:
+
+```text
+[STOP] Invalid declared DTB size
+```
+
+**Verified in committed source:** adding an FDT memreserve entry increases `fdt_totalsize` by **16 bytes**. Given the exact baseline `1,048,576`-byte header, the canary needs **1,048,592 bytes**, whereas the original capture script dumped only **1,048,576 bytes**. Thus **the guest-delivery canary is NOT verified yet**; the message claiming a completed dump was invalid. The original evidence files are preserved, not overwritten. Also the old self-reserve length of 1 MiB did not cover its added DTB bytes; the correct minimal 4 KiB page-rounded self-reserve is `1,052,672` bytes (`[0x48000000,0x48101000)`). That interval is FDT-occupied, **NOT** a selected RKP protected pool.
+
+**Fixes committed through GitHub:** builder rounds its reservation up to the complete augmented DTB's final occupied page; GDB reads the original guest FDT big-endian `totalsize` from `X0+4` and performs a bounded exact-length binary dump; the shell validates GDB reported total, captured file length and DTB header total as equal before reporting success. Offline verification independently checks the same requirements, with an explicit truncation error, manifest consistency and full self-reserve coverage. Six additional regression tests model the exact 1MiB+16 overflow. [GitHub Actions run #38182473039](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38182473039) completed **SUCCESS with 218/218 tests PASS**, including **23/23 updated canary tests**. The new v2 live QEMU capture on owner's WSL is **NOT YET RUN**.
+
+**New owner command — preserve both old evidence directories and use fresh v2 paths:**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_fdt_canary
+
+CAN="$HOME/s20-artifacts/hxl1-research/qemu-memreserve-canary-v2-20261011"
+CAP="$HOME/s20-artifacts/hxl1-research/qemu-fdt-canary-delivery-v2-20261011"
+
+python3 tools/y2q_hxl1_qemu_fdt_canary.py --output-dir "$CAN"
+bash tools/run_y2q_hxl1_qemu_fdt_canary_capture.sh "$CAN" "$CAP"
+python3 tools/y2q_hxl1_qemu_fdt_canary_verify.py --canary-dir "$CAN" --delivery-dir "$CAP"
+```
+
+Only a passed *actual guest GDB FDT* verifier may establish that the FDT memreserve entry was delivered. Even then **Linux memblock behavior, guest reserved UH pool, guest MMU verification, Linux boot, bootloader unlock and KernelSU are still not proven**. The canary deliberately reserves only the FDT's own memory; it does not provide allocatable RKP pages. See [diagnostic self-canary v2](SM-G986U1-HXL1-QEMU-FDT-MEMRESERVE-CANARY-20261011.md#2253-utc--owner-guest-dump-exposed-fixed-length-truncation-corrected-canary-v2).
+
+---
+
 ## October 11, 22:46 UTC — full runtime HXL1 FDT captured; reservation-delivery canary ready
 
 The owner pulled the current branch and ran `tools.test_y2q_hxl1_qemu_runtime_fdt_compare`: **16/16 PASS**. A second, **bounded read-only QEMU/GDB** execution of the SHA-pinned original HXL1 factory Image captured the **complete 1,048,576-byte runtime device tree** at the previously measured guest `X0=0x48000000`, physically `[0x48000000,0x48100000)`. Owner's report:
