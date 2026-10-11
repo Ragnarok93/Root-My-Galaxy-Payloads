@@ -45,6 +45,7 @@ typedef struct {
     unsigned int rollbacks_attempted;
     unsigned int rollbacks_verified;
     bool pointer_published;
+    bool publication_state_uncertain; /* failed rollback may leave pointer live */
     bool rollback_complete;
 } hxl1_rkp_commit_trace;
 
