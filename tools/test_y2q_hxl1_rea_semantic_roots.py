@@ -12,7 +12,7 @@ from unittest import mock
 from tools import y2q_hxl1_rea_security_audit as base
 from tools import y2q_hxl1_rea_semantic_roots as sem
 from tools.test_y2q_hxl1_rea_decision_path_review import make_saved_evidence
-from tools.test_y2q_hxl1_rea_security_audit import evidence_obj
+from tools.test_y2q_hxl1_rea_trace_evidence import workflow_fixture
 from tools.y2q_hxl1_bootloader_unlock_audit import TriageError
 
 
@@ -66,9 +66,9 @@ class SemanticRootsTests(unittest.TestCase):
             root = Path(td)
             hashes = make_saved_evidence(root)
             trace_file = root / "rea-security-audit" / "Odin" / "trace-0x1ec00.json"
-            obj = evidence_obj(hashes["Odin"], "trace_native_values",
-                               "procedure", "0x1ec00",
-                               {"nodes": [{"id": 1}], "edges": [], "truncated": True})
+            obj = workflow_fixture(hashes["Odin"], "0x1ec00")
+            obj["normalized_result"]["nodes"].append({"id": "synthetic-graph-node"})
+            obj["normalized_result"]["truncated"] = True
             trace_file.write_text(json.dumps(obj))
             with mock.patch.dict(base.EXPECTED, hashes):
                 report = sem.inspect_focus(root, root / "rea-security-audit",
