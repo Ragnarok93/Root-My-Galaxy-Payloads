@@ -73,6 +73,34 @@ The output directory **must not already exist**. The script captures `serial-con
 - First Linux boot banner: meaningful original-Image boot progress, but still not a successful source-faithful guest.
 - Panic or exception logs: retain original stack/PC and check **which** HXL1 initialization dependency failed; only then consider porting one clearly identified fork emulation handler.
 
+## 15:22 UTC — exact HXL1 source and RKP bitmap symbol are corroborated
+
+Owner pulled latest branch and ran two suites: `tools.test_y2q_hxl1_qemu_smc_register_capture` **5/5 PASS** (previous output-order test defect corrected), and `tools.test_y2q_hxl1_rkp_bitmap_abi_audit` **18/18 PASS**; overall **23/23 PASS**. Critically, the actual read-only **original retained HXL1 source ABI** and already captured guest GDB trace correlated:
+
+```text
+[HXL1 SOURCE] EXACT_LOCAL_SOURCE_DEFINITIONS_MATCH_CAPTURED_RKP_BITMAP_CALL
+[APP] 0xc300c002 command 0x15
+[GDB] X0=0xc300c002 X1=0x15 X2=0xffffff800a4dd0b8 X3=0x40000000
+[X2 SYMBOL] RECOVERED_SYMBOL_ADDRESS_CORRELATES 0xffffff800a4dd0b8
+```
+
+Saved `~/s20-artifacts/hxl1-research/qemu-smc-registers-20261011/rkp-bitmap-source-abi.json`. This is no longer a neighboring-tree hypothesis: the **exact source under `~/src/samsung-y2q-hxl1-stock` matches the secure monitor app/command**, and the recovered (non-factory-DWARF) `rkp_s_bitmap_buffer` symbol address equals guest X2. The original source file hashes are preserved by the owner's JSON report but **were not included in their console output**. Do not invent them in project docs. The prior `secure-monitor-gate.json` was produced *before* the later GDB capture and should not supersede it.
+
+**New consequential platform-emulation requirement:** Review exact original `include/linux/rkp.h`, `arch/arm64/mm/mmu.c`, `init/main.c`, and `arch/arm64/mm/pgd.c` in addition to `uh.h`. A matching `X0/X1` proves call dispatch, **not** how the requested `sparse_bitmap_for_kernel_t` pointer and backing bitmap must be allocated, reserved, mapped or released. On public SM8250 source, `rkp_robuffer_init()` runs in `paging_init()` before `map_kernel` and `map_mem`, and the bitmap check indexes physical memory in `SPARSE_UNIT_BIT=30` chunks with per-page bits. Original HXL1 source agreement with these **additional semantics must be checked separately**.
+
+**Implemented and committed:** `tools/y2q_hxl1_rkp_bitmap_preflight.py`, `tools/test_y2q_hxl1_rkp_bitmap_preflight.py` (14 new synthetic fixture tests, wired into HXL1 CI). The preflight refuses unchanged-source SHA mismatch relative to the prior verified ABI report; inspects command IDs 0x11–0x15, bitmap descriptor fields, 1 GiB sparse-unit calculations, early paging init order, follow-up RKP commands, protected-page allocator demands, and PAGE_SIZE from the owner's config. It writes a **fresh** `~/s20-artifacts/hxl1-research/qemu-smc-registers-20261011/rkp-bitmap-preflight.json`, marks guest descriptor pool/memory reservation as **UNIMPLEMENTED**, and explicitly reports that the fork is **not ready** even if source checks all pass. It performs **no QEMU launch or on-device operation**. Its WSL/Actions execution result is **NOT VERIFIED** yet.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_rkp_bitmap_preflight
+python3 tools/y2q_hxl1_rkp_bitmap_preflight.py
+```
+
+**Next QEMU implementation gate:** derive a reserved guest-physical memory pool and source-consistent sparse bitmap descriptor whose pages won't be reclaimed by Linux, with strict RKP command dispatch based on **HXL1 `rkp.h`**, not fork `KDP_SET_NS_FLAGS`. Only then build a separate QEMU 10.2.2 target (avoiding `-j$(nproc)` on WSL) and compare it with the already established original QEMU trace. The factory Image must remain immutable, unknown SMCs must not return unconditional success, and current lack of Android/Linux userspace boot or KernelSU must not be promoted into success.
+
+---
+
 ## 15:04 UTC — GDB captured RKP-looking bitmap call; upstream KDP ID collision discovered
 
 ### Owner successful guest breakpoint (no source-fidelity assumptions)
