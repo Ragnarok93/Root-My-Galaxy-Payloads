@@ -223,6 +223,25 @@ Artifacts will be in `qemu-runtime-fdt-20261011`. GDB failure or a partial binar
 
 ---
 
+## 22:46 UTC — original guest full FDT is unreserved; first diagnostic -dtb canary
+
+Owner WSL confirmed the complete read-only 1 MiB original kernel-entry FDT guest memory dump using `tools/run_y2q_hxl1_qemu_runtime_fdt_capture.sh`, and the `tools.test_y2q_hxl1_qemu_runtime_fdt_compare` **16/16 unit tests passed**. Its guest FDT SHA-256 is `e842cd6cc6b7fc391420bd571dd0f9af3aec7f223101367ddcf14853bd3a7814`, at `[0x48000000,0x48100000)`. The raw FDT differs from generated `dumpdtb`, yet the **limited** semantic inventory shows zero reported differences, **0 runtime memreserve entries** and **0 runtime `/reserved-memory` regions**. There is no verified RKP physical reservation. The statement is now backed by actual kernel-entry guest memory, not just an offline generated device-tree file.
+
+**Next implementation is a harmless canary, NOT a protected-pool allocation.** The goal is to test whether an original-image QEMU `-dtb` override can carry an explicitly constructed FDT memreserve entry through the Linux handoff. A new `tools/y2q_hxl1_qemu_fdt_canary.py` creates a separate byte-exact-preserving FDT copy with only one reserve-map entry for the **already-in-use** FDT pages `[0x48000000,0x48100000)`; it does not reserve a new free page, allocate an RKP buffer or select a carveout. A second local-QEMU GDB script captures the resulting full guest FDT with a bound original `PC=0x40080000`, `X0=0x48000000`; an independent verifier refuses a missing or unexpected entry, changed RAM profile, wrong guest header or evidence mismatch. See [QEMU FDT self-reservation canary research](SM-G986U1-HXL1-QEMU-FDT-MEMRESERVE-CANARY-20261011.md).
+
+The exact **17 fixture tests passed** in [Actions run #38182029643](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38182029643) with **212/212 suite PASS**. The owner's live QEMU `-dtb` delivery evidence is still **PENDING**; success in CI cannot substitute for it. Even after an actual guest FDT memreserve delivery PASS, `ram_reservation_verified` for the protected pool **must remain FALSE** until guest Linux memblock or a stronger runtime-independent allocator-exclusion proof exists. The unrelated physical-phone unlock and KernelSU paths remain unproven.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_fdt_canary
+python3 tools/y2q_hxl1_qemu_fdt_canary.py
+bash tools/run_y2q_hxl1_qemu_fdt_canary_capture.sh
+python3 tools/y2q_hxl1_qemu_fdt_canary_verify.py
+```
+
+---
+
 ## Required proof gates before a functional QEMU adapter
 
 | Gate | Acceptance criterion | Present status |
