@@ -105,6 +105,41 @@ class OfflineImageTraceTests(unittest.TestCase):
     def test_hex_prefixed_opcode_form_parses(self):
         raw=b"IN:\n0x0000000040080100: 0xd2800000 mov x0, #0\n"
         self.assertEqual(list(t.parsed_words(raw)),[(0x40080100,0xd2800000)])
+    def test_qemu_raw_target_objd_t_bytes_correlate_to_factory_image(self):
+        # QEMU fallback decoder can emit a bare PC, then OBJD-T raw bytes.
+        # The bytes must be converted from LITTLE ENDIAN to AArch64 words.
+        raw=(b"IN: _start\n"
+             b"0x0000000040080000:\nOBJD-T: 04000014\n"
+             b"IN: kernel\n0x0000000040080100:\n"
+             b"OBJD-T: 000080d2080040f908050091c0035fd6\n")
+        image=sample_image()
+        self.assertEqual(list(t.parsed_words(raw)),[
+            (0x40080000,0x14000004),
+            (0x40080100,0xd2800000),
+            (0x40080104,0xf9400008),
+            (0x40080108,0x91000508),
+            (0x4008010c,0xd65f03c0)])
+        r=t.analyze(image,raw,b"",b"",[],len(raw))
+        self.assertEqual(r["evidenceStatus"],"FACTORY_IMAGE_INSTRUCTION_CORRELATION")
+        self.assertEqual(r["candidateImageStarts"][0]["uniqueMatchingImageOffsets"],5)
+        self.assertEqual(r["traceFormatHead"]["rawTargetHexGroups"],2)
+        self.assertFalse(r["evidenceFlags"]["factoryKernelEntryIndependentlyEstablished"])
+    def test_qemu_objd_t_split_on_byte_boundary(self):
+        raw=(b"IN:\n0x0000000040080100:\n"
+             b"OBJD-T: 0000\nOBJD-T: 80d2\n"
+             b"OBJD-T: 080040f9\n")
+        self.assertEqual(list(t.parsed_words(raw)),[
+            (0x40080100,0xd2800000),(0x40080104,0xf9400008)])
+    def test_qemu_objd_h_host_instructions_never_count(self):
+        raw=(b"IN:\n0x0000000040080000:\n"
+             b"OBJD-H: 04000014000080d2\n"
+             b"OBJD-T: 04000014\n"
+             b"OUT: [size=10]\n0x0000000040080100:\n"
+             b"OBJD-H: 080040f9\n")
+        self.assertEqual(list(t.parsed_words(raw)),[])
+    def test_nonhex_raw_group_not_treated_as_target_word(self):
+        raw=b"IN:\n0x0000000040080000:\nOBJD-T: NOTAWORD\n"
+        self.assertEqual(list(t.parsed_words(raw)),[])
     def test_original_sha_must_match(self):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/"kernel.bin";p.write_bytes(sample_image())
