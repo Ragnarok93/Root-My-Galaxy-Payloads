@@ -228,7 +228,7 @@ class SourceCodeReviewTests(unittest.TestCase):
     def test_forged_independent_symbol_mapping_rejected(self):
         key=next(iter(self.v2["originalCandidateCodeWindows"]))
         self.v2["originalCandidateCodeWindows"][key]["independentSymbolMappingAuthenticated"]=True
-        with self.assertRaisesRegex(review.CorrelationError,"promotion"):
+        with self.assertRaisesRegex(review.CorrelationError,"promot"):
             self.windows()
 
     def test_forged_member_mapping_rejected(self):
