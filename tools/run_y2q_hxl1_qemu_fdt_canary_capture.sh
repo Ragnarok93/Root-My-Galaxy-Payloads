@@ -5,7 +5,7 @@ set -euo pipefail
 readonly IMAGE_SHA=ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123
 readonly ENTRY_PC=0x40080000
 readonly FDT_PA=0x48000000
-readonly FDT_LENGTH=1048576
+readonly MAX_FDT_LENGTH=8388608
 readonly GDB_PORT=12348
 readonly TIME_LIMIT=60
 KERNEL="$HOME/s20-artifacts/kernel.bin"
@@ -38,7 +38,7 @@ magic,total,off_struct,off_strings,off_rsv=struct.unpack_from(">5I",blob)
 if (magic!=0xd00dfeed or total!=len(blob) or
     record.get("purpose")!="FDT_SELF_RESERVATION_DELIVERY_CANARY_NOT_RKP_POOL" or
     hashlib.sha256(blob[:total]).hexdigest()!=record.get("overrideFdtSha256") or
-    struct.unpack_from(">QQ",blob,off_rsv)!=(0x48000000,1048576) or
+    struct.unpack_from(">QQ",blob,off_rsv)!=(0x48000000,(total+4095)&~4095) or
     struct.unpack_from(">QQ",blob,off_rsv+16)!=(0,0)):
     sys.exit(2)
 PY
@@ -63,8 +63,14 @@ if \$pc == $ENTRY_PC && \$x0 == $FDT_PA
   printf "FDT_HEADER_AT_X0_START\\n"
   x/16bx \$x0
   printf "FDT_HEADER_AT_X0_END\\n"
-  dump binary memory $OUT/delivered-fdt.dtb \$x0 (\$x0 + $FDT_LENGTH)
-  printf "HXL1_CANARY_DUMP_COMPLETED BYTES=$FDT_LENGTH\\n"
+  set \$fdt_declared = (((unsigned long long)*(unsigned char*)(\$x0+4)) << 24) | (((unsigned long long)*(unsigned char*)(\$x0+5)) << 16) | (((unsigned long long)*(unsigned char*)(\$x0+6)) << 8) | ((unsigned long long)*(unsigned char*)(\$x0+7))
+  printf "HXL1_CANARY_GUEST_FDT_DECLARED_BYTES=%llu\\n", \$fdt_declared
+  if \$fdt_declared >= 40 && \$fdt_declared <= $MAX_FDT_LENGTH && (\$x0 + \$fdt_declared) <= 0xc0000000
+    dump binary memory $OUT/delivered-fdt.dtb \$x0 (\$x0 + \$fdt_declared)
+    printf "HXL1_CANARY_DUMP_COMPLETED BYTES=%llu\\n", \$fdt_declared
+  else
+    printf "HXL1_CANARY_INVALID_FDT_LENGTH=%llu\\n", \$fdt_declared
+  end
 else
   printf "HXL1_CANARY_ENTRY_MISMATCH PC=0x%lx X0=0x%lx\\n", \$pc, \$x0
 end
@@ -98,14 +104,32 @@ timeout --signal=INT --kill-after=3s "$TIME_LIMIT"s \
 STATUS=$?
 set -e
 printf '%s\n' "$STATUS" > "$OUT/gdb-exit-status.txt"
-if grep -qx 'HXL1_CANARY_DUMP_COMPLETED BYTES=1048576' "$OUT/gdb-session.log" &&
-   [[ -f "$OUT/delivered-fdt.dtb" ]] &&
-   [[ "$(stat -c %s "$OUT/delivered-fdt.dtb")" = "$FDT_LENGTH" ]]; then
+# Validate guest-declared totalsize, actual dump byte count and GDB marker.
+# Inserting a 16-byte FDT reserve record can grow a 1MiB DTB beyond 1MiB.
+if [[ "$STATUS" -eq 0 ]] && python3 - "$OUT" "$MAX_FDT_LENGTH" <<'PY'
+import pathlib,re,struct,sys
+p=pathlib.Path(sys.argv[1])
+maximum=int(sys.argv[2])
+session=(p/"gdb-session.log").read_text(errors="replace")
+m=re.findall(r"(?m)^HXL1_CANARY_DUMP_COMPLETED BYTES=(\d+)$",session)
+decl=re.findall(r"(?m)^HXL1_CANARY_GUEST_FDT_DECLARED_BYTES=(\d+)$",session)
+if len(m)!=1 or len(decl)!=1:raise SystemExit(3)
+dump=p/"delivered-fdt.dtb"
+if not dump.is_file():raise SystemExit(3)
+raw=dump.read_bytes()
+if len(raw)<40:raise SystemExit(3)
+magic,total=struct.unpack_from(">II",raw)
+if not (magic==0xd00dfeed and 40<=total<=maximum and
+        len(raw)==total==int(m[0])==int(decl[0])):
+    raise SystemExit(3)
+print("[GUEST DECLARED FDT BYTES]",total)
+PY
+then
     sha256sum "$OUT/delivered-fdt.dtb" > "$OUT/delivered-fdt.sha256"
-    echo "[CAPTURE] Full guest FDT delivered at original entry via custom -dtb"
+    echo "[CAPTURE] Complete guest-declared FDT read at original entry via custom -dtb"
     echo "[DTB] $OUT/delivered-fdt.dtb"
 else
-    echo "[INCONCLUSIVE] Guest canary FDT not fully captured; see GDB/QEMU logs" >&2
+    echo "[INCONCLUSIVE] DTB header totalsize/dump mismatch; see GDB/QEMU logs" >&2
     echo "[GDB] $OUT/gdb-session.log"
     exit 3
 fi
