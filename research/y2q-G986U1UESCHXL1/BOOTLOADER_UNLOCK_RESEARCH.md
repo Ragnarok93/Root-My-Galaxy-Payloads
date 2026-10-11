@@ -1334,6 +1334,113 @@ unverified ARM64 function return type.
 
 ---
 
+
+## October 11, 14:46 UTC — native W0 return from DAT_00351055 confirmed
+
+Owner executed original-source Ghidra full ARM64 instruction queries and
+precise global cross-references. Unlike its independent Ghidra pseudocode,
+the original 0x33770 function **returns a byte in W0**.
+
+Original LinuxLoader source SHA256:
+5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003.
+
+Native original 0x33770 Evidence:
+ev_c2c388eccbf434e1faebe3fd75cb88897560969cfdf2986ba83efd4dd83b9442.
+
+Native original 0xb2bc Evidence:
+ev_47381653319d3180041dc12edfe9b647c9dfed74a5d2ecbcb814125684b9c26b.
+
+**Critical native read/return chain:**
+
+    0x337c4: adrp x8, 0x351000
+    0x337c8: add  x8, x8, #0x48
+    0x337d0: ldrb w0, [x8, #0xd]   // W0 <- byte at 0x351055
+    0x337d4: ldr  x8, [sp, #0x8]
+    0x337d8: ldr  x9, [x9, #0x4b8]
+    0x337dc: cmp  x9, x8
+    0x337e0: b.ne 0x000337f0
+    0x337e4: ldr  x30, [sp, #0x10]
+    0x337e8: add  sp, sp, #0x20
+    0x337ec: ret
+
+The normal return epilogue does not overwrite W0.
+The native log path also reads the byte using
+0x337b0: ldrb w3,[x8,#0xd].
+The alternate guard-failure path branches to
+0x337f0: bl 0x1e81c; its separate noreturn semantics are
+not proved by these instructions.
+
+In the original AVB wrapper:
+
+    0xb2c8: bl   0x00033770
+    0xb2cc: mov  w8, w0
+    0xb2d0: mov  w0, wzr
+    0xb2d4: strb w8, [x19]
+
+Thus the AVB callback stores the global-derived byte in its
+output pointer and independently sets its status to success.
+The NULL-output error branch sets W0=2 at 0xb300.
+
+The previous 0x33770 **void pseudocode** is misleading for
+its actual native return behavior. The byte-return **read**
+is supported; the true **writer**, validation, initialization,
+and security-authoritative source remain **UNKNOWN**.
+
+### Original global cross-reference inventory
+
+The owner's SHA-pinned REA xrefs at **0x351055**
+(Evidence ev_19efe980bf7ae254bd4e96656222ff7a2fc58172ca61e869d985d0d5f26bbb11)
+enumerated exactly 10 source coordinates:
+
+- Confirmed read instructions: 0x337b0, 0x337d0
+- Remaining eight Ghidra source addresses:
+  0x33ccc, 0x33ce8, 0x33d08, 0x33ee0,
+  0x34278, 0x34294, 0x343b0, 0x343cc
+
+The very common DAT_0032a4b8 global has **2643 xrefs**
+(Evidence ev_cc9e554aabb105234cabbe2f30afd31b6f62288de68591c3ea82d620be1019ac).
+Its observed guard-style load/compare is not evidence of
+a device-unlock data producer.
+
+### Targeted bounded original xref opcode inspection
+
+Committed:
+- tools/y2q_hxl1_rea_avb_byte_writers.py
+- tools/test_y2q_hxl1_rea_avb_byte_writers.py
+- tools/run_y2q_hxl1_rea_avb_byte_writers.sh
+
+Before querying, the analyzer verifies:
+- original BL/firmware SHA256 and saved Ghidra evidence;
+- both 0xb2bc and 0x33770 native listings and exact return
+  byte/epilogue/AVB output transfer instruction sequences;
+- exact original 10-item DAT_00351055 cross-reference set.
+
+It then issues up to **eight** source-bounded
+inspect-native-instruction queries, one for each remaining
+xref, caches each source-attested answer, and reports
+instruction mnemonics and owning function addresses.
+An ADRP reference is not a memory write, and an isolated
+STRB must not be assumed to write the global absent native
+address/alias proof.
+
+Owner WSL:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_byte_writers.sh
+~~~
+
+Output:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-byte-writer-sites.md
+
+No original firmware, handset state, signed image or secure
+storage is modified. The existence of a readable boot-status
+global does not establish a route to bootloader unlocking,
+AVB acceptance, or OEM flash authorization.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
