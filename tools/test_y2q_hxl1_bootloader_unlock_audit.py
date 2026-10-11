@@ -11,6 +11,7 @@ import unittest
 
 import lz4.frame
 from tools import y2q_hxl1_bootloader_unlock_audit as audit
+from tools.test_y2q_abl_linuxloader_extract import fake_abl
 
 
 def fixture_archive(path: Path, images: dict[str, bytes], *,
@@ -89,6 +90,29 @@ class BootloaderUnlockAuditTests(unittest.TestCase):
         self.assertEqual(report["abl.elf"]["status"], "DIFFERENT")
         self.assertEqual(report["vbmeta.img"]["status"], "IDENTICAL")
         self.assertEqual(report["vaultkeeper.mbn"]["status"], "MISSING_SIDE")
+
+    def test_nested_uefi_guid_and_pe_identification(self):
+        original = fake_abl()
+        indexed = audit.nested_uefi_modules(original)
+        self.assertEqual(indexed["status"], "SCAN_COMPLETED")
+        self.assertEqual(indexed["firmwareVolumes"], 2)
+        self.assertGreaterEqual(indexed["ffsEntries"], 2)
+        self.assertEqual(indexed["qualifiedPeCount"], 1)
+        module = indexed["peModules"][0]
+        self.assertEqual(module["ui"], "LinuxLoader")
+        self.assertEqual(module["coffMachine"], "0xaa64")
+        self.assertFalse(indexed["unlockImplementationAuthenticated"])
+
+        both = audit.compare(audit.describe({"abl.elf": original}),
+                             audit.describe({"abl.elf": original}))
+        nested = both["abl.elf"]["uefiModuleComparison"]
+        self.assertEqual(len(nested["matchedFileGuids"]), 1)
+        self.assertTrue(nested["matchedFileGuids"][0]["sameSetOfExecutableHashes"])
+
+    def test_absent_uefi_is_not_unlock_evidence(self):
+        info = audit.nested_uefi_modules(b"plain image without UEFI volumes")
+        self.assertEqual(info["qualifiedPeCount"], 0)
+        self.assertFalse(info["unlockImplementationAuthenticated"])
 
     def test_single_archive_baseline_and_comparison(self):
         with tempfile.TemporaryDirectory() as td:
