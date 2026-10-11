@@ -109,9 +109,9 @@ def scan_log(path:Path)->dict:
 
 def logs_to_check(root:Path,explicit:list[Path])->list[Path]:
     if explicit:
-        if len(explicit)>MAX_LOGS:
-            raise BlockerError("Too many explicit historical logs")
         selected=list(dict.fromkeys(p.expanduser().absolute() for p in explicit))
+        if len(selected)>MAX_LOGS:
+            raise BlockerError("Too many distinct explicit historical logs")
         for p in selected:
             if p.is_symlink() or not p.is_file():
                 raise BlockerError("Explicit --log does not exist or is not a regular file: "+str(p))
