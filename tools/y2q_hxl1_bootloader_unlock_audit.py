@@ -239,6 +239,8 @@ def run(hxl1_path: Path, comparator_path: Path | None, output: Path, *,
         pin_hash: str = HXL1_BL_SHA256,
         pin_bytes: int = HXL1_BL_BYTES,
         export: bool = False) -> dict:
+    if comparator_path and hxl1_path.resolve() == comparator_path.resolve():
+        raise TriageError("HXL1 and comparator must not be the same archive")
     sources = [hxl1_path] + ([comparator_path] if comparator_path else [])
     if comparator_path and not comparator_path.name.startswith("BL_G9860"):
         raise TriageError("comparator BL filename must begin BL_G9860")
@@ -248,8 +250,6 @@ def run(hxl1_path: Path, comparator_path: Path | None, output: Path, *,
         resolved, target = source.resolve(), output.resolve()
         if target == resolved.parent or resolved.parent in target.parents:
             raise TriageError("reports must be outside input firmware archive directories")
-    if comparator_path and hxl1_path.resolve() == comparator_path.resolve():
-        raise TriageError("HXL1 and comparator must not be the same archive")
     hxl1, hxl1_data = load_archive(
         hxl1_path, expected_digest=pin_hash, expected_bytes=pin_bytes)
     comp, comp_data = (load_archive(comparator_path)
