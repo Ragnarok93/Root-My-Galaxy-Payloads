@@ -1707,7 +1707,7 @@ function xrefs and Ghidra 0x2ae38 storage helper function.
 Those are Ghidra reference sites, not yet verified
 native BL call instructions or known caller W0 inputs.
 
-### Next source-attested, at most seven static Ghidra queries
+### Extended source-attested, at most nine static Ghidra queries
 
 Committed:
 - tools/y2q_hxl1_rea_avb_setter_callers.py
@@ -1722,6 +1722,18 @@ xref instructions. Only for the two setter xrefs
 0x33a08/0x33b20 that are decoded as an actual
 direct native branch to 0x33c88 will it request
 a Ghidra decompilation of the containing caller.
+For validated BL direct-call sites it additionally
+queries the complete original native instructions at
+the Ghidra-assigned containing function entry, caching
+by owner entry (so both sites share one source query if
+Ghidra identifies the same enclosing function).
+
+The updated bounded report now includes a native
+disassembly window before/after the BL call, plus a
+source-addressed list of possible W0 producer instructions.
+That lexical list is NOT a control-flow-aware reaching
+definition and is NOT proof that any specific register
+value is authorized or remotely controllable.
 
 It does not assume the initializer xrefs are all
 call sites, or that decompiler pseudocode proves
@@ -1746,6 +1758,13 @@ New original SHA-bound evidence:
 - LinuxLoader/instruction-caller-0x5c19c.json
 - Conditional function-caller-0x33a08.json
 - Conditional function-caller-0x33b20.json
+- Conditional instructions-caller-owner-<Ghidra-entry>.json
+  (one per unique source-verified function entry)
+
+The update includes unit regression cases for exact
+native BL matching, mismatched destination fail-closed
+behavior, cached shared native-owner Evidence and
+unresolved branch/argument provenance.
 
 Read-only original firmware analysis; no confirmed
 OEM flash signature bypass, protected-state modification
