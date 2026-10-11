@@ -73,6 +73,32 @@ The output directory **must not already exist**. The script captures `serial-con
 - First Linux boot banner: meaningful original-Image boot progress, but still not a successful source-faithful guest.
 - Panic or exception logs: retain original stack/PC and check **which** HXL1 initialization dependency failed; only then consider porting one clearly identified fork emulation handler.
 
+## 13:37 UTC owner-run trace attestor failure and correction
+
+The owner pulled through `da72394` and executed `tools.test_y2q_hxl1_qemu_trace_attest`, then the real offline trace analyzer. **4 of 10 tests passed and 6 errored** (not an assertion failure or stock kernel failure). The identical traceback in six tests and the real analyzer was:
+
+```text
+tools/y2q_hxl1_qemu_trace_attest.py:135
+"factoryImageCorrelatedInTail": any(
+    r["multiInstructionBinaryCorrelation"] for r in tail_results)
+TypeError: string indices must be integers, not 'str'
+```
+
+**Cause:** In `analyze()`, `tail_results` initially held the `match_words` result list, then was reassigned to a dictionary keyed by `candidateImagePhysicalStart`; the final `for r in tail_results` loop iterated dictionary string keys. This occurred after the successful original Image SHA check and after reading the existing saved QEMU trace, preventing output report generation. It **does not** establish any success/failure of factory kernel boot or opcode correlation.
+
+**Remediation already committed:** retain original tail list as `tail_records`, construct a separate dictionary for lookup, and evaluate the tail-correlation flag over `tail_records`. Two additional tests assert empty-head/empty-tail produces no false correlation and simultaneous head/tail matches remain independent, bringing the suite to **12** tests. No additional QEMU launch, extraction, or kernel source scan is needed. The new suite has **not yet been independently run on the owner's WSL**; no PASS is claimed. On owner WSL, run:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_trace_attest
+python3 tools/y2q_hxl1_qemu_trace_attest.py
+```
+
+This should consume the original **already retained** `qemu-first-failure-20261011/tcg-instructions.log` and `serial-console.log`. If it emits `[STOP] Refuse report overwrite...`, inspect whether an output file exists and specify a fresh `--output` path instead of deleting the original evidence. Share the resulting compact JSON, not the multi-megabyte TCG log unless the report is insufficient.
+
+---
+
 ## 13:28 UTC follow-up — offline existing-trace image opcode attestation
 
 New committed offline analyzer `tools/y2q_hxl1_qemu_trace_attest.py` and synthetic tests `tools/test_y2q_hxl1_qemu_trace_attest.py` consume the **already completed** `qemu-first-failure-20261011` trace, serial log and SHA-pinned unmodified `kernel.bin`. This process NEVER runs QEMU. It samples at most 12 MiB of trace head and 3 MiB of trace tail, compares actual ARM64 translated PC/opcode pairs to the bytes at matching offsets in the original factory Image, and reports any matches/mismatches under candidate Image physical start addresses.
