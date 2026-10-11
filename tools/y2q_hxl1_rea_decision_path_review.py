@@ -79,7 +79,7 @@ def candidate_context(code: str) -> dict:
         "lineCount": len(lines), "matchingLineCount": len(matches),
         "matchingLineNumbers": [i + 1 for i in matches[:24]],
         "matchingLinesTruncated": len(matches) > 24,
-        "excerptTruncated": len(selected) < len(chosen),
+        "excerptTruncated": len(selected) < len(chosen) or len(matches) > 24,
         "selectedLines": [
             {"number": i + 1, "text": lines[i][:300]}
             for i in selected
@@ -167,7 +167,7 @@ def to_markdown(result: dict) -> str:
     lines = [
         "# HXL1 OEM unlock and verified-boot — original Ghidra code dossier",
         "", "**Verified references only; no exploit or unlock demonstrated.**",
-        "", f"- Original BL SHA256: \`{result['originalArchiveSha256']}\`",
+        "", f"- Original BL SHA256: `{result['originalArchiveSha256']}`",
         f"- Independently linked search → xrefs → function dossiers: "
         f"**{result['qualifiedFunctionReferences']} / {result['expectedFunctionReferences']}**",
         "- Function entries and string locations are STATIC Ghidra addresses.",
@@ -176,13 +176,13 @@ def to_markdown(result: dict) -> str:
     for item in result["references"]:
         lines += [
             f"## {item['module']}: {item['hypothesis']}", "",
-            f"- Binary: \`{item['originalSha256']}\`",
-            f"- String address: \`{item['stringAddress']}\` / xref source: "
-            f"\`{item['xrefSource']}\`",
-            f"- Owning function: **\`{item['ghidraFunctionEntry']}\`**",
-            f"- Ghidra evidence IDs: search \`{item['searchEvidenceId']}\`, "
-            f"xrefs \`{item['xrefsEvidenceId']}\`, "
-            f"function \`{item['functionEvidenceId']}\`",
+            f"- Binary: `{item['originalSha256']}`",
+            f"- String address: `{item['stringAddress']}` / xref source: "
+            f"`{item['xrefSource']}`",
+            f"- Owning function: **`{item['ghidraFunctionEntry']}`**",
+            f"- Ghidra evidence IDs: search `{item['searchEvidenceId']}`, "
+            f"xrefs `{item['xrefsEvidenceId']}`, "
+            f"function `{item['functionEvidenceId']}`",
             f"- HighFunction p-code available: {item['pcodeAvailable']}",
             f"- Code lines matching security topics: "
             f"{item['codeContext']['matchingLineCount']}",
