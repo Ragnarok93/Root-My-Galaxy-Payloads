@@ -100,7 +100,7 @@ Full owner WSL report: `~/s20-artifacts/hxl1-research/qemu-smc-registers-2026101
 
 ### Exact HXL1 source audit now committed
 
-`tools/y2q_hxl1_rkp_bitmap_abi_audit.py` reads `~/src/samsung-y2q-hxl1-stock/include/linux/{uh,rkp}.h` (not third-party source), hashes the two owner source files, validates original GDB `PC`, `d4000003`, `X0…X6`, compares source macro-expansion and `rkp_robuffer_init()` call shape, and independently checks whether the **recovered/approximate** `vmlinux-stock.nm` symbol for `rkp_s_bitmap_buffer` equals X2. If no exact symbol exists, it reports that separately rather than fabricating one. It writes a new (non-overwriting) `qemu-smc-registers-20261011/rkp-bitmap-source-abi.json`. Fifteen **synthetic** regressions committed, but their owner/CI pass and exact HXL1 source match are **not yet observed**.
+`tools/y2q_hxl1_rkp_bitmap_abi_audit.py` reads `~/src/samsung-y2q-hxl1-stock/include/linux/{uh,rkp}.h` (not third-party source), hashes the two owner source files, validates original GDB `PC`, `d4000003`, `X0…X6`, compares source macro-expansion and `rkp_robuffer_init()` call shape, and independently checks whether the **recovered/approximate** `vmlinux-stock.nm` symbol for `rkp_s_bitmap_buffer` equals X2. If no exact symbol exists, it reports that separately rather than fabricating one. It writes a new (non-overwriting) `qemu-smc-registers-20261011/rkp-bitmap-source-abi.json`. Eighteen **synthetic** regressions committed, but their owner/CI pass and exact HXL1 source match are **not yet observed**.
 
 ```bash
 cd ~/src/Root-My-Galaxy-Payloads
