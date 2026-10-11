@@ -315,7 +315,7 @@ def resolve_report_path(requested:Path, source_root:Path, *, explicit:bool)->Pat
                                ", ".join(blocked)+
                                "; choose a fresh JSON filename (original evidence preserved)")
     prefix=out.stem
-    match=re.fullmatch(r"(.+)-(\\d{2,})",prefix)
+    match=re.fullmatch(r"(.+)-(\d{2,})",prefix)
     if match:
         prefix=match.group(1)
         start=int(match.group(2))+1
