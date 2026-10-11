@@ -73,6 +73,36 @@ The output directory **must not already exist**. The script captures `serial-con
 - First Linux boot banner: meaningful original-Image boot progress, but still not a successful source-faithful guest.
 - Panic or exception logs: retain original stack/PC and check **which** HXL1 initialization dependency failed; only then consider porting one clearly identified fork emulation handler.
 
+## 13:43 UTC — no recognized opcode lines; trace-dialect fix
+
+Owner pulled through `bc86ca1` and reran the **original existing trace analysis**, with **12/12 synthetic tests PASSED**. Actual saved trace result:
+
+```text
+[EVIDENCE] NO_FACTORY_IMAGE_INSTRUCTION_CORRELATION_IN_SAMPLED_TRACE
+[TRACE OPCODES] 0
+[BASE] 0x40080000 compared 0 matched 0 tail-matched 0 entry-word False
+[BASE] 0x80080000 compared 0 matched 0 tail-matched 0 entry-word False
+[REPORT] /home/main/s20-artifacts/hxl1-research/qemu-first-failure-20261011/offline-trace-attestation.json
+```
+
+**Interpretation corrected:** zero parsed opcode lines means **zero image comparisons attempted**; it is not evidence that the factory kernel did not execute or that all candidate load addresses mismatch. Prior QEMU tool already independently established `IN:` translation-block markers. An unrecognized QEMU logging dialect (e.g. bare PC plus `OBJD-T:` raw hexadecimal guest bytes, or disassembly-only without machine words) is one plausible cause; truncated sampling or logging anomalies remain possible until raw lines are inspected.
+
+**Committed parsing and diagnostic improvements:** `tools/y2q_hxl1_qemu_trace_attest.py` now reports a distinct `PC_ADDRESSES_PRESENT_BUT_NO_PARSEABLE_OPCODE_WORDS` or `IN_ASM_SECTIONS_PRESENT_BUT_PC_FORMAT_UNKNOWN` status where appropriate, prints selected escaped log lines and PC-address samples on zero parsed words, and supports a second QEMU `-d in_asm` fallback format with bare `0xPC:` lines followed by `OBJD-T:` little-endian target instruction bytes. `OBJD-H:` host-JIT bytes are never treated as guest AArch64 words. Nineteen unit tests are committed (older 12 plus seven trace-format fixtures), but **the current 19-test suite and real original trace parsing have not yet been rerun on WSL**. A focused manual check of `OBJD-T` little-endian byte reconstruction passed in the assistant environment; this is not a substitute for WSL.
+
+Use **the original existing QEMU trace**, not a new QEMU boot. Existing output `offline-trace-attestation.json` must be kept immutable. Choose a fresh report path:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_trace_attest
+python3 tools/y2q_hxl1_qemu_trace_attest.py \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-first-failure-20261011/offline-trace-format-v2.json"
+```
+
+If this produces `[TRACE OPCODES] 0` again, the diagnostic will print first log lines and QEMU-PC samples, allowing us to extend the parser based on the **real format** rather than speculative addresses or guest patches. A matched opcode sequence is still only original-Image code correlation, not a complete Linux boot or root primitive.
+
+---
+
 ## 13:37 UTC owner-run trace attestor failure and correction
 
 The owner pulled through `da72394` and executed `tools.test_y2q_hxl1_qemu_trace_attest`, then the real offline trace analyzer. **4 of 10 tests passed and 6 errored** (not an assertion failure or stock kernel failure). The identical traceback in six tests and the real analyzer was:
