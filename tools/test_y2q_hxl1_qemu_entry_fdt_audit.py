@@ -98,7 +98,7 @@ class EntryFdtTests(unittest.TestCase):
         # The inventory computes SHA-256 over the declared DTB byte length.
         # File-level alignment/padding outside that size is not FDT content.
         with patch.object(a,"PINNED_DTB_SHA",hashlib.sha256(original).hexdigest()):
-            output=a.correlate(g,boot_report(),original+b"\\x00"*16)
+            output=a.correlate(g,boot_report(),original+b"\x00"*16)
         self.assertTrue(output["entry"]["guestFdtPointerValidated"])
         self.assertFalse(output["qemuRkpGuestMemoryAdapterReady"])
 
