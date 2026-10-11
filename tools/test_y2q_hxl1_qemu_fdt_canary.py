@@ -38,15 +38,17 @@ def gdblog(delivered:bytes)->str:
     for offset in (0,8):
         cells="  ".join(f"0x{b:02x}" for b in delivered[offset:offset+8])
         parts.append(f"0x{x0+offset:x}:  {cells}")
-    parts.extend(['FDT_HEADER_AT_X0_END',verify.MARKER])
+    parts.extend(['FDT_HEADER_AT_X0_END',
+                  verify.DECLARED_MARKER+str(len(delivered)),
+                  verify.MARKER+str(len(delivered))])
     return "\n".join(parts)+"\n"
 
 class FdtCanaryTests(unittest.TestCase):
     def setUp(self):
-        self.orig=make_dtb(reserve=(),reserved=False)
+        self.orig=padded(make_dtb(reserve=(),reserved=False))
         self.override,self.manifest=canary.make_canary(self.orig,check_pinned=False)
-        self.baseline=padded(self.orig)
-        self.guest=padded(self.override)
+        self.baseline=self.orig
+        self.guest=self.override
 
     def probe(self,guest=None,log=None,manifest=None,override=None):
         return verify.report_delivery(
@@ -60,7 +62,7 @@ class FdtCanaryTests(unittest.TestCase):
         prior=fdt.parse_fdt(self.orig)
         new=fdt.parse_fdt(self.override)
         self.assertEqual(new["memoryReservationEntries"],[
-            {"start":"0x48000000","endExclusive":"0x48100000","sizeBytes":1048576}])
+            {"start":"0x48000000","endExclusive":"0x48101000","sizeBytes":1052672}])
         self.assertEqual(prior["memoryRanges"],new["memoryRanges"])
         self.assertEqual(prior["nodeCount"],new["nodeCount"])
         self.assertEqual(prior["chosenInitrd"],new["chosenInitrd"])
@@ -89,9 +91,53 @@ class FdtCanaryTests(unittest.TestCase):
         report=self.probe()
         self.assertTrue(report["diagnosticCanaryDelivered"])
         self.assertEqual(report["deliveredGuestFdtPhysicalAddress"],"0x48000000")
-        self.assertEqual(report["deliveredSelfReservation"]["sizeBytes"],1048576)
+        self.assertEqual(report["deliveredSelfReservation"]["sizeBytes"],1052672)
+        self.assertEqual(report["deliveredGuestFdtTotalSize"],1048592)
+        self.assertTrue(report["captureLengthMatchesDeclaredFdtBytes"])
         self.assertFalse(report["hxl1RkpProtectedPoolReserved"])
         self.assertFalse(report["linuxMemblockReservationObserved"])
+
+    def test_mib_boundary_canary_addition_requires_more_than_one_mib(self):
+        self.assertEqual(len(self.orig),1048576)
+        self.assertEqual(len(self.override),1048592)
+        self.assertEqual(self.manifest["overrideFdtTotalSizeBytes"],1048592)
+        self.assertEqual(self.manifest["addedMemreserve"]["sizeBytes"],1052672)
+        self.assertEqual(self.manifest["fdtReservationPageAlignment"],4096)
+
+    def test_old_fixed_one_mib_dump_is_rejected_with_exact_size_diagnostic(self):
+        bad=self.guest[:1048576]
+        with self.assertRaisesRegex(verify.DeliveryError,
+                                    "header totalsize=1048592 bytes, captured=1048576"):
+            self.probe(guest=bad,log=gdblog(self.guest))
+
+    def test_mismatched_gdb_declared_size_is_rejected(self):
+        log=gdblog(self.guest).replace(
+            verify.DECLARED_MARKER+str(len(self.guest)),
+            verify.DECLARED_MARKER+"1048576")
+        with self.assertRaisesRegex(verify.DeliveryError,"complete header-sized"):
+            self.probe(log=log)
+
+    def test_missing_guest_header_length_marker_is_rejected(self):
+        log=gdblog(self.guest).replace(
+            verify.DECLARED_MARKER+str(len(self.guest)),"")
+        with self.assertRaisesRegex(verify.DeliveryError,"complete header-sized"):
+            self.probe(log=log)
+
+    def test_guest_fdt_larger_than_page_rounded_reservation_refused(self):
+        size=1052673
+        guest=bytearray(self.guest)
+        struct.pack_into(">I",guest,4,size)
+        guest.extend(bytes(size-len(guest)))
+        with self.assertRaisesRegex(verify.DeliveryError,"complete page-rounded FDT"):
+            self.probe(guest=bytes(guest),log=gdblog(bytes(guest)))
+
+    def test_launcher_does_not_assume_one_mib_after_memreserve_insertion(self):
+        sh=CAPTURE.read_text()
+        self.assertIn("HXL1_CANARY_GUEST_FDT_DECLARED_BYTES",sh)
+        self.assertIn("fdt_declared",sh)
+        self.assertIn("len(raw)==total",sh)
+        self.assertNotIn("FDT_LENGTH=1048576",sh)
+        self.assertIn("MAX_FDT_LENGTH=8388608",sh)
 
     def test_guest_without_canary_fails_closed(self):
         with self.assertRaisesRegex(verify.DeliveryError,"not present exactly"):
