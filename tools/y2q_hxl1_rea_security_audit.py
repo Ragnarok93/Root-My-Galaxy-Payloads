@@ -267,7 +267,9 @@ class Runner:
         self.planned: list[list[str]] = []
 
     def obtain(self, target: Target, args: list[str], dest: Path, *,
-               operation: str, parameter: str, value: str) -> dict | None:
+               operation: str, parameter: str, value: str,
+               trace_offset: int | None = None,
+               trace_limit: int | None = None) -> dict | None:
         # Never treat a partial prior query as valid complete Evidence.
         tmp = dest.with_suffix(dest.suffix + ".partial")
         err = dest.with_suffix(dest.suffix + ".stderr.txt")
@@ -278,9 +280,11 @@ class Runner:
                 validated_trace, recover_partial_trace,
             )
             if dest.is_file():
-                return validated_trace(dest, sha=target.sha256, entry=value)
+                return validated_trace(dest, sha=target.sha256, entry=value,
+                                       offset=trace_offset, limit=trace_limit)
             if self.recover_partials and tmp.exists() and self.run_commands:
-                recovered = recover_partial_trace(dest, sha=target.sha256, entry=value)
+                recovered = recover_partial_trace(dest, sha=target.sha256, entry=value,
+                                                  offset=trace_offset, limit=trace_limit)
                 if recovered is not None:
                     return recovered
         else:
@@ -312,7 +316,8 @@ class Runner:
             if tmp.stat().st_size > MAX_JSON:
                 raise TriageError(f"REA Evidence too large; partial retained at {tmp}")
             if operation == "trace_native_values":
-                obj = validated_trace(tmp, sha=target.sha256, entry=value)
+                obj = validated_trace(tmp, sha=target.sha256, entry=value,
+                                      offset=trace_offset, limit=trace_limit)
             else:
                 obj = evidence(tmp, sha=target.sha256, operation=operation,
                                parameter=parameter, value=value)
