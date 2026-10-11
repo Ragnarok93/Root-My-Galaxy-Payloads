@@ -381,3 +381,28 @@ Expected reports:
 - `~/s20-artifacts/hxl1-research/kernel-dwarf-gap-triage.json`
 
 Even a full experimental DWARF struct DIE does **not** authenticate an OEM kernel type layout. No flash, ADB, or connected S20+ is needed.
+
+
+## October 10, 2026 — owner DWARF gap triage identifies two truly missing object outputs
+
+The owner's `bash tools/run_y2q_hxl1_dwarf_gap_triage.sh` completed **141/141 tests PASS** after pulling `cbe1780`. The exact stock Samsung source/kernel and generated Clang18 `.config` pins matched. The retained Clang18 partial build consists of 85 objects, of which 77 are AArch64 ELF relocatables and 72 contain DWARF. Additional independent `readelf --debug-dump=info` inspection distinguishes missing compiled objects from forward declarations:
+
+- `kernel/locking/rtmutex.o` — **OBJECT_MISSING**, no retained `.rtmutex.o.cmd` build command.
+- `kernel/futex.o` — **OBJECT_MISSING**, no retained `.futex.o.cmd` build command.
+- `init/init_task.o`, `init/main.o`, `arch/arm64/kernel/process.o` and `arch/arm64/kernel/fpsimd.o` — `rt_mutex_waiter` forward/incomplete DWARF DIE only (one each), zero complete `rt_mutex` DIEs. All four retained Kbuild `.cmd` files indicate `-g` debugging is enabled; none has a proven factory layout.
+
+**Critical distinction:** The missing two objects do **not** prove either source file had a compiler error. The partial build may have stopped before Kbuild attempted these targets. The historical Build-10 tail was reported as reaching `arch/arm64/mm/cache.o`, without the original failure diagnostic. No kernel offsets, CVE exploit path, physical load, boot state or KernelSU is established.
+
+To resolve this without guessing, `tools/y2q_hxl1_target_build_blockers.py` and `tools/run_y2q_hxl1_target_build_blockers.sh` now inspect the original Samsung Kbuild selection rules, stock configuration gates and **bounded historical build-log tails**, with optionally explicit log paths. Target-matching errors and unrelated compilation failures remain separate evidence classes, and missing build-log evidence is explicitly labelled **UNRESOLVED**. This is a completely **read-only** pass; it cannot compile or alter kernel source, build outputs, firmware or a connected device.
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_target_build_blockers.sh
+
+If the relevant prior compiler output is outside the discovered `~/s20-artifacts` location, use:
+
+    bash tools/run_y2q_hxl1_target_build_blockers.sh --log /absolute/path/to/prior-build.log
+
+Report: `~/s20-artifacts/hxl1-research/kernel-target-build-blockers.md` and `.json`.
+
+A future debug build, if justified by actual compiler logs, should use a **separate O= output directory**, preserve the original source and pinned Clang18 `.config`, and remain non-deployable. A successful new Clang18 DWARF type definition would be provisional research information, not the OEM factory Clang10 ABI or permission to install KernelSU.
