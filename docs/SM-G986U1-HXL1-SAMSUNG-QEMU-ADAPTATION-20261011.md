@@ -73,6 +73,35 @@ The output directory **must not already exist**. The script captures `serial-con
 - First Linux boot banner: meaningful original-Image boot progress, but still not a successful source-faithful guest.
 - Panic or exception logs: retain original stack/PC and check **which** HXL1 initialization dependency failed; only then consider porting one clearly identified fork emulation handler.
 
+## 14:38 UTC owner QEMU exceptions — first evidence of concrete original-kernel faults
+
+The owner ran `tools.test_y2q_hxl1_qemu_exception_summary` **9/9 PASS** and `python3 tools/y2q_hxl1_qemu_exception_summary.py` directly with **success**. It checked the entire retained QEMU log (`216857` bytes; `[PARTIAL] False`) and authenticated the earlier `270` distinct stock Image-offset opcode correlations at candidate QEMU PC `0x40080000`; `[MISMATCH COMPARISONS] 0`.
+
+**Three actual exception entries** were present in the saved `-d int` log:
+
+| Captured QEMU exception | ELR | ESR | FAR | Initial ARM64 syndrome interpretation |
+|---|---|---|---|---|
+| Undefined Instruction, EL1→EL1 | `0xffffff80080a5794` | `0x02000000` | not reported | EC=0x00, unknown/uncategorized; must inspect original opcode |
+| Data Abort, EL1→EL1 | `0xffffff80082ac90c` | `0x96000005` | `0x58` | EC=0x25, DFSC=0x05 (level-1 translation fault), WnR=0 (read) |
+| Data Abort, EL1→EL1 | `0xffffff80086de39c` | `0x96000005` | `0x10` | Same data-abort class at a different near-null virtual address |
+
+The sample's **first translated PC** is `0x40000000` (QEMU loader region), and the **last translated PC** is `0xffffff8008146aec`. Neither is established as the last instruction actually executed. `[MATCHES END] 0x2580280…0x2580290` lists the greatest *offsets by numeric address* that matched the original binary, not the last execution stage or the first exception.
+
+Using the prior `vmlinux-to-elf` **reconstructed/guessed** image VA base `0xffffff8008080000`, the ELRs map to possible raw Image offsets `0x25794`, `0x22c90c`, and `0x65e39c`. Treat these as **candidate** mappings until verified against original instruction bytes. The two FARs are compatible with null-related pointer dereferences, **but no actual pointer origin, function identity, or platform dependency has yet been demonstrated**. The Undefined Instruction may be a deliberate trap or unsupported instruction; its original word must be decoded before choosing an emulator CPU feature. The exceptions themselves demonstrate a guest encountered faults—not that an exploit or intended init completed.
+
+**New committed offline original-opcode fault-site tool:** `tools/y2q_hxl1_qemu_fault_sites.py` and `tools/test_y2q_hxl1_qemu_fault_sites.py`. The tool validates the SHA-pinned `kernel.bin`, uses `exception-summary.json`, extracts a bounded byte window at each candidate ELR, optionally cross-references the earlier `vmlinux-stock.nm` (nearest-lower recovered symbol labeled explicitly unverified), decodes ESR/DFSC/WnR, and attempts `aarch64-linux-gnu-objdump` **on just the original instruction bytes**. It does not patch the kernel, rerun QEMU, access the handset or claim guest correctness. The thirteen new tests are wired into `.github/workflows/hxl1-cleanup-model.yml`, but full owner/CI success for those newly committed tests is **not yet verified**.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_fault_sites
+python3 tools/y2q_hxl1_qemu_fault_sites.py
+```
+
+Fresh report location: `~/s20-artifacts/hxl1-research/qemu-first-failure-20261011/original-fault-sites.json`. It contains the original word windows and disassembly; use it to decide which **specific** guest CPU-instruction fault or null pointer access needs platform adaptation. **Do not rebuild the Samsung-QEMU fork or patch the original kernel until those faulting instructions are identified.** It is possible the three exceptions are recoverable boot-time probes, not the final reason for missing printk; do not assume any one exception is fatal without executed-block progression.
+
+---
+
 ## 14:01 UTC — actual HXL1 factory-image translation verified
 
 **Owner WSL result:** `python3 -m unittest -v tools.test_y2q_hxl1_qemu_trace_attest` reported **19/19 PASS** (zero skip/error). Running the corrected `OBJD-T:`-capable parser against the prior retained 15-second QEMU log produced:
