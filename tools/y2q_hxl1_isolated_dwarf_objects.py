@@ -17,8 +17,13 @@ import shutil
 import subprocess
 import sys
 
+# Older Samsung build helpers use absolute sibling imports when loaded
+# standalone, so expose the sibling tools path as well as the repository root.
+TOOLS_DIR=Path(__file__).resolve().parent
+if str(TOOLS_DIR) not in sys.path:
+    sys.path.insert(0,str(TOOLS_DIR))
 if not __package__:
-    sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
+    sys.path.insert(0,str(TOOLS_DIR.parent))
 
 from tools import build_samsung_stock_kernel as prior
 from tools import y2q_partial_samsung_dwarf_audit as elf_audit
@@ -125,7 +130,8 @@ def plan(args:argparse.Namespace)->dict:
         set(manifest.get("patches",{}))!={*__import__("tools.prepare_samsung_vdso_compat",fromlist=["PATCHES"]).PATCHES,
             INIT_MAIN,ARM64_ALTERNATIVE}):
         raise TargetBuildError("Four-patch cloned source manifest or IAS fix not authenticated")
-    if prior.find_python2(args.python2) is None:
+    python2=prior.find_python2(args.python2)
+    if not python2:
         raise TargetBuildError("Real Python 2.7 required for legacy Samsung Kbuild")
     commands=make_common(clone,out,clang,args.gcc_prefix,dtc,args.jobs)
     return {
@@ -144,7 +150,7 @@ def plan(args:argparse.Namespace)->dict:
         "prepare":commands+["olddefconfig"],
         "prepareArch":commands+["prepare"],
         "objectCommand":commands+list(TARGETS),
-        "python2":prior.find_python2(args.python2),
+        "python2":python2,
         "log":str(log),"report":str(report),
         "executeRequested":bool(args.execute),
         "experimentalOnly":True,
