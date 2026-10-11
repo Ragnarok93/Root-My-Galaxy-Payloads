@@ -1,0 +1,45 @@
+# SM-G986U1 HXL1 LinuxLoader — FDT composition and boot-image handoff (static REA evidence)
+
+**Date:** 2026-10-11. **Target:** Samsung SM-G986U1, `G986U1UESCHXL1`. **Scope:** offline read-only static analysis, not a working root procedure. **Original:** `~/s20-artifacts/hxl1-research/abl-linuxloader/LinuxLoader-HXL1.efi`. **SHA256:** `5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003`. All `0x...` function and string addresses below are Ghidra addresses for the analyzed PE image, **not** confirmed runtime physical addresses.
+
+All full REA JSON reports remain on the owner's WSL under `~/s20-artifacts/hxl1-research/abl-linuxloader/rea-dt-index-LBaPQ6`; do not commit binary/large raw analysis artifacts or equate instruction evidence with a runtime measurement.
+
+## Verified chain and exact scope
+
+- `FUN_00020a60` owns base-DTB selector `BL 0x25108` at `0x21a78` and conditional board-DTBO selector `BL 0x263c8` at `0x21a9c`. `FUN_00023b80` reads the inverted low bit of a byte at `0x3460b40`, which base selection may set to 1.
+- `FUN_00026f68` **appends**, not merges, input FDTs to a `0x18`-byte/node linked list: pointer `+0`, size `+8`, next `+0x10`. `FUN_00027040` releases list nodes and clears the head.
+- `FUN_0004f418` receives the validated base FDT, size and input-list head at `0x21db4`, builds an output FDT and returns it in `x0`. `FUN_0004eab8` handles overlay fixups and tree/property modifications, `FUN_00054178` parses an FDT into an internal representation, and `FUN_00054378` serializes the result. Original PE strings include `/__local_fixups__` at `0xc6f3e`, `/__symbols__` at `0xc6f50`, `/__fixups__` at `0xc6f5d`, and `/` at `0xbf43f`.
+- Shared owner `0x21e98` passes `x0 = [sp+0x78]` (destination), `x1 =` composed FDT pointer and `x2 =` endian-converted FDT `totalsize` to an indirect copy-like routine through service slot `+0x160`. Preceding `0x21e28–0x21e3c` checks that size against `[sp+0x70] - [sp+0x78]`. `FUN_00027ea8` later receives the FDT destination and boot parameters at `0x22304` and contains further FDT property work.
+- Kernel entry candidate is in `[sp+0x60]`, destination FDT candidate in `[sp+0x78]`. Direct indirect transfers are `blr x8` at `0x22854` (FDT in `x0`) and `0x228a8` (FDT in `x2`); a separate firmware-mediated indirect call exists at `0x227d4`. These are **static candidate handoffs**, not live proof of a specific stock path, ARM execution-state transition, address translation, or boot success.
+
+### PE constants (verified file-backed values)
+
+`0xb2210 = 0x00080000`, `0xb2214 = 0x05600000`, `0xb2218 = 0x03c00000`, `0xb221c = 0x00008000`. The firmware selects one pair according to `sp+0xc0`: when zero, `entry = [sp+0x30] | 0x80000` and layout boundary `[sp+0x30] + 0x05600000`; when nonzero, `entry = [sp+0x30] | 0x8000` and boundary `[sp+0x30] + 0x03c00000`. Preserve the original `OR` (not an assumed addition). A distinct path derives entry/boundary from firmware-service outputs temporarily at `sp+0xd8`/`sp+0xe8`; both stack slots are later reused for other purposes. The boundary and FDT destination are calculated at `0x211c8–0x211e0`; no absolute runtime physical addresses have been measured.
+
+## October 11 boot component and image-format findings — corrective identification
+
+### `FUN_000228e0`: named component-table lookup, **not** a general boot-header parser
+
+- Called at `0x20b9c` with `x0` pointing at loader input structure, `x1 = sp+0x38`, `x2 = sp+0x40`, `x3` naming the component. Original strings: `boot` at `0xc7f9d`, selected when `w21 == 0`; `recovery` at `0xbfffa`, otherwise.
+- Table entry count `[x0+0x428]`. Each `0x18`-byte entry has a name pointer at `+0x128`, output field at `+0x130`, and second output field at `+0x138` (relative to input structure plus `0x18 * index`).
+- `0x22944` calls a string-length helper and `0x22954` calls a comparison helper. Zero match goes to `0x229a8`, writes matching fields into `[x1]` and `[x2]` and returns zero. Bad arguments return `0x8000000000000002` (EFI_INVALID_PARAMETER); missing entry returns `0x800000000000000e` (EFI_NOT_FOUND).
+- **Correction:** the function does **not** write `sp+0x30`. `FUN_0001f018` at caller `0x20d38` receives `x0 = sp+0x30` and is a next target for the source of the kernel-image base. Any output-parameter writes by other helpers must also be considered.
+
+Evidence: `ev_db2f05a7ca63ef9bf582fef4cb84d113db13c749943c437bfa99668a1598faaa`; saved as `rea-instructions-boot-metadata-parser.json` (legacy filename: semantic role corrected above).
+
+### `FUN_00023a78`: gzip signature check, **not** a kernel architecture classifier
+
+The function returns true only if the pointer is non-null, supplied size is at least 10 bytes, and bytes `[0..2]` equal `1f 8b 08` (gzip magic and DEFLATE compression method). At caller `0x20ef0`, a true result sets `sp+0xc2 = 1`. Other flags are separate: `sp+0xc1` is set when a 16-byte comparison at `0x21038` matches, then the candidate pointer advances `0x14`; `sp+0xc0` is set if the ARM64 Image header signature `0x644d5241` is absent at `+0x38`. Do not confuse these three flags or label `FUN_00023a78` as an architecture classifier.
+
+Evidence: `ev_fdb03f093cff8cdd8ce4e8db79d8081a5fac7ebac28457ff910d8320bd1ccfbf`; saved as `rea-instructions-kernel-image-classifier.json` (legacy filename: semantic role corrected above).
+
+Shared owner's saved REA evidence: `ev_65699d02d3e20131f7204420e8baef7e80d6170f32030f65ae1fff6c98f16341`.
+
+## Next bounded gates
+
+1. Inspect cached `FUN_00020a60` instructions at `0x20c80–0x20de0`, `0x20edc–0x21070`, and around `0x210cc–0x211a4`; extract PE string at `0xbcc59` used by `0x21038` before naming its wrapper format. The conditional `0x210cc: orr x8,x0,x24; cbz x8,0x21180` determines whether service-supplied layout outputs or constant-offset layout is selected.
+2. Analyze only `FUN_0001f018` with pinned original REA `instructions` to establish what it reads/writes through `sp+0x30`, then follow any remaining specific producers. Do not launch another 1,000-instruction broad pass without a demonstrated need.
+3. Authenticate `0x227d4` callback/dispatch provider and branch gating; distinguish the observed register arguments from an asserted ARM execution-state switch.
+4. Compare offline candidate base FDT, overlays, and post-fixups with runtime-safe metadata if obtainable. There is no demonstrated bootloader unlock/root/KernelSU execution route. Keep the stock locked phone unchanged.
+
+**Readiness statement:** Static firmware-to-FDT/entry chain is substantially mapped, but final booted FDT bytes, absolute runtime addresses, stock-branch selection, relevant security boundaries and actual root payload execution remain unverified. Do not promote this research-only work to a flashable or executable profile.
