@@ -2,6 +2,32 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 14:01 UTC — original HXL1 instruction translation corroborated in QEMU
+
+Owner-run evidence is a material stage improvement: **19/19 offline opcode-attestor regression tests passed** and the previously saved 15-second stock-QEMU trace produced:
+
+```text
+[EVIDENCE] FACTORY_IMAGE_INSTRUCTION_CORRELATION
+[TRACE OPCODES] 11502
+[BASE] 0x40080000 compared 288 matched 270 tail-matched 0 entry-word True
+[BASE] 0x80080000 compared 0 matched 0 tail-matched 0 entry-word False
+```
+
+This supports **original stock factory Image code at guest PC 0x40080000 being translated by QEMU**: 270 distinct Image word offsets correlate with the SHA-pinned HXL1 kernel image, including offset zero. It is NOT a complete kernel boot, verified Linux printk output, an exact last-executed PC, a live-device primitive or KernelSU installation. QEMU `-d in_asm` emits **translated basic blocks**; it does not tell us whether those blocks executed to completion or establish the last executed PC. QEMU `-d exec` is different and records executed basic-block entries. The original trace contains only `in_asm,int,guest_errors,unimp`; there is no `exec` instrumentation in that existing run.
+
+**New committed incremental read-only tool:** `tools/y2q_hxl1_qemu_exception_summary.py` and seven unit tests. It consumes the **already retained** `offline-trace-format-v2.json`, original trace, console and exact hashed Image, prints first/last sampled translated PCs, image correlation and mismatches, and bounds QEMU exception/guest-error lines (ESR/FAR/ELR when present). New summary JSON: `~/s20-artifacts/hxl1-research/qemu-first-failure-20261011/exception-summary.json`. The script NEVER reruns QEMU, mutates firmware, or contacts the phone. Test source and CI workflow are committed, but the new suite's WSL/CI result has not been verified yet.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_exception_summary
+python3 tools/y2q_hxl1_qemu_exception_summary.py
+```
+
+**Decision:** If the retained log contains a specific exception, correlate its addresses and ARM64 syndrome with boot phase before reusing individual Samsung-QEMU fork platform handlers; if it does not, use narrowly bounded `-d exec,int` on a future isolated QEMU attempt only when the existing report proves insufficient. Do not assume that 270 matched original instructions imply a healthy console, scheduler, Android boot or RT-mutex execution. Stages 4–6 and KernelSU remain blocked pending later proof.
+
+---
+
 ## October 11, 13:43 UTC — original trace format unresolved (zero parsed opcodes, not zero execution)
 
 The owner reran the earlier QEMU offline trace analyzer: **12/12 unit tests PASSED**, but **zero opcode words were parsed** from the retained `qemu-first-failure-20261011/tcg-instructions.log`, giving **zero comparisons** at both candidate physical load addresses. The `NO_FACTORY_IMAGE_INSTRUCTION_CORRELATION_IN_SAMPLED_TRACE` label was **misleading** for this particular result: the analyzer never compared any decoded word, and the earlier first-failure report independently observed QEMU `IN:` translation-block markers. Actual factory Image execution, entry and Linux boot remain **UNDETERMINED**.
