@@ -47,22 +47,34 @@ def require(ok:bool,msg:str)->None:
         raise WindowError("Original HXL1 stock code provenance STOP: "+msg)
 
 def parse_nm(text:str)->dict:
+    """Keep the entire recovered code-name boundary set, not only target names.
+
+    A target's window must stop at *any* intervening recovered code symbol.
+    Symbols are reconstructed, so their names/end addresses are NOT factory
+    debug provenance. Duplicate non-target names at distinct addresses still
+    establish candidate bounds and are kept in the separate sorted index.
+    """
     found={}
+    boundaries=set()
     for line in text.splitlines():
         fields=line.split()
         if len(fields)!=3:
             continue
         addr,kind,name=fields
-        if name not in (*NAMES,"_text") or not re.fullmatch(r"[a-fA-F0-9]{8,16}",addr):
+        if not re.fullmatch(r"[a-fA-F0-9]{8,16}",addr):
             continue
-        if kind not in ("T","t"):
-            if name in NAMES:
-                raise WindowError("Requested function is not a text symbol: "+name)
-            continue
-        value=(int(addr,16),kind)
-        if name in found and found[name]!=value:
-            raise WindowError("Ambiguous recovered symbol: "+name)
-        found[name]=value
+        if kind in ("T","t"):
+            va=int(addr,16)
+            if name!="_text":
+                boundaries.add(va)
+            if name in (*NAMES,"_text"):
+                value=(va,kind)
+                if name in found and found[name]!=value:
+                    raise WindowError("Ambiguous recovered symbol: "+name)
+                found[name]=value
+        elif name in NAMES:
+            raise WindowError("Requested function is not a text symbol: "+name)
+    found["__allRecoveredTextSymbolVAs"]=tuple(sorted(boundaries))
     return found
 
 def windows(raw:bytes,nm:dict,max_bytes:int=MAX_WINDOW)->dict:
@@ -80,9 +92,14 @@ def windows(raw:bytes,nm:dict,max_bytes:int=MAX_WINDOW)->dict:
                 "recovered symbol not AArch64 aligned: "+name)
         require(off>=0 and off<len(raw),
                 "recovered symbol not within original Image: "+name)
-        next_address=min((v[0] for n,v in nm.items()
-                          if n!="_text" and v[0]>va),
-                         default=TEXT_VA+len(raw))
+        full_text=nm.get("__allRecoveredTextSymbolVAs")
+        require(isinstance(full_text,tuple),
+                "missing full recovered text-symbol boundary inventory")
+        import bisect
+        ix=bisect.bisect_right(full_text,va)
+        next_address=(full_text[ix] if ix<len(full_text)
+                      else TEXT_VA+len(raw))
+        require(next_address>va,"invalid recovered next-text boundary")
         count=min(max_bytes,len(raw)-off,next_address-va)
         count-=count%4
         require(count>=4,"original code window empty: "+name)
@@ -91,6 +108,11 @@ def windows(raw:bytes,nm:dict,max_bytes:int=MAX_WINDOW)->dict:
             "recoveredSymbolVA":hex(va),"relativeImageByteOffset":hex(off),
             "byteCount":count,
             "originalStockBytesSha256":hashlib.sha256(chunk).hexdigest(),
+            "boundedByFullRecoveredTextSymbolMap":True,
+            "nextRecoveredTextSymbolVA":(hex(next_address)
+                                           if next_address<TEXT_VA+len(raw)
+                                           else None),
+            "windowStoppedAtNextTextSymbol":next_address-va<=max_bytes,
             "independentSymbolMappingAuthenticated":False,
             "factoryCompiledMemberOffsetsVerified":False,
             "_raw":chunk,"_va":va,
@@ -145,6 +167,8 @@ def analyze(raw:bytes,nm_text:str,inventory:dict,command:str|None=None)->dict:
         "originalKernelSha256":stock.PINNED["kernel.bin"],
         "recoveredTextBase":hex(TEXT_VA),
         "symbolSource":"reconstructed kallsyms, not independent factory debug ELF",
+        "allRecoveredTextSymbolAddressCount":len(
+            parse_nm(nm_text)["__allRecoveredTextSymbolVAs"]),
         "originalCandidateCodeWindows":found,
         "missingSymbolLabels":[name for name in NAMES if name not in found],
         "stockCompiledFieldOffsetsEstablished":False,
@@ -168,6 +192,11 @@ def markdown(result:dict)->str:
         lines.append("| "+name+" | "+record["relativeImageByteOffset"]+
                      " | "+str(record["byteCount"])+" | "+
                      record["originalStockBytesSha256"]+" |")
+    lines+=["","All recovered code-address boundaries indexed: "+
+            str(result["allRecoveredTextSymbolAddressCount"]),
+            "Windows stop at the nearest *any-text-symbol* candidate, not",
+            "just the nearest name on the RT-mutex target shortlist.",
+            "Those recovered symbol boundaries remain unverified assumptions.",""]
     lines+=["","## Names absent from the selected recovered symbol map",""]
     lines.extend("- "+name for name in result["missingSymbolLabels"])
     if not result["missingSymbolLabels"]:
