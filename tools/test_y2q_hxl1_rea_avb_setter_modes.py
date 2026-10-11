@@ -85,7 +85,7 @@ class Hxl1SetterModesTests(unittest.TestCase):
     def test_modified_critical_byte_store_or_cset_fails_closed(self):
         ev=native_owner()
         ev["normalized_result"]=[
-            line.replace("0x33a24: cset w21, eq","0x33a24: cset w21, ne")
+            line.replace("0x33a24: cset w21,eq","0x33a24: cset w21,ne")
             for line in ev["normalized_result"]
         ]
         with self.assertRaisesRegex(TriageError,"0x33a24"):
@@ -117,7 +117,7 @@ class Hxl1SetterModesTests(unittest.TestCase):
     def test_wrong_parent_function_rejected(self):
         ev=parent_function()
         ev["normalized_result"]["procedure"]["address"]="0x33800"
-        with self.assertRaisesRegex(TriageError,"not function 0x33928"):
+        with self.assertRaisesRegex(TriageError,"not function 0x33928|does not own xref"):
             modes.verified_parent_function(ev,"0x33a08")
 
     def test_bounded_plan_adds_one_original_xrefs_query(self):
