@@ -1228,3 +1228,33 @@ unsigned module/kprobe KernelSU approach. Never infer
 KernelSU compatibility or a safe loader from a
 vulnerability source pattern alone. There is no basis
 for a working HXL1 root or installation claim yet.
+
+
+## October 11, 2026 — use existing REA/Ghidra index-handling evidence rather than another static inventory
+
+The owner ran the targeted host-only DTBO file-name inventory
+(`dtbo.img`, `dtbo.img.lz4` or `dtbo.bin`, regular files at
+depth <=5 under `~/s20-artifacts`). **No file names matched.**
+The previously authenticated four original base-FDT candidate
+SHA256/model results reappeared, with no changes or inconsistencies.
+This does **not** prove the AP firmware archive contains no DTBO.
+
+Correct next tool: the user's working [REA fork](https://github.com/Ragnarok93/rea)
+(Ghidra 12.1.4 backend) already imports the original SHA256-pinned
+`LinuxLoader-HXL1.efi` and retains verified PE search evidence for
+`androidboot.dtb_idx=` at `0xbfd99` and `androidboot.dtbo_idx=`
+at `0xbfd82`. The short REA-first runbook is now at the top of
+[the canonical execution guide](../../docs/SM-G986U1-HXL1-NEXT-STEPS.md).
+It runs exactly **two Ghidra xrefs** on those known original string
+addresses, saves immutable fresh output and uses existing
+`y2q_linuxloader_rea_stage4_xrefs.parse_xrefs` to validate Ghidra
+provider, operation, query, PE digest and evidence IDs.
+
+Only if original xref source instructions are found should the next
+step use `rea function` for their owning routines and
+`rea trace-native-values` for specific verified high-p-code dataflow
+connections to `FUN_00023bc8` / BootLinux. A zero-reference result
+is not proof the index lacks handling. Static index generation cannot
+establish what DTBO bytes actually exist in the running device or
+where the kernel resides in RAM. Full root, KernelSU and runtime
+physical handoff remain unverified.
