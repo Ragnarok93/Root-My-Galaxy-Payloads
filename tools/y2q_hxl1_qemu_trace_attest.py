@@ -109,7 +109,7 @@ def analyze(image:bytes,head:bytes,tail:bytes,serial:bytes,extra_bases:list[int]
         raise EvidenceError("Invalid original ARM64 Image")
     bases=candidate_bases(image,extra_bases)
     results,head_count=match_words(image,head,bases)
-    tail_results,tail_count=match_words(image,tail,bases)
+    tail_records,tail_count=match_words(image,tail,bases)
     # Expose a small PC sample even if none match the hypothesized load bases.
     # That enables an address-mapping diagnosis without sharing a huge TCG log.
     head_pcs=[{"pc":hex(pc),"word":f"{w:08x}"}
@@ -119,7 +119,7 @@ def analyze(image:bytes,head:bytes,tail:bytes,serial:bytes,extra_bases:list[int]
     # Preserve head and tail as separate observations rather than mistakenly
     # counting a repeated instruction in the tail as another independent match.
     head_results={r["candidateImagePhysicalStart"]:r for r in results}
-    tail_results={r["candidateImagePhysicalStart"]:r for r in tail_results}
+    tail_results={r["candidateImagePhysicalStart"]:r for r in tail_records}
     combined=[]
     for base in bases:
         key=hex(base)
@@ -132,7 +132,7 @@ def analyze(image:bytes,head:bytes,tail:bytes,serial:bytes,extra_bases:list[int]
     flags={
         "sampledTraceHasArm64Opcodes":head_count+tail_count>0,
         "factoryImageCorrelatedInHead":any(r["multiInstructionBinaryCorrelation"] for r in results),
-        "factoryImageCorrelatedInTail":any(r["multiInstructionBinaryCorrelation"] for r in tail_results),
+        "factoryImageCorrelatedInTail":any(r["multiInstructionBinaryCorrelation"] for r in tail_records),
         "factoryKernelEntryIndependentlyEstablished":False,
         "samsungKernelBooted":False,
         "rootOrKernelSuVerified":False,
