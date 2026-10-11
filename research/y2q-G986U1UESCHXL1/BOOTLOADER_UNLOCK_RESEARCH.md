@@ -1531,6 +1531,127 @@ source separately from AVB device_state reporting.
 
 ---
 
+
+## October 11, 15:27 UTC — HXL1 IsUnlocked byte is part of persistent device-info structure
+
+Owner successfully executed and reviewed all original-SHA-validated
+function/instruction dossiers for source-backed native STRB xrefs
+0x33d08 (0x33c88) and 0x33ee0 (0x33da8).
+
+**Original HXL1 LinuxLoader source SHA256:**
+5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003.
+
+### 0x33c88: set byte from caller and save 0x9a0-byte structure
+
+Original 44-line Ghidra function Evidence:
+ev_8dc0c1b44e4248d3bd82c37207b66acc2a66b16c01d04608b873709dcf7d3f04.
+
+Original 71-instruction Ghidra native Evidence:
+ev_3850cd35dcb0227791b12496d35c45f2ce849f7109887c3df2f486cb6d943aa4.
+
+Ghidra pseudocode:
+
+    longlong FUN_00033c88(char param_1)
+    ...
+    if (DAT_00351055 == param_1) { return ...; }
+    ...
+    DAT_00351055 = param_1;
+    lVar4 = FUN_0002ae38(1, &DAT_00351048, 0x9a0);
+
+Original native ARM64:
+- 0x33c94: mov w19,w0 — caller-provided W0 byte captured
+- 0x33ce0: adrp x8,0x351000
+- 0x33ce4: add x8,x8,#0x48
+- 0x33ce8: ldrb w9,[x8,#0xd]
+- 0x33cec: cmp w9,w19,uxtb
+- 0x33cf0: b.ne 0x00033cfc
+- 0x33cf4: mov x19,xzr; 0x33cf8: b 0x00033d7c
+- 0x33d08: strb w19,[x8,#0xd]
+
+The write at 0x33d08 uses a locally formed base
+0x351000+0x48, plus byte displacement 0x0d. Therefore the
+store's effective address on that native path is
+**0x351055**, the exact global used by the AVB IsUnlocked
+getter 0x33770. This validates the write address, but the
+input byte's **caller origin and trust** are not known yet.
+The Ghidra pseudocode also records a persistence-like call
+to FUN_0002ae38 with operation selector 1, the 0x351048
+structure base, and length 0x9a0. Its actual backend,
+authentication and durability remain unverified.
+
+### 0x33da8: read, validate magic and reset if invalid
+
+Original 55-line Ghidra function Evidence:
+ev_2da2c7cb66cafe934a2217b5e174945ea05f371f7c72895b9ef3b96f309b4c0e.
+
+Original 112-instruction Ghidra native Evidence:
+ev_71724524f016ee6f975b960fdac7b36ba2f10383f744a6f327dcaf10bda1d6c0.
+
+Ghidra decompilation observes:
+
+    FUN_0002ae38(0,&DAT_00351048,0x9a0);   // read-like selector
+    FUN_0000f7e4(&DAT_00351048,"SAMANDR-BOOT!",0xd);
+    ...
+    DAT_00351055 = 0;
+    DAT_00351056 = 0;
+    DAT_003510d8 = 1;
+    FUN_0002ae38(1,&DAT_00351048,0x9a0);   // write-like selector
+
+The native 0x33ee0 uses "strb wzr,[x19,#0xd]" in the
+reinitialization block, near other field-clearing stores,
+another call to FUN_0002ae38, and a 0x9a0-byte buffer.
+Full X19 effective-address alias and all-path dominance are
+pending independent examination. Magic mismatch indicates a
+data initialization/reset path, **not** an authenticated
+secure-boot authorization or a known exploitable bypass.
+The separate DAT_003519e8 flag and integrity of the 0x9a0
+structure have not yet been established.
+
+### Focused next original-source Ghidra collection
+
+Committed:
+- tools/y2q_hxl1_rea_avb_state_persistence.py
+- tools/test_y2q_hxl1_rea_avb_state_persistence.py
+- tools/run_y2q_hxl1_rea_avb_state_persistence.sh
+
+This stage reattests the original archived HXL1 SHA, the
+Ghidra and p-code source chain, the complete original writer
+dossiers, and the exact 0x351055 native address and byte
+argument. Original saved Evidence is never overwritten.
+
+Up to four bounded new, read-only Ghidra queries:
+1. "xrefs" original LinuxLoader function 0x33c88 —
+   locate callers supplying the W0 byte.
+2. "xrefs" original LinuxLoader function 0x33da8 —
+   locate entry and reset/init callers.
+3. "function" original LinuxLoader 0x2ae38 —
+   trace the storage helper and backend selection.
+4. "instructions" original LinuxLoader 0x2ae38 —
+   corroborate native selector dispatch and storage calls.
+
+The script also independently examines cached original
+0x33da8 full native instructions to find any local ADRP/ADD
+X19 base construction; if not established, it prints
+UNKNOWN rather than guessing.
+
+Owner WSL command:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_state_persistence.sh
+~~~
+
+Report:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-state-persistence.md
+
+The existence of a persistent IsUnlocked byte is **not**
+equivalent to a bootloader unlock, signed image approval,
+unrestricted Download Mode writes, or an authoritative secure
+world policy state. No handset/firmware modifications occur.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
