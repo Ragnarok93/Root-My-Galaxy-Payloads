@@ -10,6 +10,23 @@ The tool builds a temporary, unprivileged C program with *inert mocked* RT-mutex
 
 If the host has `aarch64-linux-gnu-gcc` and `qemu-aarch64`, the exact same source is **additionally** cross-compiled as static AArch64 Linux user-space code and executed by QEMU **user-mode** emulation. This is **not** an ARM64 Linux kernel boot. The complete original Samsung compiled function from `kernel.bin` is **not** executed; the source fragment is recompiled in a different harness with synthetic task structs. No original OEM alignment/ABI equivalence is implied by passing the harness.
 
+## Owner execution — 2026-10-11 12:50 UTC
+
+The owner pulled the branch through `05f7e08` and executed the original-HXL1 function-fragment unit suite plus execution tool. The test suite reported **five PASS, one SKIP**, and the tool returned:
+
+```text
+[PASS] Verbatim HXL1 remove_waiter() source executed with inert dependencies
+[ARM64 USER] UNAVAILABLE
+[REPORT] /home/main/s20-artifacts/hxl1-research/original-source-fragment-regression.json
+[LIMIT] No original kernel binary, booted HXL1 guest, real futex, root or KernelSU
+```
+
+**Verified:** the exact Samsung original RT-mutex C source SHA matched, the verbatim extracted function compiled/executed on WSL host with inert dependencies, and two bounded owner/current cleanup states met expectations. **Optional ARM64 QEMU user mode did not run** because at least one of `aarch64-linux-gnu-gcc` and `qemu-aarch64` was absent. This is not a kernel guest failure. The native host fragment milestone is complete; do not request it again.
+
+The execution context uses synthetic `task_struct` and mocked spin/PI helpers, not the actual factory ARM64 function bytes or kernel environment. OEM binary execution, memory corruption, root and KernelSU all remain unverified. The generated JSON resides only on owner's WSL, not in this repository.
+
+---
+
 ## Run once on owner WSL (after GitHub pull)
 
 ```bash
