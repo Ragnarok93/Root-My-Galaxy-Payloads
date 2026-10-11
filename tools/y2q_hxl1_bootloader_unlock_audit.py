@@ -18,6 +18,7 @@ import tarfile
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tools.y2q_stock_bl_elf_audit import AuditError, parse_elf
+from tools.y2q_abl_linuxloader_extract import ExtractError, Walker
 
 HXL1_BL_SHA256 = "f6048fb50cd83741951552866c4dcf26e6165b0a67a232b81028c266bef22d6b"
 HXL1_BL_BYTES = 92600434
@@ -150,6 +151,37 @@ def load_archive(path: Path, *, expected_digest: str | None = None,
     }, binaries
 
 
+def nested_uefi_modules(data: bytes) -> dict:
+    """Inventory discovered PE/FFS GUIDs, not an authenticated unlock policy."""
+    walker = Walker()
+    status = "SCAN_COMPLETED"
+    try:
+        walker.search_fv(data, ["original-bl-image"], 0)
+    except (ExtractError, ValueError, OverflowError) as exc:
+        status = "PARTIAL_SCAN_ERROR: " + str(exc)[:200]
+    entries = [
+        {
+            "fileGuid": item["fileGuid"],
+            "ui": item["ui"],
+            "sha256": item["info"]["sha256"],
+            "bytes": item["info"]["fileBytes"],
+            "coffMachine": item["info"]["coffMachine"],
+            "trace": item["trace"],
+        }
+        for item in walker.identified
+    ]
+    return {
+        "status": status,
+        "firmwareVolumes": len(walker.fv_headers),
+        "ffsEntries": len(walker.ffs_files),
+        "qualifiedPeCount": len(entries),
+        "peModules": entries[:128],
+        "peModuleListTruncated": len(entries) > 128,
+        "otherExecutableSections": len(walker.unrecognized_executable_sections),
+        "unlockImplementationAuthenticated": False,
+    }
+
+
 def describe(binaries: dict[str, bytes]) -> dict:
     return {
         name: {
@@ -157,8 +189,37 @@ def describe(binaries: dict[str, bytes]) -> dict:
             "bytes": len(data),
             **classify(data),
             "stringHints": string_hints(data),
+            **({"nestedUefi": nested_uefi_modules(data)}
+               if name in ("abl.elf", "xbl.elf") else {}),
         }
         for name, data in binaries.items()
+    }
+
+
+def compare_nested_uefi(primary: dict, other: dict) -> dict:
+    def groups(record: dict) -> dict:
+        modules = record.get("nestedUefi", {}).get("peModules", [])
+        grouped = {}
+        for module in modules:
+            grouped.setdefault(module["fileGuid"].lower(), []).append(module)
+        return grouped
+
+    a, b = groups(primary), groups(other)
+    matched = []
+    for guid in sorted(a.keys() & b.keys()):
+        matched.append({
+            "fileGuid": guid,
+            "hxl1": [{"ui": x["ui"], "sha256": x["sha256"]} for x in a[guid]],
+            "g9860": [{"ui": x["ui"], "sha256": x["sha256"]} for x in b[guid]],
+            "sameSetOfExecutableHashes":
+                sorted(x["sha256"] for x in a[guid]) ==
+                sorted(x["sha256"] for x in b[guid]),
+        })
+    return {
+        "matchedFileGuids": matched,
+        "hxl1OnlyGuids": sorted(a.keys() - b.keys()),
+        "g9860OnlyGuids": sorted(b.keys() - a.keys()),
+        "caveat": "FFS GUID overlap identifies candidates for disassembly, not interchangeable firmware or matching authorization.",
     }
 
 
@@ -181,6 +242,8 @@ def compare(primary: dict, other: dict) -> dict:
                            "g9860": b["stringHints"]["categoryCounts"][category]}
                 for category in KEYWORDS
             },
+            **({"uefiModuleComparison": compare_nested_uefi(a, b)}
+               if name in ("abl.elf", "xbl.elf") else {}),
         }
     return result
 
@@ -208,6 +271,7 @@ def report_markdown(report: dict) -> str:
                          f"{ct['verified_boot']} | {two.get('status', 'not checked')} |")
     lines += ["", "## Interpretation limits", "",
               "- A print-string hit is only a lead for disassembly/xref review, not proof of a policy branch.",
+              "- Matching nested UEFI module GUIDs guide semantic analysis; they never authorize cross-flashing.",
               "- Cross-model binary differences may reflect build age, region, chipset configuration or certificates.",
               "- Comparator filename/model is **not independently authenticated** by this offline scanner.",
               "- ELF header metadata does not establish the secure chain or the Android kernel entry.",
