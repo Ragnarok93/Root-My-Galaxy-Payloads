@@ -39,10 +39,11 @@ target remote 127.0.0.1:$GDB_PORT
 hbreak *$ENTRY_PC
 continue
 if \$pc == $ENTRY_PC && \$x0 == $GUEST_X0
-  printf "HXL1_RUNTIME_FDT_BREAKPOINT_HIT PC=0x%lx X0=0x%lx\\n", \$pc, \$x0
-  printf "HXL1_RUNTIME_FDT_HEADER_START\\n"
+  printf "HXL1_ENTRY_BREAKPOINT_HIT PC=0x%lx\\n", \$pc
+  printf "X0=0x%lx X1=0x%lx X2=0x%lx X3=0x%lx\\n", \$x0, \$x1, \$x2, \$x3
+  printf "FDT_HEADER_AT_X0_START\\n"
   x/16bx \$x0
-  printf "HXL1_RUNTIME_FDT_HEADER_END\\n"
+  printf "FDT_HEADER_AT_X0_END\\n"
   dump binary memory $OUT/runtime-fdt.dtb \$x0 (\$x0 + $FDT_BYTES)
   printf "HXL1_RUNTIME_FDT_DUMP_COMPLETED BYTES=$FDT_BYTES\\n"
 else
