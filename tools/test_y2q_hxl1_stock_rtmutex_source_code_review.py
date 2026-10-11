@@ -124,6 +124,68 @@ class SourceCodeReviewTests(unittest.TestCase):
         with patch.dict(stock.PINNED,self.pins):
             return review.verify_v2(self.v2,self.raw,self.nm)
 
+    def test_unoccupied_default_report_path_stays_exact(self):
+        wanted=self.arts/"hxl1-research/hxl1-stock-rtmutex-source-code-01.json"
+        got=review.resolve_report_path(wanted,self.stock,explicit=False)
+        self.assertEqual(got,wanted)
+        self.assertFalse(got.exists())
+
+    def test_existing_default_json_automatically_allocates_next_number(self):
+        root=self.arts/"hxl1-research"
+        wanted=root/"hxl1-stock-rtmutex-source-code-01.json"
+        wanted.write_text("ORIGINAL MUST STAY")
+        chosen=review.resolve_report_path(wanted,self.stock,explicit=False)
+        self.assertEqual(chosen,root/"hxl1-stock-rtmutex-source-code-02.json")
+        self.assertEqual(wanted.read_text(),"ORIGINAL MUST STAY")
+
+    def test_existing_default_markdown_automatically_allocates_next_number(self):
+        root=self.arts/"hxl1-research"
+        wanted=root/"hxl1-stock-rtmutex-source-code-01.json"
+        wanted.with_suffix(".md").write_text("ORIGINAL MD")
+        chosen=review.resolve_report_path(wanted,self.stock,explicit=False)
+        self.assertEqual(chosen,root/"hxl1-stock-rtmutex-source-code-02.json")
+        self.assertEqual(wanted.with_suffix(".md").read_text(),"ORIGINAL MD")
+
+    def test_numbering_skips_occupied_json_and_markdown_pairs(self):
+        root=self.arts/"hxl1-research"
+        wanted=root/"hxl1-stock-rtmutex-source-code-01.json"
+        wanted.write_text("first")
+        (root/"hxl1-stock-rtmutex-source-code-02.md").write_text("second")
+        (root/"hxl1-stock-rtmutex-source-code-03.json").write_text("third")
+        chosen=review.resolve_report_path(wanted,self.stock,explicit=False)
+        self.assertEqual(chosen,root/"hxl1-stock-rtmutex-source-code-04.json")
+
+    def test_explicit_existing_output_is_refused_and_named(self):
+        wanted=self.arts/"hxl1-research/explicit.json"
+        wanted.write_text("DON'T CHANGE ME")
+        with self.assertRaisesRegex(review.CorrelationError,"Explicit --out destination already exists"):
+            review.resolve_report_path(wanted,self.stock,explicit=True)
+        self.assertEqual(wanted.read_text(),"DON'T CHANGE ME")
+
+    def test_explicit_existing_markdown_is_refused(self):
+        wanted=self.arts/"hxl1-research/explicit.json"
+        wanted.with_suffix(".md").write_text("SAVED")
+        with self.assertRaisesRegex(review.CorrelationError,"explicit.json.md|explicit.md"):
+            review.resolve_report_path(wanted,self.stock,explicit=True)
+        self.assertEqual(wanted.with_suffix(".md").read_text(),"SAVED")
+
+    def test_default_does_not_follow_symlinked_output_file(self):
+        wanted=self.arts/"hxl1-research/hxl1-stock-rtmutex-source-code-01.json"
+        wanted.symlink_to(self.stock/"kernel/futex.c")
+        chosen=review.resolve_report_path(wanted,self.stock,explicit=False)
+        self.assertEqual(chosen,wanted.with_name("hxl1-stock-rtmutex-source-code-02.json"))
+        self.assertTrue(wanted.is_symlink())
+
+    def test_output_dir_under_original_source_is_rejected(self):
+        wanted=self.stock/"kernel/report.json"
+        with self.assertRaisesRegex(review.CorrelationError,"outside original Samsung source"):
+            review.resolve_report_path(wanted,self.stock,explicit=False)
+
+    def test_non_json_output_is_rejected(self):
+        wanted=self.arts/"hxl1-research/any.txt"
+        with self.assertRaisesRegex(review.CorrelationError,".json suffix"):
+            review.resolve_report_path(wanted,self.stock,explicit=False)
+
     def test_both_synthetic_sources_extracted(self):
         r=self.attest()
         self.assertEqual(set(r["focus"]),set(review.TARGETS))
