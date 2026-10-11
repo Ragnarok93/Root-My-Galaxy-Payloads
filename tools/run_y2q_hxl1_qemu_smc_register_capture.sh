@@ -11,8 +11,8 @@ PORT=12345
 MAX_SECONDS=30
 
 fail() { printf '[STOP] %s\n' "$*" >&2; exit 2; }
-[[ -f $KERNEL && ! -L $KERNEL ]] || fail "Original kernel missing or symlinked"
 [[ ! -e $OUT && ! -L $OUT ]] || fail "Output exists. Pass a fresh output directory as the first argument"
+[[ -f $KERNEL && ! -L $KERNEL ]] || fail "Original kernel missing or symlinked"
 for tool in qemu-system-aarch64 gdb-multiarch sha256sum timeout; do
   command -v "$tool" >/dev/null || fail "Required host tool missing: $tool"
 done
