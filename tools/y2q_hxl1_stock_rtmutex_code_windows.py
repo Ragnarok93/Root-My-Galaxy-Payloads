@@ -76,7 +76,9 @@ def windows(raw:bytes,nm:dict,max_bytes:int=MAX_WINDOW)->dict:
             continue
         va,_=nm[name]
         off=va-TEXT_VA
-        require(off>=0 and off%4==0 and off<len(raw),
+        require(off%4==0,
+                "recovered symbol not AArch64 aligned: "+name)
+        require(off>=0 and off<len(raw),
                 "recovered symbol not within original Image: "+name)
         next_address=min((v[0] for n,v in nm.items()
                           if n!="_text" and v[0]>va),
