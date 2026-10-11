@@ -2,6 +2,19 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 13:14 UTC — AArch64 user PASS, silent stock QEMU timeout, Samsung QEMU adoption
+
+**Owner-observed results:**
+- `gcc-aarch64-linux-gnu`, `qemu-user`, `qemu-system-arm` and `gdb-multiarch` now installed on Ubuntu 24.04 WSL. Direct AArch64 user emulation of the SHA-pinned `remove_waiter` *recompiled C fragment* PASSED: `[ARM64 USER] PASS`. Report: `~/s20-artifacts/hxl1-research/original-cleanup-arm64.json`. A `systemd-binfmt` trigger warning did not prevent direct `qemu-aarch64` execution.
+- First `qemu-system-aarch64` stock original `kernel.bin` attempt (generic `virt,gic-version=3`, Cortex-A57, SMP2, 2 GiB) printed nothing for 60 seconds; GNU timeout exit `124`. There was **no TCG trace/GDB PC/early console**, so this is **no observable boot**, not a proven kernel crash or known entry point.
+- The user explicitly requested reuse of existing public Samsung production-kernel QEMU work wherever beneficial. [Specific fork analysis, reuse matrix, and next bounded probe](SM-G986U1-HXL1-SAMSUNG-QEMU-ADAPTATION-20261011.md) inspect the actual `diabl0w/qemu-samsung-kernel` QEMU 10.2.2 patch and S26 references. Key warning: fork hard-codes a *different* SoC's high/low memory carveouts, UH/KDP semantics and AArch64 kernel load/physical assumptions. Do NOT blindly patch HXL1 or substitute its DEFEX policy. Do NOT simply execute `build-qemu-samsung.sh` at `-j$(nproc)` on resource-limited WSL.
+- **New executable research tool committed:** `tools/y2q_hxl1_qemu_earlyboot_triage.py` and `tools/test_y2q_hxl1_qemu_earlyboot_triage.py`. It accepts only the original pinned HXL1 kernel SHA and ARM64 Image header, defaults to read-only plan, and on explicit `--execute` logs QEMU serial plus bounded TCG instruction/exception traces for a 15-second window. The tool and its synthetic fake-QEMU tests were added to `.github/workflows/hxl1-cleanup-model.yml`; **remote Actions pass has not been verified**.
+- On receiving `qemu-first-failure-20261011/{report.json,serial-console.log,tcg-instructions.log}`, classify actual boot entry or the first guest exception. Port **only** a proven necessary, separately audited fork component with HXL1-specific address/memory/hypercall provenance.
+
+**Readiness:** AArch64 user-space original source-fragment execution COMPLETE. Factory original ARM64 kernel boot, source-faithful guest, RT-mutex runtime reproduction, bootloader unlock and KernelSU remain unverified/blocked. Avoid re-running completed source/REA/instruction-window investigations.
+
+---
+
 ## October 11, 12:50 UTC — OEM C fragment passed; original opcode store path additionally bounded
 
 The owner's WSL source-fragment run PASSED the exact original Samsung RT-mutex SHA-gated native harness; **five unit tests passed, one optional ARM64 QEMU user test skipped** due to unavailable emulator/toolchain. Report: `~/s20-artifacts/hxl1-research/original-source-fragment-regression.json`. This fulfills the native verbatim-C fragment subgate only.
