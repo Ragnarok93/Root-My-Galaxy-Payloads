@@ -2,6 +2,23 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 22:09 UTC — full isolated HXL1 workflow PASS (135/135)
+
+After applying `libc6-dev-arm64-cross` to the isolated GitHub Actions workflow's AArch64 cross-compiler installation, [Actions run 38179184038](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38179184038) for commit `d8dac2e` completed **SUCCESS**. The fetched job logs report:
+
+```text
+Ran 135 tests in 3.787s
+OK
+```
+
+This included **all nine new guest commit tests**: pointer-last publishing, dirty original pointer/preexisting reserved data refusal, fault injection, bytewise readback and rollback, all-vCPU quiescence and physical reservation gates, and the **partial original-pointer publication plus failed rollback** check. Prior workflow failures on two original-source AArch64 regressions were environmental (missing `bits/libc-header-start.h`), not RKP adapter failures. The cross-libc package fix has been validated by this full green run.
+
+This confirms the existing original-source unit fixtures and all current host-only C interfaces compile and pass on `ubuntu-latest`. **It does not execute the factory HXL1 guest kernel in CI, implement real guest DTB/memblock reservation, prove an HXL1-compatible secure hypervisor, or install KernelSU**. The original owner-verified factory-image and SMC breakpoint logs retain their separate status.
+
+**Next real emulator work:** inspect the exact `virt` generated FDT/device-memory ranges, reserve an actual candidate protected pool and descriptor backing before Linux memory initialization, implement vCPU-context guest VA→PA checks without hardcoded linear-map offsets, and wire the tested transactional commit layer into the HXL1-specific command-0x15 SMC handler. Do not use the upstream fork's `KDP_SET_NS_FLAGS` dispatch for the same numeric X0/X1; validate all further HXL1 commands against original source.
+
+---
+
 ## October 11, 22:00 UTC — 13/13 host C tests PASS; guarded physical guest-memory commit layer
 
 The owner executed the combined `tools.test_y2q_hxl1_rkp_pool_model` (7 tests) and `tools.test_y2q_hxl1_rkp_guest_stage` (6 tests) against current GitHub branch: **13/13 PASS**. Real host C builds, host pool ownership, sparse bitmap, 32-byte descriptor staging and synthetic mapping rejection are validated. Still **no guest physical reservation, MMU translation, original secure-monitor response, Linux boot or physical device access**.
