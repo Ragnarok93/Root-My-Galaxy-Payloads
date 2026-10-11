@@ -152,6 +152,31 @@ The saved output directory defaults to `~/s20-artifacts/hxl1-research/qemu-virt-
 
 ---
 
+## 22:21 UTC — actual generated QEMU virt device-tree evidence
+
+Owner WSL results are now **11/11 DTB-inventory unit tests PASS**, `dumpdtb` success without guest instruction execution and a read-only parser report:
+
+```text
+[DTB SHA256] 85b032cbf12948982de81fcdb6854d12ee7861d9a8cb852b9b060526d3252f87
+[MEMORY] /memory@40000000 0x40000000 0xc0000000
+[RAM RESERVATION VERIFIED] NO
+```
+
+A real QEMU `virt,gic-version=3`, Cortex-A57, 2048 MiB RAM FDT therefore advertises **two gigabytes of RAM**, without any memreserve/`reserved-memory` entries in the captured generated tree. **There is no verified protected RKP pool**. An empty reservation list is NOT evidence that an address is unused after the kernel, bootloader, FDT, page tables, memblock and runtime allocations.
+
+A new SHA-pinned source correlation tool `tools/y2q_hxl1_qemu_boot_memory_audit.py` compares the original OEM `kernel.bin` size/ARM64 `image_size` header to the **exact** generated DTB SHA above, and cross-checks its FDT inventory JSON so no alternate guest profile can silently substitute for evidence. It treats trace-correlated low guest PC `0x40080000` as a **possible** load address, not a verified complete Image/BSS physical extent. It reports known DTB reservations, FDT `/chosen` initrd, and missing runtime placement evidence, and never auto-selects or carves a guest region. Fifteen isolated tests are committed in CI; their owner pass and audit result are **pending**.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_boot_memory_audit
+python3 tools/y2q_hxl1_qemu_boot_memory_audit.py
+```
+
+Report: `~/s20-artifacts/hxl1-research/qemu-virt-dtb-20261011/boot-memory-conflict-audit.json`. Even if the Image leaves apparently broad free space, it is **not proof** that any carveout is reserved. Before the transactional stage can become a real `UH_APP_RKP` handler, the next tasks are to capture the exact boot-time FDT guest PA, install a verified memory reserve before Linux's memblock setup and validate MMU-aware guest VA→PA mapping and actual guest physical read/write.
+
+---
+
 ## Required proof gates before a functional QEMU adapter
 
 | Gate | Acceptance criterion | Present status |
