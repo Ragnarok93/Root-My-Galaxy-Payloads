@@ -1059,3 +1059,61 @@ definition (commonly `kernel/locking/rtmutex_common.h`), the
 and `task_blocked_on_lock` at source level; compare only the
 particular observed original ARM64 accesses. Do **not** run another
 generic Clang18 DWARF compilation campaign or broad Ghidra pass.
+
+
+## October 11, 2026 — direct original RT-mutex nested source declarations corroborate selected stock instructions
+
+Owner pulled `fdc52d0` and inspected the original hash-pinned Samsung source
+`kernel/locking/rtmutex.c`,
+`kernel/locking/rtmutex_common.h`, and
+`include/linux/rtmutex.h`. The relevant full output was supplied
+from WSL2 and establishes the following **source facts**:
+
+- `rtmutex_common.h:27` defines `struct rt_mutex_waiter` with
+  `tree_entry: struct rb_node`, `pi_tree_entry: struct rb_node`,
+  `task: struct task_struct *`, `lock: struct rt_mutex *`,
+  conditionally compiled debug members, followed by `prio`.
+- `rtmutex_common.h:53–62` implements `rt_mutex_top_waiter()`
+  via `rb_first_cached(&lock->waiters)`,
+  `rb_entry(...,struct rt_mutex_waiter,tree_entry)`,
+  and `BUG_ON(w->lock != lock)`.
+- `rtmutex_common.h:108–113` implements `rt_mutex_owner()` by
+  reading the owner and masking `RT_MUTEX_HAS_WAITERS=1UL`.
+- `rtmutex.c:380–383` defines
+  `task_blocked_on_lock(p) = p->pi_blocked_on ?
+  p->pi_blocked_on->lock : NULL`.
+- `rtmutex.h:30–43` lists `struct rt_mutex` fields
+  `wait_lock`, `waiters`, and `owner`.
+  `sched.h:1169–1179` lists the task PI fields.
+
+Cross-correlate with the **previously SHA256-pinned original stock**
+`remove_waiter` function, length 568 bytes, SHA256
+`f50dd6d1df275e0854e7d255c7f47abff81e2b065977e4a11b56007aa89d0c44`:
+
+| Original stock instruction evidence | High-confidence function-local interpretation | Proof limit |
+|---|---|---|
+| `ldr x22,[x0,#24]`; `ldr x8,[x22,#56]`; `cmp x8,x19` | cached top waiter pointer then `waiter->lock` consistency check against lock | field association source/code-correlated, not factory DWARF |
+| `ldr x24,[x19,#32]`; `and x21,x24,#~1` | `rt_mutex.owner` tagged owner-pointer extraction | tag handling confirmed by source |
+| `mrs x20,sp_el0`; `add x21,x20,#0x8c8`; `str xzr,[x20,#2296]` | current task PI lock, clearing PI-blocked-on state | compiler use of `sp_el0` corroborated by task-based call flow, not a live runtime measurement |
+| `ldr x8,[x21,#2272]`, `ldr x8,[x21,#2296]`, `ldr x23,[x8,#56]` | owner task PI waiter state, then blocked-on waiter and its `lock` | derived along one flow; no complete `task_struct` layout |
+| `ldr w10,[x0,#64]` where `x0` is the selected top waiter | waiter `prio` in the non-debug field path | condition on `CONFIG_DEBUG_RT_MUTEXES` must be confirmed before exporting as unconditional |
+| `bl 0xffffff8008146ca4` and `bl 0xffffff80080fafb4` | `rt_mutex_adjust_prio_chain` and `rt_mutex_setprio` | exact names verified against recovered stock kallsyms; no OEM type debug info |
+
+The original `rb_node`/cached-root layout is consistent with the
+above observed pointer access relationships. This narrows **selected
+factory-compiled field-access hypotheses**, but does **not** prove all
+nested aggregate sizes, conditional fields, aliases, or exact ABI
+surface required by a native/kernel-resident payload. Stage 3 must
+remain **PARTIAL**; do not promote the whole factory ABI based on
+a handful of original operations. The original Clang18 objects remain
+experimental, supplementary evidence only.
+
+**Investigation pivot (avoid repetitive static analyzers):** The exact
+original ABL LinuxLoader **static kernel handoff** was already
+recovered, and prior owner read-only ADB evidence did not resolve
+actual selected UEFI/base-memory branch values, boot-time DTB,
+per-boot physical entry or KASLR displacement. The feasibility gates
+now require independent, authorized **runtime** information and
+the Linux 4.19 privilege/module-hooking path; further Clang18
+compilation or identical RT-mutex lookups are not a substitute.
+Refer to the canonical [HXL1 execution guide](../../docs/SM-G986U1-HXL1-NEXT-STEPS.md).
