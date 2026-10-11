@@ -1652,6 +1652,107 @@ world policy state. No handset/firmware modifications occur.
 
 ---
 
+
+## October 11, 15:42 UTC — original VB protocol dispatch and exact AVB setter callers
+
+Owner successfully collected the 0x33c88/0x33da8
+persistent device-info native store evidence, exact
+function xrefs and Ghidra 0x2ae38 storage helper function.
+
+**Confirmed local state-byte store path:**
+- Native 0x33c88 stores W19, copied from its caller-supplied
+  W0 at 0x33c94, to byte address 0x351055 at 0x33d08.
+- That store is reached following a byte comparison; it is
+  not proof of trusted authorization of the caller's W0.
+- Function's source Ghidra code calls
+  FUN_0002ae38(1,&DAT_00351048,0x9a0) after its update.
+
+**Initialization and reset:**
+- Native 0x33da8 reset path has X19 base formed by
+  0x33e18: ADRP X19,0x351000 and 0x33e1c:
+  ADD X19,X19,#0x48, per owner's verified native dossier.
+- 0x33ee0: STRB WZR,[X19,#0xd]. Combined with the
+  source Ghidra DAT_00351055=0, this strongly supports
+  the reset path writing the same 0x351055 byte.
+- Neither secure authorization nor all-path X19 alias
+  dominance is established.
+- Initialization checks SAMANDR-BOOT! magic, resets fields
+  on invalid marker and requests a 0x9a0-byte write.
+
+**Original protocol dispatcher FUN_0002ae38:**
+- Original Ghidra Evidence:
+  ev_6f44b90c7f436dd2e4d7f31d64379858d6ba5b6bf26b1b69482d576c3447072e.
+- Original native Evidence for 0x2ae38 is retained by owner.
+- Ghidra function's source:
+    lVar2 = (**(code **)(DAT_00351a38 + 0x140))
+       (&DAT_000ef930,0,&local_40);
+    if (lVar2 == 0) {
+       lVar2 = (**(code **)(local_40+8))
+         (local_40,param_1,param_2,param_3);
+    }
+- Original native at 0x2ae78 BLR x8 locates a UEFI-style
+  protocol through its GUID at 0xef930; 0x2aec4 BLR x8
+  calls the located protocol's +0x8 method. Its diagnostic
+  "VBRwDevice failed with: %r" indicates a VB read/write
+  device interface. It does **not** independently identify
+  the disk partition, cryptographic protection, or whether
+  a secure world validates its contents.
+
+**Exact original cross references:**
+- 0x33c88 setter (2): 0x33a08, 0x33b20.
+  Evidence: ev_43f0cdc67e62545a93ff59710a53d125aa119e358b588aa7e0f85cfb4b76ae35.
+- 0x33da8 initializer (3): 0x1948, 0x5c0c0, 0x5c19c.
+  Evidence: ev_e982238be8b45836ad69ad87e741492f6530d23f379089214256b17d6c7a29b0.
+
+Those are Ghidra reference sites, not yet verified
+native BL call instructions or known caller W0 inputs.
+
+### Next source-attested, at most seven static Ghidra queries
+
+Committed:
+- tools/y2q_hxl1_rea_avb_setter_callers.py
+- tools/test_y2q_hxl1_rea_avb_setter_callers.py
+- tools/run_y2q_hxl1_rea_avb_setter_callers.sh
+
+The pipeline revalidates the owner's original HXL1
+source hashes and entire saved source chain through
+the original 0x2ae38 VB protocol dossier. It then
+inspects precisely the five source-attested original
+xref instructions. Only for the two setter xrefs
+0x33a08/0x33b20 that are decoded as an actual
+direct native branch to 0x33c88 will it request
+a Ghidra decompilation of the containing caller.
+
+It does not assume the initializer xrefs are all
+call sites, or that decompiler pseudocode proves
+the native register W0 argument or authorized state.
+
+Owner WSL:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_setter_callers.sh
+~~~
+
+Report:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-setter-caller-authority.md
+
+New original SHA-bound evidence:
+- LinuxLoader/instruction-caller-0x33a08.json
+- LinuxLoader/instruction-caller-0x33b20.json
+- LinuxLoader/instruction-caller-0x1948.json
+- LinuxLoader/instruction-caller-0x5c0c0.json
+- LinuxLoader/instruction-caller-0x5c19c.json
+- Conditional function-caller-0x33a08.json
+- Conditional function-caller-0x33b20.json
+
+Read-only original firmware analysis; no confirmed
+OEM flash signature bypass, protected-state modification
+or bootloader unlock.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
