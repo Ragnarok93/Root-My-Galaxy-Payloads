@@ -531,3 +531,65 @@ Clang10 `rt_mutex` member offsets.
 **Current root milestone is still blocked:** no live physical load,
 complete factory kernel field layouts, runtime GhostLock applicability,
 temporary root or KernelSU. The compile workaround is diagnostic only.
+
+
+## October 10–11, 2026 — source clone verified; fresh O=, object-only Clang18 experiment
+
+Owner executed the validated four-patch preparation at commit `5b9fd1d`:
+
+    bash tools/run_y2q_hxl1_arm64_ias_extable_compat.sh &&
+    bash tools/run_y2q_hxl1_arm64_ias_extable_compat.sh --execute
+
+Both original source/clone gates passed **43/43 tests**. The original
+Samsung source fingerprint was `d8a04e191bd0df1521c5483dab441a71279e978ea207ea57681c1cfc49b4e11d`
+and the resulting new experimental copy fingerprint was
+`354b9f0e32a0b890babbc06470d9f9beb0cc2e8d069d7c73cdf5f6e2e9f0af5f`.
+The exact original-to-compat `alternative.h` file SHA-256 transition was
+`0a141774f5054ee2820cda7147eb3259dc702a2b993dbfd2bd40b23acbd18ac9`
+→ `006bf2087b17b2bae9312a36c6e79c3c657ba0d55e6ce2484d745669a48252bf`.
+**Only the isolated cloned source was created. No object build had been run**.
+
+The next HXL1 Stage-3 diagnostic is implemented as
+`tools/y2q_hxl1_isolated_dwarf_objects.py` and
+`tools/run_y2q_hxl1_isolated_dwarf_objects.sh`. It shares the
+source-preflight, compiler/linker probes, real Python 2.7 check, and
+pinned `.config` SHA256 (`97cf1d93f86251294951ff235e76281e9e3705d5745be6b44f130fc3aa501c09`)
+from the earlier original Clang18 experiment, but refuses to reuse the
+existing partial `O=` tree. It uses:
+
+- **Source:** `~/src/samsung-y2q-hxl1-vdso-ias-extable-compat`.
+- **Template only:** `~/src/samsung-y2q-hxl1-config-clang18/.config`.
+- **New output:** `~/src/samsung-y2q-hxl1-rtmutex-dwarf-ias-clang18`.
+- **Object targets only:** `kernel/locking/rtmutex.o` and `kernel/futex.o`.
+- **Log:** `~/s20-artifacts/samsung-hxl1-rtmutex-dwarf-ias-01.log`.
+- **JSON:** `~/s20-artifacts/hxl1-research/rtmutex-dwarf-ias-01.json`.
+
+Use the **dry run first**, confirming source/config and exact make
+command identity without writing outputs:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_isolated_dwarf_objects.sh
+
+Only if the dry run passes, opt in to fresh object compilation:
+
+    bash tools/run_y2q_hxl1_isolated_dwarf_objects.sh --execute
+
+The runner initializes the empty `O=` with the verified .config,
+runs `olddefconfig`, verifies the config hash did **not** change, runs
+`prepare`, verifies config again, then requests only the two objects.
+A compiler, assembler or Kbuild failure stops at the actual stage;
+original output/source are never modified by this tool. It preserves
+the new `O=` and log for debugging rather than attempting an unsafe
+resume or overwriting previous artifacts. An unsuccessful first attempt
+requires a new distinct `--output/--log/--report` triplet.
+
+Successful AArch64 relocatable objects are examined for named
+`rt_mutex`/`rt_mutex_waiter` DWARF DIE presence (pahole + readelf),
+but numeric member offsets are deliberately not harvested or
+misrepresented as factory-layout offsets. **Even if both objects build,
+Stage 3 is NOT complete**, because the Clang18 experimental ABI
+is not the stock Samsung Clang10 ABI, the kernel physical handoff is
+unknown, and no runtime GhostLock or KernelSU privilege path exists.
+This pipeline does not flash, boot, install, sign or modify an Android
+device.
