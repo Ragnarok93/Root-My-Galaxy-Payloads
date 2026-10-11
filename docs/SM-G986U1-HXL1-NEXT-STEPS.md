@@ -2,6 +2,16 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 10:49 UTC — REA provider timeout on reconstructed stock kernel ELF
+
+Owner ran the v4 Stage-3 `factory_abi` pipeline; REA returned structured stdout JSON with `code=provider_timeout`, `operation=read_function_instructions`, `timeout_ms=330000`, and **empty stderr** for `remove_waiter` at recovered static `0xffffff8008147db4`. Saved as `~/s20-artifacts/hxl1-research/pipeline/run-20261011T103543343199Z/stage3-rea-factory-abi/rea-remove_waiter-ffffff8008147db4.partial.json`. This is a **whole-kernel import/analysis timeout**, not disproof of original source or proof of factory ABI.
+
+A locally packaged (not yet committed to GitHub) v4.2 Stage-3 replacement eliminates automatic import of the entire recovered ~52-MB ELF for REA. It constructs each small ELF64 AArch64 function slice from SHA-256-pinned stock `kernel.bin`, cross-checks the entire slice with the recovered analysis ELF's executable segment, uses the next recovered symbol as a conservative boundary, caps the synthetic ELF code at 8192 bytes, and places the isolated function at `0x10000`. It then requires REA's evidence digest to match the synthetic ELF, translates REA addresses back to the authenticated original image-relative coordinates, and compares to GNU objdump. All 12 isolated unit tests passed, including real `readelf` validation, tamper checks and failure JSON diagnostics. This is **not yet an owner-executed v4.2 REA result**; wait for the actual WSL run before claiming it solved the provider timeout.
+
+Old `rea-remove_waiter-*.partial.json` evidence is retained. New slices and reports use `isolated-*` and `rea-slice-*` names. Because ABI offsets cannot be inferred from truncated code and provenance-by-reconstructed-kallsyms alone, Stage 3 remains PARTIAL regardless of instruction matching. No kernel exploit, root, KernelSU or deployment supported.
+
+---
+
 ## October 11, 10:21 UTC — offline HXL1 Pipeline v3 executed successfully
 
 **Latest owner-executed WSL run:** `~/s20-artifacts/hxl1-research/pipeline/run-20261011T101520426839Z`. The previous **Pipeline v2** run reported all **10 underlying verification steps PASS** (stock firmware, boot v2, DTB inventory, FDT semantics, Stage-3 source layout, kernel proof matrix, ABL static handoff, RAM-partition protocol, pinned EFI/REA boot-chain evidence, and readiness). The subsequent **Pipeline v3** test suite completed **14 of 14 passing**, then independently generated `proof-ledger.md` from that saved successful run. Its output explicitly reports `OFFLINE CHECKS PASS=True` and `UNRESOLVED STAGES=[3,4,5,6,7,8,9]`.
