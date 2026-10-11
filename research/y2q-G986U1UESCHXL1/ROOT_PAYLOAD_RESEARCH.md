@@ -768,3 +768,48 @@ Report:
 additional independent stock-binary or matching toolchain/debug evidence**.
 Don't promote internal Clang18 type agreement into a factory layout or
 native exploit parameter.
+
+
+## October 10–11, 2026 — Clang18 RT-mutex DWARF direct-member parity confirmed on WSL
+
+Owner ran the new experimental two-translation-unit parity tool at
+branch commit 44a56f3. All **51/51 focused regression tests passed**.
+After independently re-attesting the exact rtmutex.o and futex.o SHA256
+hashes, the owner received:
+
+    [EXPERIMENTAL TU GEOMETRY] rt_mutex_waiter consistent True
+    [EXPERIMENTAL TU GEOMETRY] rt_mutex consistent True
+
+The two units agree on direct named-member count/order, aggregate
+DWARF byte-size attributes, and direct member-location/bitfield
+attribute fingerprints. This proves **provisional internal Clang18
+build consistency**, not the ABI of Samsung's shipping Clang10 kernel.
+Type references and nested embedded layouts were not independently
+traced. The direct-member digest results are saved locally at
+~/s20-artifacts/hxl1-research/rtmutex-experimental-tu-parity-01.md.
+
+The next investigation now turns from experimental Clang18 object
+confirmation to **independently pinned factory kernel code**. The new
+tools/y2q_hxl1_stock_rtmutex_code_windows.py and
+tools/run_y2q_hxl1_stock_rtmutex_code_windows.sh perform a read-only
+selection from the original SHA256-pinned HXL1 kernel.bin. Candidate
+RT-mutex/futex function names are sourced from previously recovered
+vmlinux-stock.nm, whose labeling remains a separate static recovery
+assumption. The tool bounds and hashes short original instruction
+windows and uses aarch64-linux-gnu-objdump only to render the actual
+code bytes. No offsets are inferred or applied; an instruction memory
+displacement cannot independently be identified as a C member offset.
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_stock_rtmutex_code_windows.sh
+
+Expected report:
+~/s20-artifacts/hxl1-research/hxl1-stock-rtmutex-code-windows.md
+
+**Stage 3 remains PARTIAL** until separately authenticated
+source-to-instruction/compiled-member layout evidence is obtained.
+Original symbolic virtual addresses do not establish live KASLR
+or physical kernel load. A modern Clang18 match, field guess,
+or original function-window hash cannot justify an executable
+GhostLock payload, privileged kernel patch or KernelSU install.
