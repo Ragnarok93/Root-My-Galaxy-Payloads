@@ -513,6 +513,98 @@ unlock callback, protected state or a vulnerability has been established.
 
 ---
 
+
+## October 11, 12:07 UTC — HXL1 original OEM and AVB high-p-code recovered
+
+The owner executed the corrected semantic-root script with partial recovery.
+BOTH original-source REA workflow traces were accepted and saved:
+
+- Odin 0x1ec00: 947 returned graph nodes, 1164 edges, 16
+  procedures, 90 unresolved observations.
+- LinuxLoader 0x5950: 1000 returned graph nodes, 1228 edges,
+  16 procedures, 181 unresolved observations.
+
+These counts are **returned graph-page records**; the saved trace
+also has total_nodes, total_edges, truncated and next_offset.
+The LinuxLoader result reaches the default 1000-node output page
+size, so establish pagination before making any completeness claims.
+
+### Semantics from original Ghidra pseudocode
+
+**Odin original SHA256**
+09da14205be3e773f8b6ca9651fc9a1faabe871950b713ea79fc626e3c36de42,
+function 0x1ec00:
+
+- Calls FUN_00010e58 with literal persistent and receives a
+  storage interface and geometry.
+- Allocates a buffer using obtained size and reads data via
+  the indirect pointer at local_40+0x18.
+- Extracts **one byte from the end** of that buffer into local_4c
+  with FUN_0000c11c, logs Oem unlock value and returns local_4c.
+- The visible pseudocode does not show testing the indirect read
+  operation's return status. This observation alone is NOT a
+  demonstrated read failure or unlock bypass.
+- The source's policy authority and integrity are unverified.
+  This is better classified as OEM state *storage consumer*,
+  not the original decision producer.
+
+**LinuxLoader original SHA256**
+5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003,
+function 0x5950:
+
+- Checks pointer field at param_1+0x40 and invokes it indirectly.
+- Passes param_1 and the address of a one-byte local lock
+  indicator to the callback.
+- On a zero return, maps its output to locked/unlocked and
+  appends androidboot.vbmeta.device_state. Nonzero returns enter
+  a distinct error path.
+- Exact function pointer initializer, secure origin, and
+  how this callback relates to earlier verified-boot image
+  acceptance are not yet established.
+
+The raw saved workflow traces have original source identity
+and Ghidra analysis-profile checks; valid Evidence does not
+guarantee that individual indirect calls or secure-world
+state origins are resolved.
+
+### Offline saved-graph audit — new production tool
+
+- tools/y2q_hxl1_rea_graph_forensics.py
+- tools/test_y2q_hxl1_rea_graph_forensics.py
+
+Before reading graphs, it validates the original HXL1 archive,
+the exact source binaries and five search/xref/function proof
+chains, plus BOTH saved REA workflow traces. It lists root
+high-p-code call/call-indirect coordinates, static call edge
+statuses, unresolved reasons, and **next_offset** page
+availability. No REA or Ghidra binary is launched.
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/y2q_hxl1_rea_graph_forensics.py
+
+cat ~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/graph-forensics.md
+~~~
+
+The machine-readable companion is graph-forensics.json.
+The exact saved raw trace paths remain Odin/trace-0x1ec00.json
+and LinuxLoader/trace-0x5950.json.
+
+**Next proof targets:** discover which firmware code selects,
+authenticates and modifies the OEM-related persistent byte,
+identify the storage interface contract and read-error behavior,
+locate the constructor for the AVB callback pointer field, and
+separate boot property reporting from trusted boot verification
+and flashing authorization.
+
+Do not patch the persistent partition, alter VaultKeeper/KG,
+attempt cross-model firmware flashes or infer an unlock from
+these static results.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
