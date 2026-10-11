@@ -2,6 +2,16 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 11:43 UTC — authenticated subset of original RT-mutex and waiter displacements
+
+A new offline pass reused the owner's previous original REA/ELF ZIP evidence and **independently reverified 723/723 Ghidra instructions against LLVM plus 31 specific additional byte-identical compiled RT-mutex/waiter instruction witnesses**. Eight focused full LLVM/subset tests and seven separately committed pinned-byte/source-header attestor tests passed locally (15 in total). Findings: `rt_mutex` candidate waiters.rb_root at `+0x10`, waiters.rb_leftmost at `+0x18`, owner at `+0x20`; `rt_mutex_waiter` candidate `tree_entry +0x00`, `pi_tree_entry +0x18`, `task +0x30`, `lock +0x38`, `prio +0x40`, `deadline +0x48`. The waiter priority and deadline each have **direct and nested PI-tree instruction pathways** that agree algebraically. See [the focused RT-mutex analysis](SM-G986U1-HXL1-STAGE3-RTMUTEX-LAYOUT-20261011.md).
+
+**New runnable GitHub code** now committed: `tools/y2q_hxl1_rtmutex_displacement_attest.py` and `tools/test_y2q_hxl1_rtmutex_displacement_attest.py`. The attestor independently re-verifies the 31 pinned machine words and their ELF SHA digests, and has optional `--source` support to validate the **actual owner's exact Samsung HXL1 source** by pre-known RT-mutex/futex C SHA pins. It then records SHA digests, declaration order and conditional-member presence for `include/linux/rtmutex.h` and `kernel/locking/rtmutex_common.h`. See the [single-pass source checking instructions](SM-G986U1-HXL1-RTMUTEX-ATTEST-RUN.md). The full more general LLVM analyzer and frozen report are delivered as `HXL1-Stage3-v6-rtmutex-layout-subset.zip`, not yet in GitHub. Avoid repeated REA/bootchain/stock firmware inventory commands.
+
+**Gate unchanged:** despite this meaningful compiled type subset, original factory DWARF/BTF and complete type sizes/conditional fields are not established; Stage 3 stays PARTIAL. No runtime read/write primitive, root or KernelSU demonstrated.
+
+---
+
 ## October 11, 11:33 UTC — compiled member attribution and proxy-cleanup control flow
 
 Verified **new Stage-3 subset** offline from the owner's two previously exported archives, without repeating REA or accessing a phone. The independent AArch64 decoder agreed on **723/723** REA-reported instructions; 38 annotated, exact code witnesses and 12 negative/positive opcode-and-attribution tests passed. See [the focused evidence report](SM-G986U1-HXL1-STAGE3-MEMBER-CORRELATION-20261011.md).
