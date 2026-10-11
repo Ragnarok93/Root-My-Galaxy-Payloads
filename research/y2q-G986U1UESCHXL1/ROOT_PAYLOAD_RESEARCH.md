@@ -867,3 +867,52 @@ individual source-level accesses; until then **zero Samsung factory
 structure offsets have been authenticated**. A recovered symbol VA is
 not a running physical kernel address or known KASLR slide. A
 working root method and KernelSU remain blocked.
+
+
+## October 10–11, 2026 — original stock RT-mutex code-window v2 success and full source/code review
+
+The owner ran `bash tools/run_y2q_hxl1_stock_rtmutex_code_windows.sh`
+at commit 7b13995. All **54/54 focused regression tests passed**.
+The original Samsung firmware/source hashes matched and 11/11 corrected
+function-window samples from the SHA256-pinned original ARM64 Image
+were fully disassembled using bounded recovered text-symbol windows.
+
+The corrected boundaries reduced `rt_mutex_proxy_unlock` from
+192 bytes to 24, `rt_mutex_lock_interruptible` from 192 to 104,
+and `rt_mutex_next_owner` from 192 to 56. All other candidate
+function-window byte counts were unchanged. A 192-byte excerpt
+does not guarantee that a complete function was sampled.
+Recovered static symbol assignments are not independently proven
+factory debugger symbols or live runtime addresses.
+
+The user-provided stdout includes function labels, sizes and success
+statuses but **not the ARM64 instructions themselves**, so no reliable
+field-offset or source-to-machine-code interpretation can yet be made.
+The next host-only audit is
+`tools/y2q_hxl1_stock_rtmutex_source_code_review.py` with runner
+`tools/run_y2q_hxl1_stock_rtmutex_source_code_review.sh`.
+
+The new tool independently checks ALL ELEVEN v2 window boundaries,
+SHA256 digests and every decoded instruction word against the
+pinned original `kernel.bin`; then rechecks the original two Samsung
+C-file hashes and extracts uniquely located C function definitions for
+`remove_waiter`, `rt_mutex_start_proxy_lock`, and `futex_lock_pi`.
+It prints the original source and its corresponding **name-matched**
+bounded ARM64 disassembly directly to the owner's console. It explicitly
+cannot prove which individual C field an instruction accesses and
+does not substitute experimental Clang18 offsets for factory ABI.
+
+Next read-only WSL2 step:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_stock_rtmutex_source_code_review.sh
+
+New immutable report outputs:
+`~/s20-artifacts/hxl1-research/hxl1-stock-rtmutex-source-code-01.md`
+and `.json`. Original and v2 code-window reports remain preserved.
+
+**Current gates:** Factory Clang10/stock compiled field layouts and
+source-to-binary dataflow remain unverified. Static symbol locations
+do not establish runtime physical kernel load, KASLR slide, exploit
+applicability or KernelSU. No compilation or phone changes occur.
