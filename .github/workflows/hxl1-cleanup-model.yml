@@ -86,7 +86,7 @@ jobs:
       - name: Install AArch64 user-mode test tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu qemu-user
+          sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libc6-dev-arm64-cross qemu-user
       - name: Compile and test harmless user-space C ownership model
         run: python3 -m unittest -v tools.test_y2q_hxl1_cleanup_regression tools.test_y2q_hxl1_original_cleanup_slice tools.test_y2q_hxl1_qemu_earlyboot_triage tools.test_y2q_hxl1_qemu_trace_attest tools.test_y2q_hxl1_qemu_exception_summary tools.test_y2q_hxl1_qemu_fault_sites tools.test_y2q_hxl1_qemu_secure_monitor_gate tools.test_y2q_hxl1_qemu_smc_register_capture tools.test_y2q_hxl1_rkp_bitmap_abi_audit tools.test_y2q_hxl1_rkp_bitmap_preflight tools.test_y2q_hxl1_rkp_pool_model tools.test_y2q_hxl1_rkp_guest_stage tools.test_y2q_hxl1_rkp_guest_commit
       - name: Evidence scope
