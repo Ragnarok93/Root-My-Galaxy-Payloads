@@ -336,3 +336,85 @@ obstacles. The next engineering milestone is *feasibility of
 an authorized runtime privilege/code-loading primitive on the
 exact locked HXL1 build*, not another Clang18 object or
 truncated disassembly. Stage 7 stays BLOCKED.
+
+
+## October 11 owner checkpoint — verified exact kernel config; runtime-feasibility decision
+
+Owner ran the existing host-only review at commit `d820195`.
+The original authenticated static LinuxLoader handoff showed:
+`KernelEntry = KernelBaseAddr + imageFormatBias + (KASLRState << 15)`
+or `KernelEntry = (BaseMemory | OEMImageFormatOffset) +
+(KASLRState << 15)`. The `0x40` KASLR initializer is a **sentinel**,
+not a measured runtime displacement. Neither the selected branch,
+per-boot RAM base, actual DTB nor physical target was observed.
+
+There are already TWO local, retained, read-only ADB reports:
+`live-adb/20261010T130008Z/live-boot-evidence.md`
+and `live-adb/20261010T130021Z/live-boot-evidence.md`.
+**Read them, but do not reissue blocked/restricted device probes.**
+
+Owner's current exact `config.gz` confirms:
+
+| Option | Owner observed | Gate |
+|---|---|---|
+| `CONFIG_FUTEX_PI` | `y` | Subsystem built in; exploitability **not** proved |
+| `CONFIG_RT_MUTEXES` | `y` | Source/code consistency |
+| `CONFIG_DEBUG_RT_MUTEXES` | **not set** | Non-debug waiter struct selected; conditional debug fields absent |
+| `CONFIG_MODULES` | `y` | Module framework built |
+| `CONFIG_MODULE_SIG_FORCE` | `y` | Normal untrusted module insertion denied |
+| `CONFIG_KPROBES` | **not set** | Existing KernelSU kprobe/kretprobe path unavailable |
+
+The non-debug waiter priority candidate at offset `0x40`
+in original `remove_waiter` is now additionally supported by the
+configuration: two `struct rb_node` fields, task and lock pointers,
+then `prio`. This **does not** establish a complete factory ABI.
+
+**Focused next host-only action: summarize only *existing*
+runtime observation statuses** without dumping private bootargs,
+addresses or repeating ADB requests:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+python3 - <<'PY'
+import json
+from pathlib import Path
+base=Path.home()/"s20-artifacts/hxl1-research/live-adb"
+for path in sorted(base.glob("*/live-boot-evidence.json")):
+    report=json.loads(path.read_text())
+    print("REPORT",path.parent.name)
+    print("  iomem:",report.get("iomem",{}).get("status","UNAVAILABLE"))
+    props=report.get("bootProperties",{})
+    for field in ("ro.boot.dtb_idx","ro.boot.dtbo_idx"):
+        print(" ",field+":",props.get(field,"[UNAVAILABLE]"))
+    for field in ("proc_cmdline","proc_bootconfig","proc_iomem",
+                  "proc_dt_bootargs","sys_dt_bootargs","proc_dt_model",
+                  "sys_dt_model"):
+        print(" ",field+":",
+              report.get("fileObservations",{}).get(field,{}).get("status",
+              "NOT_COLLECTED"))
+    for flag in ("physicalKernelEntryVerified",
+                 "runtimeKaslrMeasured",
+                 "runningDtbMatchedToBootloaderSelection"):
+        print(" ",flag+":",report.get(flag,"NOT_COLLECTED"))
+PY
+```
+
+**Acceptance criteria:** If the past device observations contain a
+grounded DTB index, check against existing FDT candidate records;
+otherwise document that specific limitation. An absent/restricted
+IOMEM or bootargs never licenses guessing the physical address or
+forcing access. ADB unprivileged shell cannot establish UEFI
+KernelBaseAddr/KASLR independently on this evidence alone.
+
+**Primary go/no-go:** With the locked bootloader, forced module
+signatures and no kernel probes, the exact-device native/KernelSU
+path is **BLOCKED** until a demonstrable authorized kernel-code
+execution mechanism and compatible hook backend are available.
+No stock source resemblance, linker symbol or futex-PI smoke test
+alone satisfies this. Do not produce/flash an HXL1 module or
+declare the profile supported.
+
+**Engineering priority:** Obtain *new evidence* of an authorized
+privileged loading route or a safely demonstrated HXL1-specific
+runtime bug in an isolated reproduction. Until then preserve
+the research profile and do not run another broad static scan.
