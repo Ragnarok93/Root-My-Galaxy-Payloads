@@ -35,10 +35,30 @@ Evidence: `ev_fdb03f093cff8cdd8ce4e8db79d8081a5fac7ebac28457ff910d8320bd1ccfbf`;
 
 Shared owner's saved REA evidence: `ev_65699d02d3e20131f7204420e8baef7e80d6170f32030f65ae1fff6c98f16341`.
 
+## October 11 follow-up — minimum memory-address selection and uncompressed wrapper
+
+### `FUN_0001f018`: lowest-record-address selection (NOT boot-header parsing)
+
+Called from `FUN_00020a60` at `0x20d38` with `x0 = sp+0x30`. `FUN_0001f018` calls `FUN_0001eca0` with addresses of a pointer and 32-bit count in its own stack frame; on the non-error path it traverses the returned array with **16-byte stride** and reads its first 64-bit field per record. The scalar tail at `0x1f12c–0x1f140` uses `cmp x8,x11; csel x8,x11,x8,hi`, so the **smaller unsigned value** is selected; the NEON reduction likewise selects the minimum, rather than the maximum. Final store is `0x1f144: str x8,[x20]` into caller's `sp+0x30`.
+
+Therefore `sp+0x30` is best called the **selected minimum memory base/address**. Whether the records are DRAM banks, reserved memory extents or a different firmware memory map remains **unverified until `FUN_0001eca0` is classified**; do not call this a proven physical DRAM base or boot-header value. Zero-count/error corner cases have not been separately reconstructed.
+
+Evidence: `ev_a5f35edeba6a91c3c67647f320d4f8ea58043ee34dfbfcb9e07f8ab7de28dd0c`, retained in `rea-instructions-image-metadata-0x1f018.json` (legacy label). The original HXL1 EFI SHA256 pin remains unchanged.
+
+### The signature at `0xbcc59` is `UNCOMPRESSED_IMG`
+
+The PE-mapped 16 ASCII bytes `55 4e 43 4f 4d 50 52 45 53 53 45 44 5f 49 4d 47` spell **`UNCOMPRESSED_IMG`**. At owner `0x21028–0x21048`, `FUN_0003be30` compares 16 bytes against this signature. On equality, the loader advances its candidate pointer by `0x14` (20 bytes) and sets `sp+0xc1 = 1`; the four bytes following the signature have not yet been classified. A separate comparison reads ARM64 magic `0x644d5241` at `image+0x38`; absence sets `sp+0xc0 = 1`. `sp+0xc2 = 1` is the separate gzip/DEFLATE signature result from `FUN_00023a78`. Do not collapse these flags.
+
+### Next narrow evidence targets
+
+1. Read `FUN_0001eca0` from the pinned ELF/PE original through REA/Ghidra instructions to classify the enumerated `0x10`-byte address records and the free/ownership lifetime; confirm the minimum-address interpretation against record layout.
+2. From the cached caller, inspect how `sp+0x30` is used relative to `sp+0x38`/`sp+0x40`, and which path reaches `0x20d38`; extract the four bytes immediately after `UNCOMPRESSED_IMG` only as **data**, without asserting a field type.
+3. Preserve the separate run-time physical address, actual selected FDT and locked-bootloader/rootability gates; classify firmware-mediated `0x227d4` dispatch only after the memory-record semantics are grounded.
+
 ## Next bounded gates
 
-1. Inspect cached `FUN_00020a60` instructions at `0x20c80–0x20de0`, `0x20edc–0x21070`, and around `0x210cc–0x211a4`; extract PE string at `0xbcc59` used by `0x21038` before naming its wrapper format. The conditional `0x210cc: orr x8,x0,x24; cbz x8,0x21180` determines whether service-supplied layout outputs or constant-offset layout is selected.
-2. Analyze only `FUN_0001f018` with pinned original REA `instructions` to establish what it reads/writes through `sp+0x30`, then follow any remaining specific producers. Do not launch another 1,000-instruction broad pass without a demonstrated need.
+1. DONE: inspected cached caller, identified `UNCOMPRESSED_IMG` at `0xbcc59` and authenticated the conditional `0x210cc`. The conditional `0x210cc: orr x8,x0,x24; cbz x8,0x21180` determines whether service-supplied layout outputs or constant-offset layout is selected.
+2. DONE: classified `FUN_0001f018` as a **minimum-address reducer**. Next inspect its upstream record producer `FUN_0001eca0`, without broad unrelated sweeps.
 3. Authenticate `0x227d4` callback/dispatch provider and branch gating; distinguish the observed register arguments from an asserted ARM execution-state switch.
 4. Compare offline candidate base FDT, overlays, and post-fixups with runtime-safe metadata if obtainable. There is no demonstrated bootloader unlock/root/KernelSU execution route. Keep the stock locked phone unchanged.
 
