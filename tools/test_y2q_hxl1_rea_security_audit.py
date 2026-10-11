@@ -109,6 +109,19 @@ class Hxl1ReaTests(unittest.TestCase):
             self.assertFalse(record["unlockAuthorizationVerified"])
             self.assertEqual(record["entry"], "0x4300")
 
+    def test_missing_native_value_flow_is_explicit_unknown(self):
+        ev = evidence_obj("d" * 64, "analyze_function", "procedure", "0x4320", {
+            "procedure": {
+                "address": "0x4300", "name": "test",
+                "body": {"available": True,
+                         "ranges": [{"start": "0x4300", "end": "0x43ff"}]}},
+            "pseudocode": "return 1;",
+            "native_value_flow": None,
+        })
+        result = rea.function_record(ev, "0x4320")
+        self.assertFalse(result["pcodeAvailable"])
+        self.assertFalse(result["vulnerabilityConfirmed"])
+
     def test_invalid_origin_or_query_never_becomes_verified(self):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "test.json"
@@ -149,7 +162,7 @@ class Hxl1ReaTests(unittest.TestCase):
                 input_dir=root, out=root / "reports", rea=root / "absent-rea.mjs",
                 node="node", execute=False, include_secure=False,
                 timeout=120, max_functions=3, max_xrefs_per_seed=1,
-                max_traces=0,
+                max_traces=0, seed_limit=3,
             )
             with mock.patch.dict(rea.EXPECTED, hashes):
                 with mock.patch.object(rea.subprocess, "Popen", side_effect=AssertionError):
@@ -158,7 +171,7 @@ class Hxl1ReaTests(unittest.TestCase):
             self.assertTrue(report["sourceAttested"])
             self.assertEqual(len(report["targets"]), 2)
             self.assertFalse(report["bootloaderUnlockDemonstrated"])
-            self.assertEqual(report["commandCount"], 12)
+            self.assertEqual(report["commandCount"], 6)
             self.assertTrue((root / "reports" / "security-paths.md").is_file())
 
     def test_valid_cached_results_are_reused_but_not_overwritten(self):
