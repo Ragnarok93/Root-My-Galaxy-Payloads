@@ -2,6 +2,31 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 14:38 UTC — QEMU original-kernel faults observed; image-relative opcode attribution
+
+Owner successfully ran the direct Python CLI and **9/9** `y2q_hxl1_qemu_exception_summary` tests. Original 15-second generic-QEMU trace is **fully covered** at `216857` bytes. Its original SHA-pinned Image correlation still has `270` distinct matching offsets at `0x40080000`, with **0 mismatched opcode comparisons** in that report. Three `-d int` exceptions are documented:
+
+```text
+Undefined instruction: ELR 0xffffff80080a5794, ESR 0x02000000
+Data Abort (read, L1 translation fault): ELR 0xffffff80082ac90c, FAR 0x58, ESR 0x96000005
+Data Abort (read, L1 translation fault): ELR 0xffffff80086de39c, FAR 0x10, ESR 0x96000005
+```
+
+The original reconstructed vmlinux base **hypothesis** is `0xffffff8008080000`, giving candidate *Image-file-relative* offsets `0x25794`, `0x22c90c`, and `0x65e39c`. This VA base originates with `vmlinux-to-elf` reconstruction, not independently observed runtime KASLR. FARs `0x58`/`0x10` suggest bad/null-related pointer dereferences but do **not** yet prove a specific missing platform component. The first Undefined Instruction could be unsupported ISA capability or a deliberate trap; its exact stock opcode is needed. These exception events **do not** establish the last executed instruction or kernel init success, and no handset vulnerability/exploit/root is implied.
+
+**Code delivered to GitHub:** new `tools/y2q_hxl1_qemu_fault_sites.py` with thirteen isolated unit tests, now included in HXL1 CI. It reads **existing** `exception-summary.json`, validates exact original `kernel.bin` SHA, decodes ESR, inspects original instruction words around the three ELRs and best-effort `aarch64-linux-gnu-objdump` disassembly, and correlates nearest recovered `vmlinux-stock.nm` symbols without claiming DWARF/factory provenance. Owner/CI results for this newly committed tool are not yet confirmed. See [Samsung QEMU adaptation report](SM-G986U1-HXL1-SAMSUNG-QEMU-ADAPTATION-20261011.md#1438-utc-owner-qemu-exceptions--first-evidence-of-concrete-original-kernel-faults).
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_fault_sites
+python3 tools/y2q_hxl1_qemu_fault_sites.py
+```
+
+The new report `~/s20-artifacts/hxl1-research/qemu-first-failure-20261011/original-fault-sites.json` is created once only. **Next meaningful milestone:** classify the actual OEM faulting instruction and function at each ELR, then compare with the Samsung production-QEMU fork's supported CPU/UH/platform behavior. Do **not** blindly import Samsung memory carving, binary DEFEX/RKP bypass patches, or perform a new full QEMU build before this classification. Stage 3 PARTIAL, Stage 4 OPEN, guest kernel init OPEN, KernelSU BLOCKED.
+
+---
+
 ## October 11, 14:11 UTC — QEMU offline exception-summary direct-script import fixed
 
 Owner pulled through `e8b771c` and ran the **seven** `tools.test_y2q_hxl1_qemu_exception_summary` unit tests: **7/7 PASS**. Then invoking `python3 tools/y2q_hxl1_qemu_exception_summary.py` failed immediately with:
