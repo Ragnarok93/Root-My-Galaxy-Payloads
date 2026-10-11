@@ -195,6 +195,34 @@ Saved to `qemu-entry-fdt-20261011/gdb-session.log` and `entry-fdt-audit.json`. A
 
 ---
 
+## 22:34 UTC — runtime FDT entry physical address and full-DTB preservation gate
+
+The owner has now measured a **real original HXL1 guest-entry register state** on the proven generic QEMU `virt` profile, independent of the QEMU `dumpdtb` file:
+
+```text
+PC 0x40080000
+X0 0x48000000 — valid boot FDT magic and total_size 0x00100000
+X1 0x0, X2 0x0, X3 0x0
+FDT guest physical [0x48000000,0x48100000), 1,048,576 bytes
+Overlap with previous original-Image candidate [0x40080000,0x443bb000): None
+```
+
+All **18 entry-source tests passed** on the owner's WSL. At this stage the **first sixteen header bytes only** have been read in full from guest memory. The earlier generated `virt` FDT had no explicit memory reservations, but the actual runtime FDT's complete `/reserved-memory`, memreserve and `/chosen` content has **not yet been read**. A valid header and no Image overlap do not establish a safe RKP guest physical pool.
+
+**New code committed:** `tools/run_y2q_hxl1_qemu_runtime_fdt_capture.sh` performs a new **read-only** bounded (`60s`) localhost QEMU/GDB session at the original entry, checks guest `PC=0x40080000` and `X0=0x48000000`, and uses GDB's binary guest-memory dump to record the complete `1 MiB` FDT without changing guest state. `tools/y2q_hxl1_qemu_runtime_fdt_compare.py` independently validates the earlier source-report, original generated FDT hash, old and new GDB header bytes, full runtime DTB structure, memory `reg` and reservation semantics. It reports byte-level and semantic differences, without demanding that two FDTs necessarily have the same hash. **16 new synthetic regression tests** have been added to HXL1 CI; their final success and owner runtime results are still pending as of this checkpoint.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_runtime_fdt_compare
+bash tools/run_y2q_hxl1_qemu_runtime_fdt_capture.sh
+python3 tools/y2q_hxl1_qemu_runtime_fdt_compare.py
+```
+
+Artifacts will be in `qemu-runtime-fdt-20261011`. GDB failure or a partial binary capture is **INCONCLUSIVE** and the attempt's evidence directory must be retained unmodified. The next QEMU implementation decision requires **actual reserved-memory plus Linux memblock page exclusion**, not merely a FDT node or proposed gap. No SMC handler or guest write is implemented.
+
+---
+
 ## Required proof gates before a functional QEMU adapter
 
 | Gate | Acceptance criterion | Present status |
