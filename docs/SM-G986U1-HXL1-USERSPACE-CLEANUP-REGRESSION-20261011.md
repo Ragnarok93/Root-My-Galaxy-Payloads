@@ -8,6 +8,21 @@ GitHub source and tests:
 - `tools/y2q_hxl1_cleanup_regression.py`
 - `tools/test_y2q_hxl1_cleanup_regression.py`
 
+## Verified owner WSL result — October 11, 2026 at 12:30 UTC
+
+The owner ran `git pull --ff-only` to updated branch tip `57d0cf7`, followed by `python3 tools/y2q_hxl1_cleanup_regression.py` from the project checkout. Observed output (not a simulated CI result):
+
+```text
+[PASS] source SHA/pattern gate and 10 compiled user-space scenarios
+[MODEL] mismatched waiter_task != current affects wrong task in stock branch
+[REPORT] /home/main/s20-artifacts/hxl1-research/cleanup-model.json
+[LIMIT] kernel runtime, on-device CVE, root, KernelSU NOT demonstrated
+```
+
+This closes the **isolated user-space state-model execution** and **exact original Samsung HXL1 C-source pin verification** for this phase. The generated JSON report remains on the owner's WSL and has not itself been independently read here. The reported model conditions support the modeled owner-mismatch semantics, **not executable Samsung kernel function behavior or a complete guest kernel**. No need to rerun this step. The existing Linux 4.19.325 QEMU image is upstream rather than HXL1; its success cannot fulfill source-faithful reproduction. Next gate requires a demonstrably source-faithful disposable guest, or an explicit `NOT_TESTED` if building one cannot be justified. Stage 3 overall PARTIAL; KernelSU BLOCKED.
+
+---
+
 ## Existing-local-source execution
 
 ```bash
