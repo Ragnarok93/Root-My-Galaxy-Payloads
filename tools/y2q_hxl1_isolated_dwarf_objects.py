@@ -46,6 +46,35 @@ class TargetBuildError(ValueError):
     pass
 
 
+def resolve_python2(explicit:Path|None,home:Path|None=None)->str:
+    """Accept only actual Python 2.7; inspect standard user-local prefixes.
+
+    Global python2 (if selected) still passes the shared exact-version probe.
+    No dependency installation, PATH mutation, python3 alias, or source edit.
+    """
+    if explicit is not None:
+        return prior.find_python2(explicit)
+    located=shutil.which("python2")
+    if located:
+        return prior.find_python2(Path(located))
+    base=home if home is not None else Path.home()
+    # pyenv, pyenv with XDG default, or a private manually installed prefix.
+    candidates=(
+        base/".pyenv/versions/2.7.18/bin/python2",
+        base/".local/share/pyenv/versions/2.7.18/bin/python2",
+        base/".local/python2.7/bin/python2",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return prior.find_python2(candidate)
+    raise TargetBuildError(
+        "No genuine Python 2.7 found on PATH or in standard user-local prefixes. "
+        "Install Python 2.7.18 in isolated ~/.pyenv (pyenv install 2.7.18), "
+        "then rerun; or pass --python2 /absolute/path/to/python2. "
+        "Do NOT alias Python 3 to python2."
+    )
+
+
 def check_new_out(stock:Path,clone:Path,template:Path,out:Path)->None:
     if out.exists() or out.is_symlink():
         raise TargetBuildError("Refusing to reuse/overwrite prior O= directory: "+str(out))
@@ -130,7 +159,7 @@ def plan(args:argparse.Namespace)->dict:
         set(manifest.get("patches",{}))!={*__import__("tools.prepare_samsung_vdso_compat",fromlist=["PATCHES"]).PATCHES,
             INIT_MAIN,ARM64_ALTERNATIVE}):
         raise TargetBuildError("Four-patch cloned source manifest or IAS fix not authenticated")
-    python2=prior.find_python2(args.python2)
+    python2=resolve_python2(args.python2)
     if not python2:
         raise TargetBuildError("Real Python 2.7 required for legacy Samsung Kbuild")
     commands=make_common(clone,out,clang,args.gcc_prefix,dtc,args.jobs)
