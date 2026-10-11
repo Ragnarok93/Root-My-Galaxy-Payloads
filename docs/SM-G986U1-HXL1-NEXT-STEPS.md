@@ -190,3 +190,47 @@ excerpts (the runner prints them to the terminal). Review those
 specific instructions, decide what they prove, then choose exactly
 one next missing evidence gate. Do **not** execute all later stages
 in advance.
+
+
+## Current owner checkpoint — October 11, 2026
+
+**Stage A passed**: 9/9 readiness tests and the exact expected
+nine-stage statuses. **Stage B passed**: 69/69 source-code review
+regressions; all eleven original disassembly windows and source SHA256
+identities reverified. The owner preserved report
+`hxl1-stock-rtmutex-source-code-03.md`.
+
+A subsequent **direct original 568-byte** `remove_waiter` disassembly
+captured all the major normal and exceptional branches through the
+next recovered text-symbol boundary. Original stock instructions now
+provide strong, source-consistent candidate associations for the
+current-task PI lock, PI-blocked-on state, tagged lock owner,
+and owner blocked-on-lock followup. The relevant original code SHA256
+and precise provenance cautions are recorded in
+[`ROOT_PAYLOAD_RESEARCH.md`](../research/y2q-G986U1UESCHXL1/ROOT_PAYLOAD_RESEARCH.md).
+No original BTF/DWARF or factory debug member declarations have been
+recovered; Stage 3 remains **PARTIAL**.
+
+**Do not rerun Stage A/B, compile new Clang18 objects, or run a broad
+script suite.** The next single check is a read-only lookup of
+the **already-recovered** `vmlinux-stock.nm` for the actual branch/call
+target symbol names, alongside original header declarations:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+NM="$HOME/s20-artifacts/hxl1-research/vmlinux-stock.nm"
+grep -iE '^(ffffff8008146ca4|ffffff80080fafb4|ffffff800996d544|ffffff800996d774|ffffff800996d664|ffffff800996d83c)[[:space:]]' "$NM" || true
+
+STOCK="$HOME/src/samsung-y2q-hxl1-stock"
+grep -nE -C 4 'struct rt_mutex_waiter|struct rt_mutex \{|pi_lock|pi_waiters|pi_blocked_on' \
+  "$STOCK/include/linux/rtmutex.h" \
+  "$STOCK/include/linux/sched.h" | head -n 120
+```
+
+If all or some target names are missing, record the omission;
+do **not** manufacture or import a substitute from a different
+device. Inspect those precise branch destinations using the existing
+recovered Image and disassembler only when essential. Distinguish
+original machine-code member-location candidates from independently
+established complete factory layouts. Continue only after evaluating
+this output, then select one remaining proof gap.
