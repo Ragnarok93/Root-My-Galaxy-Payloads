@@ -110,6 +110,68 @@ compared in Ghidra after checking image architecture and module provenance.
 The comparator is flagged `UNVERIFIED_COMPARATOR_PROVENANCE` until independent
 firmware identity checks have been recorded. The report never asserts success.
 
+## 2026-10-11 — owner HXL1 scan result and cached hotspot review
+
+The owner ran the pinned HXL1 scanner on original BL firmware in WSL and obtained:
+
+- All **12/12** initial regression tests PASS.
+- Hash-pinned HXL1 BL archive accepted at SHA256
+  `f6048fb50cd83741951552866c4dcf26e6165b0a67a232b81028c266bef22d6b`.
+- Outer `abl.elf`: 0 narrow unlock strings / 0 AVB strings.
+- Outer `xbl.elf`: 0 narrow unlock strings / **11** AVB strings.
+- Outer `tz.mbn`: 0 narrow unlock strings / **8** AVB strings.
+- Outer `uefi_sec.mbn`: 0 narrow unlock strings / **6** AVB strings.
+- Outer `vaultkeeper.mbn`: 0 narrow unlock strings / 0 AVB strings.
+- `vbmeta.img`: 0 unlock strings / 1 AVB string.
+- Comparator: `COMPARATOR_NOT_PROVIDED`. No G9860 bytes inspected.
+
+**Interpretation:** The outer-ELF string search is insufficient for ABL's
+nested EFI modules and can miss logic implemented without text. It is
+**not evidence that G986U1 lacks unlock code**. Avoid declaring XBL or
+TrustZone's particular functions identified solely by string counts.
+
+The original scanner's Markdown was updated to print its existing nested
+UEFI inventory. **To inspect what the owner has already exported without
+running the 92-MiB BL audit again**, use the new SHA-enforcing helper:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 -m unittest -v \
+  tools.test_y2q_hxl1_bootloader_unlock_audit \
+  tools.test_y2q_hxl1_bootloader_hotspots
+
+python3 tools/y2q_hxl1_bootloader_hotspots.py
+
+cat ~/s20-artifacts/hxl1-research/bootloader-unlock/hxl1-bootloader-hotspots.md
+```
+
+This reads only existing `bootloader-unlock-candidates.json` and
+`comparison-inputs/HXL1/` exports. It re-verifies each extracted binary
+against the saved SHA256, scans ASCII and UTF-16 strings, and creates:
+
+- `hxl1-bootloader-hotspots.md`: ranked parent and EFI-module leads,
+  candidate strings and **file offsets**, not virtual addresses.
+- `hxl1-bootloader-hotspots.json`: counts, hashes, source relationships,
+  and full bounded samples for later REA/Ghidra review.
+
+The helper does **not** re-open the firmware archive, assert an OEM unlock
+path, contact the phone, execute a firmware binary or use the comparator.
+Missing exports or mismatched digests are errors, not silent omissions.
+
+For a full scan including nested UI modules in the original audit's
+Markdown, the original scanner can optionally be rerun. That is **not
+required** for the cached hotspot analysis above.
+
+**Next binary RE step:** use the named nested EFI file and original
+file-offset candidates to conduct **qualified** Ghidra xrefs, then
+inspect actual callers of verified-boot and OEM-lock-state services.
+If zero candidates, proceed via known protocol GUIDs and entrypoint /
+call graph discovery, not a speculative unlock conclusion.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
