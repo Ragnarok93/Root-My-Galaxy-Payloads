@@ -92,7 +92,7 @@ class Hxl1SetterModesTests(unittest.TestCase):
             modes.verify_two_setter_paths(ev)
         ev=native_owner()
         ev["normalized_result"]=[
-            line.replace("0x339c8: strb w21, [x1,#0xe]",
+            line.replace("0x339c8: strb w21,[x1,#0xe]",
                          "0x339c8: strb w21, [x1,#0xd]")
             for line in ev["normalized_result"]
         ]
