@@ -79,7 +79,7 @@ def verified_xref_candidates(previous: dict) -> list[dict]:
                 or not normalized.startswith(opcode + operands)):
             raise TriageError(f"Original HXL1 candidate store mismatched at {site}")
         candidates.append({
-            "function": parent, "site": site, "opcode": opcode,
+            "ownerEntry": parent, "site": site, "opcode": opcode,
             "operands": operands, "label": label,
             "xrefInstructionEvidenceId": obs["evidenceId"],
             "actualMemoryWriteProven": False,
@@ -162,7 +162,7 @@ def audit(root: Path, *, execute: bool=False,
                     recover_partials=recover_partials)
     results = []
     for c in candidates:
-        entry, site = c["function"], c["site"]
+        entry, site = c["ownerEntry"], c["site"]
         function = runner.obtain(
             target, ["function", str(target.path), entry],
             folder/("function-"+safe_segment(entry)+".json"),
@@ -175,9 +175,9 @@ def audit(root: Path, *, execute: bool=False,
         )
         results.append({
             **c,
-            "function": function_context(function, entry=entry, site=site)
+            "functionDossier": function_context(function, entry=entry, site=site)
                         if function is not None else None,
-            "instructions": native_context(
+            "nativeDossier": native_context(
                 instructions, entry=entry, site=site,
                 opcode=c["opcode"], operands=c["operands"],
             ) if instructions is not None else None,
@@ -209,7 +209,7 @@ def markdown(report: dict) -> str:
         "",
     ]
     for candidate in report["storeCandidates"]:
-        entry, site = candidate["function"], candidate["site"]
+        entry, site = candidate["ownerEntry"], candidate["site"]
         lines += [
             "### "+entry+" store "+site,
             "",
@@ -219,7 +219,7 @@ def markdown(report: dict) -> str:
             "- Actual store to 0x351055 proven: False (address alias unresolved)",
             "",
         ]
-        pseudo = candidate["function"]
+        pseudo = candidate["functionDossier"]
         if pseudo is None:
             lines += ["Original Ghidra function dossier not yet collected.", ""]
         else:
@@ -234,7 +234,7 @@ def markdown(report: dict) -> str:
             lines += ["~~~", ""]
             if pseudo["excerptTruncated"]:
                 lines += ["Bounded excerpt only; full original Evidence JSON retained.", ""]
-        instructions = candidate["instructions"]
+        instructions = candidate["nativeDossier"]
         if instructions is None:
             lines += ["Native instruction listing not yet collected.", ""]
         else:
@@ -290,8 +290,8 @@ def main() -> int:
         return 2
     for result in report["storeCandidates"]:
         print("[CANDIDATE]", result["site"], result["label"],
-              "function", result["function"]["entry"] if result["function"] else "PENDING",
-              "native", "VERIFIED" if result["instructions"] else "PENDING")
+              "function", result["functionDossier"]["entry"] if result["functionDossier"] else "PENDING",
+              "native", "VERIFIED" if result["nativeDossier"] else "PENDING")
     print("[REPORT]", out/"avb-byte-producers.md")
     print("[LIMIT] Memory alias, secure-state authority and unlock unproved")
     return 0
