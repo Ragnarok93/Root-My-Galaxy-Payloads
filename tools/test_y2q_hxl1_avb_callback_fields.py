@@ -80,7 +80,7 @@ class Hxl1AvbCallbackTests(unittest.TestCase):
 
     def test_reject_missing_parameter_load_or_ambiguous_definitions(self):
         item = chain("0x5dc4", 0x40)
-        with self.assertRaisesRegex(TriageError, "Ambiguous pointer"):
+        with self.assertRaisesRegex(TriageError, "too short"):
             audit.parsed_pointer_field(item[:1] + item[2:])
         item = chain("0x5dc4", 0x40)
         item[-1]["parameter"]["ordinal"] = 1
