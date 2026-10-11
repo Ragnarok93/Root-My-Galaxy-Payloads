@@ -99,6 +99,39 @@ This architecture deliberately does not confuse an isolated host test with proof
 
 ---
 
+## 22:00 UTC — 13/13 owner regression pass and new transactional writer
+
+The owner pulled the existing feature branch and executed both host-native suites:
+
+```text
+tools.test_y2q_hxl1_rkp_pool_model         7/7 PASS
+tools.test_y2q_hxl1_rkp_guest_stage        6/6 PASS
+Total                                       13/13 PASS
+```
+
+This verifies memory-pool accounting, sparse bitmap serialization, fail-closed **synthetic** VA/PA mapping checks, and host buffer lifecycle. **No actual QEMU RAM reservation, original UH output or Linux boot is established.**
+
+**New code committed after this owner-verified gate:**
+
+- `tools/hxl1_rkp_guest_commit.{h,c}` provides a **pluggable transaction** combining the validated guest descriptor staging with strictly ordered physical-memory operations. The caller must attest *all vCPUs stopped* and *external RAM reservation actually verified*, supply an MMU-aware VA→PA verification callback and trustworthy physical read/write operations.
+- Its operations are: snapshot original bytes of all four regions, demand an initially NULL `rkp_s_bitmap_buffer` pointer slot and otherwise zero reserved backing, write bitmap bits then pointer table then 32-byte descriptor, verify each readback, finally publish and verify the original kernel global pointer. On failure, attempt reverse-order restore **including a partially written failing region**, compare restored bytes, and return `ROLLBACK_FAILED` if guest state cannot be trusted. Explicitly indicate when the original pointer slot may remain partially published.
+- `tools/hxl1_rkp_guest_commit_test.c` and `tools/test_y2q_hxl1_rkp_guest_commit.py` test success, write ordering, partial writes, rollback failures, dirty memory, changing maps, readback corruption, paused/reserved preconditions, and uncertain pointer publication using a fictional four-region sparse RAM backend. **Nine new test functions** are committed and integrated into HXL1 CI; **the owner's WSL result is pending**.
+
+**CI-specific finding:** The latest CI run compiled and executed the initial eight new commit tests successfully, but the overall existing workflow was **red due solely to two previously existing AArch64 C-fragment tests**, which could not find `bits/libc-header-start.h`. The workflow was updated to install `libc6-dev-arm64-cross` with the previously installed AArch64 cross GCC and QEMU user-mode tools. Full CI status is pending after that dependency change. Do not call this workflow green until the run completes.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v \
+  tools.test_y2q_hxl1_rkp_pool_model \
+  tools.test_y2q_hxl1_rkp_guest_stage \
+  tools.test_y2q_hxl1_rkp_guest_commit
+```
+
+**Still not integrated into the emulator.** Passing a `ram_reservation_verified=true` flag in host fixtures is *not proof of reserved guest memory*. The next QEMU-specific work must inspect the actual `virt` DTB and physical address layout; implement a reserved-memory carveout outside the kernel/FDT/initrd, check mapped guest VA and physical backing using guest MMU state, and supply a correctly halted vCPU context. Only then can QEMU call the transaction and handle `X0=0xc300c002, X1=0x15`. Never dispatch it to the upstream fork's incompatible KDP handler. No physical-device code execution, unlock or KernelSU has been established.
+
+---
+
 ## Required proof gates before a functional QEMU adapter
 
 | Gate | Acceptance criterion | Present status |
