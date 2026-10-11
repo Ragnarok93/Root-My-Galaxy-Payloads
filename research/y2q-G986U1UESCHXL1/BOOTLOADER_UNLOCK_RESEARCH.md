@@ -1232,6 +1232,108 @@ modification was demonstrated.
 
 ---
 
+
+## October 11, 14:15 UTC — AVB callback state-provider return-type conflict
+
+The owner completed original SHA256-validated Ghidra function 0x33770
+query (Evidence ID ev_3ae0acb8f22c882d55c7a4f35b55075b25d83d96662d6f62bd402acad9d221a2).
+
+**Critical issue discovered: the Ghidra pseudo-return ABI is inconsistent.**
+The 0xb2bc callback (Evidence
+ev_442c3833c176c2251868a674bd58e7a114813d5822b0bb8e9f290bc22bde5b83)
+calls 0x33770 and assigns its result to a byte before writing it to
+the AVB lock-state output pointer:
+
+    uVar1 = FUN_00033770();
+    uVar3 = 0;
+    *param_2 = uVar1;
+
+But the independently decompiled 0x33770 is
+**void FUN_00033770(void)**, not a byte-valued getter.
+Its 19-line original pseudocode:
+
+    lVar1 = DAT_0032a4b8;
+    cVar2 = FUN_00039cdc();
+    if ((cVar2 != '\0') && (cVar2 = FUN_00039d08(0x80000000),
+                            cVar2 != '\0')) {
+      FUN_00039818(0x80000000,"%a : (%d)\n",
+                   "IsUnlocked",DAT_00351055);
+    }
+    if (DAT_0032a4b8 == lVar1) {
+      return;
+    }
+    FUN_0001e81c(DAT_00351055);
+
+Observations:
+- **DAT_00351055** is a global appearing in the "IsUnlocked"
+  diagnostic and at the apparent guard-failure callsite.
+  It is a **candidate**, not a verified state value producer,
+  native memory writer, authenticated boot state, or the real
+  value returned in register W0.
+- **DAT_0032a4b8** is saved and compared, in a pattern compatible
+  with stack-guard bookkeeping. Do not mistake that for security
+  authorization without independent native evidence.
+- Ghidra's 0x33770 declares void and shows no explicit value
+  return. The caller's use of the returned byte therefore
+  needs native AArch64 W0 assignment/flow verification.
+- The 0xb2bc null-output-pointer branch remains observed:
+  output pointer NULL => status 2, non-NULL => status 0. That
+  error status is distinct from its possibly unknown byte.
+- The observed androidboot.vbmeta.device_state diagnostic
+  remains separate from image signature/flash authorization.
+  No policy bypass or device unlock is established.
+
+### Native ABI and global cross-reference analysis now available
+
+Committed files:
+- tools/y2q_hxl1_rea_avb_global_abi.py
+- tools/test_y2q_hxl1_rea_avb_global_abi.py
+- tools/run_y2q_hxl1_rea_avb_global_abi.sh
+
+The script revalidates the full original pinned component hashes
+and five search→xref→function chains, the original static
+AvbOps callback constructor and +0x40 read call, and saved
+0xb2bc/0x33770 functions. It fails closed unless exactly the
+original mutually inconsistent Ghidra signatures and distinctive
+"IsUnlocked" globals are observed. It does not guess a source
+from naming.
+
+Then at most four new source-attested, bounded REA queries:
+
+1. LinuxLoader **instructions 0xb2bc**: native call and W0
+   consumption in wrapper function.
+2. LinuxLoader **instructions 0x33770**: native W0 return or
+   fallthrough behavior and global references.
+3. LinuxLoader **xrefs 0x351055**: address referenced as
+   DAT_00351055 in Ghidra. **Read vs write remains unknown**.
+4. LinuxLoader **xrefs 0x32a4b8**: comparison global potentially
+   associated with stack-guard handling.
+
+Original verified evidence is never replaced. New files are
+rea-security-audit/LinuxLoader/instructions-0xb2bc.json,
+instructions-0x33770.json, xrefs-global-0x351055.json, and
+xrefs-global-0x32a4b8.json. The report keeps instruction
+provider output verbatim in bounded excerpts, without
+automatically asserting that W0 is defined. Query results
+can be empty or unrecognized; this remains uncertainty.
+
+Owner WSL invocation:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_global_abi.sh
+~~~
+
+Output report:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-global-abi.md
+
+Do not infer security bypass, an unlocked bootloader, or trusted
+state based on Ghidra's diagnostic string, xref count or
+unverified ARM64 function return type.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
