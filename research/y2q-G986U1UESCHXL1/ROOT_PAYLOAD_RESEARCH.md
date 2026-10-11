@@ -467,3 +467,67 @@ from one of Samsung's assembly compatibility switches.
 this diagnostic.** A future isolated target-object compile can be
 considered only after understanding this failure, and still cannot
 prove factory Clang10 RT-mutex field offsets.
+
+
+## October 10–11, 2026 — Build-10 Clang IAS error matches precise upstream Linux 4.19 fix
+
+Owner's `bash tools/run_y2q_hxl1_target_build_blockers.sh --log
+~/s20-artifacts/samsung-hxl1-image-clang18-build-10.log` passed **301/301
+focused tests**, preserving a versioned `kernel-target-build-blockers-run-001.md`.
+Original stock Kbuild enables both `rtmutex.o` and `futex.o`, and their
+`.o/.cmd` absence has no target-specific compiler error. The actual
+original Build-10 assembler diagnostics were:
+
+    arch/arm64/mm/cache.S:126:1: note: while in macro instantiation
+    alternative_if 27
+    <instantiation>:2:2: error: unrecognized instruction mnemonic
+    _ASM_EXTABLE 9999b, 9f
+
+An exact upstream Linux **4.19-stable fix** exists: upstream commit
+`6f5459da2b8736720afdbd67c4bd2d1edba7d0e3`,
+"arm64: alternative: fix build with clang integrated assembler".
+The AArch64 `.macro user_alt` uses the assembled lowercase
+`_asm_extable`; GNU as historically tolerated an uppercase
+`_ASM_EXTABLE` invocation, but Clang's integrated assembler did not.
+This is **the identical error signature and instruction** in the
+original upstream report:
+
+- https://lkml.rescloud.iu.edu/2004.0/00879.html
+- https://cos.googlesource.com/third_party/kernel/+/49275ad17f1a168f5b29ebd3832373cc0206d164
+- https://lists.openwall.net/linux-kernel/2020/03/19/1728
+
+Do not assume that the owner's original stock `alternative.h`
+has the old macro until checking it. A new **optional** feature in
+`tools/prepare_samsung_vdso_compat.py` performs that check,
+accepts only the exact upstream one-line `user_alt` correction,
+and creates a fourth-patch manifest with pinned file hashes and
+normalized full-tree digest verification. Other source lines, the
+Samsung original source tree and every previous experimental copy
+remain unchanged. It does NOT change any security feature and
+does NOT replace the original Qualcomm/Samsung factory compiler.
+
+The new host-only runner defaults to dry-run; opt in to a **NEW**
+isolated copy only after its stock preflight and exact substitution
+checks pass:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_arm64_ias_extable_compat.sh
+    # Only if the dry run verifies the exact stock source:
+    bash tools/run_y2q_hxl1_arm64_ias_extable_compat.sh --execute
+
+Expected new source:
+`~/src/samsung-y2q-hxl1-vdso-ias-extable-compat`.
+This must differ from existing
+`~/src/samsung-y2q-hxl1-vdso-ias-format-compat` and the stock
+`~/src/samsung-y2q-hxl1-stock`. Existing generated Clang18 `O=`
+outputs are NOT reused as a validated new build. The runner does
+**not** run `make`. Once the exact upstream patch is verified in
+the new copy, any subsequent assembly/object compilation must use
+a completely distinct `O=` directory and log, with its own
+provenance and no claim that generated Clang18 DWARF yields factory
+Clang10 `rt_mutex` member offsets.
+
+**Current root milestone is still blocked:** no live physical load,
+complete factory kernel field layouts, runtime GhostLock applicability,
+temporary root or KernelSU. The compile workaround is diagnostic only.
