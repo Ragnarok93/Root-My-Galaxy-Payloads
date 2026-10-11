@@ -418,3 +418,73 @@ declare the profile supported.
 privileged loading route or a safely demonstrated HXL1-specific
 runtime bug in an isolated reproduction. Until then preserve
 the research profile and do not run another broad static scan.
+
+
+## October 11 checkpoint — exact reported DTB/DTBO indices
+
+The owner inspected *two already-retained* HXL1 device ADB records
+(`20261010T130008Z` and `20261010T130021Z`, just 13 seconds apart).
+Both give:
+
+- `ro.boot.dtb_idx=0` and `ro.boot.dtbo_idx=2`;
+- `/proc/cmdline`, `/proc/iomem`, both device-tree root
+  `model` and `chosen/bootargs` interfaces: **PERMISSION_DENIED**;
+- `/proc/bootconfig`: **NOT_PRESENT**;
+- no verified physical Linux kernel load/entry, runtime
+  KASLR or effective DTB hash.
+
+These are two observations, **not independent boot measurements**.
+
+The *offline* embedded stock boot-v2 region has four validated
+contiguous FDTs in **one-based report order**:
+candidate 1 Kona v2.1 at offset `0x0`,
+candidate 2 Kona v2 at `0x81088`,
+candidate 3 Kona v1 at `0x10210c`,
+candidate 4 minimal 173-byte tree at `0x181c46`.
+Its first bytes are FDT magic, **not** Android DT-table magic.
+The selector's index base and its mapping to these four bytes
+are **not independently established**. Therefore the observed
+`dtb_idx=0` does NOT certify that first candidate is running.
+The observed `dtbo_idx=2` is in a distinct *overlay* selection
+domain, **not** candidate 3 of the four embedded base FDTs.
+
+**Next single read-only check, no more Android polling or kernel scans:**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+echo "=== Existing original DTBO files, if any ==="
+find "$HOME/s20-artifacts" -maxdepth 5 -type f \
+  \( -iname 'dtbo.img' -o -iname 'dtbo.img.lz4' -o -iname 'dtbo.bin' \) \
+  -printf '%p | %s bytes\n' | sort
+
+echo "=== Previously authenticated embedded base-DTB identities ==="
+python3 - <<'PY'
+import json
+from pathlib import Path
+p=Path.home()/"s20-artifacts/hxl1-research/stock-fdt-semantic-audit.json"
+if not p.is_file():
+    print("NO_PREEXISTING_FDT_SEMANTIC_REPORT")
+else:
+    d=json.loads(p.read_text())
+    for entry in d.get("candidates",[]):
+        print("OFFLINE_CANDIDATE_NOT_RUNTIME_PROVEN",
+              entry.get("index"), hex(entry.get("offsetWithinDtbRegion",0)),
+              entry.get("rootModel"), entry.get("sha256"))
+PY
+```
+
+**Interpretation:**
+If `dtbo.img` or `dtbo.img.lz4` exists, establish exact
+HXL1 provenance **before** interpreting overlay index 2.
+If no original DTBO bytes are present, record
+`HXL1_ORIGINAL_DTBO_TABLE_NOT_IN_LOCAL_EVIDENCE` and
+stop; a new firmware acquisition or duplicate Ghidra sweep
+is not mandatory to resolve the core root feasibility blocker.
+Do not guess DTBO index mapping from the base-FDT report.
+
+**Unchanged go/no-go:** Locked bootloader, enforced signed
+modules, unavailable kprobes and no demonstrated privilege
+execution/kernel code-loading mechanism leave the HXL1
+KernelSU module path blocked. The static handoff code is
+verified, but actual runtime memory placement is not.
