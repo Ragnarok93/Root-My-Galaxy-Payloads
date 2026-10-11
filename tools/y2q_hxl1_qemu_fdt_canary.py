@@ -31,7 +31,7 @@ class CanaryError(ValueError):
     pass
 
 
-def make_canary(original:bytes, check_pinned:bool=True)->tuple[bytes,dict]:
+def make_canary(original:bytes, check_pinned:bool=True,\n                self_reserve_bytes:int|None=None)->tuple[bytes,dict]:
     baseline=fdt.parse_fdt(original)
     if check_pinned and baseline["qemuGeneratedFdtSha256"]!=SOURCE_SHA:
         raise CanaryError("Original generated QEMU virt FDT SHA mismatch")
@@ -54,8 +54,17 @@ def make_canary(original:bytes, check_pinned:bool=True)->tuple[bytes,dict]:
         raise CanaryError("Modified DTB would be too large")
     override_total=total+16
     fdt_reserved_bytes=(override_total+FDT_PAGE-1)&~(FDT_PAGE-1)
+    if self_reserve_bytes is not None:
+        if (not isinstance(self_reserve_bytes,int) or
+            self_reserve_bytes<FDT_PAGE or
+            self_reserve_bytes%FDT_PAGE!=0 or
+            self_reserve_bytes>fdt.MAX_DTB):
+            raise CanaryError("Requested self-reserve must be page-aligned and <=8MiB")
+        if self_reserve_bytes<fdt_reserved_bytes:
+            raise CanaryError("Requested self-reserve cannot truncate the override FDT")
+        fdt_reserved_bytes=self_reserve_bytes
     if FDT_PA+fdt_reserved_bytes>EXPECTED_RAM_END:
-        raise CanaryError("Original FDT plus reserve-map entry exceeds guest RAM")
+        raise CanaryError("Self-reservation extends beyond guest RAM")
     inserted=struct.pack(">QQ",FDT_PA,fdt_reserved_bytes)
     result=bytearray(original[:off_reserve]+inserted+original[off_reserve:])
     # Preserve every prior FDT structure/name/property byte and all old
@@ -88,7 +97,7 @@ def make_canary(original:bytes, check_pinned:bool=True)->tuple[bytes,dict]:
         "sourceFdtTotalSizeBytes":total,
         "overrideFdtTotalSizeBytes":override_total,
         "fdtReservationPageAlignment":FDT_PAGE,
-        "selfReservationIsPageRoundedToOverrideLength":True,
+        "selfReservationCoversOverrideFdt":True,\n        "selfReservationExplicitGuestMeasuredBytes":self_reserve_bytes,\n        "selfReservationReachesObservedRuntimeFdt":None,
         "purpose":"FDT_SELF_RESERVATION_DELIVERY_CANARY_NOT_RKP_POOL",
         "onlyOriginalMemreserveMapChanged":True,
         "originalStructureAndStringsByteIdentical":True,
@@ -104,7 +113,7 @@ def main()->int:
     source=Path.home()/"s20-artifacts/hxl1-research/qemu-virt-dtb-20261011/qemu-virt.dtb"
     output=Path.home()/"s20-artifacts/hxl1-research/qemu-memreserve-canary-20261011"
     p.add_argument("--source",type=Path,default=source)
-    p.add_argument("--output-dir",type=Path,default=output)
+    p.add_argument("--output-dir",type=Path,default=output)\n    p.add_argument("--self-reserve-bytes",type=int,\n                   help="Optional independently measured, 4KiB-aligned guest FDT extent; not an RKP pool")
     a=p.parse_args()
     try:
         if not a.source.is_file() or a.source.is_symlink():
@@ -114,14 +123,14 @@ def main()->int:
             raise CanaryError("Canary output directory already exists; preserve evidence")
         if out==a.source.expanduser().absolute().parent:
             raise CanaryError("Never write into original generated FDT directory")
-        patched,record=make_canary(a.source.read_bytes())
+        patched,record=make_canary(a.source.read_bytes(),\n                                   self_reserve_bytes=a.self_reserve_bytes)
         out.mkdir(parents=True,exist_ok=False)
         (out/"canary-override.dtb").write_bytes(patched)
         (out/"canary-construction.json").write_text(json.dumps(record,indent=2)+"\n")
         print("[ORIGINAL]",record["sourceGeneratedFdtSha256"])
         print("[CANARY FDT]",record["overrideFdtSha256"])
         print("[ONLY ADDED MEMRESERVE]",record["addedMemreserve"])
-        print("[GUEST DELIVERY VERIFIED] NO")
+        print("[GUEST DELIVERY VERIFIED] NO")\n        print("[GUEST FINAL FDT EXTENT VERIFIED] NO — requires new GDB capture")
         print("[RKP PROTECTED POOL RESERVED] NO")
         print("[OUTPUT]",out/"canary-override.dtb")
         return 0
