@@ -238,6 +238,15 @@ cat ~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/security-
 bash tools/run_y2q_hxl1_rea_security_audit.sh
 ~~~
 
+Initial execution limits literal searches to **three per selected module**,
+to make the first Ghidra pass tractable. Once the first pass is confirmed,
+the remaining original terms can be added incrementally while reusing
+validated previous Evidence:
+
+~~~bash
+bash tools/run_y2q_hxl1_rea_security_audit.sh --seed-limit 6
+~~~
+
 The wrapper activates the existing WSL Node 24, REA and Ghidra
 environment. The default targets are **Odin** and **LinuxLoader**.
 More expensive secure-firmware formats are optional:
