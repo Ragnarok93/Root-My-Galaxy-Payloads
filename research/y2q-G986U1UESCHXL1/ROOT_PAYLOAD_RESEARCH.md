@@ -1,5 +1,16 @@
 # Galaxy S20+ HXL1 root-feasibility research: firmware first, no stock Image rebuild
 
+**Current instructions (October 11, 2026):**
+[HXL1 firmware-to-profile next steps](../../docs/SM-G986U1-HXL1-NEXT-STEPS.md).
+This file is a chronological evidence record and contains historically
+valid but **superseded** instructions. Do not restart an already-complete
+firmware download/source extraction, Clang18 compilation, EFI static
+analysis or duplicate-report campaign solely because older sections
+say "next". Start with the nine-stage readiness checker and the
+already implemented pinned-original-kernel source/code review.
+The stock factory ABI, real runtime privilege and KernelSU remain
+unverified.
+
 **Target:** Samsung SM-G986U1 (y2q), firmware **G986U1UESCHXL1**,
 Android 13, `uname -r = 4.19.113-27095354`, security patch
 2025-01-01. The bootloader is locked, Android SELinux enforcing,
