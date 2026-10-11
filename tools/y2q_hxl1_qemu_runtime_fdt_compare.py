@@ -71,7 +71,7 @@ def compare_runtime(prior:dict, generated_bytes:bytes, runtime_bytes:bytes,
     if current.get("status")!="GUEST_ENTRY_FDT_HEADER_CORRELATED":
         raise RuntimeFdtError("New GDB guest PC/X0/FDT header not validated")
     if current.get("registers")!=earlier.get("registers"):
-        raise RuntimeFdtError("Current guest entry registers differ from prior verified boot")
+        raise RuntimeFdtError("GDB guest PC/X0 or boot registers differ from prior verified boot")
     if current.get("first16BytesHex")!=earlier.get("first16BytesHex"):
         raise RuntimeFdtError("Runtime FDT header differs from previously observed 16 bytes")
     if current.get("first16BytesHex")!=runtime_bytes[:16].hex():
