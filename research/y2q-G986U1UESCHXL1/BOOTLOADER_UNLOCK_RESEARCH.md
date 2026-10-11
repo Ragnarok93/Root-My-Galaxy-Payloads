@@ -1115,6 +1115,123 @@ is demonstrated.
 
 ---
 
+
+## October 11, 14:01 UTC — original AVB read_is_device_unlocked callback identified
+
+The owner successfully completed the two Ghidra queries planned from
+the source-attested 0xb7a4 AvbOps constructor and +0x40/+0x48 slot map.
+
+Original LinuxLoader SHA256:
+5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003.
+
+At constructor 0xb7a4 (original Ghidra Evidence
+ev_4168cd8e93bf7d4946c55989205b9bc7d626b4f7b4cdb919b0c05c7e5ec09cb1)
+the +0x40 slot is assigned FUN_0000b2bc. The owning
+Ghidra function **0xb2bc** is now independently verified:
+
+Ghidra Evidence:
+ev_442c3833c176c2251868a674bd58e7a114813d5822b0bb8e9f290bc22bde5b83.
+
+Owner-observed original 24-line callback pseudocode:
+
+~~~c
+undefined8 FUN_0000b2bc(undefined8 param_1,undefined1 *param_2)
+{
+  undefined1 uVar1;
+  char cVar2;
+  undefined8 uVar3;
+  ulonglong uVar4;
+  if (param_2 == (undefined1 *)0x0) {
+    cVar2 = FUN_00039cdc();
+    if ((cVar2 != '\0') && (uVar4 = FUN_0000b86c(), (uVar4 & 0xff) != 0)) {
+      FUN_0000b864(uVar4,"bad input paramaters\n");
+    }
+    uVar3 = 2;
+  }
+  else {
+    uVar1 = FUN_00033770();
+    uVar3 = 0;
+    *param_2 = uVar1;
+  }
+  return uVar3;
+}
+~~~
+
+**Evidence-derived semantics:** the original Ghidra callback checks
+for a NULL output pointer, sets result code 2 for that branch and
+otherwise retrieves a byte from **FUN_00033770()**, writes it
+to the output pointer, and sets result code 0. These are Ghidra
+decompiler observations. Error/success status and the reported
+locked/unlocked state byte are distinct values. This does not
+establish whether 0x33770 reads secure world, RPMB, a global,
+a platform service, or a derived software predicate.
+
+This closes an important part of the static callback call chain:
+
+    0x2274 --[pbVar20=0xb7a4(pcVar19)]-->
+    0xb7a4 --[slot +0x40 = 0xb2bc]-->
+    0x5950 --[CALLIND 0x5dc4 from +0x40]-->
+    0xb2bc --[FUN_00033770() yields output byte]-->
+    androidboot.vbmeta.device_state (reported boot property)
+
+The call site is Ghidra original p-code supported; the in-memory
+runtime pointer and final native-store/alias proof remain pending.
+The property output does NOT independently determine secure-boot
+policy, Odin flashing authorization or an unlock.
+
+**Other callback slot:** the constructor assigns
+puVar2[9]=&LAB_0000b30c at +0x48. The source-attested
+native instruction check at 0xb30c decoded
+str x26,[sp, #-0x50]! but Ghidra returned
+procedure=None. This does not independently validate the
+label as a function entry. Original instruction Evidence:
+ev_9105fc9d6f5f3dcc257d322f6eee77ae9aab82c1b14660ea59b8da87e55f212d.
+
+### Single next original-source Ghidra query: 0x33770
+
+New source/CI and WSL runner committed:
+
+- tools/y2q_hxl1_rea_avb_state_source.py
+- tools/test_y2q_hxl1_rea_avb_state_source.py
+- tools/run_y2q_hxl1_rea_avb_state_source.sh
+
+The analyzer revalidates original HXL1 archive/component
+hashes, all five original search/xref/function proof chains,
+paged p-code, constructor assignment, +0x40/+0x48 call
+sites, original callback 0xb2bc, and b30c instruction
+Evidence before making at most one new Ghidra query:
+
+    rea function LinuxLoader-HXL1.efi 0x33770 --provider ghidra --json
+
+It fails closed if the saved original callback pseudocode
+no longer contains exactly one of each NULL output check,
+source call FUN_00033770(), output-byte assignment,
+status 2/status 0 branches and status return. It does not
+promote these lexical checks to native control-flow or secure
+authorization proof. All Evidence is retained in unique,
+no-overwrite files on the owner host.
+
+Owner-run command:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_state_source.sh
+~~~
+
+Output:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-unlock-state-source.md
+
+Exact new source Evidence file:
+rea-security-audit/LinuxLoader/function-0x33770.json
+
+The next question is the concrete **source of the byte** returned
+from 0x33770, not how to forge the androidboot boot property.
+No exploit, signed-image bypass, bootloader unlock or handset
+modification was demonstrated.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
