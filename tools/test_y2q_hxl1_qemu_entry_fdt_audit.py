@@ -92,6 +92,16 @@ class EntryFdtTests(unittest.TestCase):
             report=a.correlate(g,boot_report(),make_dtb())
         self.assertIsNotNone(report["candidateImageOverlapWithRuntimeFdt"])
         self.assertFalse(report["qemuRkpGuestMemoryAdapterReady"])
+    def test_trailing_file_padding_does_not_change_declared_fdt_hash(self):
+        original=make_dtb()
+        g=a.parse_gdb(gdb_log(original))
+        # The inventory computes SHA-256 over the declared DTB byte length.
+        # File-level alignment/padding outside that size is not FDT content.
+        with patch.object(a,"PINNED_DTB_SHA",hashlib.sha256(original).hexdigest()):
+            output=a.correlate(g,boot_report(),original+b"\\x00"*16)
+        self.assertTrue(output["entry"]["guestFdtPointerValidated"])
+        self.assertFalse(output["qemuRkpGuestMemoryAdapterReady"])
+
     def test_pinned_dtb_mismatch_refused(self):
         with self.assertRaisesRegex(a.EntryEvidenceError,"generated DTB"):
             a.correlate(a.parse_gdb(gdb_log()),boot_report(),make_dtb())
