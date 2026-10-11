@@ -189,12 +189,12 @@ def report_markdown(report: dict) -> str:
     lines = [
         "# HXL1 versus G9860 — offline bootloader candidate audit", "",
         "**No bootloader unlock, custom flash, signature bypass, or device action is proved.**",
-        "", f"- HXL1 SHA256: \`{report['hxl1']['archiveSha256']}\`",
+        "", f"- HXL1 SHA256: `{report['hxl1']['archiveSha256']}`",
         f"- Comparator: {report['comparatorState']}",
     ]
     if report.get("g9860"):
-        lines += [f"- G9860 archive: \`{report['g9860']['archiveName']}\`",
-                  f"- G9860 SHA256: \`{report['g9860']['archiveSha256']}\`"]
+        lines += [f"- G9860 archive: `{report['g9860']['archiveName']}`",
+                  f"- G9860 SHA256: `{report['g9860']['archiveSha256']}`"]
     lines += ["", "| Image | HXL1 format | Unlock strings | AVB strings | G9860 comparison |",
               "|---|---|---:|---:|---|"]
     for name in TARGET_IMAGES:
