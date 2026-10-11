@@ -40,11 +40,14 @@ def parse_source(uh:str,rkp:str)->dict:
     m=MACRO_APP_RE.search(uh)
     p=MACRO_PREFIX_RE.search(uh)
     call=UH_APPID_RE.search(uh)
+    rkp_alias=re.search(
+        r"(?m)^\s*#\s*define\s+UH_APP_RKP\s+UH_APPID\s*\(\s*APP_RKP\s*\)",uh)
     cmd=RKP_CMD_RE.search(rkp)
     fn=BITMAP_FUNC_RE.search(rkp)
-    if not all((m,p,call,cmd,fn)):
+    if not all((m,p,call,rkp_alias,cmd,fn)):
         absent=[name for name,entry in (("APP_RKP",m),("UH_PREFIX",p),
-             ("UH_APPID(APP_ID)",call),("RKP_GET_RKP_GET_BUFFER_BITMAP",cmd),
+             ("UH_APPID(APP_ID)",call),("UH_APP_RKP=UH_APPID(APP_RKP)",rkp_alias),
+             ("RKP_GET_RKP_GET_BUFFER_BITMAP",cmd),
              ("rkp_robuffer_init(void)",fn)) if entry is None]
         raise AuditError("Original-source ABI definitions missing: "+", ".join(absent))
     prefix_num=NUM_RE.search(p.group(1))
@@ -57,12 +60,16 @@ def parse_source(uh:str,rkp:str)->dict:
     # Treat any unusual macro expansion as unresolved; do not extrapolate
     # the fork's packed app ID rules onto exact HXL1 source.
     app_expr=call.group(1).strip()
-    expected_macros=("0xFF", "UH_PREFIX")
-    macro_shape_ok=all(x in app_expr for x in expected_macros)
-    call_requirements=("uh_call(", "UH_APP_RKP", "RKP_GET_RKP_GET_BUFFER_BITMAP",
-                       "&rkp_s_bitmap_buffer", "memstart_addr")
-    collapsed="".join(fn_text.split())
-    function_match=all("".join(x.split()) in collapsed for x in call_requirements)
+    macro_shape_ok=bool(re.fullmatch(
+        r"\(*\s*UL\(APP_ID\)\s*&\s*UL\(0xFF\)\s*\)*\s*\|\s*UH_PREFIX\s*\)*",
+        app_expr))
+    # Confirm argument order, not merely occurrence of source identifiers.
+    # Casts are allowed, but X2 must be &rkp_s_bitmap_buffer and X3 memstart.
+    function_match=bool(re.search(
+        r"\buh_call\s*\(\s*UH_APP_RKP\s*,\s*RKP_GET_RKP_GET_BUFFER_BITMAP\s*,"
+        r"\s*(?:\([^)]*\)\s*)?&rkp_s_bitmap_buffer\s*,"
+        r"\s*(?:\([^)]*\)\s*)?memstart_addr\s*,\s*0\s*,\s*0\s*\)",
+        fn_text))
     return {
         "appRkp":app,"prefix":hex(prefix),
         "appIdExpansion":app_expr,
