@@ -1,5 +1,6 @@
 """Offline attestation regression tests; require exported HXL1 evidence archives."""
 import io
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -25,6 +26,31 @@ class OriginalSliceAttestation(unittest.TestCase):
         r=a.attest(ELF,REA)
         for k in ('sourceHeaderHashesAuthenticatedByThisTool','fullFactoryStructLayoutsAuthenticated','rootOrKernelSuVerified'):
             self.assertFalse(r[k])
+    def test_source_requires_original_exact_checkout(self):
+        with tempfile.TemporaryDirectory() as d:
+            with self.assertRaisesRegex(ValueError,'Samsung C source SHA'):
+                a.attest(ELF,REA,source=Path(d))
+    def test_source_member_declarations_and_conditional_reporting(self):
+        contents={
+          'kernel/locking/rtmutex.c':'// test pinned rtmutex',
+          'kernel/futex.c':'// test pinned futex',
+          'include/linux/rtmutex.h':'struct rt_mutex {\nint wait_lock;\nint waiters;\nint owner;\n};\n',
+          'kernel/locking/rtmutex_common.h':(
+            'struct rt_mutex_waiter {\nint tree_entry;\nint pi_tree_entry;\nint task;\n'
+            'int lock;\n#ifdef TEST\nint optional;\n#endif\nint prio;\nint deadline;\n};\n'),
+        }
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            for rel,body in contents.items():
+                p=root/rel;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(body)
+            mocked={key:hashlib.sha256(contents[key].encode()).hexdigest()
+                    for key in a.SOURCE_PINS}
+            with patch.dict(a.SOURCE_PINS,mocked):
+                r=a.attest(ELF,REA,source=root)
+                self.assertTrue(r['sourceHeaderHashesAuthenticatedByThisTool'])
+                self.assertFalse(r['sourceProvenance']['fullOriginalFactoryCompiledLayoutProven'])
+                self.assertTrue(r['sourceProvenance']['originalSamsungHeaderDeclarationsFound']
+                               ['kernel/locking/rtmutex_common.h']['conditionalMembersPossible'])
     def test_modified_word_pin_rejected(self):
         with patch.dict(a.WORDS['remove_waiter'],{0x28:'f9401ec9'}):
             with self.assertRaisesRegex(ValueError,'compiled instruction changed'):
