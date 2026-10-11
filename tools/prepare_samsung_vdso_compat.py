@@ -25,6 +25,14 @@ MANIFEST = ".samsung-vdso-compat.json"
 VDSO = "arch/arm64/kernel/vdso/gettimeofday.S"
 ELFNOTE = "include/linux/elfnote.h"
 INIT_MAIN = "init/main.c"
+ARM64_ALTERNATIVE = "arch/arm64/include/asm/alternative.h"
+EXTABLE_IAS_PATCH = {
+    ARM64_ALTERNATIVE: {
+        "patch": "linux-arm64-alternative-clang-ias-6f5459da2b8736720afdbd67c4bd2d1edba7d0e3",
+        "upstream": "https://lkml.rescloud.iu.edu/2004.0/00879.html",
+        "expectedReplacements": 1,
+    },
+}
 PATCHES = {
     VDSO: {
         "patch": "linux-4.19-stable-vdso-macro-args",
@@ -50,11 +58,25 @@ FORMAT_PATCH = {
     },
 }
 FORMAT_KIND = "OFF_DEVICE_EXPERIMENTAL_VDSO_AND_INIT_FORMAT_COMPAT_NOT_SAMSUNG_STOCK"
+IAS_EXTABLE_KIND = "OFF_DEVICE_EXPERIMENTAL_VDSO_INIT_FORMAT_ARM64_IAS_EXTABLE_NOT_SAMSUNG_STOCK"
 VDSO_KIND = "OFF_DEVICE_EXPERIMENTAL_VDSO_COMPAT_SOURCE_NOT_SAMSUNG_STOCK"
 
 
-def patch_catalog(format_fix):
-    return {**PATCHES, **FORMAT_PATCH} if format_fix else dict(PATCHES)
+def patch_catalog(format_fix, extable_fix=False):
+    if extable_fix and not format_fix:
+        raise ValueError("arm64 extable Clang IAS correction requires --init-format-fix (Build-10 chain)")
+    return {**PATCHES, **(FORMAT_PATCH if format_fix else {}),
+            **(EXTABLE_IAS_PATCH if extable_fix else {})}
+
+
+def manifest_identity(patches):
+    if ARM64_ALTERNATIVE in patches:
+        if INIT_MAIN not in patches:
+            raise ValueError("ARM64 IAS extable patch requires the signed-off init-format provenance chain")
+        return 3, IAS_EXTABLE_KIND
+    if INIT_MAIN in patches:
+        return 2, FORMAT_KIND
+    return 1, VDSO_KIND
 
 
 def digest_bytes(value):
@@ -103,6 +125,28 @@ def upstream_fixes(source_text, path):
             'ELFNOTE_START(name, type, "a")',
             source_text,
         )
+    elif path == ARM64_ALTERNATIVE:
+        # Apply only the upstream Linux 4.19 hunk in 'user_alt'. A different
+        # macro body must not be rewritten opportunistically.
+        macro = re.search(
+            r"(?ms)^[ \t]*\.macro[ \t]+user_alt,[ \t]*label,[ \t]*oldinstr,"
+            r"[ \t]*newinstr,[ \t]*cond[ \t]*$"
+            r"(.*?)^[ \t]*\.endm[ \t]*$",
+            source_text,
+        )
+        if not macro:
+            raise ValueError("refusing ARM64 IAS patch: exact user_alt macro not present")
+        body = macro.group(1)
+        if "alternative_insn" not in body or "9999:" not in body:
+            raise ValueError("refusing ARM64 IAS patch: unexpected user_alt body")
+        before = re.compile(
+            r"(?m)^([ \t]*)_ASM_EXTABLE[ \t]+9999b,[ \t]*\\label[ \t]*$"
+        )
+        changed_body, n = before.subn(
+            lambda match: match.group(1) + r"_asm_extable 9999b, \label",
+            body,
+        )
+        changed = source_text[:macro.start(1)] + changed_body + source_text[macro.end(1):]
     elif path == INIT_MAIN:
         # Preserve the log message and all security initialization logic.
         # Match the complete existing expression exactly once.
@@ -112,7 +156,7 @@ def upstream_fixes(source_text, path):
         changed = source_text.replace(before, after)
     else:
         raise ValueError("unsupported compatibility patch: " + path)
-    expected = {**PATCHES, **FORMAT_PATCH}[path]['expectedReplacements']
+    expected = {**PATCHES, **FORMAT_PATCH, **EXTABLE_IAS_PATCH}[path]['expectedReplacements']
     if n != expected:
         raise ValueError(f"refusing compatibility patch {path}: expected {expected} exact matches, found {n}")
     if changed == source_text:
@@ -132,7 +176,7 @@ def source_gate(stock, audit):
     return preflight
 
 
-def plan(stock, dest, audit, format_fix=False):
+def plan(stock, dest, audit, format_fix=False, extable_fix=False):
     stock = stock.expanduser().resolve()
     dest = dest.expanduser().absolute()
     if not stock.is_dir() or not (stock / "Makefile").is_file():
@@ -147,7 +191,7 @@ def plan(stock, dest, audit, format_fix=False):
         raise ValueError("keep compatibility source on native WSL Linux filesystem")
     source_gate(stock, audit)
     patches = {}
-    for path, meta in patch_catalog(format_fix).items():
+    for path, meta in patch_catalog(format_fix, extable_fix).items():
         file = stock / path
         if file.is_symlink() or not file.is_file():
             raise ValueError("required unmodified Samsung source file not found: " + path)
@@ -188,12 +232,13 @@ def create(stock, dest, patches):
             staged, {path: meta["originalSha256"] for path, meta in patches.items()}
         )
         if normalized != base_tree_sha:
-            raise ValueError("copied source differs from stock outside two upstream patches")
+            raise ValueError("copied source differs from stock outside the explicitly audited compatibility patches")
         compat_tree_sha = tree_digest(staged)
+        schema, kind = manifest_identity(patches)
         manifest = {
-            "schema": 2 if INIT_MAIN in patches else 1,
+            "schema": schema,
             "firmware": FIRMWARE,
-            "kind": FORMAT_KIND if INIT_MAIN in patches else VDSO_KIND,
+            "kind": kind,
             "originalSource": str(stock),
             "compatSource": str(dest),
             "stockTreeSha256": base_tree_sha,
@@ -225,9 +270,10 @@ def verify_compat(stock, compat):
     if not isinstance(actual_patches, dict):
         raise ValueError("missing compatibility patch manifest")
     format_fix = INIT_MAIN in actual_patches
-    allowed = patch_catalog(format_fix)
-    expected_kind = FORMAT_KIND if format_fix else VDSO_KIND
-    if (manifest.get("schema") != (2 if format_fix else 1)
+    extable_fix = ARM64_ALTERNATIVE in actual_patches
+    allowed = patch_catalog(format_fix, extable_fix)
+    expected_schema, expected_kind = manifest_identity(actual_patches)
+    if (manifest.get("schema") != expected_schema
             or manifest.get("firmware") != FIRMWARE
             or manifest.get("originalSource") != str(stock)
             or manifest.get("compatSource") != str(compat)
@@ -258,11 +304,14 @@ def main():
     parser.add_argument("--audit-json", type=Path, required=True)
     parser.add_argument("--init-format-fix", action="store_true",
                         help="Opt into one extra exact init/main.c u64/%lx compatibility correction in a NEW isolated copy")
+    parser.add_argument("--arm64-extable-ias-fix", action="store_true",
+                        help="Opt in to Linux 4.19 stable 6f5459da: correct user_alt _ASM_EXTABLE case, new isolated source only")
     parser.add_argument("--execute", action="store_true", help="copy and patch separate tree")
     args = parser.parse_args()
     try:
         stock, dest, patches = plan(args.source_dir, args.compat_source_dir,
-                                    args.audit_json.expanduser(), args.init_format_fix)
+                                    args.audit_json.expanduser(), args.init_format_fix,
+                                    args.arm64_extable_ias_fix)
         print("Samsung stock source (never modified):", stock)
         print("Experimental compatibility destination:", dest)
         for path, patch in patches.items():
