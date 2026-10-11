@@ -704,3 +704,67 @@ Expected output:
 and `.json`. Full factory ABI equivalence, source-level CVE runtime
 applicability, runtime privileged kernel state and KernelSU remain
 explicitly **unverified**.
+
+
+## October 10, 2026 — Owner source/object attestation PASS; next compare experimental TU geometry
+
+Owner ran `bash tools/run_y2q_hxl1_attest_isolated_dwarf_objects.sh`
+on original post-build artifacts after pulling `9f64b49`.
+**94/94 regression tests PASS.** The independent checker verified:
+
+- Original OEM source tree SHA256
+  `d8a04e191bd0df1521c5483dab441a71279e978ea207ea57681c1cfc49b4e11d`.
+- Four-patch experimental source SHA256
+  `354b9f0e32a0b890babbc06470d9f9beb0cc2e8d069d7c73cdf5f6e2e9f0af5f`.
+- Pinned experimental Clang18 `.config` SHA256
+  `97cf1d93f86251294951ff235e76281e9e3705d5745be6b44f130fc3aa501c09`.
+- Three successful original Kbuild phases, retained .cmd commands and
+  matching exact compiled AArch64 ELF relocatable hashes:
+  `kernel/locking/rtmutex.o` =
+  `12279b4dfdf74425c47ef3514540ab1333fff1045fd6b066d378714707eed1f2`
+  and `kernel/futex.o` =
+  `9adcfff8a44180d47bdb9f0ec40fb7ca646343eea939f74609f70b9975342e53`.
+- Both `pahole` and `readelf` independently verify one complete
+  `rt_mutex` and one complete `rt_mutex_waiter` type definition per
+  object.
+
+Report:
+`~/s20-artifacts/hxl1-research/rtmutex-dwarf-ias-01-attested.md`.
+Only a **Python SyntaxWarning about escaped Markdown backticks** appeared;
+the report generation and entire attestation completed successfully.
+The backticks were corrected as Python literals by commit `9532595`.
+
+### What this proves, and what remains missing
+
+The two experimental Clang18 translation units really do contain
+full DWARF declarations, but their agreement with one another has **not
+yet been tested**. The original HXL1 stock kernel still has **no
+verified independent field offsets or complete DWARF/BTF**, and a Clang18
+type's byte size/offset cannot be passed off as the factory Clang10 ABI.
+In particular no runtime privileged kernel access, KASLR address,
+on-device exploit, KernelSU module, or installable payload has been shown.
+Stage 3 remains PARTIAL; the later stages remain blocked/open.
+
+New read-only checker:
+`tools/y2q_hxl1_experimental_dwarf_tu_parity.py` independently inspects
+the two **exact pinned original Clang18 objects** using readelf, checks
+direct named-member count/order and raw location and bitfield
+attributes, and computes SHA256 fingerprints of their geometry to detect
+cross-translation-unit mismatch. Numeric offsets are **not exported**.
+It is fail-closed on anonymous, absent, nonconstant or ambiguous field
+locations. It intentionally does not compare embedded/nested type
+definitions or type-reference targets, so even identical fingerprints
+constitute **provisional partial geometry agreement**, not ABI equivalence.
+The preparatory owner report attestation is run again first.
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_experimental_dwarf_tu_parity.sh
+
+Report:
+`~/s20-artifacts/hxl1-research/rtmutex-experimental-tu-parity-01.md`.
+
+**Regardless of this comparison, verifying the OEM factory ABI requires
+additional independent stock-binary or matching toolchain/debug evidence**.
+Don't promote internal Clang18 type agreement into a factory layout or
+native exploit parameter.
