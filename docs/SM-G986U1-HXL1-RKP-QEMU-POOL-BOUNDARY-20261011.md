@@ -132,6 +132,26 @@ python3 -m unittest -v \
 
 ---
 
+## 22:13 UTC — transaction confirmed on owner WSL; QEMU virt DTB inventory gate
+
+Owner pulled the transaction code and ran `tools.test_y2q_hxl1_rkp_guest_commit`: **9/9 PASS on WSL**. This independently confirms GitHub Actions' earlier **135/135 PASS** host+fixture run, including the guarded original-pointer publication and deliberately injected rollback failure. All three native C groups (pool 7, staging 6, transaction 9) are now owner-validated. These are tests with **fictional backend memory**, not QEMU device-memory operations or a working HXL1 virtual hypervisor.
+
+**Next first-hand evidence gate now committed:** `tools/run_y2q_hxl1_qemu_virt_dtb_capture.sh` and `tools/y2q_hxl1_qemu_virt_dtb_inventory.py`. The former SHA-verifies the actual owner original `kernel.bin`, refuses existing output, and invokes **stock QEMU with the exact earlier SMC debugger machine profile** `virt,gic-version=3`, Cortex-A57, 1 vCPU, 2048 MiB RAM, with `dumpdtb=` and `-S` rather than running Linux. The inventory parses the generated binary FDT **without dtc**, reading the authoritative root memory `reg`, DT header memreserve entries, `/reserved-memory` fixed and dynamic properties, and `/chosen` initrd pointers; all are recorded as *inventory data*, not safe free pages. Eleven synthetic/guard tests are committed to HXL1 CI but are **not yet confirmed** passing on owner WSL or Actions.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_virt_dtb_inventory
+bash tools/run_y2q_hxl1_qemu_virt_dtb_capture.sh
+python3 tools/y2q_hxl1_qemu_virt_dtb_inventory.py
+```
+
+The saved output directory defaults to `~/s20-artifacts/hxl1-research/qemu-virt-dtb-20261011`, with `qemu-virt.dtb`, `qemu-version.txt`, machine profile, console/error status and `qemu-virt-inventory.json`. **Do not retry the default directory if it exists:** pass a fresh output directory as the shell argument and correspondingly `--dtb`/`--output` to the parser. The dump must exit successfully; unsupported `dumpdtb` property is an **INCONCLUSIVE** diagnostic, not an indication the factory kernel failed.
+
+**Important limitation:** QEMU `virt` documentation states that RAM starts at `0x40000000`, matching the earlier stock image translation address `0x40080000`. But a dynamically generated DTB itself does **not** prove the kernel physical footprint, placement of the FDT/initrd and stacks, EFI loader allocations, the Linux memblock reserve state or the presence of any secure UH pages. An apparently empty `/reserved-memory` is specifically **not permission** to select a pool in live guest RAM. The program explicitly sets `suitableProtectedPoolProven=false`, `guestLinuxMemblockReservationProven=false` and `kernelFdtInitrdOverlapExcluded=false`. Any actual reserved pool requires a separately validated QEMU machine configuration/DTB node plus guest observation of the reserve *before* `paging_init`, along with full guest VA/PA checks for the original `X2` target and four staged buffer regions.
+
+---
+
 ## Required proof gates before a functional QEMU adapter
 
 | Gate | Acceptance criterion | Present status |
