@@ -73,6 +73,22 @@ The output directory **must not already exist**. The script captures `serial-con
 - First Linux boot banner: meaningful original-Image boot progress, but still not a successful source-faithful guest.
 - Panic or exception logs: retain original stack/PC and check **which** HXL1 initialization dependency failed; only then consider porting one clearly identified fork emulation handler.
 
+## 15:34 UTC — RKP paging/bitmap source preflight passes and C memory model scaffold added
+
+Owner-run `tools.test_y2q_hxl1_rkp_bitmap_preflight`: **14/14 PASS**. The actual exact-HXL1 `rkp-bitmap-preflight.json` source audit passed **all 14 named witnesses**, and the factory config confirmed 4 KiB pages; the output remained `[FORK] NOT READY; protected pool and descriptor reservation unimplemented`. This validates the source-derived layout and early paging dependencies but does **not** demonstrate guest memory reservation or firmware response bytes.
+
+A new [standalone QEMU integration contract](SM-G986U1-HXL1-RKP-QEMU-POOL-BOUNDARY-20261011.md) and host-only C model (`tools/hxl1_rkp_pool_model.{h,c}`) are committed. The model accepts explicitly supplied RAM, reservation and pool ranges, refuses out-of-bounds/nonaligned memory, separately tracks RKP pool ownership vs page allocation/free, and exposes 1 GiB sparse-unit bitmap *host bytes* without allocating any guest VA, guest descriptor or physical pages in QEMU. Its owner/CI compile/test results are **pending**. Tests in `tools/hxl1_rkp_pool_model_test.c` and `tools/test_y2q_hxl1_rkp_pool_model.py` cover non-overlap, 1 GiB boundary, exhaustion, reuse and double frees; integrated into the existing HXL1 isolated CI workflow.
+
+For the next source-faithful QEMU adapter, the true missing tasks are: verify externally reserved guest RAM, allocate/map a 32-byte LP64 sparse descriptor and guest `char **map` chain with correct guest pointers, validate the UH bitmap side effect to GDB `X2`, and handle later protected allocations/RO/DBL bitmaps without inventing unconditional success. The model's membership bit=1 means pool ownership by design but is **not yet validated against actual UH hypervisor output**; do not claim one-to-one firmware fidelity based on host fixture PASS alone.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_rkp_pool_model
+```
+
+---
+
 ## 15:22 UTC — exact HXL1 source and RKP bitmap symbol are corroborated
 
 Owner pulled latest branch and ran two suites: `tools.test_y2q_hxl1_qemu_smc_register_capture` **5/5 PASS** (previous output-order test defect corrected), and `tools.test_y2q_hxl1_rkp_bitmap_abi_audit` **18/18 PASS**; overall **23/23 PASS**. Critically, the actual read-only **original retained HXL1 source ABI** and already captured guest GDB trace correlated:
