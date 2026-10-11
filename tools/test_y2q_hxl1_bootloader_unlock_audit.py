@@ -11,7 +11,7 @@ import unittest
 
 import lz4.frame
 from tools import y2q_hxl1_bootloader_unlock_audit as audit
-from tools.test_y2q_abl_linuxloader_extract import fake_abl
+from tools.test_y2q_abl_linuxloader_extract import fake_abl, pe
 
 
 def fixture_archive(path: Path, images: dict[str, bytes], *,
@@ -108,6 +108,19 @@ class BootloaderUnlockAuditTests(unittest.TestCase):
         nested = both["abl.elf"]["uefiModuleComparison"]
         self.assertEqual(len(nested["matchedFileGuids"]), 1)
         self.assertTrue(nested["matchedFileGuids"][0]["sameSetOfExecutableHashes"])
+
+    def test_export_nested_uefi_pe_hash_named_and_refuse_tampering(self):
+        original = fake_abl()
+        with tempfile.TemporaryDirectory() as td:
+            dest = Path(td)
+            audit.export_binaries(dest, "HXL1", {"abl.elf": original})
+            copies = list((dest / "HXL1" / "uefi-modules" / "abl.elf").glob("*.efi"))
+            self.assertEqual(len(copies), 1)
+            self.assertEqual(copies[0].read_bytes(), pe())
+            self.assertEqual((dest / "HXL1" / "abl.elf").read_bytes(), original)
+            copies[0].write_bytes(b"tampered")
+            with self.assertRaisesRegex(audit.TriageError, "refusing to overwrite"):
+                audit.export_binaries(dest, "HXL1", {"abl.elf": original})
 
     def test_absent_uefi_is_not_unlock_evidence(self):
         info = audit.nested_uefi_modules(b"plain image without UEFI volumes")
