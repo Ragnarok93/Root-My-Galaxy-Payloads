@@ -82,6 +82,29 @@ class OfflineImageTraceTests(unittest.TestCase):
         self.assertEqual(r["candidateImageStarts"][0]["uniqueMatchingImageOffsets"],5)
         self.assertEqual(r["candidateImageStarts"][0]["tailUniqueMatchingImageOffsets"],5)
         self.assertFalse(r["evidenceFlags"]["factoryKernelEntryIndependentlyEstablished"])
+    def test_in_asm_with_pc_but_no_machine_words_is_inconclusive(self):
+        # QEMU can log a disassembled mnemonic without an opcode field.
+        image=sample_image()
+        raw=b"----------------\nIN:\n0x0000000040080000:  b 0x40080010\n"
+        report=t.analyze(image,raw,b"",b"",[],len(raw))
+        self.assertEqual(report["evidenceStatus"],
+            "PC_ADDRESSES_PRESENT_BUT_NO_PARSEABLE_OPCODE_WORDS")
+        self.assertEqual(report["parsedAarch64OpcodeLines"],0)
+        self.assertTrue(report["traceFormatHead"]["pcAddressLinesSeen"])
+        self.assertEqual(report["traceFormatHead"]["pcHeadSamples"],["0x40080000"])
+        self.assertFalse(report["evidenceFlags"]["factoryKernelEntryIndependentlyEstablished"])
+    def test_in_asm_header_without_pc_has_distinct_status(self):
+        image=sample_image()
+        raw=b"----------------\nIN:\n   unknown QEMU decoder line\n"
+        report=t.analyze(image,raw,b"",b"",[],len(raw))
+        self.assertEqual(report["evidenceStatus"],
+            "IN_ASM_SECTIONS_PRESENT_BUT_PC_FORMAT_UNKNOWN")
+        self.assertFalse(report["traceFormatHead"]["pcAddressLinesSeen"])
+        self.assertEqual(report["traceFormatHead"]["inAsmSectionMarkers"],1)
+        self.assertFalse(report["evidenceFlags"]["samsungKernelBooted"])
+    def test_hex_prefixed_opcode_form_parses(self):
+        raw=b"IN:\n0x0000000040080100: 0xd2800000 mov x0, #0\n"
+        self.assertEqual(list(t.parsed_words(raw)),[(0x40080100,0xd2800000)])
     def test_original_sha_must_match(self):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/"kernel.bin";p.write_bytes(sample_image())
