@@ -2,6 +2,41 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 14:48 UTC — stock QEMU SMC #0 decoded; UH guest register capture gate
+
+The owner ran the new original-image fault-site analyzer on WSL after `13/13 PASS` regression tests. It validated original stock HXL1 `kernel.bin` SHA `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`, found the three expected ELF-reconstructed Image offsets, and decoded actual original instruction words:
+
+```text
+ELR 0xffffff80080a5794 / offset 0x25794  opcode d4000003 -> SMC #0
+ELR 0xffffff80082ac90c / offset 0x22c90c opcode f9402eb8 -> LDR X24,[X21,#0x58]; FAR 0x58
+ELR 0xffffff80086de39c / offset 0x65e39c opcode a9412149 -> LDP X9,X8,[X10,#0x10]; FAR 0x10
+```
+
+**Major precision improvement:** The QEMU **Undefined Instruction** is a Samsung kernel **SMC #0** instruction hitting an unsupported/unhandled secure monitor path in the generic VM, rather than evidence for an unknown CPU ISA feature. The existing public Samsung-QEMU fork has a directly relevant `target/arm/tcg/op_helper.c:HELPER(pre_smc)` intervention supporting selected Samsung UH calls. However **X0…X6 were not captured**, so HXL1's exact secure-monitor application/command cannot yet be matched to its RKP/KDP dispatch (example fork IDs `0xc300c001`, `0xc300c002`). Do not blanket-stub all SMCs or copy another device's physical memory constants. Recovered nearest names `back`, `kmem_cache_alloc`, `dump_stack_minidump` are unverified symbols and cannot establish function membership or causal ordering. The two FAR values are consistent with null-base register accesses, but current register state is unmeasured and may not be causally downstream from SMC.
+
+**Engineering work now committed:**
+- `tools/y2q_hxl1_qemu_secure_monitor_gate.py`: exact original-kernel SHA gate, original ELR opcode checks, SMC/LDR/LDP decode, explicit `X0=UNOBSERVED` and near-null candidate reporting; **13 committed offline tests**.
+- `tools/run_y2q_hxl1_qemu_smc_register_capture.sh`: one-shot **30-second** localhost-only QEMU+GDB hardware breakpoint at the original SMC ELR, meant to capture guest `X0…X6` without modifying the stock Image; cleans up the VM and prints **INCONCLUSIVE** when not hit. **5 committed guard tests**.
+- Both suites enrolled in `.github/workflows/hxl1-cleanup-model.yml`. **Do not claim these new 18 tests pass until owner WSL or GitHub CI confirms execution**. The earlier owner-run 13/13 fault-site tests remain VERIFIED.
+
+After pulling, run:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v \
+  tools.test_y2q_hxl1_qemu_secure_monitor_gate \
+  tools.test_y2q_hxl1_qemu_smc_register_capture
+python3 tools/y2q_hxl1_qemu_secure_monitor_gate.py
+bash tools/run_y2q_hxl1_qemu_smc_register_capture.sh
+```
+
+Review compact offline classification `qemu-first-failure-20261011/secure-monitor-gate.json` and GDB `qemu-smc-registers-20261011/gdb-session.log`. Only if `HXL1_SMC_BREAKPOINT_HIT` appears may `X0` be treated as an observed call identifier; confirm actual HXL1 source ABI before implementing a separately built Samsung-QEMU `pre_smc` adapter. If debugger miss occurs, inspect `gdb-session.log` and do **not** infer the factory kernel never reached the call. The stock handset remains untouched; source-faithful guest kernel init, real RT-mutex vulnerability, bootloader unlock and KernelSU deployment remain unproven.
+
+See [Samsung QEMU adaptation note](SM-G986U1-HXL1-SAMSUNG-QEMU-ADAPTATION-20261011.md#1448-utc--original-smc-0-identified-samsung-qemu-hypervisor-handler-selected-for-review).
+
+---
+
 ## October 11, 14:38 UTC — QEMU original-kernel faults observed; image-relative opcode attribution
 
 Owner successfully ran the direct Python CLI and **9/9** `y2q_hxl1_qemu_exception_summary` tests. Original 15-second generic-QEMU trace is **fully covered** at `216857` bytes. Its original SHA-pinned Image correlation still has `270` distinct matching offsets at `0x40080000`, with **0 mismatched opcode comparisons** in that report. Three `-d int` exceptions are documented:
