@@ -278,3 +278,61 @@ and continue to Stage 4–5 runtime-evidence prerequisites as
 independent gates only when there is a specific remaining proof
 question. Nothing here authorizes kernel memory writes or a
 KernelSU support-feed entry.
+
+
+### Completed: Original waiter/helper correlation (owner WSL verification)
+
+Owner confirmed the exact original `rtmutex_common.h` source
+defines `struct rt_mutex_waiter`, the `rt_mutex_top_waiter()`
+cached-first-node and `BUG_ON(w->lock != lock)` path, the
+tagged `rt_mutex_owner()` accessor, and
+`task_blocked_on_lock() -> p->pi_blocked_on->lock`.
+These source relationships fit the original stock `remove_waiter`
+load/branch chain: `lock+24` top cached waiter,
+`waiter+56` lock pointer, `lock+32` owner pointer,
+and owner/current task PI accesses near
+`+0x8c8`/`+0x8e0`/`+0x8f8`.
+Conditional `CONFIG_DEBUG_RT_MUTEXES` layout changes remain
+a separate verification requirement for any field after the
+optional debug members, such as `prio`.
+
+**Stop looping on RT-mutex structure scans.** The selected
+source-to-binary operation correlations are now sufficiently
+documented as observations, but the **complete OEM ABI remains
+PARTIAL**. They do not provide arbitrary kernel read/write,
+a runtime kernel pointer or a valid KernelSU loading path.
+
+### Next gate: review *existing* Stage 4/5 evidence, not a new sweep
+
+The exact original ABL LinuxLoader static handoff was already
+documented, and the prior device-side, read-only ADB evidence
+did not measure the actual UEFI `KernelBaseAddr`/base-memory
+branch, KASLR value, physical kernel entry or confirmed
+booted DTB. Rather than rerun that denied/restricted probe,
+read the retained results and identify whether the device
+exposes a new legitimate source of runtime evidence:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+BASE="$HOME/s20-artifacts/hxl1-research"
+
+echo "=== Existing Stage 4 static handoff ==="
+sed -n '1,115p' "$BASE/abl-linuxloader/rea-stage4-handoff-static.md"
+
+echo "=== Already retained live ADB reports (do not re-probe) ==="
+find "$BASE/live-adb" -type f -name live-boot-evidence.md -print 2>/dev/null |
+  sort | tail -n 5
+
+echo "=== Exact HXL1 signed-module/kernel-probe gates ==="
+gzip -dc "$HOME/s20-artifacts/config.gz" |
+  grep -E '^(CONFIG_MODULES=|CONFIG_MODULE_SIG_FORCE=|CONFIG_KPROBES=|# CONFIG_KPROBES is not set|CONFIG_RT_MUTEXES=|CONFIG_FUTEX_PI=|CONFIG_DEBUG_RT_MUTEXES=|# CONFIG_DEBUG_RT_MUTEXES is not set)' || true
+```
+
+**Decision:** With no new independent runtime evidence,
+do **not** claim a physical load/KASLR number, GhostLock
+exploitation, root or KernelSU. Existing forced module-signature
+checks and `CONFIG_KPROBES=n` must be treated as real design
+obstacles. The next engineering milestone is *feasibility of
+an authorized runtime privilege/code-loading primitive on the
+exact locked HXL1 build*, not another Clang18 object or
+truncated disassembly. Stage 7 stays BLOCKED.
