@@ -34,8 +34,6 @@ class SemanticRootsTests(unittest.TestCase):
             root = Path(td)
             hashes = make_saved_evidence(root)
             with mock.patch.dict(base.EXPECTED, hashes):
-                with mock.patch.object(sem.Runner, "obtain", wraps=None) as _:
-                    pass
                 result = sem.inspect_focus(
                     root, root / "rea-security-audit", execute=False,
                     node="node", script=root / "missing-rea.mjs",
@@ -106,9 +104,6 @@ class SemanticRootsTests(unittest.TestCase):
                  "traceSummary": None}],
         }
         md = sem.markdown(report)
-        self.assertIn("no secure-state decision proven", md.lower()
-                      if "no secure-state decision proven" in md.lower() else
-                      "no secure-state decision proven") if False else None
         self.assertIn("reporting case, not proof", md)
         self.assertIn("~~~c", md)
         for value in ["flash --", "adb shell", "heimdall flash"]:
