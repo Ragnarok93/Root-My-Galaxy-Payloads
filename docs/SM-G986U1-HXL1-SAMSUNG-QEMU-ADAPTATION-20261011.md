@@ -73,6 +73,48 @@ The output directory **must not already exist**. The script captures `serial-con
 - First Linux boot banner: meaningful original-Image boot progress, but still not a successful source-faithful guest.
 - Panic or exception logs: retain original stack/PC and check **which** HXL1 initialization dependency failed; only then consider porting one clearly identified fork emulation handler.
 
+## 15:04 UTC — GDB captured RKP-looking bitmap call; upstream KDP ID collision discovered
+
+### Owner successful guest breakpoint (no source-fidelity assumptions)
+
+The owner pulled through `d174944` and ran both SMC check suites: **17/18 tests passed, one test FAILED**. The lone failure was **test guard ordering**: `test_existing_output_is_preserved` constructed an empty temporary HOME with an existing output directory but no stock kernel; the shell script checked `kernel.bin` before checking the existing output directory, so it rejected the missing kernel rather than the already-existing output. This is a test/setup-order defect only; not a problem in the GDB capture. Shell checks were reordered (output preservation and stock image hash verification now precede optional QEMU/GDB binary requirements) and pushed to GitHub; revised suite execution remains unverified.
+
+The stock `tools/y2q_hxl1_qemu_secure_monitor_gate.py` output verified the expected unchanged SMC/LDR/LDP opcodes and created `qemu-first-failure-20261011/secure-monitor-gate.json` (a **historical pre-GDB** report which rightly said X0–X6 unobserved at that time).
+
+The bounded original-image QEMU+GDB execution reported **`HXL1_SMC_BREAKPOINT_HIT`**, with the **actual pre-instruction original HXL1 guest registers**:
+
+```text
+PC=0xffffff80080a5794   opcode=d4000003 (SMC #0)
+X0=0xc300c002  X1=0x15  X2=0xffffff800a4dd0b8  X3=0x40000000
+X4=0x0        X5=0x0   X6=0x3f
+```
+
+Full owner WSL report: `~/s20-artifacts/hxl1-research/qemu-smc-registers-20261011/gdb-session.log`. This is a real guest CPU breakpoint at a factory kernel SMC, **not** proof of a functioning secure monitor, complete kernel boot, exploit or on-device unlock.
+
+### Critical previously unrecognized fork ABI collision (DO NOT run fork handler)
+
+**Public SM8250 kernel source directly pertinent to Samsung 4.19:**
+- [nwrafael/android_kernel_samsung_sm8250: include/linux/uh.h](https://github.com/nwrafael/android_kernel_samsung_sm8250/blob/master/include/linux/uh.h) defines `APP_RKP=2`, `UH_PREFIX=0xc300c000`, hence **`UH_APP_RKP=0xc300c002`**. `uh_call` accepts app ID, command, and **four** explicit arguments: X0–X5; the observed `X6=0x3f` may be unrelated and cannot automatically be treated as argument.
+- [nwrafael/android_kernel_samsung_sm8250: include/linux/rkp.h](https://github.com/nwrafael/android_kernel_samsung_sm8250/blob/master/include/linux/rkp.h) defines **`RKP_GET_RKP_GET_BUFFER_BITMAP=0x15`** and `rkp_robuffer_init()`, which issues `uh_call(UH_APP_RKP, RKP_GET_RKP_GET_BUFFER_BITMAP, (u64)&rkp_s_bitmap_buffer, (u64)memstart_addr, 0, 0)`. Thus the captured **X0/RKP, X1/bitmap, X2/plausible &rkp_s_bitmap_buffer, X3/QEMU DRAM 0x40000000** closely fit a real SM8250 RKP initialization. But **these are public adjacent-tree definitions**, NOT yet the owner's SHA-recorded exact HXL1 source.
+- The inspected [diabl0w/qemu-samsung-kernel QEMU 10.2.2 patch](https://github.com/diabl0w/qemu-samsung-kernel/blob/master/0001-samsung-qualcomm-kernel-emulation.patch) maps **the same X0=0xc300c002 to KDP** and command `0x15` to **`KDP_SET_NS_FLAGS`**, which writes a guest `vfsmount.mnt_flags` int. That handler is **incompatible with** a true RKP bitmap-init call and must not be invoked in the HXL1 guest. The fork also maps `0xc300c001` to RKP, and its RKP command constants are `ROBUFFER_ALLOC=0x07`, `FREE=0x08`, `GET_RO_INFO=0x02`; the adjacent SM8250 `rkp.h` instead defines `ROBUFFER_ALLOC=0x11`, `FREE=0x12`, `GET_RO_BITMAP=0x13`, `GET_DBL_BITMAP=0x14`, `GET_BUFFER_BITMAP=0x15`. **Both application IDs AND command dispatch tables require rederivation for HXL1.** Even a simple app-ID swap is insufficient. The fork's RKP default path returns fake success for unknown commands, so it is not acceptable as an original-source-fidelity model.
+
+### Exact HXL1 source audit now committed
+
+`tools/y2q_hxl1_rkp_bitmap_abi_audit.py` reads `~/src/samsung-y2q-hxl1-stock/include/linux/{uh,rkp}.h` (not third-party source), hashes the two owner source files, validates original GDB `PC`, `d4000003`, `X0…X6`, compares source macro-expansion and `rkp_robuffer_init()` call shape, and independently checks whether the **recovered/approximate** `vmlinux-stock.nm` symbol for `rkp_s_bitmap_buffer` equals X2. If no exact symbol exists, it reports that separately rather than fabricating one. It writes a new (non-overwriting) `qemu-smc-registers-20261011/rkp-bitmap-source-abi.json`. Fifteen **synthetic** regressions committed, but their owner/CI pass and exact HXL1 source match are **not yet observed**.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v \
+  tools.test_y2q_hxl1_qemu_smc_register_capture \
+  tools.test_y2q_hxl1_rkp_bitmap_abi_audit
+python3 tools/y2q_hxl1_rkp_bitmap_abi_audit.py
+```
+
+This **does not** start QEMU again. On ABI agreement, the next development step is a separately built, HXL1-gated QEMU secure-call handler that simulates the verified `RKP_GET_RKP_GET_BUFFER_BITMAP` side effects and its memory ownership, informed by original RKP sparse bitmap definitions. It should deliberately **refuse unknown commands** and avoid generic fake-success shortcuts, and never assume S26 physical address windows. We still need to understand expected bitmap lifetime, guest pointer representation and allocations before writing any handler; a matching GDB register capture does not establish those semantics.
+
+---
+
 ## 14:48 UTC — original SMC #0 identified, Samsung-QEMU hypervisor handler selected for review
 
 The owner successfully ran the stock-byte original Image ELR attribution tool and **13/13 tests PASS** on WSL. It validated the exact factory `kernel.bin` SHA-256 `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123` and produced original-Image byte windows and disassembly for all three QEMU exceptions:
