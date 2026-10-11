@@ -2,6 +2,10 @@
 
 **Status:** Host-side C component implemented, tests committed but owner/CI execution not yet verified. **Not integrated into QEMU; no kernel boot or root claim.**
 
+## Owner 15:44 UTC model gate
+
+The owner ran `python3 -m unittest -v tools.test_y2q_hxl1_rkp_pool_model` after pulling branch commit `2bd6696`. All **7/7 tests passed**, including actual host-native C compilation, reservation containment, two-unit 1 GiB sparse boundary mapping, allocation and double-free behavior, out-of-range and oversized input guards, and checks that the component does **not** call QEMU guest-write APIs. **This is a confirmed successful synthetic component gate**, not a source-faithful RKP response, reserved DTB memory, usable guest descriptor or actual QEMU kernel boot. All fixture physical addresses are fictional and must not be treated as a selected HXL1 carveout.
+
 ## Verified inputs, origin, and limits
 
 On the original SM-G986U1 G986U1UESCHXL1 factory Image (SHA256 `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`), the user executed an ARM64 guest with a physical guest breakpoint at the stock `SMC #0` instruction `0xffffff80080a5794`. The guest registers were `X0=0xc300c002`, `X1=0x15`, `X2=0xffffff800a4dd0b8`, `X3=0x40000000`, `X4=X5=0` and `X6=0x3f`. Their exact retained HXL1 Samsung source audit matched **RKP_GET_RKP_GET_BUFFER_BITMAP**, and the recovered `rkp_s_bitmap_buffer` symbol equaled X2. They subsequently ran `tools/y2q_hxl1_rkp_bitmap_preflight.py`: **14/14 tests PASS, 14/14 exact-source witnesses PASS, 4 KiB kernel pages**, plus `[FORK] NOT READY; protected pool and descriptor reservation unimplemented`.
