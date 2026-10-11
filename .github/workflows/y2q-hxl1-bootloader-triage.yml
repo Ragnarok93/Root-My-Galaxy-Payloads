@@ -14,6 +14,7 @@ on:
       - 'tools/test_y2q_hxl1_rea_decision_path_review.py'
       - 'tools/y2q_hxl1_rea_semantic_roots.py'
       - 'tools/test_y2q_hxl1_rea_semantic_roots.py'
+      - 'tools/run_y2q_hxl1_rea_semantic_roots.sh'
       - 'tools/run_y2q_hxl1_rea_security_audit.sh'
       - 'tools/y2q_stock_bl_elf_audit.py'
       - '.github/workflows/y2q-hxl1-bootloader-triage.yml'
@@ -29,6 +30,7 @@ on:
       - 'tools/test_y2q_hxl1_rea_decision_path_review.py'
       - 'tools/y2q_hxl1_rea_semantic_roots.py'
       - 'tools/test_y2q_hxl1_rea_semantic_roots.py'
+      - 'tools/run_y2q_hxl1_rea_semantic_roots.sh'
       - 'tools/run_y2q_hxl1_rea_security_audit.sh'
       - 'tools/y2q_stock_bl_elf_audit.py'
       - '.github/workflows/y2q-hxl1-bootloader-triage.yml'
@@ -50,4 +52,4 @@ jobs:
       - name: Run synthetic-only regression tests
         run: python -m unittest -v tools.test_y2q_hxl1_bootloader_unlock_audit tools.test_y2q_hxl1_bootloader_hotspots tools.test_y2q_hxl1_rea_security_audit tools.test_y2q_hxl1_rea_decision_path_review tools.test_y2q_hxl1_rea_semantic_roots
       - name: Shell wrapper syntax
-        run: bash -n tools/run_y2q_hxl1_rea_security_audit.sh
+        run: bash -n tools/run_y2q_hxl1_rea_security_audit.sh tools/run_y2q_hxl1_rea_semantic_roots.sh
