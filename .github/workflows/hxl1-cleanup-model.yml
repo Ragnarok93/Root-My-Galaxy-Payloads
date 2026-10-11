@@ -19,6 +19,8 @@ on:
       - tools/test_y2q_hxl1_qemu_fault_sites.py
       - tools/y2q_hxl1_qemu_secure_monitor_gate.py
       - tools/test_y2q_hxl1_qemu_secure_monitor_gate.py
+      - tools/run_y2q_hxl1_qemu_smc_register_capture.sh
+      - tools/test_y2q_hxl1_qemu_smc_register_capture.py
       - .github/workflows/hxl1-cleanup-model.yml
   pull_request:
     paths:
@@ -37,6 +39,8 @@ on:
       - tools/test_y2q_hxl1_qemu_fault_sites.py
       - tools/y2q_hxl1_qemu_secure_monitor_gate.py
       - tools/test_y2q_hxl1_qemu_secure_monitor_gate.py
+      - tools/run_y2q_hxl1_qemu_smc_register_capture.sh
+      - tools/test_y2q_hxl1_qemu_smc_register_capture.py
       - .github/workflows/hxl1-cleanup-model.yml
   workflow_dispatch:
 permissions:
@@ -52,7 +56,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu qemu-user
       - name: Compile and test harmless user-space C ownership model
-        run: python3 -m unittest -v tools.test_y2q_hxl1_cleanup_regression tools.test_y2q_hxl1_original_cleanup_slice tools.test_y2q_hxl1_qemu_earlyboot_triage tools.test_y2q_hxl1_qemu_trace_attest tools.test_y2q_hxl1_qemu_exception_summary tools.test_y2q_hxl1_qemu_fault_sites tools.test_y2q_hxl1_qemu_secure_monitor_gate
+        run: python3 -m unittest -v tools.test_y2q_hxl1_cleanup_regression tools.test_y2q_hxl1_original_cleanup_slice tools.test_y2q_hxl1_qemu_earlyboot_triage tools.test_y2q_hxl1_qemu_trace_attest tools.test_y2q_hxl1_qemu_exception_summary tools.test_y2q_hxl1_qemu_fault_sites tools.test_y2q_hxl1_qemu_secure_monitor_gate tools.test_y2q_hxl1_qemu_smc_register_capture
       - name: Evidence scope
         run: |
           echo "Model-only assertions passed. This CI job does not check Samsung source SHA pins."
