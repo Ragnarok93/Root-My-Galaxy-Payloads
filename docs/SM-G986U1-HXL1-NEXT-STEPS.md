@@ -2,6 +2,16 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 11:02 UTC — bounded-slice Stage-3 REA validated on owner WSL
+
+The owner installed local v4.2 bounded-slice REA code and ran `python3 tools/y2q_hxl1_porting_pipeline.py --steps factory_abi` at 2026-10-11 11:00 UTC. Exact saved run: `~/s20-artifacts/hxl1-research/pipeline/run-20261011T110041993854Z`. The `factory_abi` script **PASSED** and generated `stage3-rea-factory-abi/stage3-rea-correlation.md`, showing all three symbols `remove_waiter`, `rt_mutex_start_proxy_lock`, `futex_lock_pi` in `INSTRUCTION_CORRELATED` / `MATCH` status. Stock kernel SHA256: `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`; independently reconstructed analysis ELF SHA256: `e15f67e8253396d9e6463e5dfd78d67e324a7149842a7fbccb973ec0fd36ecdb`. The earlier 330000-ms whole-ELF REA import timeout was resolved by isolating bounded function ELF slices, rather than changing original firmware.
+
+**Precise boundary:** v4.2's independent disassembler check compares the first 16 original instructions and source/image provenance. This verified milestone is not a full-function behavioral equivalence proof and does not authenticate `rt_mutex`/`rt_mutex_waiter` factory member offsets. A new *local-only*, separately packaged v4.3 cached-evidence audit scans **all REA-reported instruction addresses** in the existing v4.2 cache with an independent GNU AArch64 decoder; counts missing instructions and potential opcode/register/memory-operand discrepancies without rerunning REA or touching the phone. Its **nine isolated unit tests passed**, but the v4.3 full original-cache comparison has **not yet been run by the owner**, and the local code is **not committed** to this GitHub branch. Do not promote this to Stage-3 COMPLETE until independent compiled-layout/source-to-binary proof is available.
+
+**Next engineering decision:** Evaluate v4.3 whole-slice coverage, then trace verified binary/source control-flow and operand provenance for the relevant existing functions only. Maintain strict separation of instruction encoding correlation, independently established factory field layouts, runtime address proof, exploitability, and KernelSU compatibility. No root/bootloader unlock/flash achieved.
+
+---
+
 ## October 11, 10:49 UTC — REA provider timeout on reconstructed stock kernel ELF
 
 Owner ran the v4 Stage-3 `factory_abi` pipeline; REA returned structured stdout JSON with `code=provider_timeout`, `operation=read_function_instructions`, `timeout_ms=330000`, and **empty stderr** for `remove_waiter` at recovered static `0xffffff8008147db4`. Saved as `~/s20-artifacts/hxl1-research/pipeline/run-20261011T103543343199Z/stage3-rea-factory-abi/rea-remove_waiter-ffffff8008147db4.partial.json`. This is a **whole-kernel import/analysis timeout**, not disproof of original source or proof of factory ABI.
