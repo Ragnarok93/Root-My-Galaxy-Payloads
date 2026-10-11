@@ -1,5 +1,118 @@
 # SM-G986U1 HXL1 — current porting execution guide
 
+## Current priority — REA/Ghidra first: inspect DTB/DTBO index generation (October 11, 2026)
+
+Owner's two original read-only reports observed `ro.boot.dtb_idx=0` and
+`ro.boot.dtbo_idx=2`. The [REA fork](https://github.com/Ragnarok93/rea)
+and Ghidra 12.1.4 were already brought up on WSL and authenticated
+`LinuxLoader-HXL1.efi`, the BootLinux `FUN_00020a60` and
+DTB selector `FUN_00023bc8`, plus the static ARM64 handoff.
+Do NOT reinstall or reextract them.
+
+The previously verified REA strings in the original LinuxLoader are:
+
+- `0xbfd99` — `androidboot.dtb_idx=`
+- `0xbfd82` — `androidboot.dtbo_idx=`
+
+These are **original static Ghidra PE string coordinates**, not
+physical RAM addresses. The user found no extracted `dtbo.img` among
+the searched paths. The four contiguous original base FDTs are indexed
+**1–4 by our offline report**; do not claim that running
+`dtb_idx=0` selects candidate 1 or `dtbo_idx=2` selects candidate 3.
+The DTBO overlay entry table is not in current local evidence.
+
+### Immediate REA tool step: exactly two existing CLI xrefs
+
+Instead of another broad firmware scan or a custom analyzer,
+use REA's original `xrefs` capability and our existing original-PE
+provenance validator:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+OUT="$HOME/s20-artifacts/hxl1-research/abl-linuxloader"
+EFI="$OUT/LinuxLoader-HXL1.efi"
+REA="$HOME/src/rea/scripts/rea.mjs"
+PIN=5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003
+
+test -f "$EFI" && test ! -L "$EFI" && test -f "$REA" || {
+  echo "[STOP] Original LinuxLoader or REA missing"; exit 2;
+}
+echo "$PIN  $EFI" | sha256sum -c || exit 2
+if test -s "$HOME/.nvm/nvm.sh"; then
+  export NVM_DIR="$HOME/.nvm"
+  . "$NVM_DIR/nvm.sh"
+  nvm use 24
+fi
+if test -s "$OUT/rea-ghidra-env.sh"; then
+  . "$OUT/rea-ghidra-env.sh"
+fi
+
+RUN="$(mktemp -d "$OUT/rea-dt-index-XXXXXX")" || exit 2
+chmod 700 "$RUN"
+
+node "$REA" xrefs "$EFI" 0xbfd99 --provider ghidra --json \
+  > "$RUN/dtb-index-xrefs.json" || exit 2
+node "$REA" xrefs "$EFI" 0xbfd82 --provider ghidra --json \
+  > "$RUN/dtbo-index-xrefs.json" || exit 2
+
+python3 - "$RUN" <<'PY'
+from pathlib import Path
+import sys
+from tools.y2q_linuxloader_rea_stage4_xrefs import parse_xrefs
+folder=Path(sys.argv[1])
+for label,addr in (
+    ("dtb-index","0xbfd99"),
+    ("dtbo-index","0xbfd82"),
+):
+    report=parse_xrefs(folder/(label+"-xrefs.json"),addr)
+    print("[REA VERIFIED]", label, "references",
+          report["crossReferenceCount"],
+          "evidence",report["sourceEvidenceId"])
+    for source in report["sourceAddresses"]:
+        print("  SOURCE INSTRUCTION",source)
+print("[REPORTS]",folder)
+print("[LIMIT] Static string references do not establish boot-time selector outcomes")
+PY
+```
+
+The existing `parse_xrefs` validates exact LinuxLoader SHA256,
+REA operation, Ghidra provider, ARM64 original executable,
+query coordinate and source evidence ID. A zero-reference
+result is still a valid static observation, not proof that the
+index is unused.
+
+### After the new xref addresses are known
+
+Use **REA**, not another homegrown static tool:
+`rea function ORIGINAL_LINUXLOADER SOURCE_ADDRESS --provider ghidra --json`
+to determine owning functions. Compare with cached authenticated
+`FUN_00023bc8` (DTB selection) and `FUN_00020a60`
+(BootLinux). Then, only for an identified relevant function, use
+`rea trace-native-values ORIGINAL_LINUXLOADER FUNCTION_ENTRY --provider ghidra --json`
+to inspect the high-p-code def-use and resolved call relationships.
+The actual WSL entrypoint is `node "$HOME/src/rea/scripts/rea.mjs"`.
+Save the full Evidence with the original binary digest, and
+distinguish static argument derivations from runtime state.
+REA explicitly does not prove alias effects, RNG outputs,
+unresolved indirect calls or physical boot addresses: see
+[its native trace contract](https://github.com/Ragnarok93/rea/blob/main/docs/native-investigation.md).
+
+REA also offers `inspect-firmware-regions` and `extract-firmware`,
+but its [firmware contract](https://github.com/Ragnarok93/rea/blob/main/docs/firmware-analysis.md)
+requires installed compatible Binwalk/Unblob and supports an
+individual **at most 128 MiB** candidate input. It cannot reconstruct
+an absent original DTBO merely from `ro.boot.dtbo_idx` and
+should not be given an entire multi-gigabyte Samsung AP archive.
+
+**Limit:** Exact base-FDT/DTBO selected bytes, boot-time kernel
+physical address, KASLR, a working root exploit and Linux 4.19
+KernelSU are all still unverified. Preserve Stages 3–5 as partial/open
+and Stages 7–8 as blocked. No phone modification.
+
+---
+
 **Status: RESEARCH ONLY. No HXL1 root, exploitable runtime primitive, KernelSU load, installable profile or support-feed entry has been demonstrated.**
 
 This is the **current operational entry point** for [`docs/PORTING.md`](PORTING.md)
