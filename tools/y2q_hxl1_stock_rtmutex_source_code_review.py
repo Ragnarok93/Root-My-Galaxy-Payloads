@@ -293,6 +293,8 @@ def main()->int:
     p.add_argument("--artifacts",type=Path,default=Path.home()/"s20-artifacts")
     p.add_argument("--v2",type=Path,default=DEFAULT_V2)
     p.add_argument("--out",type=Path,default=DEFAULT_OUT)
+    p.add_argument("--show-review",action="store_true",
+                   help="Print complete bounded source and original instruction excerpts to stdout")
     a=p.parse_args()
     source=a.source.expanduser().resolve()
     artifacts=a.artifacts.expanduser().resolve()
@@ -322,6 +324,9 @@ def main()->int:
               "AArch64 instructions",len(a["instructions"]),
               "192-cap truncation",a["windowMayBeTruncatedBy192ByteLimit"])
     print("[REPORT]",out.with_suffix(".md"))
+    if a.show_review:
+        print("=== COMPLETE BOUNDED ORIGINAL SOURCE AND DISASSEMBLY REVIEW ===")
+        print(markdown(data))
     print("[LIMIT] Name pairing only; NO factory member offset, runtime address, root or KernelSU")
     return 0
 
