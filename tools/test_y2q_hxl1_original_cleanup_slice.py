@@ -47,6 +47,15 @@ class OriginalSliceTests(unittest.TestCase):
         result=testee.execute(testee.STUBS+"\n"+original+"\n"+testee.TRAILER,"cc",None)
         self.assertEqual(len(result["observations"]),2)
         self.assertFalse(result["observations"][1]["waiterTaskCleared"])
+    def test_aarch64_user_mode_extract_and_execute(self):
+        if not shutil.which("aarch64-linux-gnu-gcc") or not shutil.which("qemu-aarch64"):
+            self.skipTest("AArch64 cross-compiler and qemu-user not installed")
+        original=testee.extract_function(SAMPLE)
+        result=testee.execute(testee.STUBS+"\n"+original+"\n"+testee.TRAILER,
+                              "aarch64-linux-gnu-gcc","qemu-aarch64")
+        self.assertEqual(result["architecture"],"aarch64-user")
+        self.assertEqual(len(result["observations"]),2)
+        self.assertFalse(result["observations"][1]["waiterTaskCleared"])
     def test_undeclared_function_rejected(self):
         with self.assertRaisesRegex(testee.OriginalSourceError,"Expected one"):
             testee.extract_function("int unrelated(void) { return 1; }")
