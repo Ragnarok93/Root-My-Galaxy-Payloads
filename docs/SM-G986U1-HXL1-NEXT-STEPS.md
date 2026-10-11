@@ -87,6 +87,31 @@ operation has yet been proven to map to a specific factory structure
 offset by this name-based report.** Review it before any new tools
 or code are justified.
 
+**Actual owner result (October 11, 2026):** The readiness tool passed
+9/9 checks and classified stages 1–2 COMPLETE, 3 PARTIAL, 4–6 OPEN,
+7–8 BLOCKED and 9 DEFERRED. The 11 original full-symbol-bounded
+windows passed the source review (67/67 local tests); three
+name-associated source definitions were found at original
+`rtmutex.c:1068–1119`, `rtmutex.c:1797–1810`, and
+`futex.c:2817–2998`. Their 192-byte code limits truncate
+`remove_waiter` and `futex_lock_pi`.
+
+The first report was already present, so the tool successfully wrote
+`hxl1-stock-rtmutex-source-code-02.md` and JSON, but **then**
+crashed while printing the terminal review because a summary-loop
+variable overwrote the parsed `--show-review` arguments. The CLI
+shadowing has been corrected with regression tests. **The existing
+`-02.md` report is valid and need not be regenerated.** Use:
+
+```bash
+cat "$HOME/s20-artifacts/hxl1-research/hxl1-stock-rtmutex-source-code-02.md"
+```
+
+Share this already-generated report for review before taking further
+action; do not create a third redundant report merely for terminal
+printing. Neither the report nor its disassembly proves factory member
+offsets, exact full function semantics, boot relocation or root.
+
 ### C. Samsung FUS metadata check — optional, *not a new prerequisite*
 
 The reference [`PORTING.md`](PORTING.md) uses
