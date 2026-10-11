@@ -2,6 +2,26 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 22:13 UTC — transaction WSL 9/9 PASS; QEMU virt generated FDT inventory tool
+
+Owner pulled through `deff448` and ran `tools.test_y2q_hxl1_rkp_guest_commit`: **9/9 PASS**, with actual native-host C compilation and all injected write/rollback/readback failure fixtures. This independently corroborates 135/135 earlier successful CI tests. Entire original three-part host library is now **22/22 owner-validated** (7 pool + 6 staging + 9 transaction), but has **no real QEMU memory mapping, SMC handler or reserved physical pool**.
+
+**New committed test-gated evidence step:** `tools/run_y2q_hxl1_qemu_virt_dtb_capture.sh` + `tools/y2q_hxl1_qemu_virt_dtb_inventory.py` and 11 synthetic regression tests, registered in isolated HXL1 CI. The shell script verifies exact SHA-pinned HXL1 factory `kernel.bin`, preserves existing outputs, and requests the QEMU `virt,gic-version=3` generated DTB with the same Cortex-A57, 1 vCPU, 2 GiB profile that hit the original SMC in GDB. `-S` and QEMU's `dumpdtb` property prevent intentional execution of the stock kernel; no on-device operation is involved. The parser is a bounded, pure-Python binary FDT reader that lists `/memory` regions, FDT memreserve entries, `/reserved-memory` fixed/dynamic nodes and initrd metadata, without interpreting gaps as available pages. New tests and DTB output **not yet verified by owner or CI**.
+
+Run:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_virt_dtb_inventory
+bash tools/run_y2q_hxl1_qemu_virt_dtb_capture.sh
+python3 tools/y2q_hxl1_qemu_virt_dtb_inventory.py
+```
+
+Report: `~/s20-artifacts/hxl1-research/qemu-virt-dtb-20261011/qemu-virt-inventory.json`. **Do not select any guest-physical carveout based on absence from DTB reservations alone.** The inventory is a prerequisite to verifying a safely reserved protected pool; it is not sufficient. On failure/unsupported machine property, inspect `qemu-dtb-stdout.log` rather than executing an uncontrolled full QEMU boot. Full source ABI and memory contract are in [RKP integration proof gates](SM-G986U1-HXL1-RKP-QEMU-POOL-BOUNDARY-20261011.md#2213-utc--transaction-confirmed-on-owner-wsl-qemu-virt-dtb-inventory-gate).
+
+---
+
 ## October 11, 22:09 UTC — full isolated HXL1 workflow PASS (135/135)
 
 After applying `libc6-dev-arm64-cross` to the isolated GitHub Actions workflow's AArch64 cross-compiler installation, [Actions run 38179184038](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38179184038) for commit `d8dac2e` completed **SUCCESS**. The fetched job logs report:
