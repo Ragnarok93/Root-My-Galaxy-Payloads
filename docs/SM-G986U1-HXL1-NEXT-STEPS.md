@@ -448,43 +448,52 @@ are **not independently established**. Therefore the observed
 The observed `dtbo_idx=2` is in a distinct *overlay* selection
 domain, **not** candidate 3 of the four embedded base FDTs.
 
-**Next single read-only check, no more Android polling or kernel scans:**
+**Completed (owner WSL2):** No `dtbo.img`, `dtbo.img.lz4`
+or `dtbo.bin` was found within five subdirectory levels under
+`~/s20-artifacts`. The four original base FDT identities remain
+unchanged. Record
+`HXL1_ORIGINAL_DTBO_TABLE_NOT_IN_LOCAL_EVIDENCE`, not
+`NO_DTBO_PARTITION_EXISTS`.
+The `dtb_idx=0` and `dtbo_idx=2` properties are preserved
+as bootloader selection hints only. No DTBO index or effective
+tree hash is independently proven.
 
-```bash
-cd ~/src/Root-My-Galaxy-Payloads
-git pull --ff-only
-echo "=== Existing original DTBO files, if any ==="
-find "$HOME/s20-artifacts" -maxdepth 5 -type f \
-  \( -iname 'dtbo.img' -o -iname 'dtbo.img.lz4' -o -iname 'dtbo.bin' \) \
-  -printf '%p | %s bytes\n' | sort
+**Stop repeating the firmware/DTB and restricted ADB loops.**
+A separate DTBO extraction or older Samsung FUS metadata lookup
+should be reopened only if a concrete implementation or recovery
+gate actually requires that evidence.
 
-echo "=== Previously authenticated embedded base-DTB identities ==="
-python3 - <<'PY'
-import json
-from pathlib import Path
-p=Path.home()/"s20-artifacts/hxl1-research/stock-fdt-semantic-audit.json"
-if not p.is_file():
-    print("NO_PREEXISTING_FDT_SEMANTIC_REPORT")
-else:
-    d=json.loads(p.read_text())
-    for entry in d.get("candidates",[]):
-        print("OFFLINE_CANDIDATE_NOT_RUNTIME_PROVEN",
-              entry.get("index"), hex(entry.get("offsetWithinDtbRegion",0)),
-              entry.get("rootModel"), entry.get("sha256"))
-PY
-```
+### Next consequential engineering milestone — isolated runtime feasibility
 
-**Interpretation:**
-If `dtbo.img` or `dtbo.img.lz4` exists, establish exact
-HXL1 provenance **before** interpreting overlay index 2.
-If no original DTBO bytes are present, record
-`HXL1_ORIGINAL_DTBO_TABLE_NOT_IN_LOCAL_EVIDENCE` and
-stop; a new firmware acquisition or duplicate Ghidra sweep
-is not mandatory to resolve the core root feasibility blocker.
-Do not guess DTBO index mapping from the base-FDT report.
+The original HXL1 `remove_waiter` bug-pattern, its stock
+compiled access paths, selected struct member candidates and
+six call destinations are documented. The pre-existing ARM64
+QEMU lab booted **upstream** Linux 4.19.325 with debugging,
+but did **not** reproduce the OEM HXL1 proxy-lock rollback
+behavior, and did **not** match the device's complete Samsung
+kernel or security policy. The target kernel is
+`4.19.113-27095354`, not upstream 4.19.325.
 
-**Unchanged go/no-go:** Locked bootloader, enforced signed
-modules, unavailable kprobes and no demonstrated privilege
-execution/kernel code-loading mechanism leave the HXL1
-KernelSU module path blocked. The static handoff code is
-verified, but actual runtime memory placement is not.
+Any further work must use a **safe, isolated, source-exact
+regression** that distinguishes the potentially incorrect
+`current`/waiter task cleanup branch from its patched
+counterpart. It should measure only bounded state/lock
+integrity in a disposable instrumented guest, not induce
+unstable futex races on the real phone. First verify the
+lab's actual source and configuration fidelity; if
+HXL1 code cannot run there faithfully, treat reproduction
+as `NOT_TESTED` rather than transferring upstream
+results to the stock handset.
+
+A demonstrated **cleanup bug is not automatically an exploitable
+kernel read/write primitive**. A demonstrated primitive would
+still not give KernelSU installation automatically.
+The live `SM-G986U1` remains verified-boot locked with
+`CONFIG_MODULE_SIG_FORCE=y` and
+`CONFIG_KPROBES=n`; an independently verified
+privileged code-loading route and a compatible Linux 4.19
+hook/backend design remain absent. No root/profile release
+until these are established.
+
+**Current readiness:** Stages 1–2 COMPLETE, Stage 3 PARTIAL,
+Stages 4–6 OPEN, Stages 7–8 BLOCKED, Stage 9 DEFERRED.
