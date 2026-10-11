@@ -191,7 +191,7 @@ class Hxl1UpstreamTests(unittest.TestCase):
             t=base.Target("LinuxLoader",root/"LinuxLoader-HXL1.efi","a"*64,{})
             with mock.patch.object(upstream,"verify_setter_modes",return_value=prior()),\
                  mock.patch.object(upstream,"choose_targets",return_value=[t]):
-                with self.assertRaisesRegex(TriageError,"original saved Ghidra"):
+                with self.assertRaisesRegex(TriageError,"Original saved Ghidra"):
                     upstream.audit(root)
 
     def test_source_contains_no_device_or_flash_commands(self):
