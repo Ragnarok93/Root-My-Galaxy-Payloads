@@ -108,6 +108,12 @@ def analyze(image:bytes,head:bytes,tail:bytes,serial:bytes,extra_bases:list[int]
     bases=candidate_bases(image,extra_bases)
     results,head_count=match_words(image,head,bases)
     tail_results,tail_count=match_words(image,tail,bases)
+    # Expose a small PC sample even if none match the hypothesized load bases.
+    # That enables an address-mapping diagnosis without sharing a huge TCG log.
+    head_pcs=[{"pc":hex(pc),"word":f"{w:08x}"}
+              for pc,w in list(parsed_words(head))[:20]]
+    tail_pcs=[{"pc":hex(pc),"word":f"{w:08x}"}
+              for pc,w in list(parsed_words(tail))[-12:]]
     # Preserve head and tail as separate observations rather than mistakenly
     # counting a repeated instruction in the tail as another independent match.
     head_results={r["candidateImagePhysicalStart"]:r for r in results}
@@ -144,6 +150,9 @@ def analyze(image:bytes,head:bytes,tail:bytes,serial:bytes,extra_bases:list[int]
         "originalTraceTotalBytes":total_size,
         "traceCoveragePartial":total_size>len(head)+len(tail),
         "parsedAarch64OpcodeLines":head_count+tail_count,
+        "translatedPcHeadSample":head_pcs,
+        "translatedPcTailSample":tail_pcs,
+        "firstTraceLines":head[:2500].decode("utf8","replace").splitlines()[:14],
         "candidateImageStarts":combined,
         "evidenceFlags":flags,
         "note":"Original QEMU boot stub, translated memory and Image words have different proof levels. "
