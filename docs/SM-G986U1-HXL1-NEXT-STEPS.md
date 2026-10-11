@@ -2,6 +2,25 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 22:00 UTC — 13/13 host C tests PASS; guarded physical guest-memory commit layer
+
+The owner executed the combined `tools.test_y2q_hxl1_rkp_pool_model` (7 tests) and `tools.test_y2q_hxl1_rkp_guest_stage` (6 tests) against current GitHub branch: **13/13 PASS**. Real host C builds, host pool ownership, sparse bitmap, 32-byte descriptor staging and synthetic mapping rejection are validated. Still **no guest physical reservation, MMU translation, original secure-monitor response, Linux boot or physical device access**.
+
+New immediately committed implementation: `tools/hxl1_rkp_guest_commit.{h,c}` adds transactional *backend-agnostic* physical memory operations gated on verified guest mapping, all-vCPU quiescence and externally reserved memory. It snapshots original contents, rejects dirty/uninitialized states, writes the bitmap before the pointer table before the descriptor, updates original `rkp_s_bitmap_buffer` pointer **last**, validates every readback and restores attempted regions in reverse order after failure. A partially published kernel pointer followed by failed rollback is marked **uncertain/untrusted** and must halt guest emulation; it cannot be treated as safely reverted. **Nine** new synthetic C+Python regression tests were committed to HXL1 GitHub Actions; first eight transaction tests **passed in GitHub Actions** on 2026-10-11 22:06 UTC, while overall workflow failed due to a missing AArch64 libc sysroot in **older unrelated** source-slice tests. CI workflow now installs `libc6-dev-arm64-cross` to fix that known independent environment failure. New full-suite result still pending.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v \
+  tools.test_y2q_hxl1_rkp_pool_model \
+  tools.test_y2q_hxl1_rkp_guest_stage \
+  tools.test_y2q_hxl1_rkp_guest_commit
+```
+
+Read [source-derived RKP guest-memory boundary and rollback gate](SM-G986U1-HXL1-RKP-QEMU-POOL-BOUNDARY-20261011.md#2200-utc--1313-owner-regression-pass-and-new-transactional-writer). The code is an internal library with a simulated memory backend, **not a ready-to-apply QEMU 10.2.2 patch**. Next engineering requirement is an HXL1-specific physically reserved QEMU `virt` RAM region backed by actual early guest page tables, with a verified kernel `X2` global pointer write through correct MMU-aware guest access. The existing Samsung production-QEMU `KDP_SET_NS_FLAGS` handler is incompatible with original HXL1 `RKP_GET_RKP_GET_BUFFER_BITMAP` and remains prohibited. Root/KernelSU/bootloader unlock remain blocked.
+
+---
+
 ## October 11, 15:44 UTC — 7/7 host C pool tests passed; protected guest descriptor staging committed
 
 The owner pulled `2bd6696` and ran `tools.test_y2q_hxl1_rkp_pool_model`: **7/7 PASS** including strict-warning C compilation, externally reserved pool checks, 4 KiB page alloc/reuse/double-free tests, and 1 GiB sparse bitmap boundary. This is the first empirically successful **native host C** version of the RKP memory model; it is **not** an HXL1 UH hypervisor or source-faithful QEMU boot.
