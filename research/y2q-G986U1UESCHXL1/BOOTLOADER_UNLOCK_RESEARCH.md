@@ -682,6 +682,78 @@ No unlock, arbitrary firmware execution or vulnerability demonstrated.
 
 ---
 
+
+## October 11, 12:46 UTC — full saved graph pages and exact native callsite investigations
+
+The owner executed the original-REA page collector and obtained:
+
+- Odin function 0x1ec00: 947/947 returned nodes, original
+  single **CALLIND at 0x1ec84**, static target not recovered.
+  Decompilation budget at 16 reached; 90 unresolved diagnostics.
+- LinuxLoader function 0x5950: 1630/1630 returned nodes
+  across two original-source-attested pages, **CALLIND at
+  0x5dc4, 0x5ea4, and 0x6020** (all Ghidra member blocks).
+  Decompilation budget at 16 reached; 181 unresolved diagnostics.
+- Second LinuxLoader page Evidence ID:
+  ev_96f94aadb14d6b1e0b3393fba0d2162cc7d2416361d7ef6afe5693997bc55a1e.
+  Neither trace has missing *retained pages*, but both have
+  incomplete *analysis coverage*. These are different gaps.
+
+The exact identification of the LinuxLoader native instruction that
+calls read_is_device_unlocked remains **OPEN**. Three indirect calls
+exist; it is unsupported to call any one the device-state callback
+based on a location alone.
+
+**Automated next stage:** inspect decoded native instruction and
+provider-resolved static call targets of the four Ghidra-member
+CALLIND sites, and obtain the first original Ghidra function dossier
+for Odin's direct persistent-storage provider lookup **0x10e58**.
+
+- tools/y2q_hxl1_rea_callsite_attribution.py
+- tools/test_y2q_hxl1_rea_callsite_attribution.py
+- tools/run_y2q_hxl1_rea_callsite_attribution.sh
+
+The script verifies the **original five HXL1 search/xref/function
+chains**, component hashes and the two complete saved graph pages.
+It admits exactly the four owner-proven original CALLIND instruction
+coordinates; it does not seek undefined offsets from heuristic
+strings. It runs up to nine NEW bounded direct-Ghidra queries,
+each cached in separate SHA-validated saved Evidence. The static
+provider target resolution operation is resolve_native_call_targets,
+and the native instruction inspection is inspect_native_instruction.
+Both are distinct from REA workflow traces, and reuse the validated
+Ghidra primitive Evidence schema. Missing or ambiguous callback
+targets remain UNKNOWN.
+
+Run on original owner WSL machine:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_callsite_attribution.sh --recover-partials
+cat ~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/callsite-attribution.md
+~~~
+
+Read-only plan mode:
+
+~~~bash
+python3 tools/y2q_hxl1_rea_callsite_attribution.py
+~~~
+
+Original Evidence will be saved under rea-security-audit/Odin
+and rea-security-audit/LinuxLoader, respectively as
+instruction-0x*.json, resolve-call-0x*.json and
+function-0x10e58.json. The report is callsite-attribution.md/json.
+
+The follow-up questions remain: recover the storage-interface
+read target and status handling, locate the LinuxLoader
+param_1+0x40 pointer initializer, identify the separate Odin
+security-result producer, and establish actual policy authority.
+A resolved static callee would still not demonstrate exploitability,
+an authorization bypass or an unlocked SM-G986U1.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
