@@ -269,6 +269,33 @@ def report_markdown(report: dict) -> str:
             ct = one["stringHints"]["categoryCounts"]
             lines.append(f"| {name} | {one['format']} | {ct['unlock_state']} | "
                          f"{ct['verified_boot']} | {two.get('status', 'not checked')} |")
+    lines += ["", "## Nested UEFI executable modules (inside ABL/XBL)", "",
+              "These are PE files discovered by the bounded FV/FFS walker. Outer-ELF",
+              "string counts above do not represent semantic analysis of these modules.",
+              "Matching GUIDs alone do not establish an unlock function.", "",
+              "| Parent | FV scan | FFS entries | PE count | Other executable sections |",
+              "|---|---|---:|---:|---:|"]
+    for parent in ("abl.elf", "xbl.elf"):
+        img = report["hxl1Images"].get(parent, {})
+        nested = img.get("nestedUefi", {})
+        lines.append(
+            f"| {parent} | {nested.get('status', 'not scanned')} | "
+            f"{nested.get('ffsEntries', '—')} | {nested.get('qualifiedPeCount', '—')} | "
+            f"{nested.get('otherExecutableSections', '—')} |")
+    lines += ["", "| Parent | FFS GUID | Module UI name | SHA256 prefix | PE bytes |",
+              "|---|---|---|---|---:|"]
+    for parent in ("abl.elf", "xbl.elf"):
+        nested = report["hxl1Images"].get(parent, {}).get("nestedUefi", {})
+        for item in nested.get("peModules", []):
+            ui = item["ui"].replace("|", "/").replace(chr(10), " ")[:90] or "(unnamed)"
+            lines.append(
+                f"| {parent} | `{item['fileGuid']}` | {ui} | "
+                f"`{item['sha256'][:16]}` | {item['bytes']} |")
+        if nested.get("peModuleListTruncated"):
+            lines.append(f"| {parent} | **TRUNCATED** | Some modules omitted | — | — |")
+    lines += ["", "Review `comparison-inputs/HXL1/uefi-modules/` after"
+              " using `--export-binaries`. Binary-specific security strings"
+              " require separate analysis of those exported PEs.", ""]
     lines += ["", "## Interpretation limits", "",
               "- A print-string hit is only a lead for disassembly/xref review, not proof of a policy branch.",
               "- Matching nested UEFI module GUIDs guide semantic analysis; they never authorize cross-flashing.",
