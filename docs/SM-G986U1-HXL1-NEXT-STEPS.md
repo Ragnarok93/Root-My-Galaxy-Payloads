@@ -2,6 +2,34 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 22:34 UTC — genuine HXL1 kernel-entry FDT pointer and 1 MiB span confirmed
+
+Owner WSL pulled through `b289dd0`, ran `tools.test_y2q_hxl1_qemu_entry_fdt_audit` **18/18 PASS**, executed SHA-pinned unmodified HXL1 Image inside bounded local QEMU/GDB, and received the exact boot-time device-tree header correlation:
+
+```text
+[ENTRY] GUEST_ENTRY_FDT_HEADER_CORRELATED
+[X0-X3] {'X0': '0x48000000', 'X1': '0x0', 'X2': '0x0', 'X3': '0x0'}
+[RUNTIME FDT CANDIDATE] {'start': '0x48000000', 'endExclusive': '0x48100000', 'sizeBytes': 1048576}
+[IMAGE INTERSECTION] None
+[PROTECTED MEMORY RESERVED] NO
+```
+
+This is **new actual guest CPU evidence**: GDB hardware breakpoint hit the original SHA-pinned ARM64 Image entry `0x40080000`, and live `X0` pointed to the expected big-endian FDT header magic with exactly **1 MiB declared FDT extent `[0x48000000,0x48100000)`**. `X1–X3` were zero as required by the ARM64 Linux boot convention. That runtime FDT span does **not** intersect the independently recorded *candidate, not physically attested* Image physical footprint `[0x40080000,0x443bb000)`. Previous `dumpdtb` still reported **no** FDT memreserve/`reserved-memory` and no actual protected RKP pool is established. The original 16-byte header **does not prove** the rest of the live DTB matches the generated dump or that Linux's memblock reserves anything.
+
+**Added immediately:** `tools/run_y2q_hxl1_qemu_runtime_fdt_capture.sh` (separate bounded SHA-pinned local QEMU/GDB run, guest `X0=0x48000000` and `PC=0x40080000` gated, reads full 1,048,576-byte FDT into a new on-host file, no guest writes) and `tools/y2q_hxl1_qemu_runtime_fdt_compare.py` with 16 fixture/guard tests registered in isolated CI. The comparator checks new/old GDB breakpoint markers, all 16 header bytes, exact file length, the pinned generated FDT sha, runtime `/memory` and `/reserved-memory`/memreserve/`/chosen`, and avoids assuming runtime FDT is necessarily byte-identical to `dumpdtb`. One synthetic test initially failed only because its expected error text differed from the stricter implementation's result; diagnostic fixed, final CI status pending. The full runtime FDT has **NOT YET BEEN CAPTURED on the owner's WSL**.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_runtime_fdt_compare
+bash tools/run_y2q_hxl1_qemu_runtime_fdt_capture.sh
+python3 tools/y2q_hxl1_qemu_runtime_fdt_compare.py
+```
+
+Expected new artifacts: `~/s20-artifacts/hxl1-research/qemu-runtime-fdt-20261011/runtime-fdt.dtb`, `gdb-session.log`, `runtime-fdt-comparison.json`. If GDB times out or the guest read fails, retain the directory and use a **fresh** output path for any subsequent attempt, while passing `--runtime-dtb`, `--gdb-log`, `--output` as corresponding CLI overrides. The 1 MiB binary guest read is time-bounded to 60 seconds; a partial file is an **INCONCLUSIVE** capture, not guest boot failure. No pool is selected or reserved, the original Image remains immutable, and bootloader unlock/KernelSU are still unproven.
+
+---
+
 ## October 11, 22:26 UTC — boot-memory audit passes; runtime ARM64 handoff FDT measurement
 
 Owner pulled `22a1962` and ran `tools.test_y2q_hxl1_qemu_boot_memory_audit`: **15/15 PASS**, then ran the actual SHA-pinned factory original-image and QEMU-generated FDT cross-audit. Its observed output was:
