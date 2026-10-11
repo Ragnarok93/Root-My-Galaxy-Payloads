@@ -141,7 +141,7 @@ class IsolatedDwarfBuildTests(unittest.TestCase):
 
     def test_python2_shim_on_path_checked_as_python2_7(self):
         private=self.stock.parent/"bin/python2"
-        private.parent.mkdir(parents=True)
+        private.parent.mkdir(parents=True,exist_ok=True)
         private.write_text("#!/bin/sh\\n")
         private.chmod(0o755)
         class Interpreter:
