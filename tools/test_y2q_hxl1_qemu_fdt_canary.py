@@ -108,7 +108,7 @@ class FdtCanaryTests(unittest.TestCase):
 
     def test_modified_override_fdt_is_refused(self):
         changed=bytearray(self.override)
-        changed[-1]^=1
+        struct.pack_into(">I",changed,28,1)  # change boot CPU ID, preserve parseable FDT
         with self.assertRaisesRegex(verify.DeliveryError,"beyond the one canary"):
             self.probe(override=bytes(changed))
 
@@ -130,7 +130,7 @@ class FdtCanaryTests(unittest.TestCase):
     def test_fdt_header_mismatch_refused(self):
         changed=bytearray(self.guest)
         changed[0]^=0xff
-        with self.assertRaises(verify.DeliveryError):
+        with self.assertRaisesRegex(fdt.FdtError,"magic"):
             self.probe(guest=bytes(changed),log=gdblog(self.guest))
 
     def test_shell_syntax_and_guard_on_existing_evidence(self):
