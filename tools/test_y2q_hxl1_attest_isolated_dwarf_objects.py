@@ -182,10 +182,16 @@ class AttestationTests(TestCase):
             obj.parent.mkdir(parents=True)
             obj.write_bytes(b"synthetic AARCH64 object fixture")
         doc=copy.deepcopy(self.doc)
+        log=root/"original-success.log"
+        log.write_text("".join(
+            "PHASE="+name+"\nCOMMAND=[\"make\"]\nEXIT_CODE=0\n"
+            for name in att.PHASES
+        ))
         doc.update({"source":str(stock),
                     "experimentalClang18Source":str(clone),
                     "freshOutput":str(output),
-                    "originalConfigTemplate":str(template)})
+                    "originalConfigTemplate":str(template),
+                    "log":str(log)})
         doc["objectCommand"]=["make","-C",str(clone),"O="+str(output),
                               "ARCH=arm64",*att.PINNED_OBJECTS]
         if modify:
@@ -193,16 +199,23 @@ class AttestationTests(TestCase):
         def sha(path):
             rel=str(path.relative_to(output)) if output in path.parents else ""
             if rel in att.PINNED_OBJECTS:
-                return att.PINNED_OBJECTS[rel]
+                return (att.PINNED_OBJECTS[rel] if
+                        path.read_bytes()==b"synthetic AARCH64 object fixture"
+                        else "0"*64)
             if path.name==".config":
-                return att.CONFIG_SHA
+                return (att.CONFIG_SHA if path.read_bytes()==b"config"
+                        else "0"*64)
+            if path==log:
+                import hashlib
+                return hashlib.sha256(log.read_bytes()).hexdigest()
             raise AssertionError("Unexpected file SHA calculation "+str(path))
         die={"classification":"EXPERIMENTAL_COMPLETE_DIE_FOUND",
              "readelfSucceeded":True,"factoryLayoutAuthenticated":False,
              "namedTypeDies":{typ:[{"completeTypeDefinition":True,
                                     "hasByteSizeAttribute":True}]
                               for typ in att.TARGET_TYPES}}
-        with patch.object(att,"verify_compat",return_value={
+        with patch.object(att.build,"DEFAULT_LOG",log):
+          with patch.object(att,"verify_compat",return_value={
             "schema":3,"stockTreeSha256":att.SOURCE_SHA,
             "compatTreeSha256":att.COMPAT_SHA}):
             with patch.object(att.source,"sha256_file",side_effect=sha):
@@ -222,16 +235,30 @@ class AttestationTests(TestCase):
     def test_pinned_config_output_cannot_drift(self):
         def corrupt(doc,root):
             (root/"build/.config").write_bytes(b"config mutated")
-        # The SHA mock is always correct; this test checks source identity
-        # above and is intentionally guarded by the original verification.
-        self.assertEqual(self.fixture_attested()["experimentalBuildConfigSha256"],att.CONFIG_SHA)
+        with self.assertRaisesRegex(att.AttestationError,"pinned Clang18"):
+            self.fixture_attested(corrupt)
 
-    def test_readelf_unsupported_type_gate_fails(self):
-        with patch.object(att.debug,"inspect_object",return_value={
-            "classification":"ONLY_FORWARD_OR_INCOMPLETE_DIE",
-            "readelfSucceeded":True,"factoryLayoutAuthenticated":False}):
-            # Basic static report cannot imply evidence has been re-verified.
-            self.assertEqual(len(att.verify_report(self.doc)),2)
+    def test_original_saved_build_log_wrong_exit_rejected(self):
+        def corrupt(doc,root):
+            logfile=Path(doc["log"])
+            logfile.write_text(logfile.read_text().replace(
+                "EXIT_CODE=0","EXIT_CODE=1",1))
+        with self.assertRaisesRegex(att.AttestationError,"compiler log disagrees"):
+            self.fixture_attested(corrupt)
+
+    def test_original_saved_build_log_wrong_phase_rejected(self):
+        def corrupt(doc,root):
+            logfile=Path(doc["log"])
+            logfile.write_text(logfile.read_text().replace(
+                "PHASE=headers","PHASE=wrong"))
+        with self.assertRaisesRegex(att.AttestationError,"compiler log disagrees"):
+            self.fixture_attested(corrupt)
+
+    def test_actual_object_digest_drift_rejected(self):
+        def corrupt(doc,root):
+            (root/"build/kernel/futex.o").write_bytes(b"tampered data")
+        with self.assertRaisesRegex(att.AttestationError,"compiled object SHA256 mismatch"):
+            self.fixture_attested(corrupt)
 
 
 for key in ("factoryCompiledOffsetsVerified","physicalKernelBaseKnown","rootOrKernelSUInstalled"):
