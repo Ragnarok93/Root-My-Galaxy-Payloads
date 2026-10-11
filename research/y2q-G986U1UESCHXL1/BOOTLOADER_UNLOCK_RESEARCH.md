@@ -346,6 +346,92 @@ a secure-world weakness or an installable custom image.
 
 ---
 
+
+## 2026-10-11 — semantic corrections and focused REA high-p-code roots
+
+The owner's 5/5-qualified `decision-path-review.md` provides
+original Ghidra pseudocode for five authenticated function references.
+
+**Important semantic corrections from code evidence:**
+
+1. Odin `0x1ec00` prints `[OEM]Oem unlock value is %d`
+   based on local_4c. This is a **value consumer/logging path**;
+   the source of local_4c and its trusted state service are unverified.
+2. Odin `0x1b6a8` tests `iVar9 == 0xc` and prints
+   `Custom Binary... Blocked By OEM Lock` alongside error cases
+   FRP, rollback, KG, CC Mode, and generic secure-check failures.
+   This is evidence of an **error/status dispatcher**, not proof
+   this function originally enforces the OEM lock. The observed
+   xref 0x1b3d4 falls numerically **below** its 0x1b6a8 entry,
+   despite membership in Ghidra's function-body ranges.
+3. LinuxLoader `0x3f54` assigns the
+   `Device is unlocked, Skipping boot verification` message
+   only after calls to FUN_00039cdc and FUN_00004520.
+   Their return conditions might govern logging, not
+   verification itself; the actual authentication branch
+   remains unverified.
+4. LinuxLoader `0x5950` contains an indirect call using
+   `param_1 + 0x40` and then sets
+   `androidboot.vbmeta.device_state` to locked or unlocked
+   according to the returned boolean. This is consistent
+   with an AVB operation callback, but exact struct layout
+   and the **origin** of the underlying protected device state
+   must be established from this HXL1 binary.
+5. LinuxLoader `0x2274` contains AVB error, rollback,
+   partition, and unlock-count paths, but the report
+   omitted much of the full function. Do not infer semantics
+   from short text matches.
+
+**New automation:** `tools/y2q_hxl1_rea_semantic_roots.py`
+and `tools/run_y2q_hxl1_rea_semantic_roots.sh`. This runner:
+
+- Re-checks the entire exact saved five-function REA search→xref→body
+  chain against the pinned HXL1 SHA256 sources.
+- Extracts carefully bounded **raw Ghidra pseudocode** context around
+  specific input variables, callbacks and branch diagnostics.
+- Defaults to only **two** expensive `trace-native-values`
+  requests: Odin 0x1ec00 and LinuxLoader 0x5950.
+- Can extend in a defined order to Odin 0x1b6a8,
+  LinuxLoader 0x3f54 and LinuxLoader 0x2274 via `--count 5`.
+- Preserves/reuses original REA evidence with strict operation,
+  provider, query and artifact SHA256 checks; malformed prior
+  evidence is never silently accepted.
+- Does not interpret static graph edges as full authorization proof
+  or execute a device exploit.
+
+**Run host-only, on the existing WSL REA/Ghidra environment:**
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_semantic_roots.sh
+~~~
+
+Or inspect the selected code contexts **without launching Ghidra**:
+
+~~~bash
+python3 tools/y2q_hxl1_rea_semantic_roots.py
+cat ~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/semantic-roots.md
+~~~
+
+After reviewing the first two bounded trace results, optionally run
+`bash tools/run_y2q_hxl1_rea_semantic_roots.sh --count 5`.
+Default per-request REA deadline is 240 seconds; a timed-out
+request retains `.partial` and `.stderr.txt` for inspection.
+
+The `semantic-roots.md` and `semantic-roots.json` reports
+are saved within `rea-security-audit/`. Their trace metadata
+includes original REA Evidence identifiers and collection sizes
+but does not claim to resolve unknown indirect calls or
+persistent secure-state sources.
+
+**Next actual proof gate:** recover the producer of the Odin
+error code (`piVar6[3]`) and the code initializing the
+LinuxLoader callback at `param_1 + 0x40`. These are distinct
+from logging the OEM lock state and logging AVB failures.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
