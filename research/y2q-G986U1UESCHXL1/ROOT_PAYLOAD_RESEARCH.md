@@ -406,3 +406,64 @@ If the relevant prior compiler output is outside the discovered `~/s20-artifacts
 Report: `~/s20-artifacts/hxl1-research/kernel-target-build-blockers.md` and `.json`.
 
 A future debug build, if justified by actual compiler logs, should use a **separate O= output directory**, preserve the original source and pinned Clang18 `.config`, and remain non-deployable. A successful new Clang18 DWARF type definition would be provisional research information, not the OEM factory Clang10 ABI or permission to install KernelSU.
+
+
+## October 10–11, 2026 — owner checked 20 historical logs; real Build-10 blocker is arch/arm64/mm/cache.o
+
+The owner ran `bash tools/run_y2q_hxl1_target_build_blockers.sh`
+after pulling `dd3c7da`. The run passed **295/295 offline
+checks**, verified exact HXL1 stock `CONFIG_RT_MUTEXES=y`,
+`CONFIG_FUTEX=y`, `CONFIG_FUTEX_PI=y` and `CONFIG_DEBUG_INFO=y`,
+and confirmed these original Kbuild rules:
+`kernel/locking/Makefile:24 -> obj-$(CONFIG_RT_MUTEXES) += rtmutex.o`,
+`kernel/Makefile:60 -> obj-$(CONFIG_FUTEX) += futex.o`.
+
+Original target build files `kernel/locking/rtmutex.o` and
+`kernel/futex.o` and their `.cmd` compiler records remain **absent**
+from the retained Clang18 partial build; **zero matching errors** appeared
+in automatically discovered logs.
+
+Unlike prior partial tail excerpts, the full preserved
+`~/s20-artifacts/samsung-hxl1-image-clang18-build-10.log`
+was located and showed a non-target compile failure:
+`<instantiation>:2:2: error: unrecognized instruction mnemonic`
+with Make terminating at `arch/arm64/mm/cache.o`
+(`scripts/Makefile.build:438`) in the separate VDSO IAS formatting
+compatibility tree. Build-09 stopped on Samsung's forbidden warning
+at `main.c:720`, Build-08 at `seq_buf.h:35`, and prior builds
+encountered VDSO link/assembly, cgroup macro/assembler toolchain issues.
+No target-specific `rtmutex.o` or `futex.o` compile errors were
+observed. **Do not attribute the partial-build stop to the absent
+RT-mutex objects.**
+
+A second user command used the illustrative, nonexistent
+`--log /absolute/path/to/previous-build.log`. Earlier code
+misleadingly accepted that missing explicit path, produced an empty
+scan, and overwrote the preceding meaningful Markdown/JSON reports.
+The revised tool now:
+- **Rejects nonexistent/non-regular/symlinked explicit `--log` paths**,
+  rather than creating a success report from no evidence.
+- Restricts default autodiscovery to actual
+  `samsung-hxl1-image-clang18-build[-NN].log` logs, not QEMU guest
+  logs, Ghidra stderr or RT-mutex source excerpts.
+- Preserves previous results using exclusively created versioned
+  `-run-001`, `-run-002`, ... JSON and Markdown outputs.
+- Displays the **current** report in the runner instead of `cat`ing
+  stale default output.
+- Prints bounded actual assembly error context around the original
+  `unrecognized instruction mnemonic`, preserving source macro
+  expansion evidence when present.
+
+Next *read-only* host pass:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_target_build_blockers.sh
+
+The full Build-10 context should determine whether the malformed
+`cache.o` macro is specific to Clang18 integrated assembler or comes
+from one of Samsung's assembly compatibility switches.
+**No automatic recompile or source modifications are authorized by
+this diagnostic.** A future isolated target-object compile can be
+considered only after understanding this failure, and still cannot
+prove factory Clang10 RT-mutex field offsets.
