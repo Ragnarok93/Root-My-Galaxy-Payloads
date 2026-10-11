@@ -214,5 +214,75 @@ for kind,suffix in (
         setattr(EvidenceTests,f"test_marker_{suffix}_{obj}",mk(kind,obj))
 
 
+def re_marker_name(marker):
+    return marker.replace(" ","_").replace(":","").replace("*","star")
+
+
+# Additional per-target source attribution checks. These test distinctions
+# actually needed with parallel Samsung make -j logs: same-line source
+# diagnostics, errors on unrelated lines, and lookalike filenames.
+ERROR_MARKERS=("fatal error:","error:","undefined reference","forbidden warning","***")
+for target in ("rtmutex","futex"):
+    for marker in ERROR_MARKERS:
+        for representation in ("c","o"):
+            for context in ("plain","clang","make"):
+                def factory(name,diagnostic,suffix,style):
+                    def test(self):
+                        if style=="plain":
+                            line=f"kernel/{name}.{suffix}: {diagnostic} cannot compile"
+                        elif style=="clang":
+                            line=f"/src/linux/kernel/{name}.{suffix}:99:3: {diagnostic} test"
+                        else:
+                            line=f"make[1]: *** [kernel/{name}.{suffix}] {diagnostic} test"
+                        row=t.scan_log(self.save("kernel-build.log",line+"\n"))
+                        self.assertEqual(len(row["targetErrorLines"]),1)
+                        self.assertEqual(len(row["otherErrors"]),0)
+                    return test
+                setattr(EvidenceTests,
+                        f"test_positive_{target}_{representation}_{context}_"+
+                        re_marker_name(marker),
+                        factory(target,marker,representation,context))
+
+for target in ("rtmutex","futex"):
+    for marker in ERROR_MARKERS:
+        for context in ("source_first","error_first","verbose"):
+            def factory(name,diagnostic,style):
+                def test(self):
+                    one=f"CC kernel/{name}.o"
+                    two=f"arch/arm64/mm/cache.c:11: {diagnostic} unrelated"
+                    if style=="error_first":
+                        text=two+"\n"+one+"\n"
+                    elif style=="verbose":
+                        text=one+"\nINFO compiled many other objects\n"+two+"\n"
+                    else:
+                        text=one+"\n"+two+"\n"
+                    item=t.scan_log(self.save("kernel-build.log",text))
+                    self.assertEqual(item["targetMentions"],1)
+                    self.assertEqual(item["targetErrorLines"],[])
+                    self.assertGreaterEqual(len(item["otherErrors"]),1)
+                return test
+            setattr(EvidenceTests,
+                    f"test_separate_lines_{target}_{context}_"+re_marker_name(marker),
+                    factory(target,marker,context))
+
+for target in ("rtmutex","futex"):
+    for marker in ERROR_MARKERS:
+        for mismatch in ("_extra.c","64.o","_copy.o"):
+            def factory(name,diagnostic,suffix):
+                def test(self):
+                    row=t.scan_log(self.save(
+                        "kernel-build.log",
+                        f"kernel/{name}{suffix}: {diagnostic} unrelated target\n"
+                    ))
+                    self.assertEqual(row["targetErrorLines"],[])
+                    self.assertEqual(row["targetMentions"],0)
+                    self.assertEqual(len(row["otherErrors"]),1)
+                return test
+            setattr(EvidenceTests,
+                    f"test_filename_lookalike_{target}_{re_marker_name(marker)}_"+
+                    mismatch.strip("_").replace(".","_"),
+                    factory(target,marker,mismatch))
+
+
 if __name__=="__main__":
     unittest.main()
