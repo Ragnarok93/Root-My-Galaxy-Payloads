@@ -1,4 +1,9 @@
 """No-device tests for HXL1 offline QEMU exception and image-location summary."""
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
 from tools import y2q_hxl1_qemu_exception_summary as t
 
@@ -58,6 +63,31 @@ class ExistingTraceSummaryTests(unittest.TestCase):
         e=t.extract_events(b"unimplemented device access\nnot relevant\n")
         self.assertEqual(e["exceptionLineCount"],0)
         self.assertEqual(len(e["signalExamples"]),1)
+    def test_direct_script_entry_point_in_python_isolated_mode(self):
+        # This invokes the actual user command shape, not package import.
+        # -I removes PYTHONPATH and current-directory influence.
+        script=Path(t.__file__).resolve()
+        with tempfile.TemporaryDirectory(prefix="hxl1-exception-cli-") as dirname:
+            child_env=os.environ.copy()
+            child_env.pop("PYTHONPATH",None)
+            result=subprocess.run(
+                [sys.executable,"-I",str(script),"--help"],
+                cwd=dirname,env=child_env,capture_output=True,text=True,timeout=15)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertIn("--report",result.stdout)
+        self.assertIn("--trace",result.stdout)
+    def test_direct_script_cli_stops_safely_before_overwriting_evidence(self):
+        script=Path(t.__file__).resolve()
+        with tempfile.TemporaryDirectory(prefix="hxl1-exception-guard-") as dirname:
+            output=Path(dirname)/"existing.json"
+            output.write_text('{"preserve":"original"}')
+            result=subprocess.run(
+                [sys.executable,"-I",str(script),"--output",str(output)],
+                cwd=dirname,capture_output=True,text=True,timeout=15)
+            self.assertEqual(output.read_text(),'{"preserve":"original"}')
+        self.assertEqual(result.returncode,2,result.stderr)
+        self.assertIn("Use fresh JSON output",result.stderr)
+        self.assertNotIn("Traceback",result.stderr)
     def test_source_does_not_start_emulator(self):
         # Static nonbehavior marker: parser relies on retained files only.
         self.assertIn("existing HXL1",t.__doc__)
