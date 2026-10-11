@@ -7,6 +7,7 @@ phone. Field labels are hypotheses, not complete factory DWARF/BTF layouts.
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import struct
 import sys
@@ -50,7 +51,49 @@ def require(ok, why):
 def sha(data):
     return hashlib.sha256(data).hexdigest()
 
-def attest(slices:Path,rea:Path):
+
+SOURCE_PINS = {
+ 'kernel/locking/rtmutex.c': '36b187173cfb3934a5c9d51952bce58c2f41701d3585326f18cd3965e46a21f9',
+ 'kernel/futex.c': '493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5',
+}
+HEADER_FIELDS = {
+ 'include/linux/rtmutex.h': ('rt_mutex', ('wait_lock','waiters','owner')),
+ 'kernel/locking/rtmutex_common.h': ('rt_mutex_waiter',
+     ('tree_entry','pi_tree_entry','task','lock','prio','deadline')),
+}
+
+def source_headers(source:Path):
+    """Accept only pinned original HXL1 Samsung checkout, never public upstream."""
+    for relative,digest in SOURCE_PINS.items():
+        file=source/relative
+        require(file.is_file() and not file.is_symlink() and sha(file.read_bytes())==digest,
+                'original HXL1 Samsung C source SHA pin mismatch: '+relative)
+    headers={}
+    for relative,(tag,fields) in HEADER_FIELDS.items():
+        file=source/relative
+        require(file.is_file() and not file.is_symlink() and file.stat().st_size < 1024*1024,
+                'original Samsung header missing/unsafe: '+relative)
+        raw=file.read_bytes()
+        text=raw.decode('utf8')
+        definition=re.search(r'\bstruct\s+'+re.escape(tag)+r'\s*\{(?P<body>.*?)\n\s*\};',text,re.S)
+        require(definition is not None,'original struct definition not found: '+tag)
+        body=definition.group('body')
+        starts=[]
+        for field in fields:
+            matches=list(re.finditer(r'\b'+re.escape(field)+r'\s*;',body))
+            require(len(matches)==1,'missing or ambiguous Samsung C member: '+tag+'.'+field)
+            starts.append(matches[0].start())
+        require(starts==sorted(starts),'unexpected Samsung struct member ordering: '+tag)
+        headers[relative]={'originalHeaderSha256':sha(raw),
+                           'definitionLine':text.count('\n',0,definition.start())+1,
+                           'declaredMemberOrder':fields,
+                           'conditionalMembersPossible':bool(re.search(r'(?m)^\s*#\s*(?:if|ifdef)',body))}
+    return {'sourceCOriginalPinsVerified':True,
+            'originalSamsungHeaderDeclarationsFound':headers,
+            'fullOriginalFactoryCompiledLayoutProven':False}
+
+
+def attest(slices:Path,rea:Path,source:Path|None=None):
     with zipfile.ZipFile(slices) as zs, zipfile.ZipFile(rea) as zr:
         manifest=json.loads(zr.read('stage3-rea-correlation.json'))
         require(manifest.get('model')=='SM-G986U1' and
@@ -89,7 +132,8 @@ def attest(slices:Path,rea:Path):
                 'compiledWordWitnesses':out,
                 'witnessCount':sum(map(len,out.values())),
                 'sourceCorrelatedMemberCandidates':FIELDS,
-                'sourceHeaderHashesAuthenticatedByThisTool':False,
+                'sourceHeaderHashesAuthenticatedByThisTool':source is not None,
+                'sourceProvenance':source_headers(source) if source else None,
                 'fullFactoryStructLayoutsAuthenticated':False,
                 'rootOrKernelSuVerified':False}
 
@@ -97,6 +141,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--slices',type=Path,required=True)
     p.add_argument('--rea',type=Path,required=True)
+    p.add_argument('--source',type=Path,help='exact original pinned Samsung HXL1 source checkout')
     p.add_argument('--output',type=Path,required=True)
     args=p.parse_args()
     try:
@@ -106,10 +151,15 @@ def main():
         for original in (args.slices,args.rea):
             require(output!=original.expanduser().absolute(),
                     'refuse evidence replacement')
-        result=attest(args.slices,args.rea)
+        source=args.source.expanduser().resolve() if args.source else None
+        if source:
+            require(output!=source and source not in output.parents,
+                    'refuse source-tree outputs')
+        result=attest(args.slices,args.rea,source=source)
         output.parent.mkdir(parents=True,exist_ok=True)
         output.write_text(json.dumps(result,indent=2)+'\n')
         print('[PASS] compiled witness instructions:',result['witnessCount'])
+        print('[SOURCE]','exact Samsung HXL1 header declarations checked' if source else 'not supplied')
         print('[REPORT]',output)
         print('[LIMIT] subset; not OEM debug type layouts, root or KernelSU')
         return 0
