@@ -1,5 +1,24 @@
 # SM-G986U1 HXL1 — independently decoded RT-mutex layout subset (2026-10-11)
 
+## October 11 — original Samsung HXL1 WSL attestation completed
+
+The owner executed the **committed** `tools/y2q_hxl1_rtmutex_displacement_attest.py` after `git pull --ff-only` from branch `feature/s20plus-investigation-shizuku-20261009`. Command supplied `--rea ~/HXL1-Stage3-REA-Evidence.zip`, `--slices ~/HXL1-Stage3-Code-Slices.zip`, and `--source ~/src/samsung-y2q-hxl1-stock` with report output `~/s20-artifacts/hxl1-research/rtmutex-source-layout-attested.json`. Actual WSL result:
+
+```text
+[PASS] compiled witness instructions: 31
+[SOURCE] exact Samsung HXL1 header declarations checked
+[REPORT] /home/main/s20-artifacts/hxl1-research/rtmutex-source-layout-attested.json
+[LIMIT] subset; not OEM debug type layouts, root or KernelSU
+```
+
+**Accepted and closed in this narrow sub-gate:** 31 machine-word witnesses remain byte-exact; the two original pinned Samsung C file digests match, both local `rt_mutex` and `rt_mutex_waiter` declarations were identified in their expected member ordering and their original header hashes were saved. This validates exact-source header *identity/order*, not compiled struct `sizeof`, optional conditionals or factory debug layouts. The full JSON report remains only in the owner's WSL, so **specific recorded header SHA values have not been inspected in this remote commit** and are not invented.
+
+The separate previously owner-observed authenticated `config.gz` states `CONFIG_RT_MUTEXES=y`, `CONFIG_FUTEX_PI=y`, `CONFIG_DEBUG_RT_MUTEXES` not set, `CONFIG_MODULE_SIG_FORCE=y`, and `CONFIG_KPROBES` not set; see the current execution guide. **Do not repeat stock firmware, compiled word or source declaration checks.**
+
+**Next consequential gate:** Whether the existing vulnerable proxy-lock cleanup path can be reproduced within a safe, source-faithful, disposable guest and whether a legitimate kernel-code execution mechanism is possible despite the locked bootloader, force-signed modules and unavailable kprobes. Original Linux 4.19.325 guest boot success is *not* HXL1 vulnerability reproduction. No on-device race-triggering or destructive crash probes are approved by these results. Stage 3 overall remains PARTIAL and KernelSU deployment BLOCKED.
+
+---
+
 **Target:** `SM-G986U1`, `G986U1UESCHXL1`, stock kernel `4.19.113-27095354`.
 **Evidence:** owner-provided `HXL1-Stage3-REA-Evidence.zip` and `HXL1-Stage3-Code-Slices.zip`, derived from original stock kernel SHA-256 `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`.
 
