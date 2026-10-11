@@ -10,11 +10,24 @@ are supported by existing evidence**, which must be re-derived for Linux
 Root-My-Galaxy profile. It does not assert that the device is vulnerable
 to CVE-2026-43499 or has working privilege escalation or KernelSU.
 
-The earlier full Samsung `Image` compilation campaign is **optional
-toolchain research**, not a dependency of this port. Build #10 failed
-in `arch/arm64/mm/cache.o`; its provided tail does not identify the
-underlying error. There is no reason to continue fixing unrelated
-kernel compilation errors to perform the firmware-to-profile audit.
+**Operational priority (October 11, 2026):** Use the concise,
+[acceptance-gated HXL1 execution guide](SM-G986U1-HXL1-NEXT-STEPS.md)
+before any commands from the long chronological record below.
+It prioritizes the existing nine-stage readiness checker and the
+existing original stock kernel/source review, with optional
+`samloader-rs` FUS lookup rather than automatic re-download.
+**This chronology includes older, superseded next steps**; do not
+rerun them without a new missing evidence requirement.
+
+The earlier Samsung Clang18 kernel `Image` investigation is
+**optional toolchain research, not a porting dependency**.
+The known Build-10 `arch/arm64/mm/cache.o` integrated-assembler issue
+was identified and the exact upstream `_ASM_EXTABLE` spelling fix
+applied in a separate four-patch compatibility clone. The owner
+subsequently produced `rtmutex.o` and `futex.o` with complete,
+internally consistent experimental Clang18 DWARF. This does **not**
+establish the stock factory Clang10 ABI. There is no reason to restart
+a full Samsung kernel compile to advance the nine-stage port.
 
 **Authoritative existing project evidence:**
 - [HXL1 evidence manifest](../research/y2q-G986U1UESCHXL1/evidence.json)
