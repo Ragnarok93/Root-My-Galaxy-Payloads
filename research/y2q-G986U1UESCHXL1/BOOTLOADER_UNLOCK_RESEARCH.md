@@ -58,6 +58,11 @@ This observation is not evidence of a bypass for HXL1.
 - It parses only nine named candidate components, rejects duplicate/nonregular
   entries, bounds LZ4 expansion, hashes each decompressed image, and captures
   ELF/vbmeta/raw classification plus ASCII/UTF-16 security-term leads.
+- ABL/XBL are also scanned for nested EFI firmware volumes, FFS file GUIDs,
+  and recognized AArch64 PE executables. Correlated GUIDs/hashes help choose
+  modules for semantic comparison; a missing module in this bounded parser
+  does **not** prove that executable code is absent (XBL may use gzip or
+  unsupported vendor wrappers).
 - When a separately supplied `BL_G9860*.tar.md5` is available, it generates
   per-component hash/format/size differences and comparative hint counts.
 - A candidate string is **not** a verified xref, execution path, unlock branch,
@@ -97,7 +102,11 @@ python3 tools/y2q_hxl1_bootloader_unlock_audit.py \
 ```
 
 Reports: `~/s20-artifacts/hxl1-research/bootloader-unlock/bootloader-unlock-candidates.{json,md}`.
-Analysis-only binaries: `comparison-inputs/{HXL1,G9860}/`.
+Analysis-only binaries: `comparison-inputs/{HXL1,G9860}/`. When supported
+nested UEFI modules are found, their recognized PE files are separately copied
+as `comparison-inputs/{HXL1,G9860}/uefi-modules/{abl.elf,xbl.elf}/*.efi` with
+FFS GUID and SHA256 prefix in the filename. Only matching GUIDs should be
+compared in Ghidra after checking image architecture and module provenance.
 The comparator is flagged `UNVERIFIED_COMPARATOR_PROVENANCE` until independent
 firmware identity checks have been recorded. The report never asserts success.
 
