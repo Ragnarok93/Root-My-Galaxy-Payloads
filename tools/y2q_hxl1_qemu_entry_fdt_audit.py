@@ -126,7 +126,8 @@ def correlate(gdb:dict,boot_audit:dict,dtb_raw:bytes)->dict:
         raise EntryEvidenceError("Boot-memory report is not the exact HXL1 factory Image")
     if boot_audit.get("inputFdtSha256")!=PINNED_DTB_SHA:
         raise EntryEvidenceError("Boot-memory report is not the pinned QEMU-generated DTB")
-    if hashlib.sha256(dtb_raw).hexdigest()!=PINNED_DTB_SHA:
+    parsed_fdt=prior.dtb_probe.parse_fdt(dtb_raw)
+    if parsed_fdt["qemuGeneratedFdtSha256"]!=PINNED_DTB_SHA:
         raise EntryEvidenceError("Original generated DTB bytes changed")
     if boot_audit.get("ramBytesAdvertised")!=2147483648:
         raise EntryEvidenceError("Unexpected QEMU RAM profile")
