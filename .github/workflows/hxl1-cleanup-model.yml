@@ -1,0 +1,31 @@
+name: HXL1 isolated cleanup model (no device)
+on:
+  push:
+    branches:
+      - feature/s20plus-investigation-shizuku-20261009
+    paths:
+      - tools/y2q_hxl1_cleanup_regression.py
+      - tools/test_y2q_hxl1_cleanup_regression.py
+      - tools/y2q_rtmutex_fix_audit.py
+      - .github/workflows/hxl1-cleanup-model.yml
+  pull_request:
+    paths:
+      - tools/y2q_hxl1_cleanup_regression.py
+      - tools/test_y2q_hxl1_cleanup_regression.py
+      - tools/y2q_rtmutex_fix_audit.py
+      - .github/workflows/hxl1-cleanup-model.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-user-space-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and test harmless user-space C ownership model
+        run: python3 -m unittest -v tools.test_y2q_hxl1_cleanup_regression
+      - name: Evidence scope
+        run: |
+          echo "Model-only assertions passed. This CI job does not check Samsung source SHA pins."
+          echo "No Samsung kernel was executed, no CVE was triggered, and root/KernelSU remain unverified."
