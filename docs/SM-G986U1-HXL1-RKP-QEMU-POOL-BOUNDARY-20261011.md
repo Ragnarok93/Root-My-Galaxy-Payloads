@@ -177,6 +177,24 @@ Report: `~/s20-artifacts/hxl1-research/qemu-virt-dtb-20261011/boot-memory-confli
 
 ---
 
+## 22:26 UTC — original stock Image physical-span hypothesis and entry DTB capture
+
+**Owner observed 15/15 boot-memory-audit unit tests PASS** and successfully ran the *actual* offline audit of their retained original SHA-pinned HXL1 Image, exact original QEMU generated `virt` DTB, and previously saved inventory. It confirms `2,147,483,648` physical bytes described in **`[0x40000000,0xc0000000)`**, with **zero FDT reservations**. Using trace-correlated candidate original Image PC `0x40080000` and max(original Image file size, ARM64 header image-size), the tool conservatively flags a **possible** Image span `[0x40080000,0x443bb000)`. This is **not an attested guest PA footprint**; it excludes neither guest boot loader allocations, BSS beyond that size, early page tables and stacks, nor runtime FDT and memblock reservations. The owner report is `qemu-virt-dtb-20261011/boot-memory-conflict-audit.json`.
+
+The next committed step is **bounded original AArch64 boot handoff register capture**, not random carveout selection. New `tools/run_y2q_hxl1_qemu_entry_fdt_capture.sh` uses `-S` with localhost GDB and a hardware breakpoint at `0x40080000`; it reads `X0-X3` and only 16 guest bytes from `X0` without modifying the stock guest. AArch64 Linux boot protocol specifies **X0 = physical DTB pointer**, **X1-X3 = zero** when entering the primary kernel. `tools/y2q_hxl1_qemu_entry_fdt_audit.py` checks original Image/DTB hashes, actual `PC`, `X0` 16-byte FDT magic/size, RAM containment and candidate Image overlap, and refuses to claim a full guest FDT dump or protected-memory pool from a header alone. Seventeen synthetic tests are committed in the HXL1 isolated CI; the new owner and CI results are not yet verified.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_entry_fdt_audit
+bash tools/run_y2q_hxl1_qemu_entry_fdt_capture.sh
+python3 tools/y2q_hxl1_qemu_entry_fdt_audit.py
+```
+
+Saved to `qemu-entry-fdt-20261011/gdb-session.log` and `entry-fdt-audit.json`. Actual FDT PA and eventually its full bytes are prerequisites for a safe pre-Linux reservation; **the FDT header alone never grants authority to set `ram_reservation_verified` to true** in the host transaction model. Until a private QEMU adapter actually reserves and maps guest memory and the original guest confirms its memblock state, the exact HXL1 RKP descriptor/bitmap remains a tested *host-only* implementation. Root/KernelSU/bootloader unlock remain separate blocked milestones.
+
+---
+
 ## Required proof gates before a functional QEMU adapter
 
 | Gate | Acceptance criterion | Present status |
