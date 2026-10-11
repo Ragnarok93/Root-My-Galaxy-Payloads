@@ -37,7 +37,8 @@ def _profile_check(ev: dict) -> str:
     return profile_digest
 
 
-def validated_trace(path: Path, *, sha: str, entry: str) -> dict:
+def validated_trace(path: Path, *, sha: str, entry: str,
+                    offset: int | None = None, limit: int | None = None) -> dict:
     """Strictly read saved workflow JSON; never infer proof from absent fields."""
     if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_TRACE_BYTES:
         raise TriageError(f"Missing, symlinked or oversized REA workflow trace: {path}")
@@ -64,6 +65,13 @@ def validated_trace(path: Path, *, sha: str, entry: str) -> dict:
             "hasEvidenceId": bool(ev.get("evidence_id")),
         }
         raise TriageError(f"REA value-trace top-level identity mismatch: {detail}")
+    if offset is not None or limit is not None:
+        if offset is None or limit is None or offset < 0 or not 1 <= limit <= 5000:
+            raise TriageError("Invalid requested REA value trace pagination")
+        params = _dict(ev.get("parameters"))
+        if type(params.get("offset")) is not int or params["offset"] != offset or (
+                type(params.get("limit")) is not int or params["limit"] != limit):
+            raise TriageError("REA value trace pagination parameters mismatch")
     upstream_digest = _profile_check(ev)
     graph = _dict(ev.get("normalized_result"))
     if (graph.get("seed") != entry or graph.get("target_sha256") != sha
@@ -86,6 +94,15 @@ def validated_trace(path: Path, *, sha: str, entry: str) -> dict:
                 or not COORD.fullmatch(proc["address"])):
             raise TriageError("REA trace has a procedure without original Ghidra profile")
         addresses.add(proc["address"].lower())
+    if offset is not None:
+        nodes = graph["nodes"]
+        total = graph.get("total_nodes")
+        next_offset = graph.get("next_offset")
+        if (type(total) is not int or type(next_offset) not in (int, type(None))
+                or offset >= total or not 0 < len(nodes) <= limit
+                or len(nodes) != min(limit, total - offset)
+                or next_offset != (offset + len(nodes) if offset + len(nodes) < total else None)):
+            raise TriageError("REA value trace pagination result/offset consistency mismatch")
     if entry.lower() not in addresses:
         raise TriageError("REA trace has no exact original Ghidra seed procedure")
     return ev
