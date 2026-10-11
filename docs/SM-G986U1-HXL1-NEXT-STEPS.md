@@ -1,5 +1,7 @@
 # SM-G986U1 HXL1 — current porting execution guide
 
+**Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
+
 ## Current priority — proven shared REA DTB/DTBO cmdline function (October 11, 2026)
 
 **New, owner-executed REA/Ghidra findings on the SHA256-pinned original
