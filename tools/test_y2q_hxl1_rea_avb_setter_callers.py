@@ -34,6 +34,18 @@ def instruction(site, target, asm=None, *, status="decoded", mnemonic="bl"):
     })
 
 
+def native_owner(sha="a"*64):
+    return evidence_obj(sha,"read_function_instructions",
+                        "procedure","0x33900",[
+        "0x339f8: mov w0, #0x1",
+        "0x339fc: bl 0x00019998",
+        "0x33a00: cbz w0, 0x00033a10",
+        "0x33a04: mov w0, wzr",
+        "0x33a08: bl 0x00033c88",
+        "0x33a0c: ret",
+    ])
+
+
 def containing(site, entry="0x33900"):
     return evidence_obj("a"*64,"analyze_function","procedure",site,{
         "procedure":{"address":entry,"name":"FUN_original",
@@ -100,6 +112,28 @@ class CallerAttributionTests(unittest.TestCase):
         with self.assertRaisesRegex(TriageError,"does not own"):
             caller.source_caller(containing("0x33a08"),"0x33c88")
 
+    def test_native_w0_context_preserves_branch_and_prior_calls(self):
+        outcome=caller.native_w0_window(native_owner(),"0x33a08","0x33900")
+        self.assertEqual(outcome["sourceRegister"],"w0")
+        self.assertEqual(outcome["totalNativeInstructions"],6)
+        self.assertTrue(outcome["exactSetterBranchVerified"])
+        self.assertFalse(outcome["nativeW0ReachingDefinitionVerified"])
+        self.assertFalse(outcome["callerSecurityAuthorizationProven"])
+        self.assertTrue(any(x["address"]=="0x33a04"
+                            for x in outcome["possibleW0Definitions"]))
+        self.assertTrue(any(x["address"]=="0x339fc"
+                            for x in outcome["possibleW0Definitions"]))
+
+    def test_native_w0_context_rejects_wrong_call_and_missing_site(self):
+        ev=native_owner()
+        ev["normalized_result"]=[
+            x.replace("bl 0x00033c88","bl 0x00033c90")
+            for x in ev["normalized_result"]]
+        with self.assertRaisesRegex(TriageError,"inconsistent"):
+            caller.native_w0_window(ev,"0x33a08","0x33900")
+        with self.assertRaisesRegex(TriageError,"inconsistent"):
+            caller.native_w0_window(native_owner(),"0x33b20","0x33900")
+
     def test_plan_mode_has_five_bounded_queries_and_no_ghidra_launch(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td)
@@ -133,6 +167,8 @@ class CallerAttributionTests(unittest.TestCase):
                         json.dumps(ev))
             (folder/"function-caller-0x33a08.json").write_text(
                 json.dumps(containing("0x33a08")))
+            (folder/"instructions-caller-owner-0x33900.json").write_text(
+                json.dumps(native_owner()))
             t=base.Target("LinuxLoader",root/"LinuxLoader-HXL1.efi","a"*64,{})
             with mock.patch.object(caller,"verify_persistence",return_value=prior()),\
                  mock.patch.object(caller,"choose_targets",return_value=[t]):
@@ -140,6 +176,9 @@ class CallerAttributionTests(unittest.TestCase):
         self.assertEqual(report["requestedQueries"],0)
         self.assertTrue(report["directNativeSites"][0]["native"]["directBranchToTarget"])
         self.assertIsNotNone(report["directNativeSites"][0]["callerFunction"])
+        self.assertIsNotNone(report["directNativeSites"][0]["callerNative"])
+        self.assertFalse(report["directNativeSites"][0]["callerNative"]
+                         ["nativeW0ReachingDefinitionVerified"])
         self.assertFalse(report["directNativeSites"][1]["native"]["directBranchToTarget"])
         self.assertIsNone(report["directNativeSites"][1]["callerFunction"])
 
