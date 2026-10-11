@@ -73,6 +73,51 @@ The output directory **must not already exist**. The script captures `serial-con
 - First Linux boot banner: meaningful original-Image boot progress, but still not a successful source-faithful guest.
 - Panic or exception logs: retain original stack/PC and check **which** HXL1 initialization dependency failed; only then consider porting one clearly identified fork emulation handler.
 
+## 14:48 UTC — original SMC #0 identified, Samsung-QEMU hypervisor handler selected for review
+
+The owner successfully ran the stock-byte original Image ELR attribution tool and **13/13 tests PASS** on WSL. It validated the exact factory `kernel.bin` SHA-256 `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123` and produced original-Image byte windows and disassembly for all three QEMU exceptions:
+
+| QEMU exception | original HXL1 Image byte offset | original opcode | decoded instruction | candidate register fact |
+|---|---:|---|---|---|
+| Undefined Instruction `0xffffff80080a5794` | `0x25794` | `d4000003` | **`SMC #0`** | `X0` function/call ID remains *unobserved* |
+| Data Abort FAR `0x58`, `0xffffff80082ac90c` | `0x22c90c` | `f9402eb8` | `LDR X24, [X21,#0x58]` | `X21=0` is consistent with reported FAR, but not independently captured |
+| Data Abort FAR `0x10`, `0xffffff80086de39c` | `0x65e39c` | `a9412149` | `LDP X9,X8,[X10,#0x10]` | `X10=0` is consistent for the first load, but paired access and guest register state need confirmation |
+
+**Significant revised conclusion:** The first exception is not an arbitrary unsupported AArch64 opcode. The decoded instruction is `SMC #0`, and the QEMU log gives syndrome EC=0x00 / UDEF, consistent with the generic `virt` setup lacking an appropriate secure-monitor handler for that invocation. It is **not yet proven** the SMC belonged to Samsung UH, RKP, or KDP specifically, because its application/cmd arguments reside in `X0…X6`, which were **not captured** by the previous `-d in_asm,int,guest_errors,unimp` trace. The recovered nearest symbol `back+0` is not a validated factory function identity. Similarly, the two data aborts were labeled `kmem_cache_alloc+0x110` and `dump_stack_minidump+0x80` using **recovered, unverified nearest-lower symbols**, not full original function membership.
+
+### Upstream Samsung production-QEMU component now directly relevant
+
+The [diabl0w/qemu-samsung-kernel patch](https://github.com/diabl0w/qemu-samsung-kernel/blob/master/0001-samsung-qualcomm-kernel-emulation.patch) implements `target/arm/tcg/op_helper.c:HELPER(pre_smc)` with a `handle_uh_call` dispatcher. The fork recognizes Qualcomm-style `X0=0xc300c001` (RKP) and `X0=0xc300c002` (KDP), with `X1` supplying command and `X2…` arguments, alongside another packed call-ID form. This is relevant **architecture to port**, **not** an authorized HXL1 patch yet. It also includes a generic success fallback for unrecognized SMCs and hard-codes another device's physical/virtual memory; copying those behaviors would invalidate research fidelity and may corrupt an emulated guest.
+
+### Committed concrete next steps
+
+1. `tools/y2q_hxl1_qemu_secure_monitor_gate.py` validates the SHA-pinned factory Image against `original-fault-sites.json`, decodes the three exact opcodes, derives conditional near-null register values and **explicitly refuses to identify the SMC call ID without actual guest register data**. Its thirteen offline regression tests are committed.
+2. `tools/run_y2q_hxl1_qemu_smc_register_capture.sh` is a **bounded, local-host-only** GDB probe. It validates factory Image SHA, refuses overwriting evidence, launches **unchanged Ubuntu QEMU with the original unmodified Image**, `-S` and a localhost-bound debugger on port `12345`; it requests a hardware breakpoint at `0xffffff80080a5794`, and prints `X0…X6` if GDB actually stops there. It uses a 30-second limit and cleans up the QEMU child. Missed breakpoints are **INCONCLUSIVE**, not proof of a device restriction. Five unit tests (including Bash syntax and no-overwrite guard) are committed.
+3. Both test suites are wired into the existing HXL1 isolated CI workflow; their WSL/CI outcome is still **not observed** as of this note.
+
+To validate the offline report without starting QEMU:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v \
+  tools.test_y2q_hxl1_qemu_secure_monitor_gate \
+  tools.test_y2q_hxl1_qemu_smc_register_capture
+python3 tools/y2q_hxl1_qemu_secure_monitor_gate.py
+```
+
+To attempt actual guest-register measurement **after guard tests pass**, still off-device:
+
+```bash
+bash tools/run_y2q_hxl1_qemu_smc_register_capture.sh
+```
+
+Results are saved at `~/s20-artifacts/hxl1-research/qemu-smc-registers-20261011/gdb-session.log` and `qemu-exceptions.log`, and the offline classification goes to `qemu-first-failure-20261011/secure-monitor-gate.json`. GDB output contains guest VM registers, not physical handset secrets. If its marker is `HXL1_SMC_BREAKPOINT_HIT`, inspect the captured `X0` and command arguments, then check **original HXL1 UH source** to establish the actual command ABI before attempting a separately built QEMU fork. If it is `INCONCLUSIVE`, inspect `gdb-session.log` for unsupported breakpoint/address semantics and maintain the original boot evidence as-is.
+
+**Do not replace SMC with a NOP, return fake success for unknown secure calls, flash a device, or infer any real exploit/KernelSU route from this virtual-machine fault.** The user has a confirmed locked stock bootloader, and root/deployment remain unverified.
+
+---
+
 ## 14:38 UTC owner QEMU exceptions — first evidence of concrete original-kernel faults
 
 The owner ran `tools.test_y2q_hxl1_qemu_exception_summary` **9/9 PASS** and `python3 tools/y2q_hxl1_qemu_exception_summary.py` directly with **success**. It checked the entire retained QEMU log (`216857` bytes; `[PARTIAL] False`) and authenticated the earlier `270` distinct stock Image-offset opcode correlations at candidate QEMU PC `0x40080000`; `[MISMATCH COMPARISONS] 0`.
