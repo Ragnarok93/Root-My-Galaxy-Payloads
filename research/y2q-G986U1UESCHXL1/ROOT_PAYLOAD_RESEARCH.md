@@ -1258,3 +1258,37 @@ is not proof the index lacks handling. Static index generation cannot
 establish what DTBO bytes actually exist in the running device or
 where the kernel resides in RAM. Full root, KernelSU and runtime
 physical handoff remain unverified.
+
+
+## October 11, 2026 — owner verified exact original HXL1 LinuxLoader DTB/DTBO string xrefs through REA
+
+Using the locally installed REA fork and Ghidra, with the original
+LinuxLoader PE SHA256 `5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003`
+checked immediately beforehand, the owner invoked
+`rea xrefs --provider ghidra --json` on the *existing* known
+firmware string coordinates and then successfully authenticated
+both results with the existing `parse_xrefs` original-PE validator:
+
+| Original Ghidra PE string address | Exact static string | Source instruction | Verified REA Evidence |
+|---|---|---|---|
+| `0xbfd99` | `androidboot.dtb_idx=` | `0x2c350` | `ev_b31e5021edd1b1d5db9ff58336bb5e0f0abc3ff1d8e2189e6ce93363a5c796db` |
+| `0xbfd82` | `androidboot.dtbo_idx=` | `0x2c308` | `ev_14dae88115f0805e73bc32804d89232d6212f4d3e65c777c335cd9ff09557a1b` |
+
+Each literal string had exactly **one** recovered Ghidra
+reference. The instruction coordinates differ by `0x48`
+(72 bytes), which makes a shared originating function plausible,
+**but the function identity/body has not been proven**.
+The new local evidence files are under
+`~/s20-artifacts/hxl1-research/abl-linuxloader/rea-dt-index-LBaPQ6`.
+
+**Immediate next gate:** REA `function` queries for precisely
+`0x2c350` and `0x2c308`, validated with the existing
+`y2q_linuxloader_rea_stage4_functions.validated` helper and
+reported function entry/body/HighFunction availability.
+The exact WSL read-only procedure is now at the top of
+[`docs/SM-G986U1-HXL1-NEXT-STEPS.md`](../../docs/SM-G986U1-HXL1-NEXT-STEPS.md).
+Use `trace-native-values` selectively after actual owning
+functions and value origins are identified; do not blindly
+repeat prior broad searches. These are **static software facts**,
+not runtime index-domain-to-overlay mapping or evidence
+of actual `kernel_phys_load`, root or KernelSU.
