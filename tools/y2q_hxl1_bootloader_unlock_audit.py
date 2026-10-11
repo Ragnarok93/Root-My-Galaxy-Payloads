@@ -276,7 +276,7 @@ def report_markdown(report: dict) -> str:
               "- Comparator filename/model is **not independently authenticated** by this offline scanner.",
               "- ELF header metadata does not establish the secure chain or the Android kernel entry.",
               "- Static findings do not establish an unlock service, an acceptable programmer, or authorization.",
-              "- Originals are read-only; optional exported binaries are research copies only.", "",
+              "- Originals are read-only; optional exported binaries and nested UEFI PEs are research copies only.", "",
               "## Suggested REA/Ghidra review order", "",
               "1. Inspect ABL unlock-state string references and their callers.",
               "2. Trace verified-boot decisions and TrustZone/VaultKeeper service boundaries.",
@@ -297,6 +297,33 @@ def export_binaries(directory: Path, label: str, binaries: dict[str, bytes]) -> 
             raise TriageError(f"refusing to replace existing different image: {file}")
         if not file.exists():
             file.write_bytes(data)
+        if name not in ("abl.elf", "xbl.elf"):
+            continue
+        walker = Walker()
+        try:
+            walker.search_fv(data, [name], 0)
+        except (ExtractError, ValueError, OverflowError) as exc:
+            # The JSON report records partial scans; never promote them to
+            # complete or silently manufacture output executables.
+            raise TriageError(f"cannot export partially parsed UEFI {name}: {exc}") from exc
+        if len(walker.identified) > 128:
+            raise TriageError(f"too many nested PE candidates in {name}")
+        nested_dir = dest / "uefi-modules" / name
+        if walker.identified:
+            nested_dir.mkdir(parents=True, exist_ok=True)
+            if nested_dir.is_symlink():
+                raise TriageError(f"symlinked nested output: {nested_dir}")
+        for idx, module in enumerate(walker.identified):
+            payload = module["image"]
+            if len(payload) > 64 * 1024 * 1024:
+                raise TriageError("nested PE exceeds export size limit")
+            sha = hashlib.sha256(payload).hexdigest()
+            guid = module["fileGuid"]
+            nested = nested_dir / f"{idx:03d}-{guid}-{sha[:16]}.efi"
+            if nested.is_symlink() or (nested.exists() and nested.read_bytes() != payload):
+                raise TriageError(f"refusing to overwrite a different nested PE: {nested}")
+            if not nested.exists():
+                nested.write_bytes(payload)
 
 
 def run(hxl1_path: Path, comparator_path: Path | None, output: Path, *,
@@ -355,7 +382,7 @@ def main() -> int:
     p.add_argument("--output-dir", type=Path,
                    default=Path.home() / "s20-artifacts/hxl1-research/bootloader-unlock")
     p.add_argument("--export-binaries", action="store_true",
-                   help="Save decompressed analysis copies under output-dir only")
+                   help="Save decompressed BL components and discovered nested UEFI PE modules under output-dir only")
     args = p.parse_args()
     try:
         report = run(args.hxl1_bl, args.g9860_bl, args.output_dir,
