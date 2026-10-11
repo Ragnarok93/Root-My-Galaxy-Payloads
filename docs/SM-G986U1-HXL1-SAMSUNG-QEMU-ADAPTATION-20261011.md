@@ -73,6 +73,32 @@ The output directory **must not already exist**. The script captures `serial-con
 - First Linux boot banner: meaningful original-Image boot progress, but still not a successful source-faithful guest.
 - Panic or exception logs: retain original stack/PC and check **which** HXL1 initialization dependency failed; only then consider porting one clearly identified fork emulation handler.
 
+## 13:28 UTC follow-up — offline existing-trace image opcode attestation
+
+New committed offline analyzer `tools/y2q_hxl1_qemu_trace_attest.py` and synthetic tests `tools/test_y2q_hxl1_qemu_trace_attest.py` consume the **already completed** `qemu-first-failure-20261011` trace, serial log and SHA-pinned unmodified `kernel.bin`. This process NEVER runs QEMU. It samples at most 12 MiB of trace head and 3 MiB of trace tail, compares actual ARM64 translated PC/opcode pairs to the bytes at matching offsets in the original factory Image, and reports any matches/mismatches under candidate Image physical start addresses.
+
+Stock QEMU `virt` RAM starts at `0x40000000`, and standard QEMU ARM64 boot loading traditionally uses `KERNEL64_LOAD_ADDR=0x80000`. Coupled with the independently inspected HXL1 Image `text_offset=0x80000`, the **candidate Image physical start = 0x40080000**, but only an opcode-level match can corroborate it. An additional simple Samsung fork RAM-base candidate `0x80080000` is included for comparison; **actual patched fork boot.c overrides load offsets further**, so neither base is certified. Use `--physical-base 0xHEX` only when a separate observed PC motivates it.
+
+To analyze without another emulation run:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_trace_attest
+python3 tools/y2q_hxl1_qemu_trace_attest.py
+```
+
+Fresh output: `~/s20-artifacts/hxl1-research/qemu-first-failure-20261011/offline-trace-attestation.json`. The JSON includes selected translated PCs and opcodes even **when no Image match is found**, trace size/sampling coverage, possible exception/banner signals, and all offset-compared opcode witnesses. The script and tests were committed, **but the owner has not yet executed them against the local trace**. Test outcome should not be claimed until CI or WSL actually runs.
+
+**Acceptance:**
+- `NO_FACTORY_IMAGE_INSTRUCTION_CORRELATION_IN_SAMPLED_TRACE`: original kernel entry not evidenced, *not proof it did not execute*; inspect earliest translated PCs and QEMU header loading before modifying QEMU.
+- `FACTORY_IMAGE_INSTRUCTION_CORRELATION`: at least four distinct original Image offsets matched with at least three distinct instruction words under one hypothesized placement. This is byte-level execution-location evidence, **not Linux boot**, and not necessarily the boot entry since it could be another translated copy of Image words.
+- `LinuxBootBannerSeen` is independent serial evidence. `TIMEOUT` is independent process-state evidence. Never infer Linux boot, privilege escalation, or a source-faithful guest solely from the translator output.
+
+The Samsung production-kernel fork is now a **reference implementation for platform emulation only**. Do not run `build-qemu-samsung.sh` or copy its guest carveouts/security semantics until this original trace identifies a specific unsupported boot dependency.
+
+---
+
 ## Controlled comparison with a separately built fork (later, only if needed)
 
 Use a separate directory for upstream source, not the user's HXL1 repo or kernel image. Avoid installing a patched emulator system-wide. The fork's `build-qemu-samsung.sh` builds private QEMU 10.2.2 and defaults to parallelism `nproc`, so first decide WSL resource limits and whether a *small, HXL1-gated subset* of the patch is necessary. After a verified fork build, use **the same** `tools/y2q_hxl1_qemu_earlyboot_triage.py` `--qemu /path/to/custom/qemu-system-aarch64` option to compare against system QEMU with a fresh output directory; never combine outcomes or re-use a prior report path.
