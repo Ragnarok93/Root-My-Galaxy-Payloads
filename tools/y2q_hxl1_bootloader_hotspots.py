@@ -146,7 +146,7 @@ def markdown(report: dict) -> str:
         "# HXL1 bootloader — hash-pinned extracted-component security hotspots", "",
         "**Research candidates only. No unlock state change or flashing performed.**",
         "",
-        f"- Original pinned HXL1 archive: \`{report['archiveSha256FromPinnedOriginalScan']}\`",
+        f"- Original pinned HXL1 archive: `{report['archiveSha256FromPinnedOriginalScan']}`",
         f"- Verified analysis copies: **{report['moduleCount']}**",
         "- Ranking is a deterministic keyword triage score, not likelihood of exploitation.",
         "",
@@ -173,7 +173,7 @@ def markdown(report: dict) -> str:
         lines += [
             f"### {label} — {item['source']}",
             f"- Kind: {item['kind']}",
-            f"- SHA256: \`{item['sha256']}\`",
+            f"- SHA256: `{item['sha256']}`",
         ]
         for category in ("unlock_state", "broad_unlock_mentions", "security_services",
                          "trust_boundaries", "flashing_interface", "verified_boot",
@@ -185,7 +185,7 @@ def markdown(report: dict) -> str:
             for hit in hits[:4]:
                 txt = hit["text"].replace("|", "/").replace("\n", " ")
                 lines.append(
-                    f"  - file+0x{hit['fileOffset']:x} ({hit['encoding']}): \`{txt}\`")
+                    f"  - file+0x{hit['fileOffset']:x} ({hit['encoding']}): `{txt}`")
         lines.append("")
     if report["skipped"]:
         lines += ["## Not fully inspected", ""]
