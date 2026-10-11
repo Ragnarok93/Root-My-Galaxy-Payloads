@@ -2,6 +2,36 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 22:26 UTC — boot-memory audit passes; runtime ARM64 handoff FDT measurement
+
+Owner pulled `22a1962` and ran `tools.test_y2q_hxl1_qemu_boot_memory_audit`: **15/15 PASS**, then ran the actual SHA-pinned factory original-image and QEMU-generated FDT cross-audit. Its observed output was:
+
+```text
+[STOCK] ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123
+[DTB] 85b032cbf12948982de81fcdb6854d12ee7861d9a8cb852b9b060526d3252f87
+[RAM BYTES] 2147483648
+[RAM] 0x40000000 0xc0000000
+[ORIGINAL IMAGE PROBABLE SPAN] 0x40080000 0x443bb000 status: POSSIBLE_QEMU_IMAGE_PLACEMENT_NOT_PHYSICALLY_ATTESTED
+[FDT RESERVATIONS] 0
+[PROTECTED POOL VERIFIED] NO
+```
+
+The **possible 67+ MiB stock Image span** at `[0x40080000,0x443bb000)` comes from the earlier trace-correlated kernel entry PC and the larger of the genuine Image file and ARM64 `image_size` header fields. It is **not** a measured complete guest-physical Image/BSS allocation or a verified gap. The dynamically generated `virt` DTB has **zero** explicit FDT reservations; the live early kernel's memblock/FDT runtime placements remain unmeasured. It is unsafe to select a UH RKP pool until early physical reservation is installed and confirmed.
+
+**New targeted measurement code committed:** `tools/run_y2q_hxl1_qemu_entry_fdt_capture.sh` starts the same **SHA-pinned, unmodified** HXL1 Image on the proven `virt,gic-version=3`, Cortex-A57, 1 vCPU, 2 GiB guest profile, suspended with `-S`, and sets a localhost GDB hardware breakpoint at `0x40080000`. At the breakpoint it records `X0–X3` and reads **only the first sixteen bytes** at `X0`. Under the AArch64 Linux entry convention **X0 should contain the physical address of the boot-time device tree**. `tools/y2q_hxl1_qemu_entry_fdt_audit.py` validates the marker, entry PC, register values and big-endian DTB header magic/size, checks RAM bounds and possible overlap with the candidate Image, and **pins original Image + generated DTB provenance** to existing reports. Unknown/bad pointer, unreadable memory and missing breakpoint remain explicitly **INCONCLUSIVE**. No guest physical reservation, UH handler, memory write or phone action occurs. Seventeen synthetic guard/regression tests are wired to HXL1 CI; their first owner/CI result has NOT yet been verified.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_entry_fdt_audit
+bash tools/run_y2q_hxl1_qemu_entry_fdt_capture.sh
+python3 tools/y2q_hxl1_qemu_entry_fdt_audit.py
+```
+
+Output: `~/s20-artifacts/hxl1-research/qemu-entry-fdt-20261011/{gdb-session.log,entry-fdt-audit.json}`; the prior boot-memory/DTB reports are preserved. This is a bounded **emulated guest** debug session, not an actual handset or a Linux userspace boot. Its result determines the next guest-runtime memory/DTB verification step. Bootloader unlock, RTmutex exploit and KernelSU deployment remain blocked and are not advanced by this guest entry observation.
+
+---
+
 ## October 11, 22:21 UTC — actual QEMU virt DTB captured, no reserved RKP guest RAM
 
 The owner ran `tools.test_y2q_hxl1_qemu_virt_dtb_inventory` **11/11 PASS**, and completed a no-kernel-execution stock-QEMU `dumpdtb` using the SHA-pinned HXL1 kernel and original `virt,gic-version=3`, Cortex-A57, 1 CPU, 2048 MiB RAM profile:
