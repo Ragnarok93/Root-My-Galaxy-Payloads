@@ -127,7 +127,7 @@ class OriginalStockCodeWindows(unittest.TestCase):
                 audit.analyze(self.raw,text,source())
 
     def test_one_symbol_too_close_to_next_refused(self):
-        with self.assertRaisesRegex(audit.WindowError,"less than one"):
+        with self.assertRaisesRegex(audit.WindowError,"code window empty"):
             audit.windows(self.raw,
                           audit.parse_nm(map_text(first=0x80,second=0x82)),
                           max_bytes=192)
