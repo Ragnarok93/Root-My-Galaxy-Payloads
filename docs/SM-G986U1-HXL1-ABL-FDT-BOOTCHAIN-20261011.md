@@ -52,7 +52,7 @@ The PE-mapped 16 ASCII bytes `55 4e 43 4f 4d 50 52 45 53 53 45 44 5f 49 4d 47` s
 ### Next narrow evidence targets
 
 1. Read `FUN_0001eca0` from the pinned ELF/PE original through REA/Ghidra instructions to classify the enumerated `0x10`-byte address records and the free/ownership lifetime; confirm the minimum-address interpretation against record layout.
-2. From the cached caller, inspect how `sp+0x30` is used relative to `sp+0x38`/`sp+0x40`, and which path reaches `0x20d38`; extract the four bytes immediately after `UNCOMPRESSED_IMG` only as **data**, without asserting a field type.
+2. From the cached caller, inspect how `sp+0x30` is used relative to `sp+0x38`/`sp+0x40`, and which path reaches `0x20d38`; if a matched offline boot payload is available, inspect the **payload bytes** at offsets `+0x10..+0x13` after a recognized `UNCOMPRESSED_IMG` marker. The bytes adjacent to the marker string **in LinuxLoader-HXL1.efi** are unrelated constant-storage context and must not be mistaken for payload bytes.
 3. Preserve the separate run-time physical address, actual selected FDT and locked-bootloader/rootability gates; classify firmware-mediated `0x227d4` dispatch only after the memory-record semantics are grounded.
 
 ## Next bounded gates
