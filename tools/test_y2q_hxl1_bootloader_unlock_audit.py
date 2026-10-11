@@ -8,7 +8,6 @@ from pathlib import Path
 import tarfile
 import tempfile
 import unittest
-from unittest import mock
 
 import lz4.frame
 from tools import y2q_hxl1_bootloader_unlock_audit as audit
@@ -129,9 +128,7 @@ class BootloaderUnlockAuditTests(unittest.TestCase):
             with self.assertRaisesRegex(audit.TriageError, "must begin BL_G9860"):
                 audit.run(path, root / "wrong.tar.md5", root / "reports")
             with self.assertRaisesRegex(audit.TriageError, "same archive"):
-                with mock.patch.object(Path, "name",
-                        new_callable=mock.PropertyMock, return_value="BL_G9860_FAKE"):
-                    audit.run(path, path, root / "reports")
+                audit.run(path, path, root / "reports")
 
     def test_reports_cannot_modify_input_folder(self):
         with tempfile.TemporaryDirectory() as td:
