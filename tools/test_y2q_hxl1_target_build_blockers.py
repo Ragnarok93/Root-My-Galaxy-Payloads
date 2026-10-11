@@ -144,8 +144,8 @@ class EvidenceTests(unittest.TestCase):
         p=self.save("build-10.log","x")
         self.assertEqual(t.logs_to_check(self.artifacts,[p,p]),[p])
 
-    def test_log_autodiscovery_prefers_build_files(self):
-        good=self.save("build-10.log","error")
+    def test_log_autodiscovery_prefers_verified_hxl1_build_files(self):
+        good=self.save("samsung-hxl1-image-clang18-build-10.log","error")
         self.save("random.txt","no useful record")
         self.assertIn(good,t.logs_to_check(self.artifacts,[]))
         self.assertTrue(all("random" not in str(p) for p in
