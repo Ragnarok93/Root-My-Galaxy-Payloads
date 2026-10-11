@@ -250,7 +250,8 @@ class Runner:
     def __init__(self, out: Path, script: Path, *, node: str = "node",
                  run_commands: bool = False, deadline: int = 240,
                  max_functions: int = 10, max_xrefs_per_seed: int = 2,
-                 max_traces: int = 0, seed_limit: int = 3):
+                 max_traces: int = 0, seed_limit: int = 3,
+                 recover_partials: bool = False):
         self.out = out
         self.script = script
         self.node = node
@@ -259,6 +260,7 @@ class Runner:
         self.max_functions = max_functions
         self.max_xrefs_per_seed = max_xrefs_per_seed
         self.max_traces = max_traces
+        self.recover_partials = recover_partials
         self.seed_limit = seed_limit
         self.function_uses = 0
         self.trace_uses = 0
@@ -269,9 +271,22 @@ class Runner:
         # Never treat a partial prior query as valid complete Evidence.
         tmp = dest.with_suffix(dest.suffix + ".partial")
         err = dest.with_suffix(dest.suffix + ".stderr.txt")
-        if dest.is_file():
-            return evidence(dest, sha=target.sha256, operation=operation,
-                            parameter=parameter, value=value)
+        if operation == "trace_native_values":
+            # Workflow results are provided by REA itself; the actual Ghidra
+            # profile is nested inside the workflow analysis profile.
+            from tools.y2q_hxl1_rea_trace_evidence import (
+                validated_trace, recover_partial_trace,
+            )
+            if dest.is_file():
+                return validated_trace(dest, sha=target.sha256, entry=value)
+            if self.recover_partials and tmp.exists() and self.run_commands:
+                recovered = recover_partial_trace(dest, sha=target.sha256, entry=value)
+                if recovered is not None:
+                    return recovered
+        else:
+            if dest.is_file():
+                return evidence(dest, sha=target.sha256, operation=operation,
+                                parameter=parameter, value=value)
         if dest.is_symlink() or tmp.exists() or err.exists():
             raise TriageError(f"Existing unsafe or incomplete REA evidence: {dest}")
         cmd = [self.node, str(self.script), *args, "--provider", "ghidra", "--json"]
@@ -296,8 +311,11 @@ class Runner:
                 raise TriageError(f"REA returned {status}; inspect partial {tmp} and {err}")
             if tmp.stat().st_size > MAX_JSON:
                 raise TriageError(f"REA Evidence too large; partial retained at {tmp}")
-            obj = evidence(tmp, sha=target.sha256, operation=operation,
-                           parameter=parameter, value=value)
+            if operation == "trace_native_values":
+                obj = validated_trace(tmp, sha=target.sha256, entry=value)
+            else:
+                obj = evidence(tmp, sha=target.sha256, operation=operation,
+                               parameter=parameter, value=value)
             tmp.rename(dest)  # no existing dest allowed on entry
             return obj
         except (OSError, ValueError) as exc:
