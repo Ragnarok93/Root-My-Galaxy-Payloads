@@ -605,6 +605,83 @@ these static results.
 
 ---
 
+
+## October 11, 12:31 UTC — actual graph coverage and paged CALLIND inventory
+
+Owner-executed graph-forensics.md confirms pinned, saved traces:
+
+| Component | Returned graph nodes | Graph total | REA decompilations | Next page | Graph status |
+|---|---:|---:|---:|---|---|
+| Original Odin 0x1ec00 | 947 | 947 | 16 | none | truncated = true, decompilation budget reached |
+| Original LinuxLoader 0x5950 | 1000 | 1630 | 16 | 1000 | truncated/paged = true |
+
+- Odin 0x1ec00 has 13 root calls, including exactly one
+  recovered root indirect CALLIND at **0x1ec84**, with
+  unresolved callee in the returned call relationships.
+  The direct storage-lookup call at **0x1ec38** targets
+  **0x10e58**; the original pseudocode passes literal
+  persistent to this provider lookup and later obtains
+  the OEM-related final byte using the indirect read.
+  This does NOT establish storage authenticity or the
+  producer of the status.
+- Odin's 947/947 node result is *not complete semantics*:
+  REA retained a truncated graph even though all retained
+  nodes were emitted (90 unresolved observations and one
+  decompilation-budget-reached diagnostic).
+- LinuxLoader 0x5950 first page contains 135 root CALL/CALLIND
+  operations: 132 direct + **three indirect**. Its original
+  Ghidra trace page has 1630 total nodes / 1999 edges and
+  1000 nodes / 1228 edges returned. Further 630 nodes
+  remain. 181 unresolved observations include five
+  unresolved call targets. The markdown inventory truncated
+  to the first 48 root calls, so do not assume its omission
+  of LinuxLoader CALLIND addresses means they are absent.
+- "Target not on page" for static CALL edges frequently
+  refers to a **procedure address** or a different graph page,
+  not necessarily a missing implementation or unsafe jump.
+
+**New bounded, cache-reusing workflow:**
+
+- tools/y2q_hxl1_rea_indirect_pages.py
+- tools/test_y2q_hxl1_rea_indirect_pages.py
+- tools/run_y2q_hxl1_rea_indirect_pages.sh
+
+The script SHA-attests the original binaries and five proved
+search/xref/function chains, then verifies existing workflow Evidence
+and requests *only* the next LinuxLoader graph page (offset 1000,
+limit 1000) in --execute mode; do not rerun Odin. The page-specific
+result is saved separately as
+rea-security-audit/LinuxLoader/trace-0x5950-offset1000-limit1000.json.
+Saved original files are never replaced. The new validator
+checks exact requested offset/limit in REA parameters and graph
+pagination before promoting the result. Merging checks total nodes,
+total edges, decompilation counts, procedure list, unresolved records,
+non-overlapping node IDs, and original SHA256.
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_indirect_pages.sh --recover-partials
+~~~
+
+Read the output:
+
+~~~bash
+cat ~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/indirect-call-pages.md
+~~~
+
+Alternatively run the Python command without --execute to get a
+PLAN report and use any already-verified cached page without launching
+Ghidra. The saved report inventories all root CALLIND sites and
+distinguishes graph page coverage from the Ghidra work budget.
+
+**Unresolved:** exact Odin storage read target and error handling,
+LinuxLoader callback initializer / data origin, the separate source
+of Odin OEM authorization codes and secure-world policy enforcement.
+No unlock, arbitrary firmware execution or vulnerability demonstrated.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
