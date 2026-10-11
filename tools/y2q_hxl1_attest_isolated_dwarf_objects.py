@@ -142,8 +142,8 @@ def check_source_and_objects(data:dict,report_path:Path)->dict:
     require(log.stat().st_size<=256*1024*1024,
             "original phase compiler log exceeds attestation bound")
     content=log.read_text(encoding="utf-8",errors="replace")
-    actual_phases=re.findall(r"(?m)^PHASE=(\\S+)$",content)
-    actual_exits=re.findall(r"(?m)^EXIT_CODE=(-?\\d+)$",content)
+    actual_phases=re.findall(r"(?m)^PHASE=(\S+)$",content)
+    actual_exits=re.findall(r"(?m)^EXIT_CODE=(-?\d+)$",content)
     require(tuple(actual_phases)==PHASES and
             actual_exits==["0","0","0"],
             "compiler log disagrees with saved JSON phase results")
