@@ -28,15 +28,11 @@ class TriageError(ValueError):
 def image_metadata(image: Path) -> dict:
     if not image.is_file() or image.is_symlink():
         raise TriageError("Exact original Image is missing or symlinked")
-    h=hashlib.sha256()
+    digest=hashlib.sha256()
     with image.open("rb") as f:
         header=f.read(64)
         if len(header)!=64:raise TriageError("Image shorter than ARM64 header")
-        for data in iter(lambda:f.read(1024*1024),b""):
-            h.update(data)
-    # Digest the initial header as well.
-    digest=hashlib.sha256()
-    with image.open("rb") as f:
+        digest.update(header)
         for data in iter(lambda:f.read(1024*1024),b""):
             digest.update(data)
     if digest.hexdigest()!=STOCK_SHA256:
