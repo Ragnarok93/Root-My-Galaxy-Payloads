@@ -64,6 +64,24 @@ class OfflineImageTraceTests(unittest.TestCase):
         r=t.analyze(image,trace,b"",b"",[alt],len(trace))
         self.assertTrue(r["candidateImageStarts"][2]["multiInstructionBinaryCorrelation"])
         self.assertFalse(r["candidateImageStarts"][0]["multiInstructionBinaryCorrelation"])
+    def test_empty_head_and_tail_preserve_negative_result(self):
+        image=sample_image()
+        r=t.analyze(image,b"",b"",b"",[],0)
+        self.assertEqual(r["evidenceStatus"],
+                         "NO_FACTORY_IMAGE_INSTRUCTION_CORRELATION_IN_SAMPLED_TRACE")
+        self.assertEqual(r["parsedAarch64OpcodeLines"],0)
+        self.assertFalse(r["evidenceFlags"]["factoryImageCorrelatedInHead"])
+        self.assertFalse(r["evidenceFlags"]["factoryImageCorrelatedInTail"])
+        self.assertFalse(r["evidenceFlags"]["factoryKernelEntryIndependentlyEstablished"])
+    def test_head_and_tail_matching_are_both_reported(self):
+        image=sample_image()
+        trace=trace_for()
+        r=t.analyze(image,trace,trace,b"",[],len(trace)*2)
+        self.assertTrue(r["evidenceFlags"]["factoryImageCorrelatedInHead"])
+        self.assertTrue(r["evidenceFlags"]["factoryImageCorrelatedInTail"])
+        self.assertEqual(r["candidateImageStarts"][0]["uniqueMatchingImageOffsets"],5)
+        self.assertEqual(r["candidateImageStarts"][0]["tailUniqueMatchingImageOffsets"],5)
+        self.assertFalse(r["evidenceFlags"]["factoryKernelEntryIndependentlyEstablished"])
     def test_original_sha_must_match(self):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/"kernel.bin";p.write_bytes(sample_image())
