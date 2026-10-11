@@ -172,6 +172,118 @@ call graph discovery, not a speculative unlock conclusion.
 
 ---
 
+
+## October 11 — REA/Ghidra automated security-path investigation
+
+The owner executed the SHA-pinned HXL1 bootloader hotspot inventory
+successfully: **13** verified firmware binaries. Crucially, the
+*embedded UEFI applications* have more targeted evidence than the
+outer ABL ELF string search:
+
+- **Odin** (SHA256 09da14205be3e773f8b6ca9651fc9a1faabe871950b713ea79fc626e3c36de42):
+  OEMLOCK, Custom Binary blocked by OEM Lock, Oem unlock value,
+  flash unlock Failed, and Download Mode command processing.
+- **LinuxLoader** (SHA256 5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003):
+  Skipping boot verification when unlocked, read_is_device_unlocked,
+  VaultKeeper app calls, and rollback service references.
+- **VaultKeeper** (SHA256 614795b445c776859bdacdfe12ccc42bfe4cc47330b7b657adbb1730ce714183):
+  VaultKeeper command processing and vendor daemon strings.
+- **XBL and TZ** contain retail-unlock, RPMB and anti-rollback leads;
+  these terms can refer to *other subsystems*, not the Samsung Android
+  OEM unlock mechanism.
+
+The strings do not establish code reachability, unlock feasibility,
+a particular secure-world policy or a vulnerability.
+
+### Automated implementation
+
+The new host-only tools are:
+
+- tools/y2q_hxl1_rea_security_audit.py
+- tools/run_y2q_hxl1_rea_security_audit.sh
+- tools/test_y2q_hxl1_rea_security_audit.py
+
+They reuse the **existing** saved hotspot JSON and exported image copies,
+rather than re-extracting or downloading firmware. Every source is checked
+against its exact original HXL1 SHA256.
+
+The script uses REA/Ghidra string searches, verifies returned analysis
+coordinates, queries xrefs, resolves owning functions, validates the
+reported function body, and records decompiled code excerpts. It also
+generates a *manual security/vulnerability review queue* for suspect
+copy APIs, external input, OEM lock branches, and secure-service calls.
+Optional HighFunction def-use tracing is explicitly bounded.
+
+Raw REA Evidence is checked for operation, Ghidra provider, selected
+SHA256, ARM64 architecture, query parameters, and Evidence ID.
+Mismatches fail closed. Failed commands preserve partial output and
+stderr; they are never promoted to verified evidence. The earlier
+hotspot report's **file offsets are not Ghidra virtual addresses**.
+
+### First run: plan mode (no Ghidra operation)
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 -m unittest -v tools.test_y2q_hxl1_rea_security_audit
+
+python3 tools/y2q_hxl1_rea_security_audit.py
+cat ~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/security-paths.md
+~~~
+
+### Run automated original-HXL1 static REA/Ghidra queries
+
+~~~bash
+bash tools/run_y2q_hxl1_rea_security_audit.sh
+~~~
+
+The wrapper activates the existing WSL Node 24, REA and Ghidra
+environment. The default targets are **Odin** and **LinuxLoader**.
+More expensive secure-firmware formats are optional:
+
+~~~bash
+bash tools/run_y2q_hxl1_rea_security_audit.sh --include-secure
+~~~
+
+HighFunction value-flow exploration is disabled by default; enable
+a small bounded sample after code functions have been identified:
+
+~~~bash
+bash tools/run_y2q_hxl1_rea_security_audit.sh --max-traces 2
+~~~
+
+Results are saved under:
+
+    ~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/
+
+Read security-paths.md for a summary, security-paths.json for a
+machine-readable ledger, and component subdirectories for original
+REA search/xref/function/trace Evidence. The script may stop with
+incomplete or provider-specific results; inspect the retained
+.partial and stderr files without calling them successful.
+
+### Actual security proof questions
+
+1. Where does **OdinApp** get the current OEM lock status, and which
+   callback decides whether to accept a custom binary?
+2. Which service implements LinuxLoader's
+   read_is_device_unlocked callback, and how are failures handled?
+3. Are the decisions bound to VaultKeeper/TrustZone protected storage,
+   or to firmware-local configuration?
+4. Do the incoming Odin protocol parsers bound lengths and allocations,
+   and is authentication checked *before* sensitive operations?
+5. Which successful and failure branches are validated by actual
+   Ghidra instructions instead of strings or pseudocode guesses?
+
+Vulnerability investigation remains *static candidate triage* until
+an actual reachable bug and safe, isolated reproducible input are
+established. The tool **does not execute OEM firmware, fuzz the live
+device, rewrite RPMB, patch ABL, flash a G9860 bootloader, or claim
+bootloader unlock success**.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
