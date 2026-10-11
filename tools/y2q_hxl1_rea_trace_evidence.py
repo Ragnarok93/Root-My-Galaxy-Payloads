@@ -108,7 +108,9 @@ def validated_trace(path: Path, *, sha: str, entry: str,
     return ev
 
 
-def recover_partial_trace(final: Path, *, sha: str, entry: str) -> dict | None:
+def recover_partial_trace(final: Path, *, sha: str, entry: str,
+                          offset: int | None = None,
+                          limit: int | None = None) -> dict | None:
     """Recover complete SHA-attested .partial via atomic no-clobber hard link.
 
     Keep the original staging evidence unchanged even if recovery succeeds.
@@ -119,12 +121,14 @@ def recover_partial_trace(final: Path, *, sha: str, entry: str) -> dict | None:
         return None
     if not partial.exists() and not partial.is_symlink():
         return None
-    ev = validated_trace(partial, sha=sha, entry=entry)
+    ev = validated_trace(partial, sha=sha, entry=entry,
+                         offset=offset, limit=limit)
     try:
         os.link(partial, final, follow_symlinks=False)
     except FileExistsError as exc:
         raise TriageError(f"Refusing to replace existing original REA trace {final}") from exc
     except OSError as exc:
         raise TriageError(f"Cannot promote verified original REA trace {partial}: {exc}") from exc
-    validated_trace(final, sha=sha, entry=entry)
+    validated_trace(final, sha=sha, entry=entry,
+                    offset=offset, limit=limit)
     return ev
