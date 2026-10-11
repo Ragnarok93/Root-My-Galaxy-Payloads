@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Read-only source-vs-GDB ABI audit for stock HXL1 RKP bitmap SMC #0.
 
+The tool never launches QEMU, calls ADB, or modifies the stock kernel.
 Checks the retained *local HXL1 source tree*, not a newer Samsung QEMU fork.
 The recovered nm map is heuristic: source/ELF reconstruction is not a substitute
 for a booted, source-faithful HXL1 kernel or real UH hypervisor implementation.
