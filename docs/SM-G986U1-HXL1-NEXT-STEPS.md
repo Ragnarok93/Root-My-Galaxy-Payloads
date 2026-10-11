@@ -2,6 +2,27 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 15:22 UTC — exact HXL1 bitmap ABI proven, next source-faithful emulation preflight
+
+Owner verified **23/23 tests PASS** (5 GDB capture shell guards + 18 exact-source ABI regressions), confirming the prior test-order bug is fixed. The **actual original HXL1 source ABI audit** passed, producing `[HXL1 SOURCE] EXACT_LOCAL_SOURCE_DEFINITIONS_MATCH_CAPTURED_RKP_BITMAP_CALL`, **`X0=0xc300c002`**, **`X1=0x15`**, **`X2=0xffffff800a4dd0b8`** matching the recovered `rkp_s_bitmap_buffer` original symbol, and **`X3=0x40000000`**. This completes the exact HXL1 app-ID/command/argument source-correlation gate; no more SMC GDB capture is needed.
+
+The newest source-based conclusion is **RKP_GET_RKP_GET_BUFFER_BITMAP**, **not** the newer Samsung QEMU fork's KDP_SET_NS_FLAGS, despite the fork using the same numeric X0/X1. The relevant public SM8250 `include/linux/rkp.h` also expects RKP commands `0x11–0x15` and a `sparse_bitmap_for_kernel_t` descriptor, whereas the fork implements different command values. This is an actual **ABI collision**; **NEVER import its KDP handler unchanged or assign universal success to unknown SMCs**.
+
+**New code now committed:** `tools/y2q_hxl1_rkp_bitmap_preflight.py` with 14 source-gated synthetic regression tests and updated isolated HXL1 CI. It checks original local HXL1 `uh.h`, `rkp.h`, `arch/arm64/mm/mmu.c`, `init/main.c`, `arch/arm64/mm/pgd.c`; it compares the prior owner-validated source-hash and GDB ABI report to the unmodified files, then extracts RKP bitmap descriptor, 1GiB sparse indexing, PAGE_SIZE, paging init order and protected allocator requirements. Its owner/CI PASS is **pending**; not yet a validated firmware fact beyond the prior ABI proof. It does not run QEMU or alter guest hardware or the phone.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_rkp_bitmap_preflight
+python3 tools/y2q_hxl1_rkp_bitmap_preflight.py
+```
+
+Fresh output: `~/s20-artifacts/hxl1-research/qemu-smc-registers-20261011/rkp-bitmap-preflight.json`. A perfect source witness report still reports QEMU adapter *NOT READY*, since the guest-physical bitmap backing and protected RKP allocation pool must be modeled and reserved independently. Next milestone after exact source preflight PASS is a deliberately isolated, HXL1-specific QEMU 10.2.2 fork component with **only** source-matched SMC dispatch, bounds-checked original sparse bitmap memory, and explicit rejection of unsupported commands. Kernel init, genuine protected page ownership, Linux userspace, bootloader unlock and KernelSU remain NOT VERIFIED.
+
+See [QEMU adaptation and source verification](SM-G986U1-HXL1-SAMSUNG-QEMU-ADAPTATION-20261011.md#1522-utc--exact-hxl1-source-and-rkp-bitmap-symbol-are-corroborated).
+
+---
+
 ## October 11, 15:04 UTC — original HXL1 SMC guest registers captured; fork RKP/KDP ID conflict
 
 The user ran the 13-unit secure monitor gate test group plus 5-unit QEMU GDB guard suite: **17/18 PASS, 1 FAIL** from a **test-only check-order defect**. The guard test expected existing-output rejection but its temporary HOME lacked the kernel image, and the shell checked for kernel presence first. GitHub code was fixed so existing output refusal precedes image checks, and original kernel SHA validation now precedes optional QEMU/GDB dependency checks. **The corrected suite's 5/5 owner/CI outcome is pending**, not claimed. The secure monitor gate analyzer itself PASSED and wrote `qemu-first-failure-20261011/secure-monitor-gate.json`.
