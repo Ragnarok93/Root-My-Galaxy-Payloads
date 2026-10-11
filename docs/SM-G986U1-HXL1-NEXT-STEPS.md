@@ -2,6 +2,20 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 11:33 UTC — compiled member attribution and proxy-cleanup control flow
+
+Verified **new Stage-3 subset** offline from the owner's two previously exported archives, without repeating REA or accessing a phone. The independent AArch64 decoder agreed on **723/723** REA-reported instructions; 38 annotated, exact code witnesses and 12 negative/positive opcode-and-attribution tests passed. See [the focused evidence report](SM-G986U1-HXL1-STAGE3-MEMBER-CORRELATION-20261011.md).
+
+- `task_struct.pi_lock` candidate compiled displacement `0x8c8` relative to current (from `mrs sp_el0`) and relative to a separate masked owner pointer.
+- `task_struct.pi_waiters` candidate `0x8e0` owner-relative; `task_struct.pi_blocked_on` candidate `0x8f8`, independently used with distinct current and owner registers.
+- `task_struct.pi_state_cache` candidate `0x9f8` from futex cache load/store, **provisional** pending local exact-source behavior mapping.
+- `rt_mutex_start_proxy_lock+0x34` takes cleanup on a nonzero return path, and `+0x44` directly calls `remove_waiter`. `remove_waiter+0x68` performs current-relative PI field clear. `remove_waiter+0x19c` passes current in `x5` to the next call. This matches the general source-level ownership bug review, not a demonstrated exploit.
+- The assistant produced `HXL1-Stage3-v5-correlation.zip` (offline audit, original pinned-source optional checks, report, tests). The scripts are **delivered as an archive, not yet committed to GitHub**. Tests were executed in the assistant's container with the supplied archives; the exact local Samsung C file bytes were **not** uploaded. Prior owner-executed SHA checks attest those files, but this pass cannot independently compile full factory type layouts.
+
+**Readiness unchanged:** Stage 3 PARTIAL pending independently authenticated full OEM type layout and runtime evidence. Stages 4–6 OPEN, KernelSU BLOCKED. No bootloader unlock, root, code execution on handset or flash.
+
+---
+
 ## October 11, 11:24 UTC — independent complete slice bytes/LLVM crosscheck
 
 The owner uploaded `HXL1-Stage3-Code-Slices.zip` containing three synthetic ELF64 AArch64 files from the already validated v4.2 run. This independent offline pass consumed the **three original REA JSON reports and manifest plus these three ELF files**, verified each entire ELF SHA-256 against the manifest, verified each `.text` SHA-256 against the manifest's saved stock-byte digest, and used a **separate LLVM AArch64 instruction decoder** (not Ghidra) to cover each four-byte location. This is a re-verification of the owner's saved exact-stock snapshot, **not direct access to the complete 52-MB factory Image or original factory DWARF**. No phone access or new REA was necessary.
