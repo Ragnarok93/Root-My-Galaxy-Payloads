@@ -1003,3 +1003,59 @@ than the experimental Clang18 object, but **does not by itself prove
 all OEM sizes, layouts, aliases or runtime kernel KASLR/base**.
 Stage 3 remains PARTIAL; KernelSU and live vulnerability feasibility
 are still unverified.
+
+
+## October 11, 2026 — all six original `remove_waiter` call destinations resolved in owner WSL
+
+Owner pulled commit `e6ebf51` and ran a targeted read-only
+lookup against the already recovered, original HXL1
+`~/s20-artifacts/hxl1-research/vmlinux-stock.nm`.
+
+**All six requested targets were found**:
+
+| Static original HXL1 address | Recovered symbol |
+|---|---|
+| `ffffff80080fafb4` | `T rt_mutex_setprio` |
+| `ffffff8008146ca4` | `t rt_mutex_adjust_prio_chain` |
+| `ffffff800996d544` | `T _raw_spin_lock` |
+| `ffffff800996d664` | `T _raw_spin_lock_irq` |
+| `ffffff800996d774` | `T _raw_spin_unlock` |
+| `ffffff800996d83c` | `T _raw_spin_unlock_irq` |
+
+This directly corroborates the **call graph** of the stock
+`remove_waiter` disassembly. For example, `bl 0xffffff8008146ca4`
+is a symbol-resolved call to `rt_mutex_adjust_prio_chain`, and
+`bl 0xffffff80080fafb4` is a symbol-resolved call to
+`rt_mutex_setprio`. It also establishes named original-kernel
+lock/unlock callees, consistent with the two lock-management phases
+visible in original source lines 1077–1118. Note: recovered
+kallsyms names are not factory DWARF and an address's symbolic
+identity is not proof of the data structure layout.
+
+The same owner run inspected the **exact original Samsung source**:
+
+- `include/linux/rtmutex.h:30–43` defines `struct rt_mutex` with
+  `wait_lock`, `waiters` (`rb_root_cached`) and `owner`;
+- `include/linux/sched.h:1169` includes
+  `task_struct.pi_lock`, line 1175 `pi_waiters`, line 1177
+  `pi_top_task` and line 1179 `pi_blocked_on`.
+
+Together, stock function code, resolved call destinations and
+original declarations support **high-confidence source/code
+correlation** for `current->pi_lock`, the clear of
+`current->pi_blocked_on`, and lock owner access (e.g. stock
+`ldr x24,[x19,#32]` and tagged-owner masking). Other
+`rt_mutex_waiter` and red-black tree nested layout and
+task structure fields remain incompletely verified; the original
+kernel's full factory DWARF/BTF was **not** recovered.
+No experimental Clang18 field values should be treated as OEM
+evidence. This evidence is **static original kernel code only**;
+no on-device exploit, runtime KASLR/physical load proof,
+or KernelSU result has been established.
+
+**Next targeted check:** Inspect original `struct rt_mutex_waiter`
+definition (commonly `kernel/locking/rtmutex_common.h`), the
+`rt_mutex_top_waiter` and `rt_mutex_owner` helper definitions,
+and `task_blocked_on_lock` at source level; compare only the
+particular observed original ARM64 accesses. Do **not** run another
+generic Clang18 DWARF compilation campaign or broad Ghidra pass.
