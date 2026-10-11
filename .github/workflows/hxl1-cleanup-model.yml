@@ -33,6 +33,10 @@ on:
       - tools/hxl1_rkp_guest_stage.c
       - tools/hxl1_rkp_guest_stage_test.c
       - tools/test_y2q_hxl1_rkp_guest_stage.py
+      - tools/hxl1_rkp_guest_commit.h
+      - tools/hxl1_rkp_guest_commit.c
+      - tools/hxl1_rkp_guest_commit_test.c
+      - tools/test_y2q_hxl1_rkp_guest_commit.py
       - .github/workflows/hxl1-cleanup-model.yml
   pull_request:
     paths:
@@ -65,6 +69,10 @@ on:
       - tools/hxl1_rkp_guest_stage.c
       - tools/hxl1_rkp_guest_stage_test.c
       - tools/test_y2q_hxl1_rkp_guest_stage.py
+      - tools/hxl1_rkp_guest_commit.h
+      - tools/hxl1_rkp_guest_commit.c
+      - tools/hxl1_rkp_guest_commit_test.c
+      - tools/test_y2q_hxl1_rkp_guest_commit.py
       - .github/workflows/hxl1-cleanup-model.yml
   workflow_dispatch:
 permissions:
@@ -80,7 +88,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu qemu-user
       - name: Compile and test harmless user-space C ownership model
-        run: python3 -m unittest -v tools.test_y2q_hxl1_cleanup_regression tools.test_y2q_hxl1_original_cleanup_slice tools.test_y2q_hxl1_qemu_earlyboot_triage tools.test_y2q_hxl1_qemu_trace_attest tools.test_y2q_hxl1_qemu_exception_summary tools.test_y2q_hxl1_qemu_fault_sites tools.test_y2q_hxl1_qemu_secure_monitor_gate tools.test_y2q_hxl1_qemu_smc_register_capture tools.test_y2q_hxl1_rkp_bitmap_abi_audit tools.test_y2q_hxl1_rkp_bitmap_preflight tools.test_y2q_hxl1_rkp_pool_model tools.test_y2q_hxl1_rkp_guest_stage
+        run: python3 -m unittest -v tools.test_y2q_hxl1_cleanup_regression tools.test_y2q_hxl1_original_cleanup_slice tools.test_y2q_hxl1_qemu_earlyboot_triage tools.test_y2q_hxl1_qemu_trace_attest tools.test_y2q_hxl1_qemu_exception_summary tools.test_y2q_hxl1_qemu_fault_sites tools.test_y2q_hxl1_qemu_secure_monitor_gate tools.test_y2q_hxl1_qemu_smc_register_capture tools.test_y2q_hxl1_rkp_bitmap_abi_audit tools.test_y2q_hxl1_rkp_bitmap_preflight tools.test_y2q_hxl1_rkp_pool_model tools.test_y2q_hxl1_rkp_guest_stage tools.test_y2q_hxl1_rkp_guest_commit
       - name: Evidence scope
         run: |
           echo "Model-only assertions passed. This CI job does not check Samsung source SHA pins."
