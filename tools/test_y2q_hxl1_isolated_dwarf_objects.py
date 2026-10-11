@@ -84,6 +84,7 @@ class IsolatedDwarfBuildTests(unittest.TestCase):
         private=self.stock.parent/".pyenv/versions/2.7.18/bin/python2"
         private.parent.mkdir(parents=True)
         private.write_text("#!/bin/sh\\n")
+        private.chmod(0o755)
         class Interpreter:
             returncode=0
             stdout="2.7"
@@ -98,6 +99,7 @@ class IsolatedDwarfBuildTests(unittest.TestCase):
         private=self.stock.parent/"custom/python2"
         private.parent.mkdir(parents=True)
         private.write_text("#!/bin/sh\\n")
+        private.chmod(0o755)
         class Interpreter:
             returncode=0
             stdout="2.7"
@@ -109,6 +111,7 @@ class IsolatedDwarfBuildTests(unittest.TestCase):
         private=self.stock.parent/"custom/python2"
         private.parent.mkdir(parents=True)
         private.write_text("#!/bin/sh\\n")
+        private.chmod(0o755)
         class Interpreter:
             returncode=0
             stdout="3.12"
@@ -121,6 +124,7 @@ class IsolatedDwarfBuildTests(unittest.TestCase):
         private=self.stock.parent/"custom/python2"
         private.parent.mkdir(parents=True)
         private.write_text("#!/bin/sh\\n")
+        private.chmod(0o755)
         class Interpreter:
             returncode=0
             stdout="3.9"
@@ -139,6 +143,7 @@ class IsolatedDwarfBuildTests(unittest.TestCase):
         private=self.stock.parent/"bin/python2"
         private.parent.mkdir(parents=True)
         private.write_text("#!/bin/sh\\n")
+        private.chmod(0o755)
         class Interpreter:
             returncode=0
             stdout="2.7"
