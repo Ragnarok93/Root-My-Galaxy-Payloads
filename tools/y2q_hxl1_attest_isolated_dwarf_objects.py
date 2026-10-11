@@ -227,7 +227,7 @@ def markdown(result:dict)->str:
         "|---|---|---|---|",
     ]
     for name,v in result["independentlyValidatedObjects"].items():
-        out.append("| "+name+" | \`"+v["sha256"]+"\` | Complete in Clang18 | Complete in Clang18 |")
+        out.append("| "+name+" | `"+v["sha256"]+"` | Complete in Clang18 | Complete in Clang18 |")
     out+=["","Three observed compilation phases completed with exit code 0.",
           "Pahole and readelf independently find both types complete in each target.",
           "Exact original object bytes match the owner's saved build report.",
