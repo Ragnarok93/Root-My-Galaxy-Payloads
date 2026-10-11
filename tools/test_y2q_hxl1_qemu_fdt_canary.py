@@ -176,7 +176,7 @@ class FdtCanaryTests(unittest.TestCase):
     def test_fdt_header_mismatch_refused(self):
         changed=bytearray(self.guest)
         changed[0]^=0xff
-        with self.assertRaisesRegex(fdt.FdtError,"magic"):
+        with self.assertRaisesRegex(verify.DeliveryError,"Invalid delivered guest FDT header"):
             self.probe(guest=bytes(changed),log=gdblog(self.guest))
 
     def test_shell_syntax_and_guard_on_existing_evidence(self):
