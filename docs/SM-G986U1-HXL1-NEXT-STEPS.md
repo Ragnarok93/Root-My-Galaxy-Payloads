@@ -2,6 +2,32 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 22:21 UTC — actual QEMU virt DTB captured, no reserved RKP guest RAM
+
+The owner ran `tools.test_y2q_hxl1_qemu_virt_dtb_inventory` **11/11 PASS**, and completed a no-kernel-execution stock-QEMU `dumpdtb` using the SHA-pinned HXL1 kernel and original `virt,gic-version=3`, Cortex-A57, 1 CPU, 2048 MiB RAM profile:
+
+```text
+[DTB] /home/main/s20-artifacts/hxl1-research/qemu-virt-dtb-20261011/qemu-virt.dtb
+[DTB SHA256] 85b032cbf12948982de81fcdb6854d12ee7861d9a8cb852b9b060526d3252f87
+[MEMORY] /memory@40000000 0x40000000 0xc0000000
+[RAM RESERVATION VERIFIED] NO
+```
+
+The actual generated `virt` FDT confirms one **2 GiB RAM range `[0x40000000,0xc0000000)`** and reports no explicit memreserve/`/reserved-memory` nodes in this bounded inventory. Importantly **this is NOT a free-RAM map**. The lack of memreserve does not exclude occupied kernel Image/BSS/DTB, loader allocations, page tables, early guest kernel stacks, runtime memblock allocations or temporary regions. It therefore **does not identify any safe RKP protected pool address**. Original guest RAM and firmware remain unmodified, and the root/KernelSU/bootloader gates remain closed.
+
+**Next evidence-only code already committed:** `tools/y2q_hxl1_qemu_boot_memory_audit.py` and 15 synthetic regression tests in HXL1 CI. It cross-checks the **genuine** `kernel.bin` SHA and ARM64 header file/image size against the captured unmodified `qemu-virt.dtb` and its original hashed `qemu-virt-inventory.json`. The trace-correlated `0x40080000` Image PC is deliberately treated as a **candidate physical load base**, not an independently measured full physical footprint; the report lists the observed span and all missing boot-resource locations, never chooses a carveout, and marks guest memory reservation and real QEMU adapter readiness FALSE. This new fifteen-test suite and owner report have not yet been executed/verified.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_boot_memory_audit
+python3 tools/y2q_hxl1_qemu_boot_memory_audit.py
+```
+
+New output: `~/s20-artifacts/hxl1-research/qemu-virt-dtb-20261011/boot-memory-conflict-audit.json`. The audited data cannot justify setting `ram_reservation_verified=true` in `hxl1_rkp_guest_commit`. Before a genuine guest-memory SMC adapter, capture the actual loader/runtime FDT guest physical address and early memblock reservations, then independently install and verify a nonoverlapping reserved pool. **No additional QEMU boot is required for this audit.**
+
+---
+
 ## October 11, 22:13 UTC — transaction WSL 9/9 PASS; QEMU virt generated FDT inventory tool
 
 Owner pulled through `deff448` and ran `tools.test_y2q_hxl1_rkp_guest_commit`: **9/9 PASS**, with actual native-host C compilation and all injected write/rollback/readback failure fixtures. This independently corroborates 135/135 earlier successful CI tests. Entire original three-part host library is now **22/22 owner-validated** (7 pool + 6 staging + 9 transaction), but has **no real QEMU memory mapping, SMC handler or reserved physical pool**.
