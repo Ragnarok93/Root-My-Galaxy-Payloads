@@ -9,7 +9,10 @@ from __future__ import annotations
 import copy
 import gzip
 import hashlib
+import io
 import json
+import contextlib
+import sys
 from pathlib import Path
 import struct
 import tempfile
@@ -185,6 +188,47 @@ class SourceCodeReviewTests(unittest.TestCase):
         wanted=self.arts/"hxl1-research/any.txt"
         with self.assertRaisesRegex(review.CorrelationError,".json suffix"):
             review.resolve_report_path(wanted,self.stock,explicit=False)
+
+    def test_cli_show_review_prints_saved_original_source_and_instructions(self):
+        """Regression: 'a' originalCode previously clobbered argparse args."""
+        attested=self.attest()
+        destination=self.arts/"hxl1-research/cli-source-code-review.json"
+        stdout=io.StringIO()
+        with patch.object(review,"analyze",return_value=attested):
+            with patch.object(sys,"argv",[
+                "y2q_hxl1_stock_rtmutex_source_code_review.py",
+                "--source",str(self.stock),"--artifacts",str(self.arts),
+                "--v2",str(self.path),"--out",str(destination),"--show-review"
+            ]):
+                with contextlib.redirect_stdout(stdout):
+                    result=review.main()
+        self.assertEqual(result,0)
+        output=stdout.getvalue()
+        self.assertIn("COMPLETE BOUNDED ORIGINAL SOURCE AND DISASSEMBLY REVIEW",output)
+        self.assertIn("Original stock AArch64 instructions",output)
+        self.assertIn("rt_mutex_start_proxy_lock",output)
+        self.assertIn("futex_lock_pi",output)
+        self.assertIn("[LIMIT]",output)
+        self.assertTrue(destination.is_file())
+        self.assertTrue(destination.with_suffix(".md").is_file())
+
+    def test_cli_without_show_review_keeps_summary_and_saved_markdown(self):
+        attested=self.attest()
+        destination=self.arts/"hxl1-research/cli-summary-only.json"
+        stdout=io.StringIO()
+        with patch.object(review,"analyze",return_value=attested):
+            with patch.object(sys,"argv",[
+                "y2q_hxl1_stock_rtmutex_source_code_review.py",
+                "--source",str(self.stock),"--out",str(destination)
+            ]):
+                with contextlib.redirect_stdout(stdout):
+                    result=review.main()
+        self.assertEqual(result,0)
+        output=stdout.getvalue()
+        self.assertIn("[CORRELATION CANDIDATE] remove_waiter",output)
+        self.assertIn("[REPORT]",output)
+        self.assertNotIn("COMPLETE BOUNDED ORIGINAL SOURCE AND DISASSEMBLY REVIEW",output)
+        self.assertIn("## futex_lock_pi",destination.with_suffix(".md").read_text())
 
     def test_both_synthetic_sources_extracted(self):
         r=self.attest()
