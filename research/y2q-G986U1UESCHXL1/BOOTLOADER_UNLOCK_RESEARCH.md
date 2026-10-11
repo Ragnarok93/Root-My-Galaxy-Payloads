@@ -1887,6 +1887,91 @@ No unlock or authorization bypass is demonstrated.
 
 ---
 
+
+## October 11, 22:36 UTC — five original upstream mode-dispatcher references
+
+Owner completed original HXL1 REA/Ghidra saved-source
+audit for function 0x33928 (IsUnlocked / IsUnlockCritical
+state-update mode dispatcher).
+
+Ghidra xref Evidence:
+ev_629be9bfbe322c11adced254a84fdc15b900b51b79747e46306d8f9fd85cf431
+
+Exactly five original source locations:
+- 0x2f604
+- 0x342e0
+- 0x343dc
+- 0x675a0
+- 0x67640
+
+**Do not prematurely call them all callers.** These are
+Ghidra cross references, not yet native BL instructions.
+Original 0x33928 native argument transformations verified
+at 0x33a08 and 0x33b20 by source-attested Ghidra evidence.
+
+For a true call into 0x33928, input ARM64 W0 is
+the mode selector and W1 carries the requested value.
+The parent saves W0 in W20 and W1 in W21. Mode-zero
+can call the ordinary IsUnlocked setter 0x33c88 with
+original W1. Another path derives a boolean with
+CSET W21,EQ and passes that into the same setter.
+Critical unlock status is a different byte at
+0x351056; original normal IsUnlocked is at 0x351055.
+The parent includes a userdata wipe/recovery workflow,
+whose authorization/reachability remains unproven.
+
+### New exactly bounded upstream read-only audit
+
+Files committed:
+- tools/y2q_hxl1_rea_avb_mode_upstream_callers.py
+- tools/test_y2q_hxl1_rea_avb_mode_upstream_callers.py
+- tools/run_y2q_hxl1_rea_avb_mode_upstream_callers.sh
+
+The script authenticates the prior original HXL1
+archive SHA256, original LinuxLoader ELF/EFI SHA256,
+AVB callback state path, both setter/initializer
+Ghidra dossiers and the original exact five-item
+xref Evidence.
+
+The only unconditional new read-only queries are
+the five original inspect-native-instruction calls,
+one per xref. Only if the instruction is a verified
+direct ARM64 BL to 0x33928 will the script request:
+1. the containing Ghidra source function; and
+2. the full native instruction listing for the
+   Ghidra-verified owning function.
+
+Upper bound: 15 REA queries; less if a site is not BL,
+or a source-owner listing is already cached. The
+output presents original function context and bounded
+W0/W1 lexical predecessor listings. It explicitly
+does **not** claim path-specific reaching definitions,
+trusted command sources, secure-world authorization,
+or confirmed unlock.
+
+Owner command:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_mode_upstream_callers.sh
+~~~
+
+Report:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-mode-upstream-callers.md
+
+Original evidence:
+rea-security-audit/LinuxLoader/instruction-upstream-0x*.json,
+function-upstream-0x*.json, and
+instructions-upstream-owner-0x*.json
+for precisely verified corresponding sites/owners.
+
+This is forensic host-side investigation only:
+no firmware/handset flash, no bypass and no actual
+change in locked status is attempted or demonstrated.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
