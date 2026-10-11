@@ -2,6 +2,39 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 22:46 UTC — full runtime HXL1 FDT captured; reservation-delivery canary ready
+
+The owner pulled the current branch and ran `tools.test_y2q_hxl1_qemu_runtime_fdt_compare`: **16/16 PASS**. A second, **bounded read-only QEMU/GDB** execution of the SHA-pinned original HXL1 factory Image captured the **complete 1,048,576-byte runtime device tree** at the previously measured guest `X0=0x48000000`, physically `[0x48000000,0x48100000)`. Owner's report:
+
+```text
+[GUEST FDT SHA256] e842cd6cc6b7fc391420bd571dd0f9af3aec7f223101367ddcf14853bd3a7814
+[BYTE IDENTICAL TO dumpdtb] False
+[SEMANTIC DIFFERENCES] [none]
+[RUNTIME MEMRESERVE] 0
+[RUNTIME /reserved-memory] 0
+[KERNEL IMAGE OVERLAP] None
+[RKP POOL RESERVED] NO
+```
+
+The **runtime FDT binary differs from the QEMU generated dump**, but the comparison's **limited** semantic inventory found no changes in memory layout, fixed/dynamic reservation entries, /chosen initrd metadata or node counts. These checks **do not prove all properties match**. We can now conclusively say the original guest at kernel entry received **no explicit FDT memreserve or /reserved-memory entries**, so its UH protected pool is still **NOT RESERVED**. This direct-guest result supersedes assumptions from `dumpdtb` alone.
+
+**Progress beyond inventory:** committed a narrowly scoped `-dtb` **self-reservation delivery canary**, not a protected pool. `tools/y2q_hxl1_qemu_fdt_canary.py` adds exactly one FDT memreserve entry to an unchanged copy of the SHA-pinned generated DTB, covering the **already occupied FDT itself** (`[0x48000000,0x48100000)`), and proves no other FDT nodes, memory ranges, device properties or strings change. The separately bounded `tools/run_y2q_hxl1_qemu_fdt_canary_capture.sh` uses `-dtb` to supply this diagnostic guest FDT while retaining the unmodified original factory `-kernel`; GDB captures the kernel's actual received FDT at the original PC with the original X0 and validates the full 1 MiB read. `tools/y2q_hxl1_qemu_fdt_canary_verify.py` cross-checks all original and delivered FDT hashes and requires the exact single canary to be present in the **guest** FDT. It still reports Linux memblock, UH pool and KernelSU unverified.
+
+**Tests:** 17 new self-canary fixture tests and guard tests passed in successful isolated [GitHub Actions run #38182029643](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38182029643), **212/212 total tests PASS**. The **actual owner's -dtb delivery experiment is NOT YET RUN**.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_fdt_canary
+python3 tools/y2q_hxl1_qemu_fdt_canary.py
+bash tools/run_y2q_hxl1_qemu_fdt_canary_capture.sh
+python3 tools/y2q_hxl1_qemu_fdt_canary_verify.py
+```
+
+More details: [full HXL1 -dtb canary purpose, provenance and verification](SM-G986U1-HXL1-QEMU-FDT-MEMRESERVE-CANARY-20261011.md). A successful canary would prove **the FDT memreserve override reaches the guest entry**, not that Linux memblock honors it or that any free pages exist. Avoid selecting a real protected pool until physical occupancy/early memblock confirmation, and do not import the incompatible newer fork's `KDP_SET_NS_FLAGS` handler for HXL1 `RKP_GET_RKP_GET_BUFFER_BITMAP`. No physical phone change, bootloader unlock, root or KernelSU installation has been established.
+
+---
+
 ## October 11, 22:34 UTC — genuine HXL1 kernel-entry FDT pointer and 1 MiB span confirmed
 
 Owner WSL pulled through `b289dd0`, ran `tools.test_y2q_hxl1_qemu_entry_fdt_audit` **18/18 PASS**, executed SHA-pinned unmodified HXL1 Image inside bounded local QEMU/GDB, and received the exact boot-time device-tree header correlation:
