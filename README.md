@@ -52,6 +52,15 @@ No Samsung kernel rebuild is needed for the Android NDK library. None
 of these operations attempts kernel exploitation, privilege escalation,
 KernelSU loading, or flash modification.
 
+The current HXL1 action plan is the **[tool-first nine-stage
+execution guide](docs/SM-G986U1-HXL1-NEXT-STEPS.md)**. It distinguishes
+completed firmware/source extraction from experimental Clang18
+type consistency and the unresolved factory ABI/physical runtime gates.
+Use the original source/stock Image tools already in the repo before
+writing another analyzer or installing unrelated tools. `samloader-rs`
+is an optional FUS lookup for this already-extracted exact firmware;
+do not mistake the S721N/LUC example in `PORTING.md` for S20+ settings.
+
 The active HXL1 priority is to **finish the original nine-stage
 firmware-to-target porting audit** before expanding GhostLock
 runtime work. Use `python3 tools/y2q_porting_readiness.py`
