@@ -2,6 +2,35 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 11:24 UTC — independent complete slice bytes/LLVM crosscheck
+
+The owner uploaded `HXL1-Stage3-Code-Slices.zip` containing three synthetic ELF64 AArch64 files from the already validated v4.2 run. This independent offline pass consumed the **three original REA JSON reports and manifest plus these three ELF files**, verified each entire ELF SHA-256 against the manifest, verified each `.text` SHA-256 against the manifest's saved stock-byte digest, and used a **separate LLVM AArch64 instruction decoder** (not Ghidra) to cover each four-byte location. This is a re-verification of the owner's saved exact-stock snapshot, **not direct access to the complete 52-MB factory Image or original factory DWARF**. No phone access or new REA was necessary.
+
+| Original function | Slice bytes | REA reported/LLVM matching | LLVM-decoded slice slots | All 4-byte slots |
+|---|---:|---:|---:|---:|
+| `remove_waiter` `0xffffff8008147db4` | 568 | 140 / 140 | 141 | 142 |
+| `rt_mutex_start_proxy_lock` `0xffffff8008147d14` | 160 | 38 / 38 | 39 | 40 |
+| `futex_lock_pi` `0xffffff8008191984` | 2216 | 545 / 545 | 553 | 554 |
+| **Total** | **2944** | **723 / 723** | **733** | **736** |
+
+**New verification level:** zero mnemonic/operand differences for **all 723 reported REA instructions**, after explicitly normalizing only equivalent assembler notation (e.g. `b.cs` vs `b.hs`, hex vs decimal immediates, signed/wrapped ARM64 constants, register-index shift 0). Prior v4.2 had checked the independent objdump prefix of **16 instructions per function**; this separate pass extends comparison to the **entire reported instruction sets**. Test coverage: six isolated automated tests, including tampered ELF, tampered REA operand, and altered stock-manifest rejection, all PASS.
+
+**All 13 REA-omitted words classified, not assumed to be gaps in OEM bytes:**
+- `remove_waiter`: `+0x230` = `nop`; `+0x234` = undecodable `0x00be7bad`.
+- `rt_mutex_start_proxy_lock`: `+0x98` = `nop`; `+0x9c` = undecodable `0x00be7bad`.
+- `futex_lock_pi`: `+0x530` = `b +0x540`; `+0x538`=`ldr x26,[sp]`; `+0x53c`=`mov x27,x21`; `+0x540`=`mov w28,#0xbeff`; `+0x544`=`adrp x19,...`; `+0x548`=`movk w28,#0xdead,lsl #16`; `+0x828`=`b +0x804`; `+0x848`=`b +0x578`; `+0x8a4`=undecodable `0x00be7bad`.
+The `mov/movk` pair would construct `0xdeadbeff` in `w28` if executed; **the runtime execution/reachability of these omitted instructions is not established**. The identical `0x00be7bad` final word in all slices is genuinely in the uploaded, manifest-pinned original bytes; its compiler/toolchain purpose is **unknown**. Six of the ten valid omitted instructions are clustered in `futex_lock_pi+0x538...+0x548`, outside Ghidra's non-contiguous function-body ranges; don't silently treat absent REA lines as undecodable instructions.
+
+**Binary-derived ownership path, corroborated by independent decoder:**
+- `remove_waiter+0x34` `mrs x20,sp_el0`; `+0x38` `add x21,x20,#0x8c8`; `+0x68` `str xzr,[x20,#0x8f8]` (current-task-relative store).
+- At `remove_waiter+0x78`, `and x21,x24,#-0x2` **redefines** `x21`; subsequent `[x21,#0x8e0]` and `[x21,#0x8f8]` are relative to a *different* pointer. Conflating those displacements with current-task fields is invalid.
+- `rt_mutex_start_proxy_lock+0x44` has a direct `bl` targeting the stock `remove_waiter` address when rebased out of synthetic ELF coordinates.
+- `futex_lock_pi+0x30` obtains the task pointer from `sp_el0`, then `+0x78` and `+0xf8` load/store `[x20,#0x9f8]`, but **member identity remains unverified**.
+
+**Proof gate remains PARTIAL:** These are independently verified **compiled displacement and static call-edge observations**, not a complete original `task_struct`/`rt_mutex_waiter` factory layout or proof of GhostLock execution, exploitability, physical memory access, bootloader unlock or KernelSU. Next productive work is source-level field/member attribution with an independent factory ABI provenance check; no more kernel-wide Ghidra imports or repeated firmware-provenance commands required.
+
+---
+
 ## October 11, 11:15 UTC — uploaded Stage-3 REA archive analyzed offline
 
 Owner submitted four files from successful v4.2 cache: `rea-slice-remove_waiter-ffffff8008147db4.json`, `rea-slice-rt_mutex_start_proxy_lock-ffffff8008147d14.json`, `rea-slice-futex_lock_pi-ffffff8008191984.json`, and `stage3-rea-correlation.json`. Independently checked JSON identity, instruction addresses, evidence IDs and isolated ELF SHA-256 links to the manifest; **the archive contains no original raw Image bytes or sliced ELF bytes**, so it does not itself support a second opcode-level re-disassembly. Source and stock bytes were checked on WSL by prior v4.2 pipeline; its independent disassembler comparison covered the **first 16 instructions per function**, not the whole recovered extent.
