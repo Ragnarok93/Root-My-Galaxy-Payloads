@@ -179,7 +179,7 @@ class AttestationTests(TestCase):
         (output/".config").write_bytes(b"config")
         for rel in att.PINNED_OBJECTS:
             obj=output/rel
-            obj.parent.mkdir(parents=True)
+            obj.parent.mkdir(parents=True,exist_ok=True)
             obj.write_bytes(b"synthetic AARCH64 object fixture")
         doc=copy.deepcopy(self.doc)
         log=root/"original-success.log"
