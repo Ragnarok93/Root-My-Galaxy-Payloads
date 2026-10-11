@@ -4,10 +4,15 @@ This document records the exact procedure used for the Galaxy S24 FE Korean
 firmware `S721NKSSCDZF3`. Do not reuse its values for another build.
 
 For the research-only US Galaxy S20+ (`SM-G986U1`, HXL1, Linux 4.19.113,
-locked bootloader), use the [nine-stage HXL1 port adaptation](SM-G986U1-G986U1UESCHXL1.md).
-It separates already verified identity/source evidence from unverified
-vulnerability, symbol/layout, KernelSU, and app-integration gates. Do not
-copy this 6.1 example's offsets, boot-header assumptions or module binaries.
+locked bootloader), **start with the [current HXL1 execution guide](SM-G986U1-HXL1-NEXT-STEPS.md)**,
+then consult the [nine-stage HXL1 port adaptation](SM-G986U1-G986U1UESCHXL1.md)
+for historical evidence. Exact firmware extraction, BL archive, stock
+symbol recovery and Clang18 *experimental* objects were already audited.
+The next active gate is **factory stock structure/source-to-code
+provenance**, not repeating `samloader-rs` downloads or full kernel builds.
+`samloader-rs` examples below target the **different S721N/LUC**
+firmware and are NOT runnable verbatim for HXL1.
+Do not copy this 6.1 example's offsets, boot-header assumptions or module binaries.
 
 The HXL1 porting process is being tracked with the **read-only,
 nine-stage** checker `tools/y2q_porting_readiness.py`, which
