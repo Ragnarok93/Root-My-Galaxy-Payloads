@@ -68,7 +68,7 @@ def run_model(cc='cc')->list[dict]:
         variant,scenario,*values=tokens
         selected,current,other,current_touches,other_touches,ret=map(int,values)
         rows.append(dict(variant=variant,scenario=scenario,touched=selected,
-            currentBlocked=bool(current),waiterTaskBlocked=bool(other),
+            currentBlocked=bool(current),waiterTaskBlocked=bool(current if scenario=='same_negative' else other),
             currentTouches=current_touches,waiterTaskTouches=other_touches,ret=ret))
     verify_rows(rows)
     return rows
