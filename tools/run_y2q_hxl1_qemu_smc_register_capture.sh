@@ -13,11 +13,12 @@ MAX_SECONDS=30
 fail() { printf '[STOP] %s\n' "$*" >&2; exit 2; }
 [[ ! -e $OUT && ! -L $OUT ]] || fail "Output exists. Pass a fresh output directory as the first argument"
 [[ -f $KERNEL && ! -L $KERNEL ]] || fail "Original kernel missing or symlinked"
-for tool in qemu-system-aarch64 gdb-multiarch sha256sum timeout; do
-  command -v "$tool" >/dev/null || fail "Required host tool missing: $tool"
-done
+command -v sha256sum >/dev/null || fail "sha256sum is required for kernel integrity check"
 printf '%s  %s\n' "$EXPECT_SHA" "$KERNEL" | sha256sum -c --status ||
   fail "Original HXL1 kernel SHA256 mismatch"
+for tool in qemu-system-aarch64 gdb-multiarch timeout; do
+  command -v "$tool" >/dev/null || fail "Required host tool missing: $tool"
+done
 
 mkdir -p -- "$OUT"
 cat > "$OUT/break-on-original-smc.gdb" <<EOF
