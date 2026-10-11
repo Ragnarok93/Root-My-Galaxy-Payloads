@@ -84,7 +84,7 @@ class SemanticRootsTests(unittest.TestCase):
             obj["subject"]["digest"]["sha256"] = "0"*64
             trace_file.write_text(json.dumps(obj))
             with mock.patch.dict(base.EXPECTED, hashes):
-                with self.assertRaisesRegex(TriageError, "provenance mismatch"):
+                with self.assertRaisesRegex(TriageError, "identity mismatch"):
                     sem.inspect_focus(root, root / "rea-security-audit",
                                       execute=False, node="node",
                                       script=root / "missing.mjs", count=1,
