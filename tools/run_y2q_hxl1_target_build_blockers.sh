@@ -18,6 +18,7 @@ python3 -m unittest -q \
 echo "=== Reconcile two absent objects with Kbuild rules and historical error lines ==="
 python3 tools/y2q_hxl1_target_build_blockers.py "$@"
 
-echo "=== HXL1 target-object blocker matrix ==="
-cat "$HOME/s20-artifacts/hxl1-research/kernel-target-build-blockers.md"
+# Analyzer emits its own newly versioned report, so never display a stale
+# overwritten/default .md after a failed --log input or a repeated run.
+echo "=== Complete evidence matrix printed above (versioned reports preserved) ==="
 echo "[LIMIT] No compile performed; historical errors are not factory ABI or rooting proof"
