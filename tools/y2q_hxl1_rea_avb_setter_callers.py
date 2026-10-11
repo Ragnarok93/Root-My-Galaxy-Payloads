@@ -4,6 +4,8 @@
 Attest the original SHA-pinned 0x33c88/0x33da8 xrefs, then inspect the
 five *actual* xref instructions. Only if 0x33a08/0x33b20 are decoded
 direct branches to 0x33c88, ask Ghidra for their containing functions.
+For verified BL sites, also obtain native instructions for the containing
+function to display bounded W0 input candidates without fabricating CFG.
 
 All work is static and host-side. No firmware operation, phone access,
 unlock or assumption that any state byte is securely authorized.
@@ -24,6 +26,7 @@ from tools.y2q_hxl1_rea_security_audit import (
     Runner, choose_targets, function_record, safe_segment,
 )
 from tools.y2q_hxl1_rea_avb_state_persistence import audit as verify_persistence
+from tools.y2q_hxl1_rea_avb_byte_writers import parse_instructions
 
 SETTER = "0x33c88"
 INITIALIZER = "0x33da8"
@@ -41,6 +44,19 @@ GUIDANCE = re.compile(
     r"error|return|switch|if\s*\(|FUN_|DAT_",re.I,
 )
 MAX_PSEUDO = 250000
+MAX_NATIVE_INSTRUCTIONS = 5000
+MAX_CALL_CONTEXT_BEFORE = 60
+MAX_CALL_CONTEXT_AFTER = 12
+
+# A64 may define W0 through a call return, an instruction targeting X0,
+# a conditional select, or a path-dependent phi. Never elevate a
+# convenient lexical predecessor into a unique reaching definition.
+POTENTIAL_W0_DEST = {
+    "mov", "movk", "movz", "movn", "orr", "and", "eor",
+    "add", "sub", "adr", "adrp", "ldr", "ldrb", "ldrh",
+    "ldrsb", "ldrsw", "sxtw", "uxth", "uxtb", "csel",
+    "csinc", "csinv", "csneg", "cmp", "cset", "csetm",
+}
 
 
 def verified_original_xrefs(persisted: dict) -> None:
@@ -127,6 +143,57 @@ def source_caller(ev:dict,site:str)->dict:
     }
 
 
+def native_w0_window(ev: dict, site: str, owner: str) -> dict:
+    """Review the original native argument register without guessing CFG.
+
+    The full function instruction list is source-proven; a linear
+    instruction window is *not* a path-validated backward slice.
+    """
+    ops = parse_instructions(ev, owner)
+    if not 3 <= len(ops) <= MAX_NATIVE_INSTRUCTIONS:
+        raise TriageError("Original setter caller native listing too small or excessive")
+    if ops.get(site) != ("bl", "0x00033c88"):
+        raise TriageError(f"Native setter BL at {site} inconsistent with Ghidra xref")
+    addresses = sorted(ops, key=lambda x: int(x, 16))
+    i = addresses.index(site)
+    first = max(0, i - MAX_CALL_CONTEXT_BEFORE)
+    last = min(len(addresses), i + MAX_CALL_CONTEXT_AFTER + 1)
+    excerpt = [
+        {"address": a, "mnemonic": ops[a][0], "operands": ops[a][1]}
+        for a in addresses[first:last]
+    ]
+    possible_defs = []
+    for a in addresses[first:i]:
+        mnemonic, operands = ops[a]
+        dest = operands.split(",", 1)[0]
+        if (mnemonic in POTENTIAL_W0_DEST and dest in ("x0","w0")
+                and mnemonic not in ("cmp",)):
+            possible_defs.append({
+                "address": a, "mnemonic": mnemonic, "operands": operands,
+                "note": "lexical predecessor only; reachability unknown",
+            })
+        elif mnemonic.startswith(("bl", "blr")):
+            possible_defs.append({
+                "address": a, "mnemonic": mnemonic, "operands": operands,
+                "note": "prior call may produce W0; ABI semantics unverified",
+            })
+    return {
+        "owner": owner, "site": site,
+        "evidenceId": ev["evidence_id"],
+        "totalNativeInstructions": len(ops),
+        "fullOwnerNativeSourceAttested": True,
+        "exactSetterBranchVerified": True,
+        "sourceRegister": "w0",
+        "linearWindow": excerpt,
+        "possibleW0Definitions": possible_defs[-32:],
+        "earlierContextTruncated": first > 0,
+        "laterContextTruncated": last < len(addresses),
+        "nativeW0ReachingDefinitionVerified": False,
+        "completeControlFlowProven": False,
+        "callerSecurityAuthorizationProven": False,
+    }
+
+
 def audit(root:Path,*,execute:bool=False,rea:Path|None=None,
           node:str="node",timeout:int=240,recover_partials:bool=False)->dict:
     prior=verify_persistence(root)
@@ -150,7 +217,7 @@ def audit(root:Path,*,execute:bool=False,rea:Path|None=None,
         facts=inspect_xref(response,site,fn) if response else None
         inspected.append({"site":site,"target":fn,"native":facts,
                           "status":"VERIFIED" if facts else "PLANNED",
-                          "callerFunction":None})
+                          "callerFunction":None,"callerNative":None})
         # Only follow precisely observed direct setter branches.
         if fn==SETTER and facts is not None and facts["directBranchToTarget"]:
             owner=runner.obtain(
@@ -159,7 +226,18 @@ def audit(root:Path,*,execute:bool=False,rea:Path|None=None,
                 operation="analyze_function",parameter="procedure",value=site,
             )
             if owner is not None:
-                inspected[-1]["callerFunction"]=source_caller(owner,site)
+                source = source_caller(owner, site)
+                inspected[-1]["callerFunction"] = source
+                if facts["directBranchMnemonic"] == "bl":
+                    entry = source["entry"]
+                    native = runner.obtain(
+                        target, ["instructions", str(target.path), entry],
+                        folder/("instructions-caller-owner-"+safe_segment(entry)+".json"),
+                        operation="read_function_instructions",
+                        parameter="procedure", value=entry,
+                    )
+                    if native is not None:
+                        inspected[-1]["callerNative"] = native_w0_window(native, site, entry)
     return {
         "schemaVersion":1,"archiveSha256":HXL1_BL_SHA256,
         "mode":"STATIC_GHIDRA_EXECUTE" if execute else "PLAN_ONLY",
@@ -214,6 +292,23 @@ def markdown(report:dict)->str:
             rows += ["~~~",""]
             if caller["excerptTruncated"]:
                 rows += ["Excerpt bounded; full original function Evidence retained.", ""]
+        native=item.get("callerNative")
+        if native is not None:
+            rows += [
+                "#### Full owner native listing, bounded argument window","",
+                "- Owner native Evidence: "+native["evidenceId"],
+                "- Original owner instructions: "+str(native["totalNativeInstructions"]),
+                "- Native branch to 0x33c88 verified: "+str(native["exactSetterBranchVerified"]),
+                "- W0 reaching definition proved: False; control flow not reconstructed",
+                "- Possible W0 producers are lexical hints, NOT evidence of",
+                "  an authorized input or unique reaching definition.","",
+                "~~~asm",
+            ]
+            for row in native["linearWindow"]:
+                rows.append(row["address"]+": "+row["mnemonic"]+" "+row["operands"])
+            rows += ["~~~","",
+                     "- Potential W0 producer sites (non-path-verified): "+
+                         str(native["possibleW0Definitions"]),""]
     rows += [
         "## Persisted state versus security authority","",
         "- Original 0x33c88 writes input W0 to 0x351055 on its mismatch path.",
