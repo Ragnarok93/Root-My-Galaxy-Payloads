@@ -287,24 +287,66 @@ def markdown(r:dict)->str:
     ])
     return "\n".join(lines)
 
+def resolve_report_path(requested:Path, source_root:Path, *, explicit:bool)->Path:
+    """Select a fresh paired JSON/Markdown report without overwriting evidence.
+
+    Auto-number only the default output path. An explicit --out always
+    retains its exact semantics and refuses an occupied filename.
+    """
+    out=requested.expanduser().absolute()
+    source_root=source_root.expanduser().resolve()
+    if out.suffix!=".json":
+        raise CorrelationError("Report path must have a .json suffix: "+str(out))
+    if not out.parent.is_dir() or out.parent.is_symlink():
+        raise CorrelationError("Report directory missing or symlinked: "+str(out.parent))
+    parent=out.parent.resolve()
+    if parent==source_root or source_root in parent.parents:
+        raise CorrelationError("Report path must be outside original Samsung source: "+str(out))
+
+    def occupied(path:Path)->list[str]:
+        return [str(candidate) for candidate in (path,path.with_suffix(".md"))
+                if candidate.exists() or candidate.is_symlink()]
+
+    blocked=occupied(out)
+    if not blocked:
+        return out
+    if explicit:
+        raise CorrelationError("Explicit --out destination already exists: "+
+                               ", ".join(blocked)+
+                               "; choose a fresh JSON filename (original evidence preserved)")
+    prefix=out.stem
+    match=re.fullmatch(r"(.+)-(\\d{2,})",prefix)
+    if match:
+        prefix=match.group(1)
+        start=int(match.group(2))+1
+    else:
+        start=2
+    for serial in range(start,1000):
+        attempt=out.with_name(f"{prefix}-{serial:02d}.json")
+        if not occupied(attempt):
+            return attempt
+    raise CorrelationError("No unused numbered report slot for "+str(out))
+
+
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--source",type=Path,default=Path.home()/"src/samsung-y2q-hxl1-stock")
     p.add_argument("--artifacts",type=Path,default=Path.home()/"s20-artifacts")
     p.add_argument("--v2",type=Path,default=DEFAULT_V2)
-    p.add_argument("--out",type=Path,default=DEFAULT_OUT)
+    p.add_argument("--out",type=Path,default=None,
+                   help="Explicit write-once JSON report path; by default choose the next unused numbered report")
     p.add_argument("--show-review",action="store_true",
                    help="Print complete bounded source and original instruction excerpts to stdout")
     a=p.parse_args()
     source=a.source.expanduser().resolve()
     artifacts=a.artifacts.expanduser().resolve()
     origin=a.v2.expanduser().absolute()
-    out=a.out.expanduser().absolute()
-    if out.suffix!=".json" or not out.parent.is_dir() or any(
-       file.exists() or file.is_symlink() for file in (out,out.with_suffix(".md"))
-    ) or source in out.parents:
-        p.error("Choose fresh, separate, non-symlinked evidence reports outside stock source")
     try:
+        out=resolve_report_path(a.out if a.out is not None else DEFAULT_OUT,
+                                source,explicit=a.out is not None)
+        if out != DEFAULT_OUT and a.out is None:
+            print("[PRESERVED] Default report already exists; choosing fresh:",out,
+                  file=sys.stderr)
         data=analyze(source,artifacts,origin)
         with out.open("x") as target:
             json.dump(data,target,indent=2)
