@@ -2,6 +2,16 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 13:43 UTC — original trace format unresolved (zero parsed opcodes, not zero execution)
+
+The owner reran the earlier QEMU offline trace analyzer: **12/12 unit tests PASSED**, but **zero opcode words were parsed** from the retained `qemu-first-failure-20261011/tcg-instructions.log`, giving **zero comparisons** at both candidate physical load addresses. The `NO_FACTORY_IMAGE_INSTRUCTION_CORRELATION_IN_SAMPLED_TRACE` label was **misleading** for this particular result: the analyzer never compared any decoded word, and the earlier first-failure report independently observed QEMU `IN:` translation-block markers. Actual factory Image execution, entry and Linux boot remain **UNDETERMINED**.
+
+**Implemented and committed:** `tools/y2q_hxl1_qemu_trace_attest.py` now decodes QEMU's alternate `OBJD-T:` original guest byte stream with bare preceding `0xPC:` headers, explicitly excludes `OBJD-H:` host JIT code, recognizes whether a trace contains address-only lines without supported opcodes, and prints escaped first lines and translated PC candidates when no machine words parse. The regression suite was expanded to **19 tests**, including raw byte order, split `OBJD-T` chunks, host rejection, PC-only and unknown decoder formats; **these expanded tests remain unconfirmed on owner's WSL**. GitHub guide: [Samsung QEMU adaptation and trace rerun](SM-G986U1-HXL1-SAMSUNG-QEMU-ADAPTATION-20261011.md#1343-utc--no-recognized-opcode-lines-trace-dialect-fix).
+
+**Next action:** only run the corrected `tools.test_y2q_hxl1_qemu_trace_attest` suite and analyze the **existing** trace to a *fresh* `offline-trace-format-v2.json` file, preserving `offline-trace-attestation.json`. Inspect actual PC/hex bytes before changing virtual RAM, bootloader logic, security-hypervisor stubs, or launching another QEMU session. No physical handset access or new source rebuild is warranted.
+
+---
+
 ## October 11, 13:28 UTC — traced QEMU timeout; offline Image-PC check queued
 
 Owner ran the original-Image QEMU triage after pulling branch update: `tools.test_y2q_hxl1_qemu_earlyboot_triage` **8/8 PASS**; original Image SHA `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123` and ARM64 `text_offset=0x80000` confirmed. The **actual** bounded QEMU run returned `[QEMU] TIMEOUT`, `[TRACE BLOCKS] True`, `[LINUX BANNER] False`. QEMU translated instructions, but original factory kernel entry has **not** been proven; no claim of kernel panic or boot is justified.
