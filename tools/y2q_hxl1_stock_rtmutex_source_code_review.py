@@ -337,14 +337,14 @@ def main()->int:
                    help="Explicit write-once JSON report path; by default choose the next unused numbered report")
     p.add_argument("--show-review",action="store_true",
                    help="Print complete bounded source and original instruction excerpts to stdout")
-    a=p.parse_args()
-    source=a.source.expanduser().resolve()
-    artifacts=a.artifacts.expanduser().resolve()
-    origin=a.v2.expanduser().absolute()
+    args=p.parse_args()
+    source=args.source.expanduser().resolve()
+    artifacts=args.artifacts.expanduser().resolve()
+    origin=args.v2.expanduser().absolute()
     try:
-        out=resolve_report_path(a.out if a.out is not None else DEFAULT_OUT,
-                                source,explicit=a.out is not None)
-        if out != DEFAULT_OUT and a.out is None:
+        out=resolve_report_path(args.out if args.out is not None else DEFAULT_OUT,
+                                source,explicit=args.out is not None)
+        if out != DEFAULT_OUT and args.out is None:
             print("[PRESERVED] Default report already exists; choosing fresh:",out,
                   file=sys.stderr)
         data=analyze(source,artifacts,origin)
@@ -360,13 +360,13 @@ def main()->int:
     print("[VERIFIED] Both pinned Samsung RT-mutex/futex C source files")
     for name,item in data["focus"].items():
         c=item["originalSourceDefinition"]
-        a=item["originalCode"]
+        compiled=item["originalCode"]
         print("[CORRELATION CANDIDATE]",name,"stock source lines",
               str(c["startLine"])+"-"+str(c["endLine"]),
-              "AArch64 instructions",len(a["instructions"]),
-              "192-cap truncation",a["windowMayBeTruncatedBy192ByteLimit"])
+              "AArch64 instructions",len(compiled["instructions"]),
+              "192-cap truncation",compiled["windowMayBeTruncatedBy192ByteLimit"])
     print("[REPORT]",out.with_suffix(".md"))
-    if a.show_review:
+    if args.show_review:
         print("=== COMPLETE BOUNDED ORIGINAL SOURCE AND DISASSEMBLY REVIEW ===")
         print(markdown(data))
     print("[LIMIT] Name pairing only; NO factory member offset, runtime address, root or KernelSU")
