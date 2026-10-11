@@ -1441,6 +1441,96 @@ AVB acceptance, or OEM flash authorization.
 
 ---
 
+
+## October 11, 15:10 UTC — source-attested IsUnlocked byte store candidates
+
+The owner completed eight original LinuxLoader REA/Ghidra
+inspect-native-instruction queries against the remaining
+DAT_00351055 (=0x351055) cross-reference sites.
+All eight were decoded and assigned owning functions.
+
+**Results (source-attested exact HXL1 firmware):**
+
+| Site | Owner | Exact ARM64 instruction | Role |
+|---|---|---|---|
+| 0x33ccc | 0x33c88 | ldrb w3,[x8,#0xd] | read |
+| 0x33ce8 | 0x33c88 | ldrb w9,[x8,#0xd] | read |
+| **0x33d08** | **0x33c88** | **strb w19,[x8,#0xd]** | **store candidate** |
+| **0x33ee0** | **0x33da8** | **strb wzr,[x19,#0xd]** | **zero-store candidate** |
+| 0x34278 | 0x34238 | ldrb w3,[x8,#0xd] | read |
+| 0x34294 | 0x34238 | ldrb w8,[x8,#0xd] | read |
+| 0x343b0 | 0x34370 | ldrb w3,[x8,#0xd] | read |
+| 0x343cc | 0x34370 | ldrb w8,[x8,#0xd] | read |
+
+These two stores MAY implement a set/clear pair for the
+runtime byte read by AVB. **That is unproven.**
+A native STRB instruction alone does not establish the
+actual effective address (especially at 0x33ee0 where
+X19 is the base), the register W19 origin, store
+reachability, or trusted security-state authorization.
+
+Original Ghidra instruction Evidence:
+- 0x33d08: ev_649a786c804c821fe9afd1841157c655a356486d3c16b0ed5789f94484b16483
+- 0x33ee0: ev_c1565aaa7baa3e04298166f2e059b7f199ea9b8fd2cdbed690a078958d0a78ca
+
+The byte-read chain already proven in source-attested
+ARM64 0x33770 and 0xb2bc must not be conflated with
+a privileged bootloader unlock or secure policy check.
+
+### Next two-function native/pseudocode provenance probe
+
+Committed:
+- tools/y2q_hxl1_rea_avb_byte_producers.py
+- tools/test_y2q_hxl1_rea_avb_byte_producers.py
+- tools/run_y2q_hxl1_rea_avb_byte_producers.sh
+
+The new workflow validates the original pinned HXL1
+source/archive hashes, saved REA graphs, native W0 return,
+entire exactly ten-site IsUnlocked xref inventory and
+all eight source-attested instruction decoding records.
+
+It fails closed unless exactly the two original store
+candidates and their Ghidra-owning functions match.
+Only four static original source queries are allowed:
+
+1. LinuxLoader Ghidra **function 0x33c88**
+2. LinuxLoader Ghidra **instructions 0x33c88**
+3. LinuxLoader Ghidra **function 0x33da8**
+4. LinuxLoader Ghidra **instructions 0x33da8**
+
+The report shows two complete bounded pseudocode
+contexts and full native instruction context windows
+centered on the candidate STRB operations.
+Pseudocode strings and linear disassembly are evidence
+for investigation, but do not establish domination,
+reachability, concrete memory alias, or security policy.
+
+Owner WSL:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_byte_producers.sh
+~~~
+
+Output:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-byte-producers.md
+
+New SHA-bound original Ghidra Evidence saved only in
+LinuxLoader/function-0x33c88.json,
+LinuxLoader/instructions-0x33c88.json,
+LinuxLoader/function-0x33da8.json and
+LinuxLoader/instructions-0x33da8.json.
+No prior Evidence is overwritten. Never change the
+handset, secure state, signed image, or flashing partitions.
+
+The next gate after owner output is the actual effective
+address/value provenance of the two store instructions,
+then mapping the original callers and trusted state
+source separately from AVB device_state reporting.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
