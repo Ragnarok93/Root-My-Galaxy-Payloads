@@ -189,6 +189,65 @@ class EvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(t.BlockerError,"Absent selected"):
             self.audit()
 
+    def test_nonexistent_explicit_log_fails_instead_of_producing_empty_success(self):
+        path=self.root/"does-not-exist"/"prior-build.log"
+        with self.assertRaisesRegex(t.BlockerError,"Explicit --log does not exist"):
+            t.logs_to_check(self.artifacts,[path])
+
+    def test_explicit_symlink_is_rejected_before_previous_report_is_touched(self):
+        original=self.save("kernel-build.log","kernel/futex.c:3: error: failed")
+        linked=self.artifacts/"linked.log"
+        linked.symlink_to(original)
+        with self.assertRaisesRegex(t.BlockerError,"Explicit --log does not exist"):
+            t.logs_to_check(self.artifacts,[linked])
+
+    def test_two_runs_preserve_first_json_and_markdown_reports(self):
+        desired=self.artifacts/"kernel-target-build-blockers.json"
+        first=self.audit()
+        old_json,old_md=t.write_new_report_pair(desired,first)
+        old_content=old_json.read_text(),old_md.read_text()
+        second=self.audit([self.save("samsung-hxl1-image-clang18-build-10.log",
+             "arch/arm64/mm/cache.o: error: unrelated build stop")])
+        newer_json,newer_md=t.write_new_report_pair(desired,second)
+        self.assertNotEqual(old_json,newer_json)
+        self.assertNotEqual(old_md,newer_md)
+        self.assertEqual((old_json.read_text(),old_md.read_text()),old_content)
+        self.assertIn("-run-001",str(newer_json))
+        self.assertEqual(len(second["logEvidence"]),1)
+
+    def test_assembler_failure_context_includes_neighboring_macro_expansion(self):
+        log=self.save("samsung-hxl1-image-clang18-build-10.log",
+            "clang -c arch/arm64/mm/cache.S\n"
+            "<instantiation>:1:3: note: while in macro instantiation\n"
+            "<instantiation>:2:2: error: unrecognized instruction mnemonic\n"
+            "   2 | badinstruction\n"
+            "      ^\n"
+            "make[2]: *** [arch/arm64/mm/cache.o] Error 1\n")
+        entry=t.scan_log(log)
+        self.assertEqual(len(entry["assemblerMnemonicContexts"]),1)
+        joined="\n".join(x["text"] for x in entry
+                         ["assemblerMnemonicContexts"][0]["surroundingLines"])
+        self.assertIn("badinstruction",joined)
+        self.assertIn("cache.o",joined)
+
+    def test_autodiscovery_excludes_ghidra_qemu_and_fix_review(self):
+        actual=self.save("samsung-hxl1-image-clang18-build-10.log",
+                         "arch/arm64/mm/cache.o: error: failure")
+        self.save("hxl1-research/abl-linuxloader/rea-stage4-kernel-stderr.txt",
+                  "fake error")
+        self.save("qemu-lab/kernel-build.log","fake error")
+        self.save("hxl1-research/rtmutex-fix-review/samsung-futex-excerpts.txt",
+                  "fake error")
+        self.assertEqual(t.logs_to_check(self.artifacts,[]),[actual])
+
+    def test_new_reports_do_not_overwrite_broken_symlink_targets(self):
+        desired=self.artifacts/"kernel-target-build-blockers.json"
+        desired.symlink_to(self.artifacts/"does-not-exist.json")
+        newer_json,newer_md=t.write_new_report_pair(desired,self.audit())
+        self.assertTrue(desired.is_symlink())
+        self.assertNotEqual(newer_json,desired)
+        self.assertIn("-run-001",str(newer_json))
+
     def test_target_compile_command_kept_distinct(self):
         self.previous["selectedObjectDiagnostics"][t.TARGETS[0]]["kbuildCommand"]["present"]=True
         x=self.audit()
