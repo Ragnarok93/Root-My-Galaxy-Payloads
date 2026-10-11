@@ -641,3 +641,66 @@ already-installed interpreter:
 The subsequent Clang18 outputs and any DWARF records remain
 **experimental**; none of this proves a factory Clang10 structure
 layout, CVE applicability, root, physical addresses or KernelSU.
+
+
+## October 10–11, 2026 — owner produced both Clang18 RT-mutex and futex object DWARF definitions
+
+The owner installed real Python 2.7.18 to
+`~/.pyenv/versions/2.7.18/bin/python2` and verified that runtime
+(`sys.version_info[:2] == (2,7)`, GCC 13.3.0). Pulling `dd0ef18`,
+the first
+`bash tools/run_y2q_hxl1_isolated_dwarf_objects.sh --python2 "$PY2"`
+dry run passed **68/68 local tests**, checked the exact original source,
+the four-patch clone and pinned config, and did NOT modify anything.
+
+The same runner invoked with `--execute` passed **68/68 tests** and
+recorded **TARGET_COMMAND_COMPLETED**, with original object identities:
+
+| Clang18-only AArch64 ET_REL object | SHA256 | DWARF | `pahole -C rt_mutex` | `pahole -C rt_mutex_waiter` |
+|---|---|---|---|---|
+| `kernel/locking/rtmutex.o` | `12279b4dfdf74425c47ef3514540ab1333fff1045fd6b066d378714707eed1f2` | Present | PRESENT | PRESENT |
+| `kernel/futex.o` | `9adcfff8a44180d47bdb9f0ec40fb7ca646343eea939f74609f70b9975342e53` | Present | PRESENT | PRESENT |
+
+Independent `readelf` source metadata reports **one complete
+`DW_TAG_structure_type` definition for each type in each
+object** (2 objects × 2 types = 4 confirmed complete DIEs). The
+matching Clang18 `CONFIG_DEBUG_INFO=y` effective configuration
+was pinned to SHA256
+`97cf1d93f86251294951ff235e76281e9e3705d5745be6b44f130fc3aa501c09`.
+Source tree and compatibility clone remained SHA256 pinned to
+`d8a04e191bd0df1521c5483dab441a71279e978ea207ea57681c1cfc49b4e11d`
+and `354b9f0e32a0b890babbc06470d9f9beb0cc2e8d069d7c73cdf5f6e2e9f0af5f`,
+respectively. The build tool reported all three stages successful:
+`olddefconfig`, `prepare` and exactly these two object targets.
+
+Original build artifacts (do not overwrite):
+
+- `~/src/samsung-y2q-hxl1-rtmutex-dwarf-ias-clang18/kernel/locking/rtmutex.o`
+- `~/src/samsung-y2q-hxl1-rtmutex-dwarf-ias-clang18/kernel/futex.o`
+- `~/s20-artifacts/samsung-hxl1-rtmutex-dwarf-ias-01.log`
+- `~/s20-artifacts/hxl1-research/rtmutex-dwarf-ias-01.json`
+
+This is a meaningful **experimental Clang18 compiled type-availability
+milestone**. It does NOT complete firmware-to-profile Stage 3:
+Samsung's factory build used a different compiler/toolchain (Clang10);
+factory-equivalent numeric field layouts and live KASLR/physical kernel
+addresses have not been proven. No payload, kernel Image, modules,
+bootloader changes, privilege escalation, KernelSU or phone operation
+was produced.
+
+A new read-only post-build evidence audit in
+`tools/y2q_hxl1_attest_isolated_dwarf_objects.py` now independently
+SHA256-verifies both .o files, recomputes source/clone manifest
+provenance, validates Kbuild's saved phase and config records and
+re-probes both type definitions via readelf and pahole. It writes a
+separate attestation report and never rewrites original artifacts:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_attest_isolated_dwarf_objects.sh
+
+Expected output:
+`~/s20-artifacts/hxl1-research/rtmutex-dwarf-ias-01-attested.md`
+and `.json`. Full factory ABI equivalence, source-level CVE runtime
+applicability, runtime privileged kernel state and KernelSU remain
+explicitly **unverified**.
