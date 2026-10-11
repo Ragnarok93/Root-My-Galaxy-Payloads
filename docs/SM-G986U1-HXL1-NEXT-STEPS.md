@@ -76,8 +76,13 @@ and original Samsung `kernel/locking/rtmutex.c` and
 **Pass:** all 11 original code windows independently match actual
 Image instruction words; original source hashes match; source
 functions `remove_waiter`, `rt_mutex_start_proxy_lock` and
-`futex_lock_pi` can be reviewed side-by-side. Save the fresh
-`hxl1-stock-rtmutex-source-code-01.md`/JSON. **No source-level
+`futex_lock_pi` can be reviewed side-by-side. Save the write-once
+`hxl1-stock-rtmutex-source-code-01.md`/JSON (or the next unused numbered
+pair: `-02`, `-03`, etc. if a prior run already produced files).
+The runner preserves existing reports rather than overwriting them.
+An explicit `--out /path/to/report.json` is never auto-renamed and will
+fail with the occupied filename if either JSON or Markdown exists.
+**No source-level
 operation has yet been proven to map to a specific factory structure
 offset by this name-based report.** Review it before any new tools
 or code are justified.
