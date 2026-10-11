@@ -112,7 +112,7 @@ static bool memory_write(void *opaque,uint64_t pa,const uint8_t *src,size_t len)
     }
     if (f->fail_write_at && (int)f->writes==f->fail_write_at) {
         /* Simulate partial success before reporting failure. */
-        memcpy(p,src,len/2);
+        memcpy(p,src,len==8 ? len-1 : len/2);
         return false;
     }
     memcpy(p,src,len);
@@ -187,6 +187,21 @@ static void test_rollback_failure_reports_untrusted_ram(void) {
     assert(!allzero(f.bitmap,sizeof(f.bitmap)));
     hxl1_rkp_model_destroy(&m);
 }
+static void test_uncertain_kernel_global_after_failed_rollback(void) {
+    hxl1_rkp_model m=make_model();
+    fixture f={0};
+    f.plan=make_plan();
+    f.fail_write_at=4; /* original kernel pointer, partially written */
+    f.fail_restore=true; /* physical backend cannot restore guest bytes */
+    hxl1_rkp_guest_backend b=backend();
+    hxl1_rkp_commit_trace tr={0};
+    assert(hxl1_rkp_guest_commit(&m,&f.plan,&b,&f,&tr)==
+           HXL1_RKP_COMMIT_ROLLBACK_FAILED);
+    assert(!tr.rollback_complete);
+    assert(tr.publication_state_uncertain);
+    assert(!allzero(f.slot,sizeof(f.slot)));
+    hxl1_rkp_model_destroy(&m);
+}
 static void test_preexisting_memory_is_never_overwritten(void) {
     hxl1_rkp_model m=make_model();
     fixture f={0};
@@ -252,6 +267,7 @@ int main(int argc,char **argv) {
     if(strcmp(argv[1],"success")==0)test_success();
     else if(strcmp(argv[1],"partial")==0)test_failed_partial_write_rolls_back();
     else if(strcmp(argv[1],"rollback-fail")==0)test_rollback_failure_reports_untrusted_ram();
+    else if(strcmp(argv[1],"publish-uncertain")==0)test_uncertain_kernel_global_after_failed_rollback();
     else if(strcmp(argv[1],"dirty")==0)test_preexisting_memory_is_never_overwritten();
     else if(strcmp(argv[1],"mapping")==0)test_mid_transaction_mapping_failure_rolls_back();
     else if(strcmp(argv[1],"readback")==0)test_readback_failure_rolls_back();
