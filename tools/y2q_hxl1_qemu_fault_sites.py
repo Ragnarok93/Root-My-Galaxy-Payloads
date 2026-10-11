@@ -168,7 +168,7 @@ def build_report(summary:dict, image: bytes, symbols:dict,
             e["originalImage"]=window(image,e["elr"],virtual_base)
             e["recoveredNearestSymbol"]=nearest_symbol(symbols,e["elr"])
             e["originalImageDisassembly"]=disassemble(e["originalImage"],virtual_base,objdump_path)
-            e["originalImageOpcodeMatchesExecutedGuestMemoryUnverified"]=True  # We have original bytes, no guest memory dump
+            e["executedGuestMemoryOpcodeComparison"]="NOT_MEASURED"  # Original Image bytes only; no guest RAM dump
             events.append(e)
     return {
         "target":TARGET,
