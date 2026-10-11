@@ -1019,6 +1019,102 @@ delegates to another original static function.
 
 ---
 
+
+## October 11, 13:46 UTC — original HXL1 AVB callback slots assigned
+
+Owner ran exact original LinuxLoader Ghidra function investigation of
+0xb7a4 from the saved AvbOps caller source 0x2274.
+
+**Source-attested original Ghidra function Evidence:**
+ev_4168cd8e93bf7d4946c55989205b9bc7d626b4f7b4cdb919b0c05c7e5ec09cb1
+for the LinuxLoader-HXL1.efi SHA256
+5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003.
+
+Exact Ghidra decompilation of 30-line original 0xb7a4
+shows a **0x60-byte allocation**, user-data capture, and
+local initialization of an AvbOps-like callback table:
+
+    puVar2 = (undefined8 *)FUN_00008cd4(0x60);
+    ...
+    *puVar2 = param_1;                // object +0x00
+    puVar2[3] = FUN_0000a598;         // +0x18
+    puVar2[4] = &LAB_0000ad44;       // +0x20
+    puVar2[0xb] = &LAB_0000af2c;     // +0x58
+    puVar2[5] = FUN_0000ad4c;        // +0x28
+    puVar2[6] = FUN_0000b150;        // +0x30
+    puVar2[7] = FUN_0000b1e0;        // +0x38
+    puVar2[8] = FUN_0000b2bc;        // +0x40
+    puVar2[9] = &LAB_0000b30c;       // +0x48
+    puVar2[10] = FUN_0000b6b4;       // +0x50
+
+Note: The original function decompiler reports these assignments,
+not a separately proven native STORE/data alias, immutable callback
+table, runtime invocation or trusted secure state source. Nor does
+the report prove the semantics of every index or how slots +0x08/
++0x10 are initialized.
+
+**Correlation with prior source-attested Ghidra p-code:**
+
+- At original LinuxLoader 0x5950 CALLIND **0x5dc4** (BLR x8),
+  the function pointer is a LOAD from **param_1+0x40**.
+  Constructor's **puVar2[8]** selects candidate
+  **FUN_0000b2bc**. This is now a *specific static implementation
+  candidate*, not an unresolved anonymous field.
+- At original CALLIND 0x5ea4 and 0x6020, both LOAD
+  **param_1+0x48**; constructor's **puVar2[9]**
+  assigns **&LAB_0000b30c**. The Ghidra **LAB_** name
+  does NOT prove that 0xb30c is a function entry.
+- At original 0x2274 line 343, pbVar20 is assigned
+  FUN_0000b7a4(pcVar19) and passed to the original
+  AVB consumer 0x5950 at line 437.
+
+### Two original-source, bounded Ghidra next probes
+
+Files committed:
+- tools/y2q_hxl1_rea_avb_callback_implementations.py
+- tools/test_y2q_hxl1_rea_avb_callback_implementations.py
+- tools/run_y2q_hxl1_rea_avb_callback_implementations.sh
+
+Before collecting any Evidence, tool validates archive and
+firmware SHA256, original five reference proof chains,
+the complete two-page REA value graphs, the source-attested
+BLR observations and exact +0x40/+0x48 LOAD operands.
+It then **fails closed unless** the original 0xb7a4
+Ghidra dossier matches one 0x60-byte allocation,
+user-data assignment and exactly one each of
+puVar2[8]=FUN_0000b2bc and puVar2[9]=&LAB_0000b30c.
+
+Owner WSL command:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_callback_implementations.sh
+~~~
+
+The only two new static host-side queries are:
+1. **REA function 0xb2bc**, to read the original full lock-state
+   callback candidate's implementation, error paths and call sources.
+2. **REA inspect-native-instruction 0xb30c**, to check if
+   LAB_0000b30c is a valid code instruction and record its
+   owning Ghidra procedure, without inventing a function entry.
+
+The output is avb-callback-implementations.md/json under
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit.
+New Evidence is preserved separately under
+LinuxLoader/function-0xb2bc.json and
+LinuxLoader/instruction-0xb30c.json. No original saved
+Evidence is overwritten.
+
+**Next gate after owner run:** determine 0xb2bc's actual lock
+state source and whether any error status is fail-closed.
+Do not confuse producing androidboot.vbmeta.device_state
+with controlling the independent verified-boot signature or
+Odin flashing authorization checks. No unlock or exploit
+is demonstrated.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
