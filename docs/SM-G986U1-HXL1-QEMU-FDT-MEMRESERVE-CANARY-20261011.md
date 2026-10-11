@@ -48,6 +48,41 @@ Expected guest capture output: `~/s20-artifacts/hxl1-research/qemu-fdt-canary-de
 
 **Each stage refuses to overwrite an existing output**; provide new paths through `--output-dir`, script arguments and verifier CLI options for repeat experiments. An unsupported `-dtb` path, relocated FDT `X0`, incomplete GDB read or missing canary is **INCONCLUSIVE/FAIL** for delivery, not a factory kernel failure.
 
+## 22:53 UTC — owner guest dump exposed fixed-length truncation; corrected canary v2
+
+Owner WSL verified all **17 original canary fixture tests PASS** and constructed an exact source SHA-pinned DTB with `[CANARY FDT] 85dcc18460e79d8543d0972a34c56844206696ea2030c7eb0f783412166fa440`, with the original fixed 1 MiB self-memreserve. The separate bounded QEMU/GDB capture printed **`[CAPTURE] Full guest FDT delivered at original entry via custom -dtb`**. However, the actual offline parser subsequently stopped:
+
+```text
+[STOP] Invalid declared DTB size
+```
+
+**This is an implementation defect, not a boot failure and not yet confirmed canary delivery.** The original source DTB may be 1,048,576 bytes; the canary inserts a sixteen-byte reserve-map record and increments `fdt_totalsize` to **1,048,592 bytes**. The old GDB script always dumped **exactly 1,048,576 bytes**, despite the larger header. Its success marker merely checked the fixed file length, so it **falsely labeled a truncated capture complete**. The original verifier also incorrectly demanded a 1 MiB guest file and required the complete FDT to fit within a stale 1 MiB self-reserve. Keep both the original canary and incomplete guest capture as evidence; never overwrite their directories.
+
+**Corrected v2, committed directly through GitHub connector:**
+- The canary builder reserves only the **4 KiB page-rounded bytes occupied by the modified FDT**, `align_up(fdt_totalsize + 16, 4096)`. For an original 1 MiB FDT that is **1,052,672 bytes**, `[0x48000000,0x48101000)`, covering one extra FDT page and *not* selecting an unrelated protected-memory pool.
+- The second capture script uses GDB to read the **big-endian FDT header's declared size from guest memory** before choosing the binary dump length. It bounds the guest size to 8 MiB and available guest RAM, records both header length and actual completed read, and refuses success unless **dump file bytes == GDB declared size == FDT header size**.
+- The independent verifier repeats these checks, compares the exact GDB evidence, enforces the newly page-rounded self-reserve, and explicitly diagnoses the old 1 MiB truncation.
+- The synthetic fixture now models a full original 1 MiB DTB expanding by 16 bytes. Additional tests guard missing/mismatched measured size, truncated/oversized dump, partial self-reserve and the absence of any uncontrolled QEMU/kernel writes. Check CI before declaring the updated 23-test suite green.
+
+Use distinct **v2 output directories**:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_fdt_canary
+
+CAN="$HOME/s20-artifacts/hxl1-research/qemu-memreserve-canary-v2-20261011"
+CAP="$HOME/s20-artifacts/hxl1-research/qemu-fdt-canary-delivery-v2-20261011"
+
+python3 tools/y2q_hxl1_qemu_fdt_canary.py --output-dir "$CAN"
+bash tools/run_y2q_hxl1_qemu_fdt_canary_capture.sh "$CAN" "$CAP"
+python3 tools/y2q_hxl1_qemu_fdt_canary_verify.py --canary-dir "$CAN" --delivery-dir "$CAP"
+```
+
+If the new guest still moves its FDT, reallocates the blob, changes reservation properties, or reports size larger than the page-rounded reserve, the audit must fail with actual diagnostic evidence. A success proves only that the canary's reserve-map entry was delivered at the original kernel entry—not that Linux's memblock allocator installed a reservation or that any UH/RKP protected pool exists. The user's physical S20+ is never touched.
+
+---
+
 ## What comes after canary success
 
 1. Independently establish the actual early Linux memblock reserve behavior. A memreserve entry being present in the FDT at Linux entry is necessary evidence, not proof of allocator exclusion.
