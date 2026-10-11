@@ -2,6 +2,16 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 13:28 UTC — traced QEMU timeout; offline Image-PC check queued
+
+Owner ran the original-Image QEMU triage after pulling branch update: `tools.test_y2q_hxl1_qemu_earlyboot_triage` **8/8 PASS**; original Image SHA `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123` and ARM64 `text_offset=0x80000` confirmed. The **actual** bounded QEMU run returned `[QEMU] TIMEOUT`, `[TRACE BLOCKS] True`, `[LINUX BANNER] False`. QEMU translated instructions, but original factory kernel entry has **not** been proven; no claim of kernel panic or boot is justified.
+
+New **GitHub-committed, offline-only** `tools/y2q_hxl1_qemu_trace_attest.py` and `tools/test_y2q_hxl1_qemu_trace_attest.py` examine the existing 15-second trace log in bounded head/tail sections and match physical translated instruction PC/opcode pairs against the original SHA-pinned Image under explicit candidate load bases. Read [full run instructions and proof interpretations](SM-G986U1-HXL1-SAMSUNG-QEMU-ADAPTATION-20261011.md#1328-utc-follow-up--offline-existing-trace-image-opcode-attestation). The test suite is wired into the existing isolated `.github/workflows/hxl1-cleanup-model.yml`; owner QEMU trace analysis **not yet executed**. If no candidate matches, review reported earliest PCs or supply a separately supported candidate physical base; do not initiate another 60-second silent QEMU run.
+
+Until original factory ARM64 kernel Image execution/location is corroborated, **do not apply** the newer Samsung QEMU fork's hard-coded RAM/CPU/hypervisor/DEFEX settings to the Kona HXL1 guest. Stage 3 remains PARTIAL, Stage 4 physical handoff OPEN, KernelSU BLOCKED, phone untouched.
+
+---
+
 ## October 11, 13:14 UTC — AArch64 user PASS, silent stock QEMU timeout, Samsung QEMU adoption
 
 **Owner-observed results:**
