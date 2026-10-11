@@ -12,6 +12,11 @@ import json
 from pathlib import Path
 import re
 import sys
+
+# Support both python3 -m tools.y2q_hxl1_qemu_exception_summary and
+# python3 tools/y2q_hxl1_qemu_exception_summary.py, even with an unrelated CWD.
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools import y2q_hxl1_qemu_trace_attest as att
 
 EXCEPTION_START = re.compile(rb"(?i)\bTaking exception\s+\d+\b")
