@@ -2,6 +2,32 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 11:15 UTC — uploaded Stage-3 REA archive analyzed offline
+
+Owner submitted four files from successful v4.2 cache: `rea-slice-remove_waiter-ffffff8008147db4.json`, `rea-slice-rt_mutex_start_proxy_lock-ffffff8008147d14.json`, `rea-slice-futex_lock_pi-ffffff8008191984.json`, and `stage3-rea-correlation.json`. Independently checked JSON identity, instruction addresses, evidence IDs and isolated ELF SHA-256 links to the manifest; **the archive contains no original raw Image bytes or sliced ELF bytes**, so it does not itself support a second opcode-level re-disassembly. Source and stock bytes were checked on WSL by prior v4.2 pipeline; its independent disassembler comparison covered the **first 16 instructions per function**, not the whole recovered extent.
+
+| Reconstructed stock function VA | Reported REA instructions | Total 4-byte positions in original slice | Not shown by REA | Coverage |
+|---|---:|---:|---:|---:|
+| `remove_waiter` `0xffffff8008147db4` | 140 | 142 | 2 | 98.59% |
+| `rt_mutex_start_proxy_lock` `0xffffff8008147d14` | 38 | 40 | 2 | 95.00% |
+| `futex_lock_pi` `0xffffff8008191984` | 545 | 554 | 9 | 98.38% |
+| **Total** | **723** | **736** | **13** | **98.23%** |
+
+Absent four-byte addresses, calculated from cached Ghidra coverage: `remove_waiter`: last 2 words at `0xffffff8008147fe4` and `0xffffff8008147fe8`; `rt_mutex_start_proxy_lock`: last 2 words at `0xffffff8008147dac` and `0xffffff8008147db0`; `futex_lock_pi`: nine positions (see locally generated archive audit). These may be padding, data or missing decoded code; classification **requires original bytes**, not assumption.
+
+**Compiled source/ownership-path witnesses in `remove_waiter` (stock addresses are static recovered VAs, not runtime physical addresses):**
+- At `0xffffff8008147de8` (function +0x34), `mrs x20, sp_el0`. Under this Samsung ARM64 current-task convention, it obtains the current-task pointer.
+- At `0xffffff8008147dec` (+0x38), `add x21, x20, #0x8c8` uses a current-relative `0x8c8` displacement, consistent with the source `pi_lock` operation.
+- At `0xffffff8008147e1c` (+0x68), `str xzr, [x20, #0x8f8]` explicitly zeros a **current-relative** field, consistent with source `current->pi_blocked_on`.
+- At `0xffffff8008147e2c` (+0x78), `and x21, x24, #-0x2` overwrites `x21` with a different pointer. Therefore subsequent `[x21,#0x8e0]` and `[x21,#0x8f8]` references at `+0xc4` and `+0x150` **must not** be misclassified as current-relative; they are consistent with accessing PI state on a different task.
+- At `rt_mutex_start_proxy_lock+0x44`, `bl 0x000100a0` in the slice resolves to `0xffffff8008147db4` in the original symbol map, the **direct call to `remove_waiter`**. Synthetic ELF branches reuse original AArch64 relative encodings; resolve with `original_function_VA + (synthetic_target - 0x10000)` rather than interpreting Ghidra display targets as real loaded addresses.
+
+This establishes concrete reported *stock instruction-level displacement* candidates and the compiled cleanup call edge, strengthening the prior source-only ownership-path review. **It does not authenticate a complete `task_struct`/`rt_mutex_waiter` factory ABI**: source-level member attribution, adjacent register/control-flow propagation, absent words and the complete independent binary decoder check must be distinguished. `futex_lock_pi` also reads current-task-relative `+0x9f8` after `mrs x20,sp_el0`; the member identity is unverified.
+
+**Next meaningful offline gate:** independently disassemble the 3 tiny preserved `isolated-*.elf` slices or the exact original byte ranges, compare 736 word positions and inspect the 13 missing REA addresses. Owner has already created these ELFs in the v4.2 cache. Do not rerun REA/Ghidra, rebuilt firmware provenance tests or compile the kernel. Stage 3 remains PARTIAL, Stage 4–6 OPEN, KernelSU BLOCKED. No root or phone action.
+
+---
+
 ## October 11, 11:02 UTC — bounded-slice Stage-3 REA validated on owner WSL
 
 The owner installed local v4.2 bounded-slice REA code and ran `python3 tools/y2q_hxl1_porting_pipeline.py --steps factory_abi` at 2026-10-11 11:00 UTC. Exact saved run: `~/s20-artifacts/hxl1-research/pipeline/run-20261011T110041993854Z`. The `factory_abi` script **PASSED** and generated `stage3-rea-factory-abi/stage3-rea-correlation.md`, showing all three symbols `remove_waiter`, `rt_mutex_start_proxy_lock`, `futex_lock_pi` in `INSTRUCTION_CORRELATED` / `MATCH` status. Stock kernel SHA256: `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`; independently reconstructed analysis ELF SHA256: `e15f67e8253396d9e6463e5dfd78d67e324a7149842a7fbccb973ec0fd36ecdb`. The earlier 330000-ms whole-ELF REA import timeout was resolved by isolating bounded function ELF slices, rather than changing original firmware.
