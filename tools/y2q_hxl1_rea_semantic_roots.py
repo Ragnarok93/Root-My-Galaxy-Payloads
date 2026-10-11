@@ -126,12 +126,14 @@ def validate_first_pass(root: Path) -> tuple[dict, dict]:
 
 
 def inspect_focus(root: Path, out: Path, *, execute: bool,
-                  node: str, script: Path, count: int, timeout: int) -> dict:
+                  node: str, script: Path, count: int, timeout: int,
+                  recover_partials: bool = False) -> dict:
     saved, originals = validate_first_pass(root)
     if execute and (not script.is_file() or script.is_symlink()):
         raise TriageError(f"REA fork not installed at {script}")
     runner = Runner(out, script, node=node, run_commands=execute,
-                    deadline=timeout, max_traces=0)
+                    deadline=timeout, max_traces=0,
+                    recover_partials=recover_partials)
     items = []
     for spec in FOCUS[:count]:
         module, entry = spec["module"], spec["entry"]
@@ -238,6 +240,8 @@ def main() -> int:
     p.add_argument("--rea", type=Path, default=Path.home() / "src/rea/scripts/rea.mjs")
     p.add_argument("--node", default="node")
     p.add_argument("--execute", action="store_true")
+    p.add_argument("--recover-partials", action="store_true",
+                   help="Reuse SHA-verified complete .json.partial workflow Evidence; originals retained")
     p.add_argument("--count", type=int, default=2)
     p.add_argument("--timeout", type=int, default=240)
     args = p.parse_args()
@@ -247,7 +251,8 @@ def main() -> int:
         root = args.input_dir.expanduser().resolve()
         out = root / "rea-security-audit"
         result = inspect_focus(root, out, execute=args.execute, script=args.rea,
-                               node=args.node, count=args.count, timeout=args.timeout)
+                               node=args.node, count=args.count, timeout=args.timeout,
+                               recover_partials=args.recover_partials)
         (out / "semantic-roots.json").write_text(json.dumps(result, indent=2) + "\n")
         (out / "semantic-roots.md").write_text(markdown(result))
     except (TriageError, ValueError, OSError, KeyError, TypeError) as exc:
