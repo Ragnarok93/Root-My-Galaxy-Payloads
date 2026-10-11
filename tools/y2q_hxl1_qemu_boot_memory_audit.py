@@ -187,6 +187,9 @@ def main() -> int:
         raw=a.dtb.read_bytes()
         inventory=json.loads(a.inventory.read_text())
         parsed=validate_fdt(raw,inventory)
+        if parsed["qemuGeneratedFdtSha256"] != EXPECTED_DTB_SHA:
+            raise AuditError("DTB SHA differs from exact owner 22:21 UTC capture; "
+                             "do not silently mix machine profiles")
         report=audit(meta,parsed)
         out.parent.mkdir(parents=True,exist_ok=True)
         out.write_text(json.dumps(report,indent=2)+"\n")
