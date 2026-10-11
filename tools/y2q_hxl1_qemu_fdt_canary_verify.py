@@ -57,9 +57,9 @@ def report_delivery(source:bytes, override:bytes, baseline_runtime:bytes,
        manifest.get("purpose")!="FDT_SELF_RESERVATION_DELIVERY_CANARY_NOT_RKP_POOL"):
         raise DeliveryError("Original canary construction manifest does not match DTB")
     completed=re.findall(
-        r"(?m)^"+re.escape(MARKER)+r"(\\d+)$",gdb)
+        r"(?m)^"+re.escape(MARKER)+r"(\d+)$",gdb)
     measured=re.findall(
-        r"(?m)^"+re.escape(DECLARED_MARKER)+r"(\\d+)$",gdb)
+        r"(?m)^"+re.escape(DECLARED_MARKER)+r"(\d+)$",gdb)
     if len(completed)!=1 or len(measured)!=1 or (
             int(completed[0])!=total or int(measured[0])!=total):
         raise DeliveryError("GDB did not attest one complete header-sized guest FDT dump")
