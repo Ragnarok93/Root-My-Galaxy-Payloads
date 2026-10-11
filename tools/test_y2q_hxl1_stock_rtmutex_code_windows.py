@@ -71,6 +71,58 @@ class OriginalStockCodeWindows(unittest.TestCase):
         x=self.report()
         self.assertEqual(len(x["missingSymbolLabels"]),len(audit.NAMES)-2)
 
+    def test_unrelated_intervening_text_symbol_caps_candidate_before_next_target(self):
+        # Previously only two target symbol VAs were collected: this read
+        # would silently include bytes of unrelated_function until 0xc0.
+        nm=map_text()+"\n"+f"{audit.TEXT_VA+0x90:016x} t unrelated_function\n"
+        result=self.report(nm)
+        first=result["originalCandidateCodeWindows"]["rt_mutex_start_proxy_lock"]
+        self.assertEqual(first["byteCount"],16)
+        self.assertEqual(first["nextRecoveredTextSymbolVA"],hex(audit.TEXT_VA+0x90))
+        self.assertTrue(first["boundedByFullRecoveredTextSymbolMap"])
+        self.assertEqual(result["allRecoveredTextSymbolAddressCount"],3)
+
+    def test_duplicate_non_target_function_names_both_constrain_windows(self):
+        nm=map_text()+"\n"+f"{audit.TEXT_VA+0x90:016x} t cloned\n"
+        nm+=f"{audit.TEXT_VA+0xa0:016x} t cloned\n"
+        result=self.report(nm)
+        self.assertEqual(result["allRecoveredTextSymbolAddressCount"],4)
+        self.assertEqual(result["originalCandidateCodeWindows"]
+                         ["rt_mutex_start_proxy_lock"]["byteCount"],16)
+
+    def test_nearest_candidate_boundary_equal_to_target_start_does_not_eliminate(self):
+        nm=map_text()+"\n"+f"{audit.TEXT_VA+0x80:016x} t alias_at_same_address\n"
+        result=self.report(nm)
+        self.assertEqual(result["originalCandidateCodeWindows"]
+                         ["rt_mutex_start_proxy_lock"]["byteCount"],64)
+
+    def test_non_text_data_symbol_does_not_constrain_code(self):
+        nm=map_text()+"\n"+f"{audit.TEXT_VA+0x90:016x} d data_pointer\n"
+        result=self.report(nm)
+        self.assertEqual(result["originalCandidateCodeWindows"]
+                         ["rt_mutex_start_proxy_lock"]["byteCount"],64)
+
+    def test_boundary_inside_first_instruction_refused(self):
+        nm=map_text()+"\n"+f"{audit.TEXT_VA+0x82:016x} t extra_function\n"
+        with patch.dict(audit.stock.PINNED,{"kernel.bin":self.pin}):
+            with self.assertRaisesRegex(audit.WindowError,"code window empty"):
+                audit.analyze(self.raw,nm,source())
+
+    def test_next_symbol_at_window_end_is_exactly_bounded(self):
+        nm=map_text()+"\n"+f"{audit.TEXT_VA+0x80+192:016x} t other_function\n"
+        result=self.report(nm)
+        self.assertEqual(result["originalCandidateCodeWindows"]
+                         ["remove_waiter"]["nextRecoveredTextSymbolVA"],
+                         hex(audit.TEXT_VA+0x80+192))
+
+    def test_report_explicitly_describes_full_recovered_text_boundaries(self):
+        result=self.report(map_text()+"\n"+
+            f"{audit.TEXT_VA+0x90:016x} t neighboring_function\n")
+        md=audit.markdown(result)
+        self.assertIn("All recovered code-address boundaries indexed: 3",md)
+        self.assertIn("not",md.lower())
+        self.assertIn("any-text-symbol",md)
+
     def test_static_code_window_never_goes_beyond_next_name(self):
         x=self.report()
         self.assertEqual(x["originalCandidateCodeWindows"]
