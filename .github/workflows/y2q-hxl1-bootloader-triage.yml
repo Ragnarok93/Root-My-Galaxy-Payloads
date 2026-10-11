@@ -32,6 +32,9 @@ on:
       - 'tools/test_y2q_hxl1_rea_avb_callback_implementations.py'
       - 'tools/y2q_hxl1_rea_avb_state_source.py'
       - 'tools/test_y2q_hxl1_rea_avb_state_source.py'
+      - 'tools/y2q_hxl1_rea_avb_global_abi.py'
+      - 'tools/test_y2q_hxl1_rea_avb_global_abi.py'
+      - 'tools/run_y2q_hxl1_rea_avb_global_abi.sh'
       - 'tools/run_y2q_hxl1_rea_avb_state_source.sh'
       - 'tools/run_y2q_hxl1_rea_avb_callback_implementations.sh'
       - 'tools/run_y2q_hxl1_rea_avb_constructor.sh'
@@ -71,6 +74,9 @@ on:
       - 'tools/test_y2q_hxl1_rea_avb_callback_implementations.py'
       - 'tools/y2q_hxl1_rea_avb_state_source.py'
       - 'tools/test_y2q_hxl1_rea_avb_state_source.py'
+      - 'tools/y2q_hxl1_rea_avb_global_abi.py'
+      - 'tools/test_y2q_hxl1_rea_avb_global_abi.py'
+      - 'tools/run_y2q_hxl1_rea_avb_global_abi.sh'
       - 'tools/run_y2q_hxl1_rea_avb_state_source.sh'
       - 'tools/run_y2q_hxl1_rea_avb_callback_implementations.sh'
       - 'tools/run_y2q_hxl1_rea_avb_constructor.sh'
@@ -94,8 +100,8 @@ jobs:
       - name: Install synthetic archive dependency
         run: python -m pip install --disable-pip-version-check lz4
       - name: Syntax check (no firmware required)
-        run: python -m py_compile tools/y2q_hxl1_bootloader_unlock_audit.py tools/test_y2q_hxl1_bootloader_unlock_audit.py tools/y2q_hxl1_bootloader_hotspots.py tools/test_y2q_hxl1_bootloader_hotspots.py tools/y2q_hxl1_rea_security_audit.py tools/test_y2q_hxl1_rea_security_audit.py tools/y2q_hxl1_rea_decision_path_review.py tools/test_y2q_hxl1_rea_decision_path_review.py tools/y2q_hxl1_rea_semantic_roots.py tools/test_y2q_hxl1_rea_semantic_roots.py tools/y2q_hxl1_rea_trace_evidence.py tools/test_y2q_hxl1_rea_trace_evidence.py tools/y2q_hxl1_rea_graph_forensics.py tools/test_y2q_hxl1_rea_graph_forensics.py tools/y2q_hxl1_rea_indirect_pages.py tools/test_y2q_hxl1_rea_indirect_pages.py tools/y2q_hxl1_rea_callsite_attribution.py tools/test_y2q_hxl1_rea_callsite_attribution.py tools/y2q_hxl1_rea_indirect_value_slices.py tools/test_y2q_hxl1_rea_indirect_value_slices.py tools/y2q_hxl1_avb_callback_fields.py tools/test_y2q_hxl1_avb_callback_fields.py tools/y2q_hxl1_rea_avb_constructor.py tools/test_y2q_hxl1_rea_avb_constructor.py tools/y2q_hxl1_rea_avb_callback_implementations.py tools/test_y2q_hxl1_rea_avb_callback_implementations.py tools/y2q_hxl1_rea_avb_state_source.py tools/test_y2q_hxl1_rea_avb_state_source.py
+        run: python -m py_compile tools/y2q_hxl1_bootloader_unlock_audit.py tools/test_y2q_hxl1_bootloader_unlock_audit.py tools/y2q_hxl1_bootloader_hotspots.py tools/test_y2q_hxl1_bootloader_hotspots.py tools/y2q_hxl1_rea_security_audit.py tools/test_y2q_hxl1_rea_security_audit.py tools/y2q_hxl1_rea_decision_path_review.py tools/test_y2q_hxl1_rea_decision_path_review.py tools/y2q_hxl1_rea_semantic_roots.py tools/test_y2q_hxl1_rea_semantic_roots.py tools/y2q_hxl1_rea_trace_evidence.py tools/test_y2q_hxl1_rea_trace_evidence.py tools/y2q_hxl1_rea_graph_forensics.py tools/test_y2q_hxl1_rea_graph_forensics.py tools/y2q_hxl1_rea_indirect_pages.py tools/test_y2q_hxl1_rea_indirect_pages.py tools/y2q_hxl1_rea_callsite_attribution.py tools/test_y2q_hxl1_rea_callsite_attribution.py tools/y2q_hxl1_rea_indirect_value_slices.py tools/test_y2q_hxl1_rea_indirect_value_slices.py tools/y2q_hxl1_avb_callback_fields.py tools/test_y2q_hxl1_avb_callback_fields.py tools/y2q_hxl1_rea_avb_constructor.py tools/test_y2q_hxl1_rea_avb_constructor.py tools/y2q_hxl1_rea_avb_callback_implementations.py tools/test_y2q_hxl1_rea_avb_callback_implementations.py tools/y2q_hxl1_rea_avb_state_source.py tools/test_y2q_hxl1_rea_avb_state_source.py tools/y2q_hxl1_rea_avb_global_abi.py tools/test_y2q_hxl1_rea_avb_global_abi.py
       - name: Run synthetic-only regression tests
-        run: python -m unittest -v tools.test_y2q_hxl1_bootloader_unlock_audit tools.test_y2q_hxl1_bootloader_hotspots tools.test_y2q_hxl1_rea_security_audit tools.test_y2q_hxl1_rea_decision_path_review tools.test_y2q_hxl1_rea_semantic_roots tools.test_y2q_hxl1_rea_trace_evidence tools.test_y2q_hxl1_rea_graph_forensics tools.test_y2q_hxl1_rea_indirect_pages tools.test_y2q_hxl1_rea_callsite_attribution tools.test_y2q_hxl1_rea_indirect_value_slices tools.test_y2q_hxl1_avb_callback_fields tools.test_y2q_hxl1_rea_avb_constructor tools.test_y2q_hxl1_rea_avb_callback_implementations tools.test_y2q_hxl1_rea_avb_state_source
+        run: python -m unittest -v tools.test_y2q_hxl1_bootloader_unlock_audit tools.test_y2q_hxl1_bootloader_hotspots tools.test_y2q_hxl1_rea_security_audit tools.test_y2q_hxl1_rea_decision_path_review tools.test_y2q_hxl1_rea_semantic_roots tools.test_y2q_hxl1_rea_trace_evidence tools.test_y2q_hxl1_rea_graph_forensics tools.test_y2q_hxl1_rea_indirect_pages tools.test_y2q_hxl1_rea_callsite_attribution tools.test_y2q_hxl1_rea_indirect_value_slices tools.test_y2q_hxl1_avb_callback_fields tools.test_y2q_hxl1_rea_avb_constructor tools.test_y2q_hxl1_rea_avb_callback_implementations tools.test_y2q_hxl1_rea_avb_state_source tools.test_y2q_hxl1_rea_avb_global_abi
       - name: Shell wrapper syntax
-        run: bash -n tools/run_y2q_hxl1_rea_security_audit.sh tools/run_y2q_hxl1_rea_semantic_roots.sh tools/run_y2q_hxl1_rea_indirect_pages.sh tools/run_y2q_hxl1_rea_callsite_attribution.sh tools/run_y2q_hxl1_rea_avb_constructor.sh tools/run_y2q_hxl1_rea_avb_callback_implementations.sh tools/run_y2q_hxl1_rea_avb_state_source.sh
+        run: bash -n tools/run_y2q_hxl1_rea_security_audit.sh tools/run_y2q_hxl1_rea_semantic_roots.sh tools/run_y2q_hxl1_rea_indirect_pages.sh tools/run_y2q_hxl1_rea_callsite_attribution.sh tools/run_y2q_hxl1_rea_avb_constructor.sh tools/run_y2q_hxl1_rea_avb_callback_implementations.sh tools/run_y2q_hxl1_rea_avb_state_source.sh tools/run_y2q_hxl1_rea_avb_global_abi.sh
