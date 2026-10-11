@@ -27,6 +27,7 @@ typedef struct {
     hxl1_rkp_range protected_pool;
     size_t sparse_units;
     size_t pool_pages;
+    size_t cursor; /* bounded allocation search cursor, reusable after free */
     /* Host-side allocation state, distinct from pool-ownership bitmap. */
     uint8_t *allocated;
     /* One bit per RAM page: 1 indicates protected pool membership.
