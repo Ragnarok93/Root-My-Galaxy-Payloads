@@ -15,6 +15,7 @@ class CleanupRegressionTests(unittest.TestCase):
         self.assertEqual(a['fixed','different_negative']['touched'],2)
         self.assertTrue(a['stock','different_negative']['waiterTaskBlocked'])
         self.assertFalse(a['fixed','different_negative']['waiterTaskBlocked'])
+        self.assertFalse(a['fixed','same_negative']['waiterTaskBlocked'])
     def test_validated_source_required(self):
         with tempfile.TemporaryDirectory() as d:
             with patch.object(m.stock,'validate_original',return_value={'rtmutex.c':'pin'}) as verify, \
