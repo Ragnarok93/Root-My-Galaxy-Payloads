@@ -59,6 +59,8 @@ class Hxl1RkpGuestCommitTests(unittest.TestCase):
         self.verify("partial")
     def test_unrecoverable_rollback_detected(self):
         self.verify("rollback-fail")
+    def test_failed_final_publication_reports_uncertain_pointer(self):
+        self.verify("publish-uncertain")
     def test_dirty_backing_and_initialized_pointer_rejected(self):
         self.verify("dirty")
     def test_mapping_failure_mid_commit_rolls_back(self):
