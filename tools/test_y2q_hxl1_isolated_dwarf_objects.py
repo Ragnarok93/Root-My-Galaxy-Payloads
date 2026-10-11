@@ -77,7 +77,7 @@ class IsolatedDwarfBuildTests(unittest.TestCase):
                                      "singlew":{"matchesOfficialAudit":True}}
                 }):
                     with patch.object(tool,"verify_compat",return_value=self.fake_manifest()):
-                        with patch.object(tool.prior,"find_python2",return_value="/usr/bin/python2"):
+                        with patch.object(tool,"resolve_python2",return_value="/usr/bin/python2"):
                             return tool.plan(self.args)
 
     def test_python2_pyenv_installation_detected_without_global_path(self):
