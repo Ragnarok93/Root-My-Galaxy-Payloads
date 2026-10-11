@@ -2,6 +2,18 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 12:35 UTC — original Samsung C function fragment execution preparation
+
+The owner executed the existing model on WSL at 12:30 UTC, with original Samsung C source SHA checks and ten compiled user-space scenarios `PASS`; report `~/s20-artifacts/hxl1-research/cleanup-model.json`. That model-only milestone is COMPLETE.
+
+**New committed next step:** `tools/y2q_hxl1_original_cleanup_slice.py`, `tools/test_y2q_hxl1_original_cleanup_slice.py`, and CI additions to `.github/workflows/hxl1-cleanup-model.yml`. The tool extracts the **actual unedited `remove_waiter()` C function-definition text** from the SHA-pinned original Samsung RT-mutex source and compiles it in a disposable harness with mocked kernel helpers and a controlled no-owner early-return. Cases `current == waiter->task` and `current != waiter->task` check which synthetic task's blocked-on state gets cleared. Five isolated tests, including real C compilation and false-source SHA/modified behavior rejection, PASSED on a representative Linux 4.19-shaped fixture. Optional `aarch64-linux-gnu-gcc`/`qemu-aarch64` allows cross-compiled **ARM64 USER-MODE** execution; this is **not a kernel guest boot** and must not be described as one.
+
+Owner-specific original Samsung C execution has **not yet been run**; [one-shot instructions and limits](SM-G986U1-HXL1-VERBATIM-CLEANUP-GUEST-SLICE-20261011.md). The exact Samsung RT-mutex C file SHA is enforced before compilation. A compiler error due to unmocked OEM dependencies is a **real harness compatibility block** to correct rather than an excuse to mark a PASS.
+
+**No kernel-runtime gate is promoted by this source fragment.** Authentic Samsung `kernel.bin` execution in a source-faithful AArch64 Linux QEMU guest, real PI state corruption, a kernel arbitrary memory primitive, physical loader/KASLR verification, bootloader unlock and KernelSU code injection remain NOT VERIFIED/BLOCKED. Existing upstream 4.19.325 guest cannot substitute for HXL1; actual Samsung 4.19.113 has SoC/Kconfig constraints on the generic QEMU `virt` machine.
+
+---
+
 ## October 11, 12:08 UTC — deterministic cleanup ownership regression (user-space only)
 
 **Committed implementation:** `tools/y2q_hxl1_cleanup_regression.py` is a pinned-source-gated, ten-scenario **compiled user-space C state model**. `tools/test_y2q_hxl1_cleanup_regression.py` provides 8 isolated positive and negative regression tests. All eight passed in the assistant's host environment; the compiled C model also produced the expected ownership divergence for `waiter_task != current` and negative rollback return. An isolated GitHub Actions workflow `.github/workflows/hxl1-cleanup-model.yml` was committed to run these mock/source-independent unit tests on push and PR (remote Actions result **not yet independently confirmed**). [Execution instructions](SM-G986U1-HXL1-USERSPACE-CLEANUP-REGRESSION-20261011.md).
