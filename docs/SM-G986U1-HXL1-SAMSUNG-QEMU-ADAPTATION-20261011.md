@@ -9,6 +9,23 @@
 - The user's first `qemu-system-aarch64 -machine virt,gic-version=3 -cpu cortex-a57 -smp 2 -m 2048 -kernel ~/s20-artifacts/kernel.bin ...` ran for 60 seconds **without console**, then GNU `timeout` exited `124`. No QEMU `-d` instruction trace, GDB PC, actual Linux banner or boot success was observed. **Timeout != crash, panic, or evidence that the kernel reached execution.**
 - A transient `systemd-binfmt` installation-trigger failure on WSL did not prevent the direct AArch64 user-mode test from succeeding. Fixing binfmt system service is not required for explicit `qemu-aarch64` execution.
 
+## Owner 13:28 UTC QEMU first-failure baseline
+
+Owner pulled the repository and ran `python3 -m unittest -v tools.test_y2q_hxl1_qemu_earlyboot_triage`: **8/8 PASS**. The dry-run authenticated the **original HXL1 Image SHA256** `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123` and reported **ARM64 Image text_offset=0x80000**. The 15-second explicit system emulation returned:
+
+```text
+[QEMU] TIMEOUT
+[TRACE BLOCKS] True
+[LINUX BANNER] False
+[REPORT] /home/main/s20-artifacts/hxl1-research/qemu-first-failure-20261011/report.json
+```
+
+The owner has not uploaded the `report.json`, `serial-console.log`, or `tcg-instructions.log` bytes. We therefore know **QEMU translated at least one ARM64 basic block** (which may be QEMU's own bootloader stub). The captured summary alone does NOT identify the first factory-image PC, exception, kernel entry, real boot, or failed subsystem. A generic `virt` board's RAM starts at `0x40000000` (per QEMU docs); QEMU's ARM64 loader commonly uses a `0x80000` offset. Thus an expected candidate entry is **0x40080000**, but **that address is a hypothesis, not a verified translated PC**. Next step is **offline analysis of existing trace** before any more emulator launches or changing QEMU's RAM map.
+
+The `timeout=124` from the owner's first 60-second GNU `timeout` is still interpreted as no boot observation; the second bounded `TIMEOUT` shows translated blocks but no Linux banner. Do not conflate the two.
+
+---
+
 ## Inspected third-party references (NOT pre-ported to HXL1)
 
 1. [diabl0w/qemu-samsung-kernel](https://github.com/diabl0w/qemu-samsung-kernel), `README.md`, `build-qemu-samsung.sh`, `run.sh`, and `0001-samsung-qualcomm-kernel-emulation.patch`. The build script targets a private install of **QEMU 10.2.2** and the patch changes `hw/arm/boot.c`, `hw/arm/virt.c`, `target/arm/tcg/cpu64.c` and `target/arm/tcg/op_helper.c`. Its fork README reports booting Samsung 6.12 kernels. **The patch does not apply verbatim to Ubuntu's QEMU 8.2.2**.
