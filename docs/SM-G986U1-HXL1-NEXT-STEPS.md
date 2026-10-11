@@ -2,6 +2,18 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 12:08 UTC — deterministic cleanup ownership regression (user-space only)
+
+**Committed implementation:** `tools/y2q_hxl1_cleanup_regression.py` is a pinned-source-gated, ten-scenario **compiled user-space C state model**. `tools/test_y2q_hxl1_cleanup_regression.py` provides 8 isolated positive and negative regression tests. All eight passed in the assistant's host environment; the compiled C model also produced the expected ownership divergence for `waiter_task != current` and negative rollback return. An isolated GitHub Actions workflow `.github/workflows/hxl1-cleanup-model.yml` was committed to run these mock/source-independent unit tests on push and PR (remote Actions result **not yet independently confirmed**). [Execution instructions](SM-G986U1-HXL1-USERSPACE-CLEANUP-REGRESSION-20261011.md).
+
+The model checks the same **two pinned Samsung source hashes** and **six source indicators** already defined by `tools/y2q_rtmutex_fix_audit.py` when run against the user's HXL1 WSL checkout. It compares a stock `ret != 0; selected_task = current` cleanup with a corrected `ret < 0; selected_task = waiter.task` and non-enqueued guard. It never invokes kernel futex calls, syscalls, races, device interfaces or kernel modules.
+
+**Observed in compiled *simulation* (not an OEM execution):** on negative return, with different current/waiter task identities, the stock model clears current's PI-blocked flag while the corrected model clears the waiter's. On a zero return neither model cleans up; on a positive return the original nonzero branch still invokes modeled cleanup but corrected negative-only branch does not.
+
+**Critical non-promotion:** passing model tests **does not** demonstrate that the HXL1 kernel executes the mismatched path under real Android scheduling, that the source is faithful in a disposable guest, that any arbitrary read/write primitive exists, or that KernelSU can load on the locked SM-G986U1. `sourceExactKernelGuestReproduced`, `hxl1RuntimeReachabilityProven`, `rootPrimitiveVerified`, `kernelSuInstallable` remain **false**. Original kernel assembly and source correlation documented previously is a separate proof category. Next necessary engineering gate is **actual HXL1-source-faithful guest execution**, not repetition of the model; if such a guest cannot be built/reproduced, the correct status remains `NOT_TESTED`.
+
+---
+
 ## October 11, 11:43 UTC — authenticated subset of original RT-mutex and waiter displacements
 
 A new offline pass reused the owner's previous original REA/ELF ZIP evidence and **independently reverified 723/723 Ghidra instructions against LLVM plus 31 specific additional byte-identical compiled RT-mutex/waiter instruction witnesses**. Eight focused full LLVM/subset tests and seven separately committed pinned-byte/source-header attestor tests passed locally (15 in total). Findings: `rt_mutex` candidate waiters.rb_root at `+0x10`, waiters.rb_leftmost at `+0x18`, owner at `+0x20`; `rt_mutex_waiter` candidate `tree_entry +0x00`, `pi_tree_entry +0x18`, `task +0x30`, `lock +0x38`, `prio +0x40`, `deadline +0x48`. The waiter priority and deadline each have **direct and nested PI-tree instruction pathways** that agree algebraically. See [the focused RT-mutex analysis](SM-G986U1-HXL1-STAGE3-RTMUTEX-LAYOUT-20261011.md).
