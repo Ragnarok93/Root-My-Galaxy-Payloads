@@ -432,6 +432,87 @@ from logging the OEM lock state and logging AVB failures.
 
 ---
 
+
+## October 11, 11:55 UTC — REA workflow provenance fix and saved trace recovery
+
+The owner ran the first focused Ghidra semantic-trace command. The
+underlying REA invocation exited without a process error, but our
+old wrapper rejected the saved original output:
+
+    [STOP] Ghidra provider / source / query provenance mismatch: .../Odin/trace-0x1ec00.json.partial
+
+The retry correctly blocked on the pre-existing
+`trace-0x1ec00.json.partial`. **Do not delete it.**
+
+**Root cause in our code:** the general HXL1 evidence validator expects
+provider `ghidra`, which is correct for primitive `search_strings`,
+`xrefs`, and `analyze_function`. Upstream REA's
+`trace-native-values` returns a composed workflow Evidence record with
+provider `rea-workflow`, operation `trace_native_values`, and
+the underlying Ghidra profile nested in
+`analysis_profile.parameters.upstream_analysis_profile`. The
+graph itself binds to a target via `target_sha256` and a seed
+function via `seed`. This difference is also verified by REA's
+`scripts/lib/native-value-e2e.mjs`.
+
+Implemented `tools/y2q_hxl1_rea_trace_evidence.py` and updated
+the existing REA runner to use a **separate trace-specific validator**
+that checks the original HXL1 module SHA, procedure, REA workflow
+identity, Ghidra upstream profile, exact root procedure, and bounded
+graph fields. `--recover-partials` is an explicit opt-in that
+validates the preserved .partial record and creates a second,
+no-clobber hard link at the normal .json filename. It does not
+overwrite or delete the .partial file or replay the completed REA
+command. If validation fails, both original files remain untouched.
+
+After a verified original trace is recovered, the script proceeds
+to the second focus target and saves an updated report. Synthetic
+validation and CI now cover workflow/primitive provider separation,
+rejecting altered source, mismatched seed, bad upstream profile,
+malformed partials, and safe no-clobber recovery.
+
+**Owner command:**
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+bash tools/run_y2q_hxl1_rea_semantic_roots.sh --recover-partials
+
+cat ~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/semantic-roots.md
+~~~
+
+If this still stops, **preserve the original partial** and use this
+read-only metadata projection to identify the remaining mismatch
+without exposing the full high-p-code graph:
+
+~~~bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+p = Path.home() / "s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/Odin/trace-0x1ec00.json.partial"
+d = json.loads(p.read_text())
+g = d.get("normalized_result") or {}
+ap = d.get("analysis_profile") or {}
+print("operation:", d.get("operation"))
+print("provider:", d.get("provider", {}).get("id"))
+print("subject digest:", d.get("subject", {}).get("digest", {}).get("sha256"))
+print("subject architecture:", d.get("subject", {}).get("architecture"))
+print("query parameters:", d.get("parameters"))
+print("workflow profile:", ap.get("provider", {}).get("id"))
+print("upstream profile:", (ap.get("parameters") or {}).get("upstream_analysis_profile", {}).get("provider", {}).get("id"))
+print("graph seed:", g.get("seed"))
+print("graph source hash:", g.get("target_sha256"))
+print("graph procedures:", [(x.get("address"), x.get("provider")) for x in g.get("procedures", [])[:6]])
+print("graph truncated:", g.get("truncated"))
+PY
+~~~
+
+Do not treat a recovered workflow trace as evidence that an indirect
+unlock callback, protected state or a vulnerability has been established.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
