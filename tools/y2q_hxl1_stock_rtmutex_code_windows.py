@@ -37,7 +37,7 @@ NAMES=(
     "futex_lock_pi",
     "futex_wait_requeue_pi",
 )
-REPORT=Path.home()/"s20-artifacts/hxl1-research/hxl1-stock-rtmutex-code-windows.json"
+REPORT=Path.home()/"s20-artifacts/hxl1-research/hxl1-stock-rtmutex-code-windows-v2.json"
 MAX_WINDOW=192
 class WindowError(ValueError):
     pass
