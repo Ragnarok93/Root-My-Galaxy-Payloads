@@ -1772,6 +1772,121 @@ or bootloader unlock.
 
 ---
 
+
+## October 11, 22:22 UTC — state-setter callers both resolve to one mode dispatcher 0x33928
+
+Owner reran the exact original HXL1 SHA-pinned setter-caller audit.
+All five original Ghidra xrefs were native direct BL instructions:
+- 0x33a08 -> 0x33c88, owner 0x33928
+- 0x33b20 -> 0x33c88, owner 0x33928
+- 0x1948 -> 0x33da8, owner 0x17d8
+- 0x5c0c0 -> 0x33da8, owner 0x5c060
+- 0x5c19c -> 0x33da8, owner 0x5c148
+
+Both setter calls have Ghidra original 118-line
+**FUN_00033928(int param_1,uint param_2)** pseudocode
+and a 215-instruction original ARM64 function dossier.
+
+Source Ghidra function Evidence:
+- at 0x33a08: ev_db9322dcc34f4d40cb398fa1ef84124e32110c751ee922b634ce86dbd3642410
+- at 0x33b20: ev_4e0ee20fc6780ed71ee20dc25209c111502eab8d3d9b5378793d645584b02021
+Native original function owner Evidence (shared):
+ev_913b607d4b103b0ab03f9992e64d885459160894cc408ecb9a00b43e8fe064c0
+
+The original parent receives two arguments, stores W0
+(mode) into W20 and W1 (value) into W21:
+
+    0x33948 mov w21,w1
+    0x3394c mov w20,w0
+    0x33964 cbz w0,0x00033a04
+
+On the mode-zero direct setter path:
+
+    0x33a04 mov w0,w21
+    0x33a08 bl  0x00033c88
+
+The native code locally proves that this BL receives
+the saved W21 input, originally W1. Upstream W1 authority
+and any secure permission are NOT proven.
+
+On the second setter path, when its predecessor branch
+is reached (including a call to 0x2b600 and an early
+status/branch decision), the original ARM64:
+
+    0x33a1c tst  w21,#0xff
+    0x33a24 cset w21,eq
+    0x33a28 cbz  w20,0x00033b1c
+    0x33b1c mov  w0,w21
+    0x33b20 bl   0x00033c88
+
+This is a **conditional derived boolean** (W21=1 when the
+tested low byte equals zero). It is not simply the
+original second parameter, and no complete interprocedural
+W21 preservation, CFG reachability or privilege decision
+has yet been independently verified.
+
+**Important separate unlock-critical field:**
+FUN_00033928 also uses original diagnostic label
+"IsUnlockCritical" for **DAT_00351056** = 0x351056,
+exactly one byte after normal IsUnlocked 0x351055.
+The original source contains writes to 0x351056 and
+another FUN_0002ae38(1,&DAT_00351048,0x9a0) persistence
+request. Original native 0x339c8 and 0x33a84 contain
+STRB W21,[X1,#0xe] on local address-formation paths.
+
+The source function also contains "userdata" partition
+lookup and an intended recovery wipe boot command:
+"recovery\n--wipe_data\n--reason=MasterClearConfirm...".
+This **suggests a wipe/recovery workflow linked to some
+setter modes**, but does not establish the full condition
+or demonstrate a device action. The research tool must
+not execute firmware or use phone-side actions.
+
+### Next one-query upstream mode/value ownership audit
+
+New host-only source-attested tools:
+- tools/y2q_hxl1_rea_avb_setter_modes.py
+- tools/test_y2q_hxl1_rea_avb_setter_modes.py
+- tools/run_y2q_hxl1_rea_avb_setter_modes.sh
+
+They first verify all original HXL1 source hashes,
+original five xref-site dossiers, identical parent
+Ghidra pseudocode, shared complete native listing,
+exact branch/call and W0 argument instructions, and
+distinct critical unlock byte. Any mismatch fails
+closed, and no original prior Evidence is replaced.
+
+One additional bounded read-only REA query:
+
+    rea xrefs LinuxLoader-HXL1.efi 0x33928 --provider ghidra --json
+
+Exact ELF/EFI path is resolved from the owner's original
+component target, not inferred from this document.
+
+Owner command:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_setter_modes.sh
+~~~
+
+Saved report:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-setter-mode-provenance.md
+
+New source Evidence:
+rea-security-audit/LinuxLoader/xrefs-parent-0x33928.json
+
+Next proof gate: determine who invokes 0x33928,
+which mode/value command inputs it accepts and
+whether any authorization or policy decision
+precedes the update. Separate LinuxLoader state
+reporting and persistent device-info from Odin
+Download Mode and secure-boot signature enforcement.
+No unlock or authorization bypass is demonstrated.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
