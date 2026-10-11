@@ -2,6 +2,24 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 15:34 UTC — source-confirmed RKP preflight and host-only bitmap pool model
+
+Owner pulled through `5707559` and verified the exact original-source RKP bitmap preflight: **14/14 unit tests passed**, and **14/14 source-specific checks passed**: commands `0x11–0x15`, 1 GiB bitmap sparse unit, descriptor fields `start_addr/end_addr/maxn/map`, physical/page bit offset logic, 4 KiB factory kernel pages, `paging_init` bitmap call before normal kernel mappings, later RO/DBL bitmap/init commands, protected page allocation/free consumers. The script accurately printed **`[FORK] NOT READY; protected pool and descriptor reservation unimplemented`** and saved `~/s20-artifacts/hxl1-research/qemu-smc-registers-20261011/rkp-bitmap-preflight.json`.
+
+**Implemented and committed since that confirmed gate:** reusable QEMU-neutral host C model `tools/hxl1_rkp_pool_model.h` and `.c`, synthetic fixture `tools/hxl1_rkp_pool_model_test.c` and Python native-compiler regression runner `tools/test_y2q_hxl1_rkp_pool_model.py`, wired to isolated HXL1 CI. It models bounded aligned externally-reserved guest physical ranges (without actually modifying QEMU's DTB or memmap), 4 KiB page alloc/free with separate static protected membership bits, and host-only 1 GiB sparse-unit bitmap byte arrays; it does not write guest RAM, assign guest virtual pointer arrays or hook a secure-monitor call. **Ownership bitmap bit=1 convention is a model hypothesis, not measured UH firmware output**. Owner/CI pass for the newly committed C tests **has not been verified**; avoid promoting them to confirmed status.
+
+Run only native C model tests (no QEMU/handset):
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_rkp_pool_model
+```
+
+New integration contract: [HXL1 RKP QEMU pool boundary, source-derived ABI, and proof gates](SM-G986U1-HXL1-RKP-QEMU-POOL-BOUNDARY-20261011.md). Before integrating any SMC `0x15` handler, the actual guest reserved-memory carveout, correct `sparse_bitmap_for_kernel_t` guest VA/PA pointer chain, bitmap backing and non-overlap with Linux allocator must be independently implemented/verified. The public fork's app 2/command 0x15 **KDP namespace-flags** handler and generic fake-success path remain **explicitly incompatible**. Original factory kernel, kernel-source QEMU guest init, real futex race, bootloader unlock and KernelSU deployment remain separate unresolved milestones.
+
+---
+
 ## October 11, 15:22 UTC — exact HXL1 bitmap ABI proven, next source-faithful emulation preflight
 
 Owner verified **23/23 tests PASS** (5 GDB capture shell guards + 18 exact-source ABI regressions), confirming the prior test-order bug is fixed. The **actual original HXL1 source ABI audit** passed, producing `[HXL1 SOURCE] EXACT_LOCAL_SOURCE_DEFINITIONS_MATCH_CAPTURED_RKP_BITMAP_CALL`, **`X0=0xc300c002`**, **`X1=0x15`**, **`X2=0xffffff800a4dd0b8`** matching the recovered `rkp_s_bitmap_buffer` original symbol, and **`X3=0x40000000`**. This completes the exact HXL1 app-ID/command/argument source-correlation gate; no more SMC GDB capture is needed.
