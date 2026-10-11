@@ -2,6 +2,20 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 10:21 UTC — offline HXL1 Pipeline v3 executed successfully
+
+**Latest owner-executed WSL run:** `~/s20-artifacts/hxl1-research/pipeline/run-20261011T101520426839Z`. The previous **Pipeline v2** run reported all **10 underlying verification steps PASS** (stock firmware, boot v2, DTB inventory, FDT semantics, Stage-3 source layout, kernel proof matrix, ABL static handoff, RAM-partition protocol, pinned EFI/REA boot-chain evidence, and readiness). The subsequent **Pipeline v3** test suite completed **14 of 14 passing**, then independently generated `proof-ledger.md` from that saved successful run. Its output explicitly reports `OFFLINE CHECKS PASS=True` and `UNRESOLVED STAGES=[3,4,5,6,7,8,9]`.
+
+**Distinguish success levels:** successful execution of all verifiers means tool integrity and pinned **static inputs**, **not** an installable payload. The official nine-stage readiness remains: stages 1–2 COMPLETE; stage 3 PARTIAL; stages 4–6 OPEN; stages 7–8 BLOCKED; stage 9 DEFERRED. The independent Stage-3 proof matrix inspected 85 retained **experimental Clang18** objects, finding **zero** complete `rt_mutex` and `rt_mutex_waiter` DWARF type definitions. This is a lack of verified factory layouts, not evidence those structures are absent from the kernel.
+
+**Local implementation status:** The v1/v2/v3 pipeline scripts and proof-ledger modules were delivered to the owner as ZIP files, extracted into their local repository, and tested there. **They are not present on this GitHub branch**; `git pull` alone will not install or reproduce the runner until source is committed through an authorized workflow. Only these documentary observations are being synchronized here. Preserve `~/s20-artifacts` evidence and avoid cleaning original firmware while readiness is incomplete.
+
+**Next actionable Stage-3 focus:** (1) inventory the original compiled ARM64 code and retained factory symbol/correlation evidence for the precise `rt_mutex` and `rt_mutex_waiter` members needed by any proposed target; (2) distinguish observed factory instruction offsets from source-only or experimental Clang18 DWARF declarations; (3) if factory ABI cannot be independently authenticated, record a specific `NO_VERIFIED_FACTORY_LAYOUT` blocker rather than using a guessed offset. Original runtime addresses, slide values and root-execution permission are separate later gates. Do not repeat DTB/protocol identification as a substitute for closing this gate.
+
+**Hardware safety:** No bootloader unlock, root, KernelSU installation, phone modification, or kernel exploit was demonstrated by this run.
+
+---
+
 ## Current priority — proven shared REA DTB/DTBO cmdline function (October 11, 2026)
 
 **New, owner-executed REA/Ghidra findings on the SHA256-pinned original
