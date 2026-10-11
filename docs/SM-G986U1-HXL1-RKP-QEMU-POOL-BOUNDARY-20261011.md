@@ -242,6 +242,14 @@ python3 tools/y2q_hxl1_qemu_fdt_canary_verify.py
 
 ---
 
+## 22:53 UTC — FDT reservation canary bounded-length correction
+
+Owner-ran original `-dtb` canary test succeeded at the **synthetic** 17/17 unit gate and produced a local QEMU/GDB dump, but the offline verifier stopped at `Invalid declared DTB size`. This is a **truncation bug in the first canary capture**, not an HXL1 original-kernel boot failure: the canary adds 16 bytes of FDT memreserve data to the source's full 1 MiB FDT, while the old GDB dumper read only 1 MiB. The corrected code measures the actual guest header `totalsize` dynamically, verifies captured length and GDB marker, and sets the canary to reserve the entire augmented FDT rounded to 4 KiB, i.e. `[0x48000000,0x48101000)` for a 1 MiB original DTB. The original evidence must remain immutable.
+
+The corrected **23 canary synthetic tests and full 218-test isolated workflow passed** in [Actions run #38182473039](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38182473039). The owner has **not yet completed the v2 guest delivery verification**, and even a future positive memreserve delivery is not proof of Linux memblock allocator exclusion or any secure RKP pool. [Precise v2 procedure](SM-G986U1-HXL1-QEMU-FDT-MEMRESERVE-CANARY-20261011.md#2253-utc--owner-guest-dump-exposed-fixed-length-truncation-corrected-canary-v2).
+
+---
+
 ## Required proof gates before a functional QEMU adapter
 
 | Gate | Acceptance criterion | Present status |
