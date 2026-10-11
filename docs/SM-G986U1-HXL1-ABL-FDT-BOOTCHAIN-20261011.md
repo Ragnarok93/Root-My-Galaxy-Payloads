@@ -55,10 +55,22 @@ The PE-mapped 16 ASCII bytes `55 4e 43 4f 4d 50 52 45 53 53 45 44 5f 49 4d 47` s
 2. From the cached caller, inspect how `sp+0x30` is used relative to `sp+0x38`/`sp+0x40`, and which path reaches `0x20d38`; if a matched offline boot payload is available, inspect the **payload bytes** at offsets `+0x10..+0x13` after a recognized `UNCOMPRESSED_IMG` marker. The bytes adjacent to the marker string **in LinuxLoader-HXL1.efi** are unrelated constant-storage context and must not be mistaken for payload bytes.
 3. Preserve the separate run-time physical address, actual selected FDT and locked-bootloader/rootability gates; classify firmware-mediated `0x227d4` dispatch only after the memory-record semantics are grounded.
 
+### `FUN_0001eca0`: Qualcomm RAM partition protocol — structural match, GUID pending
+
+New REA evidence `ev_e9e49405806db914b7e08b49c2f1a877473f1b9c05b0a4f0a64664ebcb71dd1d` (`rea-instructions-memory-record-provider-0x1eca0.json`, 146 instructions) establishes a cached protocol record provider:
+
+- Cached pointer `[0x3460ad8]` and `UINT32` record count `[0x3460ae0]` returned through caller pointers `x0` and `x1` at `0x1ece0–0x1ece4`.
+- If cache empty, `EFI_BOOT_SERVICES.LocateProtocol` at table offset `+0x140` is invoked for a 16-byte GUID constant at original-PE address `0xef880` (`0x1ed1c–0x1ed40`).
+- On success, firmware method `[protocol+0x18]` is first invoked with null record buffer and pointer to count (`0x1ed58–0x1ed70`); the code expects `EFI_BUFFER_TOO_SMALL` (`0x8000000000000005`) by subtracting 9 from `EFI_NOT_FOUND` constant `0x800000000000000e`.
+- It allocates `count << 4` bytes (16 bytes per record), caches allocation at `0x3460ad8`, then invokes the same protocol method with the allocated buffer and count pointer (`0x1ed80–0x1eda8`). Error handling includes zeroing/freing the cached allocation.
+- **Primary source-correlated identification:** Qualcomm `EFI_RAMPARTITION_PROTOCOL`'s `GetRamPartitions` method sits at offset `+0x18`, takes `(This, RamPartitionEntry* entries, UINT32* NumPartition)`, and reports `EFI_BUFFER_TOO_SMALL` on the sizing call. `RamPartitionEntry` is exactly 16 bytes: `UINT64 Base; UINT64 AvailableLength;`. Header: [Qualcomm EDK2-derived EFIRamPartition.h](https://github.com/SHIFTPHONES/android_bootable_bootloader_edk2/blob/sos-3.x/QcomModulePkg/Include/Protocol/EFIRamPartition.h).
+- **Authentication gate:** inspect the **original HXL1 binary** GUID bytes at PE address `0xef880` and compare with `EFI_RAMPARTITION_PROTOCOL_GUID = 5172ffb5-4253-7d51-c641-a701f973103c` (EFI in-memory hex `b5ff72515342517dc641a701f973103c`). Until that test is done, this is a very strong protocol ABI match, **not** an authenticated binary GUID match.
+- On a GUID match, the record first 64-bit value read at consumer `FUN_0001f018` can be named `RamPartitionEntry.Base`; its minimum becomes `[sp+0x30]` in `FUN_00020a60`. No actual base, number of DRAM banks, final kernel physical address or live root permissions are inferred.
+
 ## Next bounded gates
 
-1. DONE: inspected cached caller, identified `UNCOMPRESSED_IMG` at `0xbcc59` and authenticated the conditional `0x210cc`. The conditional `0x210cc: orr x8,x0,x24; cbz x8,0x21180` determines whether service-supplied layout outputs or constant-offset layout is selected.
-2. DONE: classified `FUN_0001f018` as a **minimum-address reducer**. Next inspect its upstream record producer `FUN_0001eca0`, without broad unrelated sweeps.
+1. DONE: inspected cached caller, identified `UNCOMPRESSED_IMG` at `0xbcc59` and authenticated the conditional `0x210cc`. Verify HXL1's RAM partition protocol GUID at `0xef880` next. The conditional `0x210cc: orr x8,x0,x24; cbz x8,0x21180` determines whether service-supplied layout outputs or constant-offset layout is selected.
+2. DONE: classified `FUN_0001f018` as a **minimum-address reducer** and `FUN_0001eca0` as a cached EFI protocol record provider. Qualcomm `EFIRamPartition.h` ABI fits exactly; pending GUID byte comparison.
 3. Authenticate `0x227d4` callback/dispatch provider and branch gating; distinguish the observed register arguments from an asserted ARM execution-state switch.
 4. Compare offline candidate base FDT, overlays, and post-fixups with runtime-safe metadata if obtainable. There is no demonstrated bootloader unlock/root/KernelSU execution route. Keep the stock locked phone unchanged.
 
