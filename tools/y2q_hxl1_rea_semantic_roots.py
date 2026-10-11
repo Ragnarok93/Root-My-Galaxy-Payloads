@@ -127,7 +127,7 @@ def validate_first_pass(root: Path) -> tuple[dict, dict]:
 
 def inspect_focus(root: Path, out: Path, *, execute: bool,
                   node: str, script: Path, count: int, timeout: int) -> dict:
-    _, originals = validate_first_pass(root)
+    saved, originals = validate_first_pass(root)
     if execute and (not script.is_file() or script.is_symlink()):
         raise TriageError(f"REA fork not installed at {script}")
     runner = Runner(out, script, node=node, run_commands=execute,
@@ -140,13 +140,13 @@ def inspect_focus(root: Path, out: Path, *, execute: bool,
         # Revalidate the *raw original Ghidra function result*, not the
         # lossy report snippets, before making any statement about code.
         fn_name = f"function-{safe_segment(next(
-            item['xrefSource'] for item in check_original_dossiers_cached['references']
+            item['xrefSource'] for item in saved['references']
             if item['module'] == module and item['ghidraFunctionEntry'] == entry))}.json"
         fn_path = source_dir / fn_name
         # Presently this path is the original owner-run function xref file.
         fn_ev = evidence(fn_path, sha=target.sha256, operation="analyze_function",
                          parameter="procedure", value=next(
-                             item["xrefSource"] for item in check_original_dossiers_cached["references"]
+                             item["xrefSource"] for item in saved["references"]
                              if item["module"] == module and item["ghidraFunctionEntry"] == entry))
         fn = fn_ev["normalized_result"]
         if not isinstance(fn, dict) or not isinstance(fn.get("pseudocode"), str):
@@ -186,7 +186,7 @@ def markdown(report: dict) -> str:
     lines = [
         "# HXL1 original Odin/LinuxLoader — semantic decision roots", "",
         "**Host-only Ghidra/REA observations; unlock remains unproved.**", "",
-        f"- Source archive: \`{report['originalArchiveSha256']}\`",
+        f"- Source archive: `{report['originalArchiveSha256']}`",
         f"- Mode: {report['mode']}",
         f"- Selected decision roots: {report['count']}", "",
     ]
@@ -196,7 +196,7 @@ def markdown(report: dict) -> str:
                   f"- Next question: {item['purpose']}",
                   f"- Original Ghidra Evidence: {item['originalFunctionEvidenceId']}",
                   f"- REA value trace: **{item['traceStatus']}**",
-                  f"- Trace source: \`{item['traceFile']}\`",
+                  f"- Trace source: `{item['traceFile']}`",
                   f"- Matching pseudocode lines: {item['pseudocodeContext']['totalTermMatches']}", "",
                   "~~~c"]
         for line in item["pseudocodeContext"]["selected"]:
@@ -244,10 +244,6 @@ def main() -> int:
     try:
         root = args.input_dir.expanduser().resolve()
         out = root / "rea-security-audit"
-        global check_original_dossiers_cached
-        check_original_dossiers_cached = check_original_dossiers(root)
-        if not check_original_dossiers_cached["allFiveReferencesVerified"]:
-            raise TriageError("First-pass HXL1 dossiers incomplete")
         result = inspect_focus(root, out, execute=args.execute, script=args.rea,
                                node=args.node, count=args.count, timeout=args.timeout)
         (out / "semantic-roots.json").write_text(json.dumps(result, indent=2) + "\n")
