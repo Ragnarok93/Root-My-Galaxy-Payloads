@@ -99,7 +99,8 @@ def make_canary(original:bytes, check_pinned:bool=True,
         "overrideFdtTotalSizeBytes":override_total,
         "fdtReservationPageAlignment":FDT_PAGE,
         "selfReservationCoversOverrideFdt":True,
-        "selfReservationExplicitGuestMeasuredBytes":self_reserve_bytes,\n        "selfReservationReachesObservedRuntimeFdt":None,
+        "selfReservationExplicitGuestMeasuredBytes":self_reserve_bytes,
+        "selfReservationReachesObservedRuntimeFdt":None,
         "purpose":"FDT_SELF_RESERVATION_DELIVERY_CANARY_NOT_RKP_POOL",
         "onlyOriginalMemreserveMapChanged":True,
         "originalStructureAndStringsByteIdentical":True,
@@ -115,7 +116,8 @@ def main()->int:
     source=Path.home()/"s20-artifacts/hxl1-research/qemu-virt-dtb-20261011/qemu-virt.dtb"
     output=Path.home()/"s20-artifacts/hxl1-research/qemu-memreserve-canary-20261011"
     p.add_argument("--source",type=Path,default=source)
-    p.add_argument("--output-dir",type=Path,default=output)\n    p.add_argument("--self-reserve-bytes",type=int,
+    p.add_argument("--output-dir",type=Path,default=output)
+    p.add_argument("--self-reserve-bytes",type=int,
                    help="Optional independently measured, 4KiB-aligned guest FDT extent; not an RKP pool")
     a=p.parse_args()
     try:
