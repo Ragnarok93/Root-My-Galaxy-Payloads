@@ -355,3 +355,29 @@ a genuine unprivileged vulnerability applicability result (not just source
 and syscall smoke tests), validated physical kernel handoff/KASLR data, and
 feasible KernelSU loading under signature enforcement/RKP/KDP/DEFEX.
 Production support feed registration stays disabled.
+
+
+## October 10, 2026 — owner's Stage 3 kernel matrix passed: 102 checks, but factory layouts still absent
+
+Owner executed `bash tools/run_y2q_hxl1_kernel_proof_matrix.sh` after pulling `28b40d1`. The runner reported **102/102 tests PASS** and authenticated exact original HXL1 stock kernel and source pins. Stage 3 remains **PARTIAL**, with nine stages still 1-2 COMPLETE, 3 PARTIAL, 4-6 OPEN, 7-8 BLOCKED, and 9 DEFERRED.
+
+Actual retained experimental Clang18 build inventory: **85 objects**, **77 AArch64 ET_REL objects**, **72 with DWARF**. Explicit `pahole -C` complete-definition counts: **rt_mutex_waiter: 0; rt_mutex: 0**. All seven original Samsung source declarations were located, but **zero factory-compiled member layouts were proved**. Compiled debug data from Clang18 cannot be equated to Samsung's stock Clang10 layout. The RT-mutex current/waiter source pattern and public fix comparison remain *source-level only*; not verified on-device CVE applicability, kernel privilege escalation or KernelSU.
+
+The report is preserved at `~/s20-artifacts/hxl1-research/kernel-proof-matrix.md`.
+
+### Next focused diagnosis (not a root/exploit run)
+
+Rather than accumulating more unsupported offsets, new `tools/y2q_hxl1_dwarf_gap_triage.py` inspects **six retained target object paths**, their original Kbuild `.cmd` debug-compiler switches, and their named `DW_TAG_structure_type` / `DW_TAG_class_type` records independently with `readelf --debug-dump=info --wide`. It distinguishes missing objects, ARM64 objects with no DWARF, forward/incomplete type records, complete *experimental* type records, and readelf/tool failures. It explicitly avoids parsing or exporting member locations; `DW_AT_byte_size` is checked only for completeness, not emitted as a factory size.
+
+The tool refuses any evidence promotion to runtime kernel load, root, GhostLock applicability or KernelSU. Its 39 focused new regression cases and all preexisting CI checks passed in [GitHub Actions run 38097413820](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38097413820): **6,941 repository tests PASS**. The owner's WSL host is still needed to inspect the actual retained `.o` and `.cmd` files.
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_dwarf_gap_triage.sh
+
+Expected reports:
+
+- `~/s20-artifacts/hxl1-research/kernel-dwarf-gap-triage.md`
+- `~/s20-artifacts/hxl1-research/kernel-dwarf-gap-triage.json`
+
+Even a full experimental DWARF struct DIE does **not** authenticate an OEM kernel type layout. No flash, ADB, or connected S20+ is needed.
