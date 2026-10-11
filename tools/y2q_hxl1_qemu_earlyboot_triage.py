@@ -59,12 +59,16 @@ def qemu_args(qemu: str, image:Path, output:Path, initrd:Path|None=None)->list[s
 def interpret(console: str, trace: str, ended: str)->dict:
     c=console.lower()
     tb = bool(re.search(r"(?m)^\s*IN:\s*$",trace))
+    pcs=re.findall(r"(?m)^\s*0x([0-9a-fA-F]{7,16}):",trace)
     boot = "booting linux on physical cpu" in c
     linux = "linux version " in c
     panic = "kernel panic" in c
     return {
         "outcome":ended,
         "qemuTranslatedInstructionBlocksSeen":tb,
+        "traceSamplePcCount":len(pcs),
+        "traceSampleFirstPc":("0x"+pcs[0]) if pcs else None,
+        "traceSampleLastPc":("0x"+pcs[-1]) if pcs else None,
         "linuxEarlyBootBannerSeen":boot,
         "linuxVersionLogSeen":linux,
         "kernelPanicLogSeen":panic,
@@ -112,6 +116,8 @@ def bounded_probe(image:Path, qemu:str, output:Path, seconds:int,
     trace=tracefile.read_bytes()[:256*1024].decode("utf8","replace") if tracefile.exists() else ""
     verdict=interpret(serial,trace,outcome)
     result={"schemaVersion":1,"target":SOURCE,"image":metadata,
+        "traceSampleBytes":len(trace.encode("utf8","replace")),
+        "traceFileBytes":tracefile.stat().st_size if tracefile.exists() else 0,
         "qemuVersion":version.stdout.splitlines()[0] if version.stdout else "",
         "qemuBinary":binary,"timeoutSeconds":seconds,
         "command":args,"exitCode":code,"evidence":verdict,
