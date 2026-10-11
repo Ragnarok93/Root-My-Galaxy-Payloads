@@ -136,6 +136,17 @@ def check_source_and_objects(data:dict,report_path:Path)->dict:
             "build output must not overlap source")
     require(report_path==build.DEFAULT_REPORT,
             "only the expected original owner's one-time report is attested")
+    log=Path(data.get("log",""))
+    require(log==build.DEFAULT_LOG and log.is_file() and not log.is_symlink(),
+            "original phase compiler log identity/availability")
+    require(log.stat().st_size<=256*1024*1024,
+            "original phase compiler log exceeds attestation bound")
+    content=log.read_text(encoding="utf-8",errors="replace")
+    actual_phases=re.findall(r"(?m)^PHASE=(\\S+)$",content)
+    actual_exits=re.findall(r"(?m)^EXIT_CODE=(-?\\d+)$",content)
+    require(tuple(actual_phases)==PHASES and
+            actual_exits==["0","0","0"],
+            "compiler log disagrees with saved JSON phase results")
     cfg=output/".config"
     require(cfg.is_file() and not cfg.is_symlink() and
             source.sha256_file(cfg)==CONFIG_SHA and
@@ -192,6 +203,7 @@ def check_source_and_objects(data:dict,report_path:Path)->dict:
         "exactFourPatchCloneSha256":COMPAT_SHA,
         "experimentalBuildConfigSha256":CONFIG_SHA,
         "phaseExitCodes":[{"phase":p,"returnCode":0} for p in PHASES],
+        "independentlyRecheckedBuildLogSha256":source.sha256_file(log),
         "independentlyValidatedObjects":observations,
         "crossObjectCompleteTypePresenceAgrees":True,
         "actualFactoryLayoutProven":False,
@@ -209,6 +221,7 @@ def markdown(result:dict)->str:
         "Original source digest: "+result["stockOriginalTreeSha256"],
         "Four-patch clone digest: "+result["exactFourPatchCloneSha256"],
         "Copied .config digest: "+result["experimentalBuildConfigSha256"],
+        "Original compiler log digest: "+result["independentlyRecheckedBuildLogSha256"],
         "",
         "| Original target | Original SHA256 | DWARF rt_mutex | DWARF rt_mutex_waiter |",
         "|---|---|---|---|",
