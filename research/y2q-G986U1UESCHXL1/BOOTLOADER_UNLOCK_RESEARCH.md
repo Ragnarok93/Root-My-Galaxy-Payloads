@@ -754,6 +754,93 @@ an authorization bypass or an unlocked SM-G986U1.
 
 ---
 
+
+## October 11, 13:14 UTC — original Ghidra indirect-call targets unresolved
+
+The owner executed all nine new bounded original HXL1 REA/Ghidra
+queries (four native instruction inspections, four direct static
+call-target resolutions, one original Odin function dossier).
+The completed report was callsite-attribution.md.
+
+The exact original-source ARM64 instruction observations:
+
+| Module/owning function | Native CALLIND site | Original instruction | Ghidra static resolver |
+|---|---|---|---|
+| Odin 0x1ec00 | 0x1ec84 | blr x9 | unresolved, no candidate |
+| LinuxLoader 0x5950 | 0x5dc4 | blr x8 | unresolved, no candidate |
+| LinuxLoader 0x5950 | 0x5ea4 | blr x8 | unresolved, no candidate |
+| LinuxLoader 0x5950 | 0x6020 | blr x8 | unresolved, no candidate |
+
+The four unresolved static destinations are **not** vulnerabilities
+or evidence that the corresponding calls cannot execute at runtime.
+They require function-pointer load/initialization research.
+
+Odin storage-provider helper **0x10e58** is now an original
+SHA256-verified Ghidra function dossier, with 58 decompiled lines.
+The old lexical-only report displayed only lines 44–56:
+a partition-enumeration error message, Partition not found,
+and an error return. Its remaining source-backed code was saved
+but not visible in the truncated report. The complete function
+must be read before claiming interface selection or authorization.
+
+### No-new-REA follow-up: backward value slices
+
+New repository scripts:
+
+- tools/y2q_hxl1_rea_indirect_value_slices.py
+- tools/test_y2q_hxl1_rea_indirect_value_slices.py
+
+They reconstruct four bounded backward p-code def-use slices
+starting with the **CALLIND target operand at input index 0**.
+A parameter binding or other call argument is *not* a proven
+target-definition edge. The slicing is capped at depth 7 and
+72 operations per site. Ghidra LOAD and STORE do not convey
+authoritative object aliasing, authentication, the initializer
+of an AVB callback, or protected state by themselves.
+
+Before analysis, the script verifies:
+
+1. Original SHA256-pinned HXL1 BL component inventory and five
+   independently proven original Ghidra string→xref→function chains.
+2. Both saved REA workflow graphs and LinuxLoader page 2,
+   including exact query offset, nonoverlapping retained node IDs
+   and graph page consistency.
+3. Four owner-observed source-attested Ghidra native CALLIND
+   instruction and unresolved static-target Evidence records.
+4. Odin's independently verified 0x10e58 Ghidra function dossier,
+   and original LinuxLoader 0x5950/0x2274 dossiers.
+
+The report includes line-numbered **full original 0x10e58
+pseudocode** (58 lines), bounded 0x2274 AVB callback-initializer
+search context, and 0x5950 callback-use context. No new REA,
+Ghidra, firmware, Odin, ADB or handset calls are made.
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 tools/y2q_hxl1_rea_indirect_value_slices.py
+
+cat ~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/indirect-value-slices.md
+~~~
+
+Machine-readable companion:
+rea-security-audit/indirect-value-slices.json.
+
+**Interpretation gate:** identify actual p-code LOAD/PTRADD
+origin of each BLR target and distinguish the active device-state
+callback from the other AVB indirect calls using code evidence.
+If the SSA backward chains terminate at LOADs, the next stage
+is callback interface assignment/initializer xrefs, not a claim
+of a missing validation step.
+
+**Remaining security gate:** distinguish partition-stored
+OEM diagnostic byte from authoritative unlock/flash policy
+as decided by Samsung/Qualcomm secure-world state. No
+bootloader unlock or vulnerability has been demonstrated.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
