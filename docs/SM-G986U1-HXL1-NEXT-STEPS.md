@@ -8,7 +8,9 @@
 
 **New next actual runtime proof tool, isolated original-image guest** `tools/y2q_hxl1_qemu_compact_smc_registers.py` verifies the **owner's 35,168-byte guest FDT capture and compact source before QEMU**. When explicitly run (without `--preflight-only`) it starts the original SHA-pinned HXL1 factory Image under QEMU virt with the exact verified compact `-dtb`, no NIC and no guest writes. It first stops on kernel entry `0x40080000` and verifies `X0=0x48000000,X1=X2=X3=0`; only then it arms a second GDB breakpoint at **`0xffffff80080a5794`**, records actual X0-X6 before executing `SMC #0`, and reads the guest opcode to compare against original `0xd4000003`. Execution is bounded to 30 seconds by default; timeouts preserve the GDB/QEMU log and do not claim success. The script captures **no SMC return**, does not implement Samsung UH, and makes no claim that an RKP allocator is available. This requires a **fresh output directory**, so existing original/compact evidence remains untouched.
 
-Owner procedure (after the full isolated tests pass):
+**All 11 new compact-SMC GDB fixture tests and the full isolated [GitHub Actions run #38193282707](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38193282707) passed: 352/352 tests.** This is host-only CI; the owner's actual new GDB SMC argument run remains **pending**.
+
+Owner procedure (validated host suite; live run not yet executed by owner):
 
 ```bash
 cd ~/src/Root-My-Galaxy-Payloads
