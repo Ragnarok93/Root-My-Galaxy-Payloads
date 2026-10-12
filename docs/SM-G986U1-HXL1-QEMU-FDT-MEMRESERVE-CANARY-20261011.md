@@ -122,6 +122,30 @@ Because QEMU may change the runtime FDT size in the v3 execution, a successful v
 
 ---
 
+## October 12, 00:06 UTC — valid v3 canary prelaunch correction
+
+Owner's retained v2 offline replay: **27/27 unit tests passed** and the `--audit-delivery-only` verifier printed `[MEMRESERVE REACHED KERNEL ENTRY] YES`, `DELIVERED_BUT_SELF_RESERVATION_UNDERSIZED`, with `2,117,184` guest runtime DTB bytes versus `1,052,672` reserved bytes. This confirms **diagnostic FDT override delivery only**.
+
+The v3 override was built successfully, SHA-256 `630d405830964399e3be63a2c685442e42d5512d62ba394da3d9eef248f5c575`, explicitly reserving `[0x48000000,0x48205000)` (**2,117,632 bytes**) from the observed previous guest FDT. The v3 launch then stopped at `[STOP] Canary FDT manifest/content mismatch` without entering QEMU; the subsequent verifier naturally had no `delivered-fdt.dtb`. The culprit was a hardcoded **minimum** self-reservation comparison in the capture script's Python preflight, incorrectly rejecting the **valid intentionally larger** measured reservation (despite the builder already producing a valid source-pinned and manifest-consistent FDT).
+
+The preflight now delegates to `tools/y2q_hxl1_qemu_fdt_canary.py --verify-dir DIR`, which **reconstructs the exact canary and entire manifest from the original SHA-pinned generated DTB**, including any explicitly measured reservation length; it fails closed on source/hash or byte/record mismatch. Four regression tests cover this failure and tampering, with [isolated GitHub Actions run #38186873252](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38186873252) **226/226 PASS** including **31 canary tests**. No new guest v3 evidence is yet claimed.
+
+**Resume the existing v3 inputs** (don't recreate the builder output):
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+CAN="$HOME/s20-artifacts/hxl1-research/qemu-memreserve-canary-v3-20261011"
+CAP="$HOME/s20-artifacts/hxl1-research/qemu-fdt-canary-delivery-v3-20261011"
+python3 tools/y2q_hxl1_qemu_fdt_canary.py --verify-dir "$CAN"
+bash tools/run_y2q_hxl1_qemu_fdt_canary_capture.sh "$CAN" "$CAP" &&
+python3 tools/y2q_hxl1_qemu_fdt_canary_verify.py --canary-dir "$CAN" --delivery-dir "$CAP"
+```
+
+This is an original-image isolated QEMU read-only experiment. A successful canary requires checking **fresh guest-declared DTB size versus the 2,117,632-byte reserve**, and only proves the diagnostic memory-reservation entry is delivered and covers the FDT. It **never proves** protected RKP pool allocation, guest memblock exclusion, root, KernelSU or handset bootloader unlock.
+
+---
+
 ## What comes after canary success
 
 1. Independently establish the actual early Linux memblock reserve behavior. A memreserve entry being present in the FDT at Linux entry is necessary evidence, not proof of allocator exclusion.
