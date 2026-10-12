@@ -1,3 +1,23 @@
+## October 12, 03:16 UTC — actual owner automated port run 9/10, Stage 6 ZIP contract repaired
+
+**Real HXL1 owner WSL run** `port-automation-20261012T031554640552Z`: 10 scheduled steps, **nine passed** on the owner's exact original firmware, including firmware readiness, layout inventory, Stage 3 proof matrix and export table, boot v2 and FDT semantic checks, static GhostLock source/binary research, complete scan and successful Android NDK inert identity diagnostic shared-object build. **Only `06_bundle_identity_only` failed.** This is a diagnostic ZIP packaging failure, not a new factory code/root security blocker, and it does not change Stage 3's independent compiled OEM ABI proof requirement. Nine-stage results: `COMPLETE,COMPLETE,PARTIAL,OPEN,OPEN,OPEN,BLOCKED,BLOCKED,DEFERRED`. No root, KernelSU, flash or production target feed.
+
+**Bundler contract regression identified by code review:** initial automation created `06-hxl1-identity-diagnostic.so` and an accurate `manifest.payload.file` of that name, while the bundler required the canonical `y2q-G986U1UESCHXL1-identity-diagnostic.so`. The exact owner's `logs/06_bundle_identity_only.log` was not provided, so do not claim an exhaustive diagnosis beyond this reproducible contract mismatch. Production automation now uses the canonical filename. The bundler allows exactly that or the prior known safe legacy name, with exact manifest basename, SHA256, original device identity, inert read-only flags and ELF64/AArch64 checks all enforced. The separate Python `SyntaxWarning` escape defects in Markdown output were corrected.
+
+**Repair just the previous failed ZIP without repeating Stage 1–5/NDK work or editing original records:**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads && git pull --ff-only && \
+python3 tools/y2q_hxl1_porting_bundle_repair.py \
+  --run-dir "$HOME/s20-artifacts/hxl1-research/port-automation-20261012T031554640552Z"
+```
+
+Creates only `06-hxl1-diagnostics-only-recovered.zip` and `06-hxl1-bundle-repair.json` in that existing run if all original scan/build/pinned factory SHA evidence still verifies. The original `port-automation.json` stays unchanged and accurately documents the initial failed step. The ZIP contains an **identity-only diagnostic**, not an active root payload.
+
+The new toolchain and recovery fixture tests passed **487/487** HXL1 CI tests in [GitHub Actions run #38199458175](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38199458175) (that run has original synthetic CI inputs only). The owner's real repair execution and any fresh full owner run are still pending. Full details: [automated porting guide](SM-G986U1-HXL1-AUTOMATED-PORTING.md).
+
+---
+
 ## October 12, 02:51 UTC — single-command automated nine-stage HXL1 porting evidence pipeline
 
 **Workflow correction:** stop requiring repeated manual one-audit-per-turn instructions. The owner now has a [single-command Stage 1–9 host-only porting pipeline](SM-G986U1-HXL1-AUTOMATED-PORTING.md), implemented at `tools/y2q_hxl1_porting_automation.py`, with convenience wrapper `tools/run_y2q_hxl1_porting_automation.sh` that fast-forwards the current Git branch. This reuses the actual pinned factory source and kernel evidence plus existing stage 3 proof matrix, stage 4 stock boot/FDT, stage 5 GhostLock research checks, and optional stage 6 NDK identity-only diagnostic/bundle. It outputs a **new immutable** Markdown/JSON step log and precise nine-stage blockers every run; it continues independent checks on one failed step and skips unavailable optional inputs explicitly.
