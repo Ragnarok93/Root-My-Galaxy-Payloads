@@ -146,6 +146,50 @@ This is an original-image isolated QEMU read-only experiment. A successful canar
 
 ---
 
+## October 11 owner v3 — full QEMU FDT self-reservation delivered
+
+**Evidence supplied directly by the owner, not synthetic CI.** After `git pull --ff-only` the owner ran **31/31 canary tests PASS**, then reused the previously created v3 canary directory. The second constructor call printed `[STOP] Canary output directory already exists` by design; the bounded capture script independently accepted that existing source-pinned canary with:
+
+```text
+[PRELAUNCH CANARY] VERIFIED
+[CANARY FDT] 630d405830964399e3be63a2c685442e42d5512d62ba394da3d9eef248f5c575
+[CANARY RESERVATION] {'start': '0x48000000', 'endExclusive': '0x48205000', 'sizeBytes': 2117632}
+[GUEST DECLARED FDT BYTES] 2117184
+[CAPTURE] Complete guest-declared FDT read at original entry via custom -dtb
+```
+
+The owner's final strict verifier then returned:
+
+```text
+[GUEST CANARY] {'start': '0x48000000', 'endExclusive': '0x48205000', 'sizeBytes': 2117632}
+[DELIVERED AT X0] 0x48000000
+[MEMRESERVE REACHED KERNEL ENTRY] YES
+[DIAGNOSTIC CLASSIFICATION] DELIVERED_AND_FULLY_COVERED
+[SELF RESERVATION COVERS RUNTIME FDT] True
+[SECURE RKP MEMORY RESERVED] NO
+[LINUX MEMBLOCK VERIFIED] NO
+[REPORT] /home/main/s20-artifacts/hxl1-research/qemu-fdt-canary-delivery-v3-20261011/canary-delivery-audit.json
+```
+
+**Decision: close the QEMU custom FDT transport and source-size coverage gate.** Stop repeating the canary tests or generating new copies. The current original-image guest received one reservation entry covering the entire runtime FDT; this is still **not proof Linux 4.19 processed it into `memblock.reserved` or excluded the pages from later allocation**. No RKP protected pool, root, Linux boot, or handset unlock is demonstrated.
+
+### Next isolated guest gate: read-only original-image memblock call trace
+
+`tools/y2q_hxl1_memblock_trace_gate.py` re-validates the pinned original Image, the existing guest-verified v3 canary, and the candidate `memblock_reserve` entry recovered from the **original stock reconstructed** `vmlinux-stock.nm`. It requires the candidate virtual address to resolve into original Image instructions. Default mode is a **preflight only**, with no QEMU execution. If and only if these pass, `--execute` starts original-image QEMU (no NIC) and places GDB breakpoints on the candidate `memblock_reserve` when `X0==0x48000000` and on the original already-observed SMC callsite. It reads `PC/X0/X1` and the original instruction word; no guest RAM is written.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_memblock_trace_gate
+python3 tools/y2q_hxl1_memblock_trace_gate.py
+python3 tools/y2q_hxl1_memblock_trace_gate.py --execute \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-memblock-callsite-v1-20261011"
+```
+
+Even a positive breakpoint means only that the exact stock-image **function was called with matching reservation arguments**. A preflight failure means original symbol provenance is insufficient; an unmatched breakpoint may mean a different/inlined path or failure to reach it. Neither result is allocator state. Full proof must read and validate the reserved-region state at a safe later point, using independent Samsung HXL1 ABI layouts and an actual executed instruction chain; no guessed `struct memblock` offsets are permitted. Do not substitute upstream Linux, fork security monitor handlers, or physical device testing.
+
+---
+
 ## What comes after canary success
 
 1. Independently establish the actual early Linux memblock reserve behavior. A memreserve entry being present in the FDT at Linux entry is necessary evidence, not proof of allocator exclusion.
