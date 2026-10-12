@@ -2,6 +2,39 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 11, 23:57 UTC — QEMU -dtb canary delivered, guest FDT expanded beyond self-reservation
+
+Owner WSL pulled through `50b2b65` and ran `tools.test_y2q_hxl1_qemu_fdt_canary`: **23/23 PASS**. V2 source FDT generated a diagnostic canary SHA `622103a0167457c0493dadc30979b3cc5aa630111df3970ab9ceb6eb1caae0b2` reserving the then-predicted FDT pages `[0x48000000,0x48101000)` (`1,052,672` bytes). **GDB then read the complete guest FDT, whose actual `totalsize` was 2,117,184 bytes**, not the 1,048,592-byte override file. The source-length assumptions failed again, but *not because of a truncated dump*: the new capture passed its exact-length GDB and header validation. The offline verifier then stopped only at:
+
+```text
+[GUEST DECLARED FDT BYTES] 2117184
+[CAPTURE] Complete guest-declared FDT read at original entry via custom -dtb
+[STOP] Canary does not cover the complete page-rounded FDT
+```
+
+Review of exact verifier control flow establishes the following **limited but real new fact**: the final error occurs **after** it successfully parsed the 2,117,184-byte guest DTB, verified the original stock image PC/X0/GDB full-read marker, checked the original generated and runtime FDT hashes, reconstructed the single canary, and required `guest["memoryReservationEntries"]==[expected_canary_reservation]`. Thus the custom `-dtb` canary entry **DID reach the guest**; the FDT self-reservation was merely **too small** to cover QEMU's expanded runtime FDT. Delivery has been proven; Linux's memblock allocator exclusion has **not**. This is **not** a kernel boot failure.
+
+Actual guest FDT span is `[0x48000000,0x48204e40)`; it requires a 4 KiB-aligned diagnostic self-reservation of **2,117,632 bytes**, `[0x48000000,0x48205000)`. This is derived from **actual owner GDB data**, not a pool-selection guess. Neither address marks newly available RKP RAM; the whole interval is already occupied by the guest's FDT as declared in its header. No live Linux memblock/protected-pool observation exists.
+
+**Committed follow-up:** `tools/y2q_hxl1_qemu_fdt_canary_verify.py` now has an explicit `--audit-delivery-only` mode that checks *all original proof gates* and writes `classification=DELIVERED_BUT_SELF_RESERVATION_UNDERSIZED` rather than suppressing the delivery finding. The default verifier remains strict on complete FDT self-coverage. `tools/y2q_hxl1_qemu_fdt_canary.py` now optionally takes `--self-reserve-bytes` with mandatory 4 KiB alignment, size bounds and no-RKP-pool declarations. Four new tests replay the exact **2,117,184-byte** runtime FDT and the observed 2,117,632-byte page-rounded reservation. New owner execution/CI status is pending until verified.
+
+**Immediate offline replay (NO new guest run):**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_fdt_canary
+
+python3 tools/y2q_hxl1_qemu_fdt_canary_verify.py \
+  --canary-dir "$HOME/s20-artifacts/hxl1-research/qemu-memreserve-canary-v2-20261011" \
+  --delivery-dir "$HOME/s20-artifacts/hxl1-research/qemu-fdt-canary-delivery-v2-20261011" \
+  --audit-delivery-only
+```
+
+If full FDT self-coverage is still a meaningful diagnostic, a **separate**, unmodified factory-kernel QEMU v3 run could construct a new `--self-reserve-bytes 2117632` canary and capture it in *new* paths. This cannot itself prove the early Linux memblock allocator reserved any memory. Next engineering priority is to inspect the original stock `/memreserve/` and early `arm64` `memblock_reserve` handling, then obtain allocator exclusion evidence before constructing a protected pool.
+
+---
+
 ## October 11, 22:53 UTC — canary guest capture was truncated; v2 fixed and regression-tested
 
 Owner WSL pulled through `0b616b0` and ran the original `tools.test_y2q_hxl1_qemu_fdt_canary`: **17/17 PASS**. It built the original diagnostic self-reservation `canary-override.dtb` with SHA `85dcc18460e79d8543d0972a34c56844206696ea2030c7eb0f783412166fa440`. The local original-image QEMU/GDB script printed a **false-positive full-FDT capture success** (its own condition only checked an unvarying **1 MiB dump**). The next offline verifier failed:
