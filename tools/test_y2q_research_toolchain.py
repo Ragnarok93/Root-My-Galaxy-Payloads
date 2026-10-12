@@ -154,6 +154,68 @@ class ToolchainTests(unittest.TestCase):
                     scan_report=scan, library=library,
                     manifest=manifest, output=base / "c.zip"))
 
+    def test_previous_automation_build_bundle_accepts_exact_legacy_filename(self):
+        """Original owner run created this noncanonical diagnostic file name."""
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder)
+            candidate=research_candidate()
+            scan=base/"05-cve-source-candidate.json"
+            scan.write_text(json.dumps(candidate))
+            library=base/tool.LEGACY_PIPELINE_LIBRARY
+            library.write_bytes(fake_elf())
+            manifest_data={
+                "kind":tool.RESEARCH_KIND,
+                "device":candidate["device"],
+                "deploymentBlocked":True,"publishInSupportFeed":False,
+                "executableExploit":False,"rootVerified":False,
+                "kernelWriteCapability":False,"moduleLoadCapability":False,
+                "scanReportSha256":tool.sha256(scan),
+                "payload":{"sha256":tool.sha256(library),
+                           "sizeBytes":library.stat().st_size,
+                           "file":library.name},
+            }
+            manifest=base/"06-hxl1-identity-manifest.json"
+            manifest.write_text(json.dumps(manifest_data))
+            output=base/"recovered-bundle.zip"
+            tool.command_bundle(SimpleNamespace(
+                scan_report=scan,library=library,manifest=manifest,output=output))
+            with zipfile.ZipFile(output) as zipread:
+                self.assertIn(tool.LEGACY_PIPELINE_LIBRARY,zipread.namelist())
+                self.assertEqual(zipread.read(tool.LEGACY_PIPELINE_LIBRARY),fake_elf())
+            self.assertTrue(output.is_file())
+
+    def test_legacy_library_rejects_alias_and_hash_mismatch(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder)
+            candidate=research_candidate()
+            scan=base/"candidate.json"
+            scan.write_text(json.dumps(candidate))
+            library=base/tool.LEGACY_PIPELINE_LIBRARY
+            library.write_bytes(fake_elf())
+            manifest_data={
+                "kind":tool.RESEARCH_KIND,"device":candidate["device"],
+                "deploymentBlocked":True,"publishInSupportFeed":False,
+                "executableExploit":False,"rootVerified":False,
+                "kernelWriteCapability":False,"moduleLoadCapability":False,
+                "scanReportSha256":tool.sha256(scan),
+                "payload":{"sha256":tool.sha256(library),
+                           "sizeBytes":library.stat().st_size,
+                           "file":tool.SHARED_LIBRARY},
+            }
+            manifest=base/"manifest.json"
+            manifest.write_text(json.dumps(manifest_data))
+            args=SimpleNamespace(
+                scan_report=scan,library=library,manifest=manifest,
+                output=base/"unsafe.zip")
+            with self.assertRaisesRegex(ValueError,"manifest has wrong exact"):
+                tool.command_bundle(args)
+            manifest_data["payload"]["file"]=library.name
+            manifest_data["payload"]["sha256"]="0"*64
+            manifest.write_text(json.dumps(manifest_data))
+            with self.assertRaisesRegex(ValueError,"manifest has wrong exact"):
+                tool.command_bundle(args)
+            self.assertFalse(args.output.exists())
+
     def test_reference_matrix_does_not_claim_support(self):
         self.assertGreaterEqual(len(tool.REFERENCES), 4)
         self.assertTrue(all(r["targetMatch"] is False for r in tool.REFERENCES))
