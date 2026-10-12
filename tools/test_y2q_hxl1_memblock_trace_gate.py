@@ -43,7 +43,7 @@ class Hxl1MemblockGateTests(unittest.TestCase):
         self.assertIn("HXL1_KERNEL_ENTRY_HIT",s)
         self.assertIn(f"hbreak *{hex(VA)} if $x0 == 0x48000000",s)
         self.assertIn(f"hbreak *{hex(gate.SMC_PC)}",s)
-        self.assertIn("x/wx $pc",s)
+        self.assertIn("x/1wx $pc",s)
         self.assertNotIn("set {",s)
         self.assertNotIn("restore ",s)
         self.assertNotIn("shell ",s)
