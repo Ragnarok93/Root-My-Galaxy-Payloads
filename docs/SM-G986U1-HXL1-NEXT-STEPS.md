@@ -1,3 +1,36 @@
+## October 12, 01:17 UTC — 7,584-byte compact FDT gets past original setup_arch stop and reaches known HXL1 SMC/fault sites
+
+**Owner WSL real output** after `git pull --ff-only`: **41/41** local host regressions passed. The SHA-pinned original HXL1 Image bytes at static `printk` pointer `0xffffff800a17415c` now decode definitively to `KERN_SOH` log-level 2 plus:
+
+```text
+Error: invalid device tree blob at physical address %pa (virtual address 0x%p)
+The dtb must be 8-byte aligned and must not exceed 2 MB in size
+
+Please check your bootloader.
+```
+
+This original-source string and original `yield; b -4` loop establish the intended **kernel invalid DTB error path**. It is not a physical Samsung bootloader unlock state or exploitation primitive.
+
+**Source fixed without touching factory firmware:** Original QEMU-generated `qemu-virt.dtb` 1,048,576 bytes consisted of 7,568 bytes of retained structural/header information and **1,041,008 trailing verified-zero padding bytes**. The builder preserved sections/strings, then added exactly one diagnostic memreserve, yielding **7,584 bytes** at SHA-256 `1530da694b887fbe9918aa922eeafcdaa3ef0c900e6eae279402464b46b83fdd` (manifest reconstruction verified). It declares `[0x48000000,0x48200000)` as **FDT self-reservation only**; no protected RKP pool.
+
+**Actual compact-DTB original kernel QMP run moved beyond early stop.** The 4 observed PC samples alternated between `0xffffff8008146ad4` and `0xffffff8008146ae4` rather than the old fatal `setup_arch` PC `0xffffff800a60514c`. QEMU exception trace recorded **Samsung SMC at `0xffffff80080a5794`** and previously observed data-abort sites `ELR=0xffffff80082ac90c,FAR=0x58` and `ELR=0xffffff80086de39c,FAR=0x10`. This validates **progress into the existing next HXL1 secure-monitor/exception boundary**, not successful kernel boot, working UH/RKP services, allocation exclusion, a handset unlock or KernelSU deployment. The two alternating new PCs may themselves be another failure loop, so don't call this a successful boot.
+
+**Next unclosed proof:** the smaller *input* DTB does not prove the exact **runtime** FDT size; QEMU previously doubled it through direct-boot handoff. New `tools/y2q_hxl1_qemu_compact_fdt_capture.py` reconstructs and SHA-pins the compact source, starts a fresh bounded, host-only QEMU guest, and halts at original `PC=0x40080000` with verified `X0=0x48000000`. It reads the full dynamic `fdt_totalsize` from the guest, checks the exact GDB dump marker/guest header, RAM profile, diagnostic self-reservation and **ARM64 <=2,097,152** entry-size gate. A capture where the FDT remains >2MiB will be reported as such, not falsely labeled valid. **15 new no-guest fixture tests passed** with **315/315 total isolated tests PASS** in [GitHub Actions run #38191506521](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38191506521). The owner's actual new kernel-entry compact-FDT capture is **pending**.
+
+Owner's next shortest test (unique output; preserves all earlier evidence):
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_compact_fdt_capture
+python3 tools/y2q_hxl1_qemu_compact_fdt_capture.py \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-compact-entry-fdt-20261012"
+```
+
+Once the actual guest FDT <2MiB is measured, return to exact Samsung `UH_APP_RKP` SMC operation and those two original abort sites, with guest allocator state verification still separate. No live device is touched. Detailed [original FDT source, fix and QEMU evidence](SM-G986U1-HXL1-QEMU-FDT-2M-STOP-20261012.md).
+
+---
+
 ## October 12, 01:07 UTC — QEMU v3 FDT exceeds ARM64 2MiB; setup_arch yield-loop cause narrowed
 
 Owner WSL ran `tools.test_y2q_hxl1_setup_arch_loop_audit`: **15/15 PASS**, SHA-pinned original Image with `printk` recovered at `0xffffff800814f350`, static format pointer `0xffffff800a17415c`, and original source `YIELD; B -4` loop at `0xffffff800a605148/14c` in the nearest recovered `setup_arch`. A plain-ASCII check returned `NO_PLAUSIBLE_PRINTABLE_STRING` for the static format; original Linux printk strings can begin with `KERN_SOH` log level or line breaks, and that check was overly strict. The source `X13/X14` fragments `heck you`/`r bootlo` are consistent with, but do not alone prove, the upstream text mentioning the bootloader.
