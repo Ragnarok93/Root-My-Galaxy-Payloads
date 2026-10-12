@@ -1,3 +1,25 @@
+## October 12 — first memblock probe timed out before any attested breakpoint
+
+**Owner-run, original firmware SHA-pinned and guest v3 preflight VERIFIED.** The owner's WSL ran **11/11** original `tools.test_y2q_hxl1_memblock_trace_gate` host fixture tests successfully and independently confirmed `memblock_reserve` at recovered `0xffffff80082a0844`, with original Image first opcode `0xd10103ff`. Existing v3 FDT remained `DELIVERED_AND_FULLY_COVERED`.
+
+The first isolated guest attempt at `qemu-memblock-callsite-v1-20261011` returned **`NO_BOUND_TARGET_BREAKPOINT_OBSERVED`, statusCode=124**, `memblockReserveCallObserved=false`. **No evidence exists from that output of even having reached the stock kernel entry**. The previous GDB script placed a conditional recovered-VA memblock breakpoint and SMC breakpoint, then ran from reset. It did not attest entry `PC=0x40080000` and discarded GDB timeout stderr, while not retaining QEMU exception traces. Therefore the timeout cannot distinguish failure to enter the original kernel, inability to install a virtual breakpoint, an early guest exception loop, or no matching FDT reservation call. It is **NOT** a negative `memblock_reserve` result.
+
+**Implementation correction, committed:** Revised `tools/y2q_hxl1_memblock_trace_gate.py` now performs a two-stage GDB test. Stage A breaks on the already verified original kernel entry `PC=0x40080000` and records live `X0=0x48000000` before declaring guest entry. Stage B *only after entry* installs a conditional recovered `memblock_reserve` GDB breakpoint and a breakpoint at original HXL1 `SMC #0` `PC=0xffffff80080a5794`. A guest opcode at the candidate memblock function must match original Image bytes. The tool also records GDB error/timeout stderr and QEMU `int,guest_errors` traces. It offers `--audit-dir` for a read-only, **no-QEMU** retrospective diagnosis of the old `gdb.log`, `qemu.log` and exit status. An unobserved entry remains **INCONCLUSIVE**, as does a matched entry without either later breakpoint.
+
+**First investigate preserved old logs without rerunning QEMU:**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_memblock_trace_gate
+python3 tools/y2q_hxl1_memblock_trace_gate.py \
+  --audit-dir "$HOME/s20-artifacts/hxl1-research/qemu-memblock-callsite-v1-20261011"
+```
+
+If the old error report is insufficient, the next **optional** run should use new, non-overwriting `qemu-memblock-callsite-v2-20261012` output. The full evidence is in `gdb.log`, `qemu-exceptions.log` and `memblock-probe-report.json`; the status distinguishes entry-not-seen versus entry-confirmed without memblock/SMC. This is *not* a proof of allocator exclusion even if a function call is observed. Do not repeat the FDT canary or trigger a real device exploit.
+
+---
+
 ## Owner v3 verified — memreserve canary fully covers original QEMU guest FDT
 
 **Owner WSL exact output, October 11:** 31/31 `tools.test_y2q_hxl1_qemu_fdt_canary` unit tests passed, existing v3 canary SHA `630d405830964399e3be63a2c685442e42d5512d62ba394da3d9eef248f5c575` was accepted by independent prelaunch verification, QEMU/GDB read complete guest FDT of **2,117,184 bytes** at `X0=0x48000000`, and the strict offline verifier returned `[MEMRESERVE REACHED KERNEL ENTRY] YES`, `DELIVERED_AND_FULLY_COVERED` and `SELF RESERVATION COVERS RUNTIME FDT True`.
