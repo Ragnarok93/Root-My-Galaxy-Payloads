@@ -84,7 +84,8 @@ class TestNativeREA(unittest.TestCase):
                     z.writestr("isolated-"+name+"-10000.elf",data)
                     bound[name]={"sourceElfSha256":r["sha256"],
                                  "originalStockByteAttestation":{
-                                     "symbolVA":"0x10000","stockCodeBytes":len(data)}}
+                                     "symbolVA":"0x10000","stockCodeBytes":len(data),
+                                     "originalKernelFunctionBytesSha256":hashlib.sha256(data).hexdigest()}}
             rows=m.extract_slices(archive,bound,out,write=True)
             self.assertEqual(len(rows),3)
             self.assertEqual([x["label"] for x in rows],list(m.FUNCTIONS))
