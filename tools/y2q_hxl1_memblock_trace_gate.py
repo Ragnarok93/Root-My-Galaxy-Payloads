@@ -26,6 +26,7 @@ from tools import y2q_hxl1_qemu_fdt_canary_verify as delivery
 KERNEL_SHA="ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123"
 VM_BASE=0xffffff8008080000
 SMC_PC=0xffffff80080a5794
+KERNEL_ENTRY_PC=0x40080000
 FDT_PA=0x48000000
 FDT_SIZE=2117184
 FDT_RESERVE=2117632
@@ -34,6 +35,9 @@ NM_RE=re.compile(r"^([0-9a-fA-F]{16})\s+([TtWw])\s+(\S+)$")
 HIT_RE=re.compile(r"(?m)^HXL1_MEMBLOCK_RESERVE_HIT PC=(0x[0-9a-f]+) X0=(0x[0-9a-f]+) X1=(0x[0-9a-f]+)$")
 WORD_RE=re.compile(r"(?m)^0x([0-9a-f]+):\s+0x([0-9a-f]{8})$")
 SMC_RE=re.compile(r"(?m)^HXL1_SMC_REACHED PC=(0x[0-9a-f]+)$")
+ENTRY_RE=re.compile(r"(?m)^HXL1_KERNEL_ENTRY_HIT PC=(0x[0-9a-f]+) X0=(0x[0-9a-f]+)$")
+ENTRY_FAILURE_RE=re.compile(r"(?m)^HXL1_KERNEL_ENTRY_MISSED PC=(0x[0-9a-f]+)$")
+GDB_WARN_RE=re.compile(r"(?im)(?:Cannot access memory|Remote connection|Connection refused|No hardware breakpoint support|Could not insert hardware|not supported|protocol error|The program is not being run|Target is not responding)")
 
 class GateError(ValueError):
     pass
@@ -94,54 +98,122 @@ def verify_existing_v3(root:Path)->dict:
             "linuxMemblockExcluded":False}
 
 def build_gdb(port:int,va:int,expected_opcode:int)->str:
-    # Condition is evaluated from live target registers at the recovered code
-    # entry; it may fail to observe an inlined/non-standard reserve path.
+    """Bind to actual original Image entry before arming kernel-VA breakpoints.
+
+    This is intentionally a TWO-PHASE probe. Failure to reach entry must
+    not be presented as evidence about Linux memblock.
+    """
     return f"""set pagination off
 set confirm off
 set architecture aarch64
 set remotetimeout 8
 target remote 127.0.0.1:{port}
-hbreak *{hex(va)} if $x0 == {hex(FDT_PA)}
-hbreak *{hex(SMC_PC)}
+hbreak *{hex(KERNEL_ENTRY_PC)}
 continue
-if $pc == {hex(va)}
-  printf "HXL1_MEMBLOCK_RESERVE_HIT PC=0x%lx X0=0x%lx X1=0x%lx\\n", $pc, $x0, $x1
-  x/wx $pc
+if $pc == {hex(KERNEL_ENTRY_PC)}
+  printf "HXL1_KERNEL_ENTRY_HIT PC=0x%lx X0=0x%lx\\n", $pc, $x0
+  # The original entry GDB image uses X0 as FDT physical pointer.
+  hbreak *{hex(va)} if $x0 == {hex(FDT_PA)}
+  hbreak *{hex(SMC_PC)}
+  continue
+  if $pc == {hex(va)}
+    printf "HXL1_MEMBLOCK_RESERVE_HIT PC=0x%lx X0=0x%lx X1=0x%lx\\n", $pc, $x0, $x1
+    x/1wx $pc
+  else
+    if $pc == {hex(SMC_PC)}
+      printf "HXL1_SMC_REACHED PC=0x%lx\\n", $pc
+    else
+      printf "HXL1_UNEXPECTED_POST_ENTRY_STOP PC=0x%lx\\n", $pc
+    end
+  end
 else
-  printf "HXL1_SMC_REACHED PC=0x%lx\\n", $pc
+  printf "HXL1_KERNEL_ENTRY_MISSED PC=0x%lx\\n", $pc
 end
 detach
 quit
 """
 
 def parse_gdb(text:str,sym:dict)->dict:
+    """Reject claims based solely on an incomplete, timed-out GDB session."""
     hit=HIT_RE.findall(text)
     smc=SMC_RE.findall(text)
-    if len(hit)==1 and not smc:
+    entries=ENTRY_RE.findall(text)
+    diagnostics=GDB_WARN_RE.findall(text)
+    pre={"kernelEntryObserved":False,
+         "memblockReserveCallObserved":False,
+         "actualAllocatorReservationVerified":False,
+         "gdbWarnings":diagnostics[:8]}
+    if len(entries)!=1 or len(ENTRY_FAILURE_RE.findall(text))>0:
+        if len(entries)>1:
+            pre["status"]="AMBIGUOUS_KERNEL_ENTRY"
+        elif diagnostics:
+            pre["status"]="GDB_OR_BREAKPOINT_SETUP_ERROR"
+        elif "GDB_BOUNDED_TIMEOUT" in text:
+            pre["status"]="TIMEOUT_BEFORE_KERNEL_ENTRY_OR_GDB_STOP"
+        else:
+            pre["status"]="ORIGINAL_KERNEL_ENTRY_NOT_VERIFIED"
+        return pre
+    pc,x0=(int(x,16) for x in entries[0])
+    if pc!=KERNEL_ENTRY_PC or x0!=FDT_PA:
+        pre["status"]="ENTRY_POINTER_OR_PC_MISMATCH"
+        return pre
+    pre["kernelEntryObserved"]=True
+    pre["entryFdtPointerValidated"]=True
+    if len(hit)>1 or len(smc)>1 or (hit and smc):
+        pre["status"]="NON_UNIQUE_POST_ENTRY_EVENT"
+        return pre
+    if len(hit)==1:
         pc,x0,x1=[int(x,16) for x in hit[0]]
         if pc!=int(sym["guestVirtualAddress"],16) or x0!=FDT_PA:
-            return {"status":"BREAKPOINT_IDENTITY_MISMATCH","memblockReserveCallObserved":False}
+            pre["status"]="BREAKPOINT_IDENTITY_MISMATCH"
+            return pre
         words=WORD_RE.findall(text)
         original=int(sym["originalFirstOpcode"],16)
         if len(words)!=1 or int(words[0][0],16)!=pc or int(words[0][1],16)!=original:
-            return {"status":"GUEST_OPCODE_NOT_CORRELATED","memblockReserveCallObserved":False}
-        return {"status":"STOCK_MEMBLOCK_RESERVE_ENTRY_ARGS_OBSERVED",
-                "memblockReserveCallObserved":True,
-                "requestedFdtStartMatches":True,
-                "requestedSizeBytes":x1,
-                "requestedSizeCoversFullRuntimeFdt":x1>=FDT_SIZE,
-                "requestedSizeCoversV3PageAlignedReserve":x1>=FDT_RESERVE,
-                "functionReturnedSuccessfully":False,
-                "actualAllocatorReservationVerified":False}
-    if len(hit)>1 or len(smc)>1:
-        return {"status":"NON_UNIQUE_GDB_EVENT","memblockReserveCallObserved":False}
+            pre["status"]="GUEST_OPCODE_NOT_CORRELATED"
+            return pre
+        pre.update(status="STOCK_MEMBLOCK_RESERVE_ENTRY_ARGS_OBSERVED",
+                   memblockReserveCallObserved=True,
+                   requestedFdtStartMatches=True,
+                   requestedSizeBytes=x1,
+                   requestedSizeCoversFullRuntimeFdt=x1>=FDT_SIZE,
+                   requestedSizeCoversV3PageAlignedReserve=x1>=FDT_RESERVE,
+                   functionReturnedSuccessfully=False)
+        return pre
     if len(smc)==1:
-        return {"status":"SMC_REACHED_WITHOUT_MATCHING_MEMBLOCK_CALL",
-                "memblockReserveCallObserved":False,
-                "doesNotProveCallAbsent":True}
-    return {"status":"NO_BOUND_TARGET_BREAKPOINT_OBSERVED",
-            "memblockReserveCallObserved":False,
-            "doesNotProveCallAbsent":True}
+        if int(smc[0],16)!=SMC_PC:
+            pre["status"]="SMC_BREAKPOINT_PC_MISMATCH"
+        else:
+            pre["status"]="SMC_REACHED_WITHOUT_MATCHING_MEMBLOCK_CALL"
+            pre["doesNotProveCallAbsent"]=True
+        return pre
+    if diagnostics:
+        pre["status"]="POST_ENTRY_GDB_OR_BREAKPOINT_ERROR"
+    elif "GDB_BOUNDED_TIMEOUT" in text:
+        pre["status"]="POST_ENTRY_EXECUTION_TIMEOUT"
+    else:
+        pre["status"]="POST_ENTRY_STOP_UNCLASSIFIED"
+    pre["doesNotProveCallAbsent"]=True
+    return pre
+
+def audit_saved_probe(root:Path)->dict:
+    """Pure offline replay of previous timeout; no new guest execution."""
+    prior=checked_file(root/"gdb.log",1024*1024).decode("utf8","replace")
+    qemu=checked_file(root/"qemu.log",1024*1024).decode("utf8","replace")
+    exit_value=checked_file(root/"gdb-exit-code.txt",128).decode("ascii","replace").strip()
+    event_lines=[line[:500] for line in prior.splitlines()
+                 if any(term in line.lower() for term in (
+                     "breakpoint", "remote", "target", "error", "memory",
+                     "cannot", "warning", "timed", "entry", "smc"))]
+    return {"status":"OFFLINE_DIAGNOSTICS_ONLY",
+            "gdbExitCode":exit_value,
+            "gdbLogLines":len(prior.splitlines()),
+            "timeoutObserved":"GDB_BOUNDED_TIMEOUT" in prior or exit_value=="124",
+            "gdbDiagnosticLines":event_lines[:40],
+            "qemuStdoutTail":qemu[-1200:],
+            "kernelEntryProof":bool(ENTRY_RE.search(prior)),
+            "linuxMemblockAllocatorExclusionVerified":False,
+            "deviceTouched":False}
 
 def safe_output(out:Path,root:Path)->Path:
     target=out.expanduser().absolute()
@@ -224,10 +296,16 @@ def main()->int:
     p.add_argument("--nm",type=Path,default=root/"vmlinux-stock.nm")
     p.add_argument("--output",type=Path,default=root/"qemu-memblock-callsite-v1-20261011")
     p.add_argument("--execute",action="store_true",help="Run bounded isolated QEMU/GDB, no phone contact")
+    p.add_argument("--audit-dir",type=Path,help="Read prior timed-out GDB/QEMU logs only")
     p.add_argument("--port",type=int,default=12579)
     p.add_argument("--seconds",type=int,default=30)
     a=p.parse_args()
     try:
+        if a.audit_dir is not None:
+            # No kernel artifacts, QEMU, output creation or device required.
+            result=audit_saved_probe(a.audit_dir.expanduser().absolute())
+            print(json.dumps(result,indent=2))
+            return 0
         root=a.research_root.expanduser().absolute()
         kernel=a.kernel.expanduser().absolute()
         image=checked_file(kernel)
