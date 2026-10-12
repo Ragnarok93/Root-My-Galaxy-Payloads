@@ -21,6 +21,16 @@ ORIGINAL_TEXT="""int FUN_00068810(int param_1,int param_2) {
  FUN_000715e8(DAT_00365228,1,&iStack_4c,2);
  FUN_000715e8(DAT_00365228,0x15,&local_50,4);
  FUN_0006d820(&DAT_00365210,0x20,&DAT_00365230);
+ // Synthetic return-state dependencies; not original firmware source.
+ int source_token = param_1;
+ int response_token = param_2;
+ int status_ready = 1;
+ if (status_ready) {
+   source_token = source_token + response_token;
+ }
+ if (source_token == -99999) {
+   status_ready = 0;
+ }
  iVar4 = DAT_00365234;
  if (DAT_00365234 == 0) {
      iVar4 = 1;
