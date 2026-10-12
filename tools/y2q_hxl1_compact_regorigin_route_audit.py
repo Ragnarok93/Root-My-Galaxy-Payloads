@@ -14,6 +14,9 @@ import argparse
 import json
 from pathlib import Path
 import sys
+
+if not __package__:
+    sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from tools import y2q_hxl1_qemu_compact_register_provenance as owner
 from tools import y2q_hxl1_qemu_compact_smc_registers as smc
 from tools import y2q_hxl1_memblock_trace_gate as gate
