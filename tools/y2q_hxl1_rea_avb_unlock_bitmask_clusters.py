@@ -167,6 +167,18 @@ def audit(root:Path,*,execute:bool=False,rea:Path|None=None,
                   recover_partials=recover_partials)
     owner_records={}
     native_records={}
+    # Reuse the independently SHA-attested original 0x67dd8 native
+    # reader. It accounts for xref 0x67df8 and needs no new query.
+    reader=evidence(
+        folder/"instructions-state-boundary-0x67dd8.json",
+        sha=target.sha256,operation="read_function_instructions",
+        parameter="procedure",value="0x67dd8")
+    if reader["evidence_id"]!=prior["nativeBitmaskSelector"]["sourceEvidenceId"]:
+        raise TriageError("Original source-pinned 0x67dd8 reader Evidence differs")
+    reader_ops=full_native(reader,"0x67dd8")
+    if reader_ops.get("0x67df8")!=("ldr","w8,[x9,#0x1ec]"):
+        raise TriageError("Original cached reader byte/word xref changed")
+    native_records["0x67dd8"]=(reader["evidence_id"],reader_ops)
     for seed in SEEDS:
         f=runner.obtain(
             target,["function",str(target.path),seed],
