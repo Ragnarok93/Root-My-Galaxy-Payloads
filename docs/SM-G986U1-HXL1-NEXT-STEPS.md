@@ -1,3 +1,47 @@
+## October 12, 02:36 UTC — X21 stack-restore candidate not executed in capture; X10 field-load observed
+
+**Owner actual WSL evidence, two separate original stock-HXL1 compact QEMU guest runs:** `tools.test_y2q_hxl1_qemu_compact_register_provenance` passed **18/18** locally. Factory Image SHA `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`, compact guest input DTB SHA `1530da694b887fbe9918aa922eeafcdaa3ef0c900e6eae279402464b46b83fdd`, and previously independently captured complete **35,168-byte** guest FDT were all verified.
+
+**X21 first null-base load:**
+```text
+[REGISTER PRODUCER] 0xffffff80082ac8f4 a94457f6
+[FAULT LOAD] 0xffffff80082ac90c f9402eb8
+[PROVENANCE STATUS] FAULT_CAPTURED_PRODUCER_NOT_OBSERVED
+[PRODUCER HIT] False
+[FAULT HIT] True
+[FAULT BASE] 0x0
+[FULL DATA FLOW PROVEN] NO
+```
+At the original stock `LDR x24,[x21,#0x58]` the real fault-load breakpoint was hit with X21=0, but the candidate earlier `LDP x22,x21,[sp,#64]` at `...8f4` **was not hit in this bounded run**. Do **not** attribute the live X21 zero to a stack-restored zero, or claim that the faulting cache argument was null, on this evidence. A bypass/branch into the load path is possible and must be mapped from verified original instruction edges/real PC observation. The recovered nearest symbol is `kmem_cache_alloc`, but symbol range/function boundary is reconstructed, not independently debug-info proven.
+
+**X10 second null-base load:**
+```text
+[REGISTER PRODUCER] 0xffffff80086de394 f9458f0a
+[FAULT LOAD] 0xffffff80086de39c a9412149
+[PROVENANCE STATUS] PRODUCER_THEN_FAULT_OBSERVED_NO_FULL_DEF_USE_PROOF
+[PRODUCER HIT] True
+[FAULT HIT] True
+[PRODUCER EFFECTIVE ADDRESS] 0xffffff800ac304d8
+[FAULT BASE] 0x0
+[FULL DATA FLOW PROVEN] NO
+```
+This distinct compact original Image guest run stopped **before** the stock `LDR x10,[x24,#0xb18]` and later before `LDP x9,x8,[x10,#0x10]`, with live X10=0 at the paired-load breakpoint. The first breakpoint gave concrete candidate guest pointer-field address `0xffffff800ac304d8`. **The stdout does not say whether the read-only GDB attempt to inspect 8 bytes at that address succeeded, nor what those bytes were.** It is premature to claim `memory[X24+0xB18] = 0` until the original log supplies a matching 64-bit source value. The recovered nearest `dump_stack_minidump` and saved LR near `panic` continue to support a *possible* secondary panic diagnostic abort, but a full executed return/call path has not been traced.
+
+Neither run independently proves the Samsung UH/RKP bitmap SMC service succeeded, that a protected carveout exists, or that the two base-register failures are consequences of a specific SMC response. Missing `SMC+4` breakpoint hits in earlier separate probes are not proof the SMC never returned.
+
+**New strictly offline, original-source-backed check:** `tools/y2q_hxl1_compact_regorigin_route_audit.py` recomputes both owner real reports **from their original saved raw GDB text**, verifies original factory opcode bytes for both producer and load and original compact-FDT provenance, emits the x10 source memory value **only when independently attested at the exact GDB-read address**, and scans a bounded local original Image region around the first fault for direct `B/BL/B.cond/CBZ/CBNZ/TBZ/TBNZ` static incoming branches. Every source edge is explicitly marked *not proven executed*. CI fixture tests cover malformed GDB, wrong source pointer, changed opcode/provenance and AArch64 positive/negative branch encodings; unlike the owner's real saved data, they do not attest the physical Samsung UH service or actual fault path.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_compact_regorigin_route_audit
+python3 tools/y2q_hxl1_compact_regorigin_route_audit.py
+```
+
+After reading the actual original-source branch candidates and X10 field read, select the earliest **runtime** predecessor breakpoint for X21, or observe the *actual kernel SLUB call's X0* using a controlled call-instance capture. Avoid re-running FDT experiments or patching the stock kernel to mask null-base faults. OEM bootloader unlock and KernelSU remain unverified.
+
+---
+
 ## October 12, 02:20 UTC — SLUB_DEBUG confirmed; X21 restored from stack and X10 loaded from memory before separate zero-base reads
 
 **Owner real WSL output:** after branch pull through `a3e066f`, original factory SHA-pinned `tools.test_y2q_hxl1_compact_fault_function_windows` **16/16 PASS**, and the real `tools/y2q_hxl1_compact_fault_function_windows.py` succeeded, attesting both earlier GDB measurements X21=0 and X10=0 against source Image bytes and the 35,168-byte compact guest FDT evidence. Stock `config.gz` reports `CONFIG_SLUB=y` and `CONFIG_SLUB_DEBUG=y`; neither `CONFIG_SLAB` nor `CONFIG_SLOB` is enabled/recorded. `CONFIG_KASAN`, `CONFIG_SLAB_FREELIST_HARDENED` and `CONFIG_SLAB_FREELIST_RANDOM` were not enabled/recorded. Slab allocator variant is now **actual config**, not inferred from kernel age.
