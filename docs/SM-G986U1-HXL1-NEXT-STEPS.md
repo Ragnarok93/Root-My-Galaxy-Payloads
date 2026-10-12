@@ -1,3 +1,38 @@
+## October 12, 01:07 UTC — QEMU v3 FDT exceeds ARM64 2MiB; setup_arch yield-loop cause narrowed
+
+Owner WSL ran `tools.test_y2q_hxl1_setup_arch_loop_audit`: **15/15 PASS**, SHA-pinned original Image with `printk` recovered at `0xffffff800814f350`, static format pointer `0xffffff800a17415c`, and original source `YIELD; B -4` loop at `0xffffff800a605148/14c` in the nearest recovered `setup_arch`. A plain-ASCII check returned `NO_PLAUSIBLE_PRINTABLE_STRING` for the static format; original Linux printk strings can begin with `KERN_SOH` log level or line breaks, and that check was overly strict. The source `X13/X14` fragments `heck you`/`r bootlo` are consistent with, but do not alone prove, the upstream text mentioning the bootloader.
+
+**Strong externally verified upstream source match:** ARM64 `setup_machine_fdt()` prints an invalid-device-tree message and executes a deliberate `while(true) cpu_relax()` stop loop if `fixmap_remap_fdt()` or `early_init_dt_scan()` rejects the early blob. Its diagnostic states an **FDT maximum of 2MiB**. The owner's v3 actual original-kernel guest FDT declared `2,117,184 (0x204e40)` bytes, exceeding `2,097,152` by **20,032 bytes**. This explains how QEMU's `-dtb` input may have a valid FDT reserve record at guest entry and still fail earlier in the kernel than `memblock_reserve` or UH SMC. The message's reference to a *bootloader* is **about supplying a valid DTB**, not evidence of a physical Samsung OEM unlock check. The exact factory-original conditional path is not independently live-traced, but the source, string fragments, PC and measured size agree. Source references: https://android.googlesource.com/kernel/common/+/19b68814b1cd60c40546f31f7cc5b7895c0b013b/arch/arm64/kernel/setup.c and https://gbmc.googlesource.com/linux/+/777747f634ba765085373f851e9c48dccb12ad52/arch/arm64/kernel/setup.c . Distinguish upstream reference from the OEM Image's measured bytes.
+
+**Implementation committed:** `tools/y2q_hxl1_qemu_fdt_size_recovery.py` exactly pins original `dumpdtb` hash and its 2GiB RAM profile; bounds every FDT section/reservation; trims **only provable trailing zero padding** outside all sections; refuses nonzero tail, changed structure/strings, changed memory semantic inventory or absent removable slack; and writes a separate diagnostic custom `-dtb` copy with a 2MiB **FDT self-reservation only** (not an RKP pool). It does not patch or boot the OEM kernel. Existing bounded QMP sampler gained `--mode compact-canary` which reconstructs and verifies the exact compact DTB and manifest before starting QEMU. Its PC snapshots cannot independently prove guest FDT size or allocator state. Separately, the original loop audit now recognizes bounded factory `printk` formats with optional `KERN_SOH` log level and newlines, without guessing nonprintable content. **12 new FDT-size recovery tests + 2 new printk-format tests** passed; the isolated HXL1 run [#38191018246](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38191018246) was **300/300 PASS**.
+
+Next user run, all on WSL; existing v3 artifacts are not overwritten:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_setup_arch_loop_audit \
+  tools.test_y2q_hxl1_qemu_fdt_size_recovery \
+  tools.test_y2q_hxl1_qemu_memblock_pc_sampler
+
+python3 tools/y2q_hxl1_setup_arch_loop_audit.py \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-memblock-pc-samples-v3-20261012/setup-arch-loop-printk-v2.json"
+
+python3 tools/y2q_hxl1_qemu_fdt_size_recovery.py
+python3 tools/y2q_hxl1_qemu_fdt_size_recovery.py \
+  --verify-dir "$HOME/s20-artifacts/hxl1-research/qemu-fdt-under-2m-20261012"
+
+python3 tools/y2q_hxl1_qemu_memblock_pc_sampler.py \
+  --mode compact-canary \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-pc-compact-fdt-20261012"
+```
+
+This is a **hypothesis-guided size correction**, not a successful guest boot or memblock proof. If the original generated FDT contains no removable padding, it stops and reports the evidence; do not blindly modify its original node structure. If new QMP still sees the source fatal loop, first directly verify the new guest FDT's `totalsize` and original conditional path. If QMP progresses, independently verify the full *runtime* FDT is within 2MiB before resuming allocator probes. Full procedure: [HXL1 early FDT >2MiB stop study](SM-G986U1-HXL1-QEMU-FDT-2M-STOP-20261012.md).
+
+No KernelSU, RKP protected pool, hardware bootloader unlock or device root is established.
+
+---
+
 ## October 12, 00:58 UTC — original HXL1 setup_arch yield/backward-branch loop located
 
 **Owner WSL source-grounded breakthrough:** `tools.test_y2q_hxl1_qemu_pc_attribution` **17/17 PASS** on the owner's WSL. The exact factory `kernel.bin` SHA `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123` was validated. Its reconstructed `VM_BASE=0xffffff8008080000` mapped four identical QMP PC samples at `0xffffff800a60514c` to factory Image offset `0x258514c`. The original Image opcode at PC is **`0x17ffffff`**, an unconditional ARM64 `B` to `0xffffff800a605148`. The word at the target is **`0xd503203f`**, `YIELD`. Original-Image disassembly:
