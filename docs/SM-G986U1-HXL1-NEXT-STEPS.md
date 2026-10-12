@@ -1,3 +1,37 @@
+## October 12, 01:41 UTC — original compact SMC argument and faulting base-register proof gates
+
+**Verified owner evidence:** A real factory-image/offline compact exception audit ran on WSL successfully after **13/13 owner tests passed**. The exact compact input SHA `1530da694b887fbe9918aa922eeafcdaa3ef0c900e6eae279402464b46b83fdd`, **35,168-byte actual guest FDT**, the original stock factory Image and saved QEMU exception log were linked. The compact-mode run retained exactly **three QEMU exception records**, with source ELRs `0xffffff80080a5794` (Samsung SMC), `0xffffff80082ac90c` (read abort FAR `0x58`) and `0xffffff80086de39c` (read abort FAR `0x10`).
+
+**Existing exact factory opcode gate, reused rather than reinvented:** `tools/y2q_hxl1_qemu_secure_monitor_gate.py` previously pinned `d4000003` to `SMC #0`, `f9402eb8` to `LDR x24,[x21,#0x58]` and `a9412149` to `LDP x9,x8,[x10,#0x10]`. The two FARs are consistent with zero base-register values under ordinary address calculations, **not proof** that X21 or X10 equaled zero at the fault. For `LDP` an abort may concern either element at base+0x10 or base+0x18; a FAR `0x10` supports more than one possible base and cannot alone establish a null-pointer failure. No SMC response or causal connection from the SMC to the data aborts has been established.
+
+**New offline tool** `tools/y2q_hxl1_compact_fault_dependencies.py` independently checks that exact source opcode and address correlation against the verified compact input/FDT SHA and *unchanged original exception log*, requiring three unique ELRs and matching ESR/FAR details. It prints specific source base registers and conservative candidate base values; never invents guest register contents, UH command results or RKP memory. The host-only dependencies regression tests were **13/13 PASS in [Actions run #38193078807](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38193078807), 341/341 total isolated tests**.
+
+**New next actual runtime proof tool, isolated original-image guest** `tools/y2q_hxl1_qemu_compact_smc_registers.py` verifies the **owner's 35,168-byte guest FDT capture and compact source before QEMU**. When explicitly run (without `--preflight-only`) it starts the original SHA-pinned HXL1 factory Image under QEMU virt with the exact verified compact `-dtb`, no NIC and no guest writes. It first stops on kernel entry `0x40080000` and verifies `X0=0x48000000,X1=X2=X3=0`; only then it arms a second GDB breakpoint at **`0xffffff80080a5794`**, records actual X0-X6 before executing `SMC #0`, and reads the guest opcode to compare against original `0xd4000003`. Execution is bounded to 30 seconds by default; timeouts preserve the GDB/QEMU log and do not claim success. The script captures **no SMC return**, does not implement Samsung UH, and makes no claim that an RKP allocator is available. This requires a **fresh output directory**, so existing original/compact evidence remains untouched.
+
+Owner procedure (after the full isolated tests pass):
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v \
+  tools.test_y2q_hxl1_compact_fault_dependencies \
+  tools.test_y2q_hxl1_qemu_compact_smc_registers
+
+# No QEMU run: source-attested original compact run's three exception instructions
+python3 tools/y2q_hxl1_compact_fault_dependencies.py
+
+# Read-only original factory QEMU configuration/source preflight
+python3 tools/y2q_hxl1_qemu_compact_smc_registers.py --preflight-only
+
+# Bounded original stock-image QEMU guest: real X0-X6 immediately before SMC
+python3 tools/y2q_hxl1_qemu_compact_smc_registers.py \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-compact-smc-registers-v1-20261012"
+```
+
+The proof that **this compact guest** uses the same Samsung SMC ID/argument convention as the earlier noncompact/independent GDB capture is still pending; do not copy historical X0 values into the new report. Also, the SMC capture will not itself prove the memory-access bases X21/X10; they require a separate fault-instruction breakpoint/exception-state register trace after the SMC ABI is better understood. **Physical bootloader unlock and KernelSU remain blocked.**
+
+---
+
 ## October 12, 01:41 UTC — compact original-image SMC plus two source-verified data aborts
 
 **Owner WSL audit succeeded:** After `git pull --ff-only`, `tools.test_y2q_hxl1_compact_exception_audit` passed **13/13**; the actual SHA-pinned factory HXL1 kernel, source DTB/manifest, 35,168-byte guest runtime FDT, input hash `1530da694b887fbe9918aa922eeafcdaa3ef0c900e6eae279402464b46b83fdd`, and saved compact-mode QEMU trace revalidated. The real report `qemu-pc-compact-fdt-20261012/compact-original-exception-audit.json` establishes **three QEMU exceptions**, including the previously observed `SMC #0` instruction site `0xffffff80080a5794` and data-abort ELRs `0xffffff80082ac90c` and `0xffffff80086de39c`. A present SMC exception **does not prove a functioning Samsung secure monitor**, a successful return, or that it caused a later abort. Linux `memblock.reserved`, UH/RKP pool, userspace boot, hardware unlock and KernelSU remain unverified.
