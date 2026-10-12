@@ -1,3 +1,36 @@
+## October 12 00:46 UTC — QMP guest PC snapshots reveal a repeatable original-Image address
+
+Owner WSL pulled through `2e2a56d`, ran `tools.test_y2q_hxl1_qemu_memblock_pc_sampler` **11/11 PASS**, verified stock factory Image SHA `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123` and v3 `DELIVERED_AND_FULLY_COVERED` canary, then ran the **actual** bounded v3 QMP CPU-state sampler. Four snapshots taken at approximately 2.4, 4.8, 7.2 and 9.6 s all returned:
+
+```text
+[PC OBSERVATION] SAME_PC_IN_MULTIPLE_SNAPSHOTS
+[PC SERIES] 0xffffff800a60514c repeated four times
+[CPU STATE] EL1h, PSTATE=600001c5, reported running
+[X16] 0xffffff800a605148
+[X30] 0xffffff800a605148
+[X20] 0x48000000 (previously measured FDT physical pointer)
+[QEMU EXCEPTIONS] empty (0 bytes in this particular run)
+[samplingError] null
+```
+
+Other saved register details include `X00=0xcb`, `X01=0xffffff800b234335`, `X02=0xffffffffffffffc5`, `X06=0xffffff800b237463`, `X13=0x756f79206b636568` and `X14=0x6f6c746f6f622072`. The latter two decode to little-endian ASCII **fragments** `"heck you"` and `"r bootlo"`; those fragments alone do **not** identify a complete string, a panic, or any bootloader condition. The reproduced register context is promising, but a repeatable PC on samples alone cannot establish whether a loop, wait, repeated reset, unsupported platform or other control flow is responsible. The QMP sampler did not independently attest kernel entry, although separate original GDB v2 evidence did. No guest ESR/FAR/ELR were exposed by `info registers` in this run.
+
+The sample PC `0xffffff800a60514c` maps under the **reconstructed, unverified live-VA** `VM_BASE=0xffffff8008080000` to *candidate original factory Image offset* **`0x258514c`**. `X16` and `X30` are each **4 bytes before** PC. Source pointer candidates `X01` and `X06` also lie inside the previous original Image length; their actual OEM bytes must be inspected before quoting strings. These observations do **not** prove a bootloader check or rootability.
+
+**New SHA-pinned, read-only next tool:** `tools/y2q_hxl1_qemu_pc_attribution.py` validates the retained QMP raw registers against saved PC sequence, rechecks exact factory `kernel.bin` SHA, correlates the address to original bytes and the nearest *reconstructed* `vmlinux-stock.nm` text symbol, disassembles local AArch64 instructions with `aarch64-linux-gnu-objdump` when installed, and cautiously extracts only printable **NUL-terminated** strings from original Image offsets held in selected registers. It also prints `X13/X14` as byte fragments without guessing missing bytes. No guest execution is needed, no firmware is written, and neither candidate symbols nor factory bytes alone prove the live guest instruction at PC.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_pc_attribution
+python3 tools/y2q_hxl1_qemu_pc_attribution.py
+cat "$HOME/s20-artifacts/hxl1-research/qemu-memblock-pc-samples-v3-20261012/original-pc-attribution.json"
+```
+
+The report must preserve the original **candidate vs runtime** uncertainty. A future, narrowly bounded GDB live-opcode read or comparative baseline PC sample may be justified *after* inspecting actual OEM function bytes. Do **not** modify RKP RAM, reinterpret `memblock_reserve` as proven, or return to the completed FDT canary experiment.
+
+---
+
 ## October 12, 00:34 UTC — stock kernel entered; post-entry timeout and below-RAM read
 
 The owner ran **16/16** updated memblock-probe host tests PASS and the offline v1 audit:
