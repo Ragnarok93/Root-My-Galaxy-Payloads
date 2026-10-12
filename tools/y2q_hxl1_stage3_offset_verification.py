@@ -83,7 +83,45 @@ def factory_words(raw:bytes,base:int=original.TEXT_VA):
     insist(len(found)==31,"31 factory words were not validated")
     return found
 
-def verify_rea_dossiers(slices:Path,rea:Path)->dict:
+def verify_rea_slice_against_original(name:str,record:dict,elf:bytes,original_image:bytes)->dict:
+    """Factory Image vs owner archived isolated ELF: exact original code bytes.
+
+    A manifest SHA on a generated ELF authenticates the *file*, but does not
+    establish that the ELF's code is the stock-HXL1 kernel. Cross-check the
+    code bytes against independently SHA-pinned original kernel.bin, including
+    the formerly not cross-checked futex_lock_pi Ghidra input.
+    """
+    bounds={
+        **{key:(int(va,16),length) for key,(va,length,_,_) in prior.ELFS.items()},
+        "futex_lock_pi":(0xffffff8008191984,2216),
+    }
+    insist(name in bounds,"unexpected Ghidra slice label")
+    address,length=bounds[name]
+    source_offset=address-original.TEXT_VA
+    insist(record.get("symbolVA")==hex(address),
+           "REA function VA does not match original HXL1 symbol: "+name)
+    declared=record.get("isolatedCode",{})
+    insist(declared.get("stockBytes")==length,
+           "REA stock code slice length not factory-bound: "+name)
+    insist(0<=source_offset<=len(original_image)-length,
+           "REA source code exceeds original Image bounds: "+name)
+    insist(len(elf)>=4096+length and elf[:6]==b"\x7fELF\x02\x01" and
+           int.from_bytes(elf[18:20],"little")==183,
+           "REA isolated subject not the pinned AArch64 ELF: "+name)
+    actual=elf[4096:4096+length]
+    expected=original_image[source_offset:source_offset+length]
+    insist(actual==expected,
+           "REA archived Ghidra function code differs from original factory Image: "+name)
+    digest=hashlib.sha256(expected).hexdigest()
+    insist(declared.get("originalBytesSha256")==digest,
+           "REA declared original code digest differs from kernel.bin: "+name)
+    return {"symbolVA":hex(address),"stockCodeBytes":length,
+            "originalKernelFunctionBytesSha256":digest,
+            "archivedGhidraInputMatchesOriginalFactoryImage":True,
+            "completeOriginalCFieldDefUseProven":False}
+
+
+def verify_rea_dossiers(slices:Path,rea:Path,original_image:bytes|None=None)->dict:
     """Independently re-read all three genuine bounded Ghidra instruction records."""
     rows={}
     with zipfile.ZipFile(slices) as zs, zipfile.ZipFile(rea) as zr:
@@ -100,6 +138,8 @@ def verify_rea_dossiers(slices:Path,rea:Path)->dict:
             json_name="rea-slice-"+name+"-"+va+".json"
             elf=zs.read(elf_name)
             insist(len(elf)<64*1024,"unbounded REA ELF")
+            original_slice=(verify_rea_slice_against_original(name,record,elf,original_image)
+                            if original_image is not None else None)
             sha=hashlib.sha256(elf).hexdigest()
             insist(sha==record["isolatedCode"]["sha256"],
                    "REA code slice digest mismatch "+name)
@@ -126,7 +166,8 @@ def verify_rea_dossiers(slices:Path,rea:Path)->dict:
             rows[name]={"ghidraInstructionCount":len(instructions),
                         "sourceElfSha256":sha,
                         "actualGhidraRecordsIndependentlyChecked":True,
-                        "sourceToCMemberFullDefUseCertified":False}
+                        "sourceToCMemberFullDefUseCertified":False,
+                        "originalStockByteAttestation":original_slice}
         insist(set(rows)=={"remove_waiter","rt_mutex_start_proxy_lock","futex_lock_pi"},
                "Three original Ghidra dossiers required")
     return rows
@@ -202,7 +243,7 @@ def audit(artifacts:Path,source:Path,comparison:Path,build:Path,
     if slices.is_file() and rea.is_file() and not slices.is_symlink() and not rea.is_symlink():
         result=prior.attest(slices,rea,source=source)
         insist(result["witnessCount"]==31,"REA archived evidence witness mismatch")
-        dossiers=verify_rea_dossiers(slices,rea)
+        dossiers=verify_rea_dossiers(slices,rea,raw)
         rea_state={"state":"31_ORIGINAL_OPCODE_WITNESSES_REA_ATTESTED",
                    "slicesSha256":port.sha256(slices),
                    "reaSha256":port.sha256(rea),
