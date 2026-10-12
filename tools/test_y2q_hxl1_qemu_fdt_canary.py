@@ -197,6 +197,65 @@ class FdtCanaryTests(unittest.TestCase):
             self.probe(override=override,manifest=altered,
                        guest=override,log=gdblog(override))
 
+
+    def test_prelaunch_v3_measured_canary_validates_exactly(self):
+        # Regression for owner's actual v3 prelaunch rejection: the reserve
+        # can exceed the *override* DTB size when QEMU expands guest FDT.
+        override,manifest=canary.make_canary(self.orig,False,2117632)
+        from unittest.mock import patch
+        with patch.object(canary,"SOURCE_SHA",hashlib.sha256(self.orig).hexdigest()):
+            verified=canary.verify_existing_canary(self.orig,override,manifest)
+        self.assertEqual(verified["addedMemreserve"]["sizeBytes"],2117632)
+        self.assertEqual(verified["selfReservationExplicitGuestMeasuredBytes"],2117632)
+        self.assertEqual(verified["overrideFdtSha256"],
+                         hashlib.sha256(override).hexdigest())
+        self.assertFalse(verified["rkpProtectedPoolReserved"])
+
+    def test_prelaunch_v3_manifest_and_fdt_tamper_refused(self):
+        override,manifest=canary.make_canary(self.orig,False,2117632)
+        modified=copy.deepcopy(manifest)
+        modified["addedMemreserve"]["sizeBytes"]=1052672
+        with self.assertRaisesRegex(canary.CanaryError,"manifest"):
+            canary.verify_existing_canary(self.orig,override,modified,False)
+        modified=copy.deepcopy(manifest)
+        modified["selfReservationExplicitGuestMeasuredBytes"]=None
+        with self.assertRaises(canary.CanaryError):
+            canary.verify_existing_canary(self.orig,override,modified,False)
+        tampered=bytearray(override)
+        struct.pack_into(">I",tampered,28,2)
+        with self.assertRaisesRegex(canary.CanaryError,"bytes"):
+            canary.verify_existing_canary(self.orig,bytes(tampered),manifest,False)
+        with self.assertRaisesRegex(canary.CanaryError,"integer"):
+            canary.verify_existing_canary(
+                self.orig,override,
+                {**manifest,"selfReservationExplicitGuestMeasuredBytes":True},False)
+
+    def test_prelaunch_script_uses_exact_reconstruction_not_minimum_reserve(self):
+        sh=CAPTURE.read_text()
+        self.assertIn('--verify-dir "$CANARY_DIR"',sh)
+        self.assertIn('y2q_hxl1_qemu_fdt_canary.py',sh)
+        self.assertNotIn('struct.unpack_from(">QQ",blob,off_rsv)!=(0x48000000,',sh)
+        self.assertLess(sh.index("--verify-dir"),sh.index('mkdir -p -- "$OUT"'))
+
+    def test_prelaunch_cli_refuses_unpinned_source_before_qemu(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            d=root/"canary"
+            d.mkdir()
+            (root/"source.dtb").write_bytes(self.orig)
+            (d/"canary-override.dtb").write_bytes(self.override)
+            (d/"canary-construction.json").write_text(
+                __import__("json").dumps(self.manifest))
+            res=subprocess.run([
+                sys.executable,str(Path(canary.__file__).resolve()),
+                "--source",str(root/"source.dtb"),
+                "--verify-dir",str(d)],
+                capture_output=True,text=True,timeout=10)
+            self.assertEqual(res.returncode,2)
+            self.assertIn("SHA mismatch",res.stderr)
+            self.assertEqual(sorted(p.name for p in d.iterdir()),
+                             ["canary-construction.json","canary-override.dtb"])
+
     def test_guest_without_canary_fails_closed(self):
         with self.assertRaisesRegex(verify.DeliveryError,"not present exactly"):
             self.probe(guest=self.baseline,log=gdblog(self.baseline))
