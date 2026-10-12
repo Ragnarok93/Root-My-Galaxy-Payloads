@@ -1,3 +1,38 @@
+## October 12, 00:58 UTC — original HXL1 setup_arch yield/backward-branch loop located
+
+**Owner WSL source-grounded breakthrough:** `tools.test_y2q_hxl1_qemu_pc_attribution` **17/17 PASS** on the owner's WSL. The exact factory `kernel.bin` SHA `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123` was validated. Its reconstructed `VM_BASE=0xffffff8008080000` mapped four identical QMP PC samples at `0xffffff800a60514c` to factory Image offset `0x258514c`. The original Image opcode at PC is **`0x17ffffff`**, an unconditional ARM64 `B` to `0xffffff800a605148`. The word at the target is **`0xd503203f`**, `YIELD`. Original-Image disassembly:
+
+```asm
+0xffffff800a60512c: sub x0, x9, x8
+0xffffff800a605130: b   0xffffff800a605160   // an edge skipping the loop block
+0xffffff800a605134: adrp x0, 0xffffff800a174000
+0xffffff800a605138: add x1, sp, #0x18
+0xffffff800a60513c: add x0, x0, #0x15c
+0xffffff800a605140: mov x2, x19
+0xffffff800a605144: bl  0xffffff800814f350   // callee not yet source identified
+0xffffff800a605148: yield
+0xffffff800a60514c: b   0xffffff800a605148
+0xffffff800a605150: adrp x8, 0xffffff800a4c7000
+0xffffff800a605160: bl  0xffffff80080abf88
+```
+
+The **original factory source contains a demonstrable two-instruction `yield; b yield` loop**, and the owner's four running-CPU samples were all within that loop at the branch instruction, with `X16=X30=0xffffff800a605148`. The nearest lower-or-equal *reconstructed* `vmlinux-stock.nm` symbol is `setup_arch` at `0xffffff800a604f88`, **offset `+0x1c4`**, but reconstructed name/extent must not be treated as independently validated live runtime symbols. The loop source bytes and PC samples together **strongly support** stalling in that branch rather than a simple inability to hit `memblock_reserve`; nonetheless the original live guest opcode bytes have not yet been read to independently exclude changed code mapping or other execution artifacts.
+
+The preceding `BL` targets `0xffffff800814f350`, factory Image offset `0xcf350`. The `ADRP x0` at `0xffffff800a605134` followed by `ADD x0,#0x15c` at `...513c` constructs a candidate static data pointer `0xffffff800a17415c` (factory Image offset `0x20f415c`). **Do not guess the callee type, message text or condition** until these original bytes are independently decoded. `X13/X14` only held ASCII fragments `"heck you"` and `"r bootlo"`, which are not proof of a complete message or bootloader defect. An unconditional skip edge at `0xffffff800a605130` reaches `0xffffff800a605160` *without entering the loop*; the predecessor condition selecting the block remains unresolved.
+
+**Implementation committed:** `tools/y2q_hxl1_setup_arch_loop_audit.py` performs a strictly host-only original SHA-pinned factory-Image check, decodes the YIELD/B loop, preceding BL target, ADRP+ADD static pointer, nearby branch to skip the block, original code bytes and closest recovered symbol; if the original file does not contain that exact loop, the CLI refuses a positive result. It saves a new `setup-arch-loop-callee-audit.json` without overwriting owner evidence or running QEMU. `tools/test_y2q_hxl1_setup_arch_loop_audit.py` contains 15 new regression cases and is wired into the isolated HXL1 workflow. CI result and owner run are tracked separately.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_setup_arch_loop_audit
+python3 tools/y2q_hxl1_setup_arch_loop_audit.py
+```
+
+**Next concrete decision:** identify exact call target and static message from the original Image/symbols. Compare the condition selecting the fatal block against verified early boot state, rather than creating another RKP memory model or changing the guest instructions prematurely. Existing FDT canary delivery remains proven; Linux memblock exclusion, UH RKP secure memory, physical bootloader unlock and KernelSU are not established.
+
+---
+
 ## October 12 00:46 UTC — QMP guest PC snapshots reveal a repeatable original-Image address
 
 Owner WSL pulled through `2e2a56d`, ran `tools.test_y2q_hxl1_qemu_memblock_pc_sampler` **11/11 PASS**, verified stock factory Image SHA `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123` and v3 `DELIVERED_AND_FULLY_COVERED` canary, then ran the **actual** bounded v3 QMP CPU-state sampler. Four snapshots taken at approximately 2.4, 4.8, 7.2 and 9.6 s all returned:
