@@ -205,7 +205,17 @@ def audit_saved_probe(root:Path)->dict:
                  if any(term in line.lower() for term in (
                      "breakpoint", "remote", "target", "error", "memory",
                      "cannot", "warning", "timed", "entry", "smc"))]
+    trace=root/"qemu-exceptions.log"
+    exception_tail=""
+    exception_size=0
+    if trace.is_file() and not trace.is_symlink():
+        exception_size=trace.stat().st_size
+        with trace.open("rb") as fh:
+            fh.seek(max(0,exception_size-4096))
+            exception_tail=fh.read(4096).decode("utf8","replace")[-2000:]
     return {"status":"OFFLINE_DIAGNOSTICS_ONLY",
+            "qemuExceptionLogBytes":exception_size,
+            "qemuExceptionLogTail":exception_tail,
             "gdbExitCode":exit_value,
             "gdbLogLines":len(prior.splitlines()),
             "timeoutObserved":"GDB_BOUNDED_TIMEOUT" in prior or exit_value=="124",
@@ -250,8 +260,9 @@ def execute(out:Path,root:Path,kernel:Path,can:Path,sym:dict,port:int,seconds:in
         "-kernel",str(kernel),"-dtb",str(can/"canary-override.dtb"),
         "-append","earlycon=pl011,0x09000000 console=ttyAMA0 loglevel=8 ignore_loglevel nokaslr",
         "-display","none","-serial",f"file:{out/'serial.log'}",
-        "-monitor","none","-no-reboot","-nic","none","-S",
-        "-gdb",f"tcp:127.0.0.1:{port}"]
+        "-monitor","none","-no-reboot","-nic","none",
+        "-d","int,guest_errors","-D",str(out/"qemu-exceptions.log"),
+        "-S","-gdb",f"tcp:127.0.0.1:{port}"]
     (out/"qemu-argv.json").write_text(json.dumps(qemu_cmd,indent=2)+"\n")
     with (out/"qemu.log").open("wb") as ql:
         proc=subprocess.Popen(qemu_cmd,stdout=ql,stderr=subprocess.STDOUT)
@@ -267,8 +278,9 @@ def execute(out:Path,root:Path,kernel:Path,can:Path,sym:dict,port:int,seconds:in
                 log=r.stdout+"\n"+r.stderr
                 rc=r.returncode
             except subprocess.TimeoutExpired as e:
-                log=(e.stdout or b"").decode("utf8","replace") if isinstance(e.stdout,bytes) else (e.stdout or "")
-                log+="\nGDB_BOUNDED_TIMEOUT\n"
+                stdout=(e.stdout or b"").decode("utf8","replace") if isinstance(e.stdout,bytes) else (e.stdout or "")
+                stderr=(e.stderr or b"").decode("utf8","replace") if isinstance(e.stderr,bytes) else (e.stderr or "")
+                log=stdout+"\n"+stderr+"\nGDB_BOUNDED_TIMEOUT\n"
                 rc=124
         finally:
             proc.terminate()
@@ -277,9 +289,18 @@ def execute(out:Path,root:Path,kernel:Path,can:Path,sym:dict,port:int,seconds:in
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait(timeout=3)
-    (out/"gdb.log").write_text(log)
+    (out/"gdb.log").write_text(log[-1024*1024:])
     (out/"gdb-exit-code.txt").write_text(str(rc)+"\n")
     result=parse_gdb(log,sym)
+    trace=out/"qemu-exceptions.log"
+    result["qemuExceptionLogPresent"]=trace.is_file()
+    if trace.is_file():
+        # Never load potentially unbounded exception-loop logs into memory.
+        with trace.open("rb") as handle:
+            handle.seek(max(0,trace.stat().st_size-4096))
+            tail=handle.read(4096).decode("utf8","replace")
+        result["qemuExceptionLogBytes"]=trace.stat().st_size
+        result["qemuExceptionTail"]=tail[-3000:]
     result.update({"target":"SM-G986U1/G986U1UESCHXL1","statusCode":rc,
         "originalImageSha256":KERNEL_SHA,"sourceVerifiedV3":True,
         "factoryKernelUnmodified":True,"physicalDeviceTouched":False,
