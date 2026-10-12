@@ -1,3 +1,26 @@
+## 2026-10-12 02:02 — live compact-X21 null-base read corroborates earlier FAR=0x58
+
+**Actual owner WSL output, after the now valid-size guest FDT (35,168 bytes):** 27/27 host tests PASS. Original HXL1 source + compact SMC ABI was independently rechecked: `X0=0xc300c002` represents `UH_APP_RKP`, `X1=0x15` is `RKP_GET_RKP_GET_BUFFER_BITMAP`, X2 matches recovered `rkp_s_bitmap_buffer`, and X3 is 0x40000000. X6 0x3f is **not** an established `uh_call` argument. No guest bitmap response/pointer write was witnessed.
+
+A separate bounded **actual original-image QEMU GDB run** (compact input SHA `1530da694b887fbe9918aa922eeafcdaa3ef0c900e6eae279402464b46b83fdd`) stopped at the original `SMC #0` and then immediately before original `LDR x24,[x21,#0x58]`, `PC=0xffffff80082ac90c` (live opcode `0xf9402eb8`). **X21 was actually `0x0`**, so the prospective load address is `0x58`. A different, earlier complete compact-guest QEMU run reported Data Abort `ELR=0xffffff80082ac90c, FAR=0x58`. This is strong **cross-run** corroboration of a null-base dereference, **not an abort observed by this particular halted debugger run**. The same-session GDB breakpoint at `SMC+4` **did not fire**, so ordinary SMC return/continuation and successful UH response remain unverified. An upstream caller/branch trace is still needed before tying X21=0 to a specific missing UH bitmap response.
+
+The source-`memblock` allocator exclusion and a physically reserved/secure RKP carveout remain unobserved; none of the prior host C-model pool examples are a real QEMU guest allocation. The exact owner X21 files are under `~/s20-artifacts/hxl1-research/qemu-compact-fault-x21-v1-20261012/`. `tools/y2q_hxl1_compact_fault_live_attribution.py` was added to re-verify that GDB data against original factory opcode bytes, recovered nearest symbol/source disassembly and the **separate** original QEMU exception evidence. The second fault uses `LDP x9,x8,[x10,#0x10]` at `0xffffff80086de39c` and still requires actual X10 before the load.
+
+To advance with no new FDT experiments:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_compact_fault_live_attribution
+python3 tools/y2q_hxl1_compact_fault_live_attribution.py --target x21
+python3 tools/y2q_hxl1_qemu_compact_fault_regs.py --target x10 \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-compact-fault-x10-v1-20261012"
+```
+
+No current evidence authorizes a fabricated RKP bitmap response, guessed source struct offsets, a fake carveout, handset bootloader changes or KernelSU deployment.
+
+---
+
 ## 2026-10-12 01:50 — source-verified RKP bitmap request on verified compact guest
 
 The owner completed an **actual** fresh compact-FDT QEMU/GDB breakpoint capture of the original SHA-256-pinned HXL1 factory Image (kernel SHA `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`) after prevalidating the exact compact DTB input SHA `1530da694b887fbe9918aa922eeafcdaa3ef0c900e6eae279402464b46b83fdd` and the previously complete **35,168-byte guest FDT**. The 24/24 local offline/regression tests passed. Unlike the earlier original-config capture, this is evidence from the corrected, compact-DTB original-kernel run.
