@@ -26,6 +26,22 @@ ORIGINAL_TEXT="""int FUN_00068810(int param_1,int param_2) {
      iVar4 = 1;
  }
  return iVar4;
+ /* synthetic local Ghidra context 1 */
+ /* synthetic local Ghidra context 2 */
+ /* synthetic local Ghidra context 3 */
+ /* synthetic local Ghidra context 4 */
+ /* synthetic local Ghidra context 5 */
+ /* synthetic local Ghidra context 6 */
+ /* synthetic local Ghidra context 7 */
+ /* synthetic local Ghidra context 8 */
+ /* synthetic local Ghidra context 9 */
+ /* synthetic local Ghidra context 10 */
+ /* synthetic local Ghidra context 11 */
+ /* synthetic local Ghidra context 12 */
+ /* synthetic local Ghidra context 13 */
+ /* synthetic local Ghidra context 14 */
+ /* synthetic local Ghidra context 15 */
+ /* synthetic local Ghidra context 16 */
 }"""
 
 
@@ -123,11 +139,8 @@ class Hxl1EmcStatusTests(unittest.TestCase):
             ev["normalized_result"]=[x.replace(old,new) for x in ev["normalized_result"]]
             with self.subTest(addr=old),self.assertRaises(TriageError):
                 mod.verify_original_BLGetStatus(fn(mod.ROOT,ORIGINAL_TEXT),ev,
-                                                {**k,"native":{"nativeEvidenceId":ev["evidence_id"]}}
-                                                if False else {
-                                                  "source":k["source"],
-                                                  "native":{"nativeEvidenceId":ev["evidence_id"]},
-                                                })
+                                                {"source":k["source"],
+                                                 "native":{"nativeEvidenceId":ev["evidence_id"]}})
 
     def test_unknown_native_gap_between_request_arguments_fails(self):
         ev=native(mod.ROOT)
