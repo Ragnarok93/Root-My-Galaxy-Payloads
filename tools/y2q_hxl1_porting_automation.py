@@ -74,7 +74,8 @@ def check_factory_inputs(artifacts:Path)->dict:
                       "expectedSha256":pin,"actualSha256":measured}
     return checks
 
-def tasks(repo:Path,artifacts:Path,source:Path,out:Path,ndk:Path|None)->list[Step]:
+def tasks(repo:Path,artifacts:Path,source:Path,out:Path,ndk:Path|None,*,
+          rea_ghidra:bool=False,rea_cli:Path|None=None,rea_node:str="node")->list[Step]:
     script=lambda n:str(repo/"tools"/n)
     path=lambda name:str(out/name)
     scan=path("05-cve-source-candidate.json")
@@ -83,7 +84,7 @@ def tasks(repo:Path,artifacts:Path,source:Path,out:Path,ndk:Path|None)->list[Ste
     ndk_arg=str(ndk) if ndk else str(out/"MISSING_NDK")
     # All output paths are in this run's fresh directory; a step never
     # attempts to overwrite earlier forensic reports.
-    return [
+    planned=[
         Step("01_readiness",1,script("y2q_porting_readiness.py"),
              ("--source",str(source),"--artifacts",str(artifacts),"--repo",str(repo),
               "--output",path("01-port-readiness.json")),path("01-port-readiness.json"),
@@ -157,6 +158,25 @@ def tasks(repo:Path,artifacts:Path,source:Path,out:Path,ndk:Path|None)->list[Ste
              path("06-hxl1-diagnostics-only.zip"),
              dependencies=("05_source_candidate","06_build_identity_only"),optional=True),
     ]
+    if rea_ghidra:
+        rea_path=rea_cli or Path.home()/"src/rea/scripts/rea.mjs"
+        args=("--verified-stage3-report",path("03-factory-field-evidence.json"),
+              "--artifacts",str(artifacts),"--source",str(source),
+              "--slices",str(Path.home()/"HXL1-Stage3-Code-Slices.zip"),
+              "--rea-archive",str(Path.home()/"HXL1-Stage3-REA-Evidence.zip"),
+              "--rea",str(rea_path),"--node",rea_node,"--timeout","120",
+              "--output-dir",path("03-live-rea-ghidra"),"--execute")
+        active=Step("03_live_rea_ghidra",3,
+                    script("y2q_hxl1_stage3_rea_live_review.py"),args,
+                    path("03-live-rea-ghidra/live-stage3-rea-review.json"),
+                    dependencies=("03_field_offset_evidence","03_member_flow_worklist"),
+                    inputs=(str(rea_path),
+                            str(Path.home()/"HXL1-Stage3-Code-Slices.zip"),
+                            str(Path.home()/"HXL1-Stage3-REA-Evidence.zip")),
+                    optional=True)
+        pos=next(i for i,x in enumerate(planned) if x.id=="03_export_table")
+        planned.insert(pos,active)
+    return planned
 
 def validate_plan(steps:list[Step],out:Path,repo:Path,source:Path)->None:
     ids=[s.id for s in steps]
@@ -170,7 +190,11 @@ def validate_plan(steps:list[Step],out:Path,repo:Path,source:Path)->None:
             raise PipelineError("Invalid dependency order in "+s.id)
         if s.output:
             p=Path(s.output)
-            if p.parent!=out or p.is_symlink():
+            if p.is_symlink() or not (
+                p.parent==out or (
+                    s.id=="03_live_rea_ghidra" and
+                    p.parent==out/"03-live-rea-ghidra" and
+                    not p.parent.is_symlink())):
                 raise PipelineError("Refuse external/symlinked output")
         previous.add(s.id)
     if out==source or source in out.parents or out==repo or repo in out.parents:
@@ -207,9 +231,12 @@ def run_step(step:Step, statuses:dict[str,str],log_dir:Path,
                       reason="Verified Android NDK path is not available")
         return result
     try:
+        # Six separately bounded native/function REA queries can exceed the
+        # quick audit timeout. 900s is a hard outer limit for this stage.
+        duration=max(timeout,900) if step.id=="03_live_rea_ghidra" else timeout
         proc=subprocess.run([sys.executable,step.script,*step.args],
                             cwd=REPO,capture_output=True,text=True,
-                            timeout=timeout,env=env,check=False)
+                            timeout=duration,env=env,check=False)
         result["exitCode"]=proc.returncode
         content=safe_text(proc.stdout+"\n"+proc.stderr)
         (log_dir/(step.id+".log")).write_text(content)
@@ -285,6 +312,10 @@ def main()->int:
         Path(os.environ["ANDROID_NDK_HOME"]) if os.environ.get("ANDROID_NDK_HOME") else None))
     p.add_argument("--output-dir",type=Path,default=None)
     p.add_argument("--timeout-per-step",type=int,default=150)
+    p.add_argument("--rea-ghidra",action="store_true",
+                   help="Execute fresh REA/Ghidra native plus decompiler review of 3 original HXL1 kernel slices")
+    p.add_argument("--rea-cli",type=Path,default=Path.home()/"src/rea/scripts/rea.mjs")
+    p.add_argument("--rea-node",default="node")
     a=p.parse_args()
     try:
         if not 20<=a.timeout_per_step<=900:
@@ -295,7 +326,10 @@ def main()->int:
         stamp=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         out=(a.output_dir.expanduser().absolute() if a.output_dir
              else artifacts/"hxl1-research"/("port-automation-"+stamp))
-        pipeline=tasks(REPO,artifacts,source,out,ndk)
+        pipeline=tasks(REPO,artifacts,source,out,ndk,
+                       rea_ghidra=a.rea_ghidra,
+                       rea_cli=a.rea_cli.expanduser().absolute(),
+                       rea_node=a.rea_node)
         validate_plan(pipeline,out,REPO,source)
         for row in pipeline:
             print("[PLAN]",row.id,"stage",row.stage,
