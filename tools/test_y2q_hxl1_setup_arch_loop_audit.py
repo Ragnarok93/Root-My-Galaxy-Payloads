@@ -122,6 +122,23 @@ class SetupArchLoopAuditTests(unittest.TestCase):
         with self.assertRaises(a.LoopAuditError):
             a.read_prior_report(record,words(),symbols())
 
+    def test_linux_printk_kern_soh_format_with_newlines(self):
+        sample=bytearray(words())
+        off=STRING-a.VM_BASE
+        data=b"\x013\nError: invalid device tree blob: size=%d\\nPlease check your bootloader.\n\0"
+        sample[off:off+len(data)]=data
+        decoded=a.candidate_printk_format(bytes(sample),STRING)
+        self.assertEqual(decoded["status"],"CANDIDATE_ORIGINAL_PRINTK_FORMAT")
+        self.assertEqual(decoded["kernelSohLogLevelDigit"],"3")
+        self.assertIn("check your bootloader",decoded["formatString"])
+        self.assertIn("NOT_LIVE_PRINTK_OUTPUT",decoded["source"])
+
+    def test_printk_rejects_invalid_control_and_missing_terminator(self):
+        self.assertEqual(a.candidate_printk_format(b"\x01\x1fabc\0",a.VM_BASE)
+                         ["status"],"INVALID_OR_NON_TEXT_PRINTK_FORMAT")
+        self.assertEqual(a.candidate_printk_format(b"X"*32,a.VM_BASE,8)
+                         ["status"],"NOT_NUL_TERMINATED_WITHIN_BOUND")
+
     def test_source_image_bytes_out_of_range_refused(self):
         with self.assertRaisesRegex(a.LoopAuditError,"not backed"):
             a.get_word(words(),a.VM_BASE+0x20000)
