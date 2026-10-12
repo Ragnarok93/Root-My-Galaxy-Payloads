@@ -9,6 +9,9 @@ from __future__ import annotations
 import argparse
 from datetime import datetime,timezone
 import json
+import re
+import hashlib
+import zipfile
 from pathlib import Path
 import subprocess
 import shutil
@@ -79,6 +82,54 @@ def factory_words(raw:bytes,base:int=original.TEXT_VA):
     insist(len(found)==31,"31 factory words were not validated")
     return found
 
+def verify_rea_dossiers(slices:Path,rea:Path)->dict:
+    """Independently re-read all three genuine bounded Ghidra instruction records."""
+    rows={}
+    with zipfile.ZipFile(slices) as zs, zipfile.ZipFile(rea) as zr:
+        manifest=json.loads(zr.read("stage3-rea-correlation.json"))
+        insist(manifest.get("status")=="STATIC_CODE_CORRELATION_ONLY" and
+               manifest.get("firmware")=="G986U1UESCHXL1" and
+               manifest.get("originalKernelSha256")==prior.ORIGINAL_IMAGE_SHA,
+               "REA index firmware/status mismatch")
+        for name,record in manifest["functions"].items():
+            insist(name in ("remove_waiter","rt_mutex_start_proxy_lock","futex_lock_pi"),
+                   "REA dossier names unexpectedly changed")
+            va=record["symbolVA"][2:]
+            elf_name="isolated-"+name+"-"+va+".elf"
+            json_name="rea-slice-"+name+"-"+va+".json"
+            elf=zs.read(elf_name)
+            insist(len(elf)<64*1024,"unbounded REA ELF")
+            sha=hashlib.sha256(elf).hexdigest()
+            insist(sha==record["isolatedCode"]["sha256"],
+                   "REA code slice digest mismatch "+name)
+            doc=json.loads(zr.read(json_name))
+            insist(doc.get("operation")=="read_function_instructions" and
+                   doc.get("provider",{}).get("id")=="ghidra" and
+                   doc.get("subject",{}).get("digest",{}).get("sha256")==sha and
+                   doc.get("parameters",{}).get("procedure")=="0x10000",
+                   "REA original Ghidra evidence provenance mismatch "+name)
+            instructions=doc.get("normalized_result",{}).get("instructions")
+            expected=record["reaInstructionCount"]
+            insist(isinstance(instructions,list) and len(instructions)==expected and
+                   0<len(instructions)<2048,"REA dossier instruction count mismatch "+name)
+            size=record["isolatedCode"]["stockBytes"]
+            observed=set()
+            for line in instructions:
+                match=re.match(r"^(0x[0-9a-fA-F]+):\s+.+$",line) if isinstance(line,str) else None
+                insist(match is not None,"Malformed Ghidra instruction in "+name)
+                address=int(match.group(1),16)
+                insist(address>=0x10000 and address<0x10000+size and
+                       (address-0x10000)%4==0 and address not in observed,
+                       "REA instruction escaped/duplicated isolated original code")
+                observed.add(address)
+            rows[name]={"ghidraInstructionCount":len(instructions),
+                        "sourceElfSha256":sha,
+                        "actualGhidraRecordsIndependentlyChecked":True,
+                        "sourceToCMemberFullDefUseCertified":False}
+        insist(set(rows)=={"remove_waiter","rt_mutex_start_proxy_lock","futex_lock_pi"},
+               "Three original Ghidra dossiers required")
+    return rows
+
 def audit(artifacts:Path,source:Path,comparison:Path,build:Path,
           slices:Path,rea:Path):
     pinned=port.check_factory_inputs(artifacts)
@@ -92,9 +143,11 @@ def audit(artifacts:Path,source:Path,comparison:Path,build:Path,
     if slices.is_file() and rea.is_file() and not slices.is_symlink() and not rea.is_symlink():
         result=prior.attest(slices,rea,source=source)
         insist(result["witnessCount"]==31,"REA archived evidence witness mismatch")
+        dossiers=verify_rea_dossiers(slices,rea)
         rea_state={"state":"31_ORIGINAL_OPCODE_WITNESSES_REA_ATTESTED",
                    "slicesSha256":port.sha256(slices),
                    "reaSha256":port.sha256(rea),
+                   "savedGhidraDossiers":dossiers,
                    "memberSpecificFactoryDefUseProven":False}
     else:rea_state={"state":"OWNER_REA_ARCHIVES_UNAVAILABLE",
                      "memberSpecificFactoryDefUseProven":False}
