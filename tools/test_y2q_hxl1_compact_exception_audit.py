@@ -86,6 +86,24 @@ class CompactExceptionAuditTests(unittest.TestCase):
         self.assertEqual(r["retainedEventCount"],4)
         self.assertTrue(r["samplesTruncatedToLimit"])
 
+    def test_retain_late_known_smc_and_faults_after_repetitive_early_exceptions(self):
+        boring=(
+            "Taking exception 4 [Data Abort] on CPU 0\n"
+            "...with ESR 0x25/0x96000005\n"
+            "...with FAR 0x20\n"
+            "...with ELR 0xffffff8008100000\n"
+        ).encode()
+        raw=boring*100+TRACE+boring*100
+        result=a.extract_event_log(raw,limit=6)
+        self.assertEqual(result["totalExceptionMarkers"],203)
+        self.assertLessEqual(len(result["events"]),6)
+        self.assertEqual(result["knownSourceElrsEncounteredInFullLog"],
+                         [hex(a.SMC_PC),hex(a.KNOWN_FAULTS[0]),hex(a.KNOWN_FAULTS[1])])
+        retained=[x["elr"] for x in result["events"]]
+        for addr in (a.SMC_PC,*a.KNOWN_FAULTS):
+            self.assertIn(hex(addr),retained)
+        self.assertTrue(result["samplesTruncatedToLimit"])
+
     def test_untrusted_log_exceeding_limit_refused(self):
         with self.assertRaisesRegex(a.CompactExceptionError,"exceeds 16MiB"):
             a.extract_event_log(b"\0"*(a.MAX_LOG+1))
