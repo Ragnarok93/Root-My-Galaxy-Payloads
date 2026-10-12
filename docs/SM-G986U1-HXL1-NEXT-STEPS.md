@@ -2,6 +2,48 @@
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
 
+## October 12, 00:06 UTC — owner v2 delivery audited; v3 prelaunch validator corrected
+
+Owner WSL confirmed `tools.test_y2q_hxl1_qemu_fdt_canary` **27/27 PASS** and actually replayed retained v2 complete guest-FDT evidence using `--audit-delivery-only`:
+
+```text
+[MEMRESERVE REACHED KERNEL ENTRY] YES
+[DIAGNOSTIC CLASSIFICATION] DELIVERED_BUT_SELF_RESERVATION_UNDERSIZED
+[SELF RESERVATION COVERS RUNTIME FDT] False
+[MIN PAGE-ROUNDED SELF RESERVE BYTES] 2117632
+[RUNTIME FDT BYTES] 2117184
+[SECURE RKP MEMORY RESERVED] NO
+[LINUX MEMBLOCK VERIFIED] NO
+```
+
+This independently attests the diagnostic `-dtb` canary **reached original guest entry** at X0=`0x48000000` in the saved v2 guest binary. It does NOT prove that Linux memblock excluded any pages, that a protected UH/RKP pool was created or that the Samsung handset bootloader is unlocked.
+
+Owner also built a new v3 canary override (SHA `630d405830964399e3be63a2c685442e42d5512d62ba394da3d9eef248f5c575`) with exact measured `memreserve` `[0x48000000,0x48205000)`, **2,117,632 bytes**. But its `run_y2q_hxl1_qemu_fdt_canary_capture.sh` rejected the valid manifest **before launching QEMU**, printing `[STOP] Canary FDT manifest/content mismatch`. A subsequent run of the offline verifier naturally failed with missing `delivered-fdt.dtb`. This was a bug in the old shell's inline check: it required the reserve size to equal `align_up(original override header totalsize, 4096)` instead of honoring the already-validated *explicitly measured guest runtime* size. **No v3 guest boot/FDT result exists yet**. The v3 canary directory is valid and must not be re-created or overwritten.
+
+**Fixes committed through GitHub:** removed the hardcoded minimum-size shell check, replaced it with `y2q_hxl1_qemu_fdt_canary.py --verify-dir`, which independently SHA-pins and reconstructs the **exact** override and entire manifest, including a legitimate explicit reserve size; it refuses tampering, wrong source SHA, malformed measured reserve fields and unexpected bytes. Four new synthetic regression tests cover owner's actual v3 manifest acceptance, mutation refusal, offline CLI pinning, and verify-before-QEMU ordering. [GitHub Actions isolated HXL1 run #38186873252](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38186873252) completed **SUCCESS with 226/226 tests PASS, including 31 canary regressions**. Real v3 guest delivery/coverage remains owner pending.
+
+**Resume using existing v3 canary; do not rerun its builder:**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+CAN="$HOME/s20-artifacts/hxl1-research/qemu-memreserve-canary-v3-20261011"
+CAP="$HOME/s20-artifacts/hxl1-research/qemu-fdt-canary-delivery-v3-20261011"
+
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_fdt_canary
+python3 tools/y2q_hxl1_qemu_fdt_canary.py --verify-dir "$CAN"
+
+bash tools/run_y2q_hxl1_qemu_fdt_canary_capture.sh "$CAN" "$CAP" &&
+python3 tools/y2q_hxl1_qemu_fdt_canary_verify.py \
+  --canary-dir "$CAN" --delivery-dir "$CAP"
+```
+
+The failed v3 attempt aborted before creating `CAP` in the original script, so its name can normally be reused **if it does not already exist**. If the directory exists for any reason, pass a new capture directory and the matching `--delivery-dir`. Even after guest FDT self-coverage passes, actual memblock/page allocation exclusion remains the next *unverified* requirement.
+
+---
+
+
 ## October 11, 23:57 UTC — QEMU -dtb canary delivered, guest FDT expanded beyond self-reservation
 
 Owner WSL pulled through `50b2b65` and ran `tools.test_y2q_hxl1_qemu_fdt_canary`: **23/23 PASS**. V2 source FDT generated a diagnostic canary SHA `622103a0167457c0493dadc30979b3cc5aa630111df3970ab9ceb6eb1caae0b2` reserving the then-predicted FDT pages `[0x48000000,0x48101000)` (`1,052,672` bytes). **GDB then read the complete guest FDT, whose actual `totalsize` was 2,117,184 bytes**, not the 1,048,592-byte override file. The source-length assumptions failed again, but *not because of a truncated dump*: the new capture passed its exact-length GDB and header validation. The offline verifier then stopped only at:
