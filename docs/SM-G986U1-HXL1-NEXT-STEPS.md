@@ -1,3 +1,41 @@
+## October 12, 01:50 UTC — compact guest's original RKP bitmap SMC request independently captured; next fault-time register gate
+
+**Owner direct WSL result:** the original SHA-pinned factory HXL1 Image, SHA-pinned compact `-dtb` and 35,168-byte guest runtime FDT revalidated. Both `tools.test_y2q_hxl1_compact_fault_dependencies` and `tools.test_y2q_hxl1_qemu_compact_smc_registers` passed **24/24**. The prior original compact-run exception audit was independently reproduced. The newest bounded GDB run stopped **before** original `SMC #0` at `0xffffff80080a5794`, with original live `0xd4000003` opcode and registers `X0=0xc300c002,X1=0x15,X2=0xffffff800a4dd0b8,X3=0x40000000,X4=X5=0,X6=0x3f`. It classified `STOCK_SMC_0_LIVE_ARGUMENTS_CAPTURED`. **No original HXL1 SMC response, pointer write, protected bitmap/pool, memblock exclusion or KernelSU was observed.**
+
+**Original source resolves the meaning:** `include/linux/uh.h` + `include/linux/rkp.h` and the earlier source-ABI audit identify `UH_APP_RKP`, `RKP_GET_RKP_GET_BUFFER_BITMAP`, and original `rkp_s_bitmap_buffer` pointer at the recorded X2. `0xc300c002/0x15` is **HXL1 RKP bitmap protocol**, not the identically numbered *KDP_SET_NS_FLAGS* command from a different QEMU patch fork. X3 is original `memstart_addr`. X6=0x3f is an observed volatile register without a proven source-level argument role. **Do not infer or dispatch based on X6.**
+
+The old QEMU compact exception log had `SMC #0`, then reads `LDR x24,[x21,#0x58]` at `0xffffff80082ac90c,FAR=0x58` and `LDP x9,x8,[x10,#0x10]` at `0xffffff80086de39c,FAR=0x10`. Those fault addresses are *compatible* with null bases but do not establish the actual live X21/X10 values or causality between faults and UH SMC return.
+
+**New engineering work committed and tested:**
+- `tools/y2q_hxl1_compact_bitmap_call_audit.py` validates **the new compact GDB report** against original GDB opcode/args, original Image and 35,168-byte FDT provenance, HXL1 `uh.h/rkp.h` source, and the exact recovered `rkp_s_bitmap_buffer` symbol. Its 13 host-fixture tests guard mismatched sources/registers, X6 ambiguity, fork ID collision and unsafe optimistic conclusions.
+- `tools/y2q_hxl1_qemu_compact_fault_regs.py` provides a separately bounded, read-only original QEMU/GDB run. It verifies the already proven stock kernel and exact compact source, checks entry and SMC instruction and X0-X3, optionally records raw X0 at `SMC+4`, and stops before either **X21-based LDR** or **X10-based LDP** to capture actual base/SP/LR and the live opcode; it does not execute the faulting instruction or claim an abort in that capture. Failure to hit a breakpoint is inconclusive. Its 14 host-only tests verify both load offsets, raw SMC return uncertainty, and failure guards. [GitHub Actions run #38193740839](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38193740839) passed **379/379 total HXL1 isolated tests**. **The owner's real new fault-register captures remain pending.**
+
+Owner next WSL commands:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v \
+  tools.test_y2q_hxl1_compact_bitmap_call_audit \
+  tools.test_y2q_hxl1_qemu_compact_fault_regs
+
+# No emulator: independently recheck original compact guest's RKP bitmap command.
+python3 tools/y2q_hxl1_compact_bitmap_call_audit.py
+
+# Preflight only; safe to repeat without creating an output.
+python3 tools/y2q_hxl1_qemu_compact_fault_regs.py --target x21 \
+  --preflight-only \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-compact-fault-x21-v1-20261012"
+
+# New, isolated QEMU run. Never overwrite earlier source/guest evidence.
+python3 tools/y2q_hxl1_qemu_compact_fault_regs.py --target x21 \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-compact-fault-x21-v1-20261012"
+```
+
+If this yields a verified X21 and original live opcode, study the first fault's base register before scheduling a second `--target x10` run in a new directory. Do not interpret X0 after SMC as success without OEM return contract and a verifiable bitmap pointer write. **No physical-phone bootloader unlock or KernelSU deployment is established.**
+
+---
+
 ## October 12, 01:41 UTC — original compact SMC argument and faulting base-register proof gates
 
 **Verified owner evidence:** A real factory-image/offline compact exception audit ran on WSL successfully after **13/13 owner tests passed**. The exact compact input SHA `1530da694b887fbe9918aa922eeafcdaa3ef0c900e6eae279402464b46b83fdd`, **35,168-byte actual guest FDT**, the original stock factory Image and saved QEMU exception log were linked. The compact-mode run retained exactly **three QEMU exception records**, with source ELRs `0xffffff80080a5794` (Samsung SMC), `0xffffff80082ac90c` (read abort FAR `0x58`) and `0xffffff80086de39c` (read abort FAR `0x10`).
