@@ -112,7 +112,10 @@ def audit(root:Path,*,execute:bool=False,rea:Path|None=None,node:str="node",
           timeout:int=240,recover_partials:bool=False)->dict:
     # Full seeded proof validates exact original firmware, string/xref,
     # Ghidra function and SHA-bound candidate, not just filename.
-    verify_strings_and_xrefs(root)
+    previous=verify_strings_and_xrefs(root)
+    if (previous.get("allFiveReferencesVerified") is not True
+            or previous.get("qualifiedFunctionReferences")!=5):
+        raise TriageError("Original five literal-xref-function Ghidra source chains incomplete")
     target_index={t.name:t for t in choose_targets(root)}
     if execute and (rea is None or not rea.is_file() or rea.is_symlink()):
         raise TriageError("REA host entrypoint missing/unsafe")
