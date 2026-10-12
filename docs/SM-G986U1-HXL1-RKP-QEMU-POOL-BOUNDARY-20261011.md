@@ -260,6 +260,16 @@ Owner v2 full guest FDT capture conclusively measured **2,117,184 (0x204e40) byt
 
 ---
 
+## October 12 — no original HXL1 memblock call observed after guest entry; fault PC unknown
+
+Actual owner v2 GDB results verified **original kernel entry** with the QEMU v3 canary (entry `0x40080000`, FDT pointer `0x48000000`) but **timed out after entry** without a `memblock_reserve` or Samsung UH SMC breakpoint. The QEMU exception trace contained only `Invalid read at addr 0x3FFFFFFC, size 4, region '(null)', reason: rejected`, which is four bytes below the `virt` DRAM base. The warning does **not** report the guest CPU PC or FAR/ESR at access time and cannot be attributed to a specific stock original-image instruction. A patched `memblock_reserve` call is not warranted; allocator exclusion remains **unverified**.
+
+The recovered candidate `memblock_reserve` address `0xffffff80082a0844` correlates with original `0xd10103ff`, but recovered `vmlinux-stock.nm` does not by itself prove the relevant call was executed or reached after entry. A new bounded, local-only QMP CPU snapshot experiment (`tools/y2q_hxl1_qemu_memblock_pc_sampler.py`) samples `info registers` via QMP over a private UNIX monitor socket, records exposed PC, ELR, FAR and ESR without modifying guest memory, and optionally contrasts verified v3 `-dtb` with factory QEMU-generated DTB (baseline). This requires original factory Image SHA and existing strict v3 canary evidence. Its host unit tests are isolated from QEMU execution. The new owner-run PC/exception snapshots are **pending**. It records `linuxMemblockAllocatorExclusionVerified=false` regardless of outcome.
+
+Only if a stock instruction is demonstrably reached and its call output/source semantics independently checked should allocator-state tracking proceed; do not infer either success or failure from GDB timeout or identical sampled PCs alone.
+
+---
+
 ## Required proof gates before a functional QEMU adapter
 
 | Gate | Acceptance criterion | Present status |
