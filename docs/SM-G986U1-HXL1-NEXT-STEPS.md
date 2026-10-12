@@ -1,3 +1,48 @@
+## October 12, 02:20 UTC — SLUB_DEBUG confirmed; X21 restored from stack and X10 loaded from memory before separate zero-base reads
+
+**Owner real WSL output:** after branch pull through `a3e066f`, original factory SHA-pinned `tools.test_y2q_hxl1_compact_fault_function_windows` **16/16 PASS**, and the real `tools/y2q_hxl1_compact_fault_function_windows.py` succeeded, attesting both earlier GDB measurements X21=0 and X10=0 against source Image bytes and the 35,168-byte compact guest FDT evidence. Stock `config.gz` reports `CONFIG_SLUB=y` and `CONFIG_SLUB_DEBUG=y`; neither `CONFIG_SLAB` nor `CONFIG_SLOB` is enabled/recorded. `CONFIG_KASAN`, `CONFIG_SLAB_FREELIST_HARDENED` and `CONFIG_SLAB_FREELIST_RANDOM` were not enabled/recorded. Slab allocator variant is now **actual config**, not inferred from kernel age.
+
+**Important source-register-provenance caveat** near original Image `LDR x24,[x21,#0x58]`, ELR `0xffffff80082ac90c`, recovered closest symbol `kmem_cache_alloc +0x110`:
+```asm
+ffffff80082ac814: stp x22, x21, [sp, #64]
+ffffff80082ac828: mov x21, x0
+ffffff80082ac84c: ldp w21, w23, [x21, #24]     // W21 write zero-extends X21
+ffffff80082ac8f4: ldp x22, x21, [sp, #64]      // X21 restored from stack; second word at SP+72
+ffffff80082ac90c: ldr x24, [x21, #88]         // owner observed X21=0, separate FAR=0x58
+```
+**Do NOT claim the original `kmem_cache_alloc` X0 argument was null based only on the later X21=0.** Multiple original source writes precede that load, and restored X21 may reflect the caller's callee-saved state, a later epilogue or even a distinct code path/function if reconstructed function boundaries are inaccurate. The original source window confirms possible producers but does not show which branch executed. The first fault is now a confirmed zero-base read, **not yet a proven slab-cache initialization failure**.
+
+The later source `LDP x9,x8,[x10,#0x10]` site `0xffffff80086de39c` is within nearest recovered `dump_stack_minidump +0x80`, live X10=0, earlier separate FAR=0x10. Directly preceding factory code:
+```asm
+ffffff80086de394: ldr x10, [x24, #2840]    // candidate source = memory[X24+0xB18]
+ffffff80086de39c: ldp x9, x8, [x10, #16]
+```
+The previously measured LR for this fault is near recovered `panic`. Thus a **secondary panic/minidump diagnostic failure is plausible**, but actual panic-entry chronology and the origin of X24's field are not proven. Neither failure should be automatically attributed to the RKP bitmap `SMC #0` request, for which the 0xc300c002/0x15 input is source validated but no successful UH response/bitmap pool was observed. The SMC+4 breakpoint was not observed in either fault-register capture, and that is not proof the SMC failed.
+
+**New bounded same-run source-producer diagnostic:** `tools/y2q_hxl1_qemu_compact_register_provenance.py` starts isolated original SHA-pinned stock HXL1 QEMU virt only on explicit invocation and revalidates the earlier 35,168-byte complete guest FDT, exact compact source and original factory opcode words. It stops at original kernel entry and the exact HXL1 RKP SMC, then arms two **temporary** read-only GDB breakpoints at the source candidate and the known fault instruction:
+- `--target x21`: producer `0xffffff80082ac8f4` (original `a94457f6`, `LDP x22,x21,[sp,#64]`), saves SP and reads stack word `[SP+72]`; fault `0xffffff80082ac90c` (original `f9402eb8`), captures X21.
+- `--target x10`: producer `0xffffff80086de394` (original `f9458f0a`, `LDR x10,[x24,#2840]`), saves X24 and attempts read-only 64-bit load `[X24+2840]`; fault `0xffffff80086de39c` (original `a9412149`), captures X10.
+
+The tool preserves whether the producer was **actually observed before the fault in the same run**, and records optional source-memory bytes only if independently read at the exact effective address. If the source breakpoint is skipped, the producer remains unknown; if GDB cannot read memory, the value remains unknown. Even both breakpoints firing does **not** establish a complete def-use chain or causal relation to a Samsung UH return, and neither guest/kernel memory nor the physical phone is written. The new synthetic test suite is separate from owner evidence.
+
+Owner next commands after pulling:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_compact_register_provenance
+python3 tools/y2q_hxl1_qemu_compact_register_provenance.py \
+  --target x21 --preflight-only \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-compact-regorigin-x21-v1-20261012"
+python3 tools/y2q_hxl1_qemu_compact_register_provenance.py \
+  --target x21 \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-compact-regorigin-x21-v1-20261012"
+```
+
+Once that observation is understood, optionally sample X10 in its **own fresh output directory** with `--target x10`. The *owner's real original guest producer-to-load result is still pending*. Do not add any fictional UH/RKP pool mapping or attempt KernelSU deployment.
+
+---
+
 ## October 12, 02:11 UTC — both faulting bases observed as zero; panic/minidump likely secondary
 
 **Owner WSL completed the next original-stock-image evidence gate:** after `git pull --ff-only` through `d39087c`, all **15/15** host source-correlator tests passed. The read-only offline `tools/y2q_hxl1_compact_fault_live_attribution.py --target x21` independently rechecked the previous actual compact-original-QEMU GDB register report and raw GDB log, exact original `kernel.bin` SHA-256, original live `LDR` opcode, 35,168-byte original guest FDT source and earlier QEMU exception FAR:
