@@ -1972,6 +1972,172 @@ change in locked status is attempted or demonstrated.
 
 ---
 
+
+## October 11, 23:56 UTC — 0x608c8 OEM_UNLOCK predicate and four distinct state-mode entry routes
+
+Owner completed read-only Ghidra queries for all five
+original LinuxLoader xrefs to state-mode dispatcher
+FUN_00033928. **All five xrefs are decoded ARM64 BL
+0x00033928**, and resolve to exactly four source
+function owners:
+
+- 0x2f604: original owner **FUN_0002f538**
+- 0x342e0: original owner **FUN_00034238**
+- 0x343dc: original owner **FUN_00034370**
+- 0x675a0 and 0x67640: original owner **FUN_000674d8**
+
+These original owner decompilations/native lists are
+saved under the source-attested evidence directory.
+Full detailed original pseudocode and native context are
+recorded in owner's report
+rea-security-audit/avb-mode-upstream-callers.md.
+
+### Native entry mode/value arguments
+
+1. **FUN_0002f538** table-driven path:
+
+        0x2f5f0 adrp x8,0xc0000
+        0x2f5f4 add x8,x8,#0x8a0
+        0x2f5f8 add x8,x8,x21,lsl#0x4
+        0x2f5fc ldr w0,[x8]
+        0x2f600 ldrb w1,[x8,#0x8]
+        0x2f604 bl 0x00033928
+
+   Pseudocode has original call
+   FUN_00033928(*(undefined4 *)(&DAT_000c08a0+param_1*0x10),
+   (&DAT_000c08a8)[param_1*0x10]). The caller-supplied
+   table index / table entries / source trust are UNKNOWN.
+   Function also calls FUN_0002ae38(0,buffer,0x9a0)
+   (read-like protocol operation), but this alone is
+   not a privilege check.
+
+2. **FUN_00034238**, direct unlock request:
+
+        0x34294 ldrb w8,[x8,#0xd]
+        0x34298 cbz w8,0x000342d8
+        0x342d8 mov w1,#0x1
+        0x342dc mov w0,wzr
+        0x342e0 bl 0x00033928
+
+   The original function attempts (mode=0,value=1)
+   when its cached IsUnlocked status is zero. Its
+   output prints "flash unlock Success..!!" on the
+   observed success branch. This is **NOT** proof
+   that unsigned images will boot, or that this
+   function is reachable without upstream checks.
+
+   Source Ghidra function Evidence:
+   ev_9de100de73c162803d192fe85d9c287271d79ab6a223d54c98695deb356e19b2.
+
+   Native function Evidence:
+   ev_afca3d3fc8a8d6966807a9f29929cba9be4685ca440e83dd35bdee55ba48bcb0.
+
+3. **FUN_00034370**, direct relock request:
+
+        0x343cc ldrb w8,[x8,#0xd]
+        0x343d0 cbz w8,0x00034418
+        0x343d4 mov w0,wzr
+        0x343d8 mov w1,wzr
+        0x343dc bl 0x00033928
+
+   Source function only invokes (0,0) if the
+   current cached state byte is nonzero, and reports
+   "flash lock Success..!!" on the observed success
+   branch. This is diagnostic wording, not evidence
+   that hardware fuses or boot-chain trust changed.
+
+4. **FUN_000674d8**, interactive lock/unlock confirmation:
+
+        0x67598 mov w0,wzr
+        0x6759c mov w1,wzr
+        0x675a0 bl 0x00033928
+
+   On its unlock-approval path, original native
+   instructions instead execute:
+
+        0x67630 bl 0x000608c8
+        0x67634 cbz w0,0x000676f4
+        0x67638 mov w1,#0x1
+        0x6763c mov w0,wzr
+        0x67640 bl 0x00033928
+
+   Original source Ghidra pseudocode confirms
+   the check has the diagnostic:
+   "Warning..!! OEM_UNLOCK flag is NOT set."
+   This identifies FUN_000608c8 as a
+   **candidate OEM_UNLOCK enable/eligibility
+   predicate** before the interactive unlock
+   confirmation path. It does not prove the
+   predicate's source or its enforcement at
+   other entrypoints. Nor is the UI branch
+   necessarily reachable from the locked
+   HXL1 stock security environment.
+
+   Original owner function Evidence for the two
+   native call sites:
+   ev_87e8a0a5f4d6fbab33465bc39e2d0b3c6989709cf0b8892d9cd29e7ec2feead2
+   and
+   ev_fdb74b9ce65300cc253a05f6bed98081f5c1be1208adc0606af466bf749188c7.
+
+   Original native owner Evidence:
+   ev_2dac3178200e0d678c55118b4a86127c7db9eb014afc9da11eeed2f271fdeac0.
+
+### Security boundary remains unproven
+
+Do NOT interpret a direct helper call in
+FUN_00034238 as a bypass. We have yet to
+establish its original incoming callers, any
+earlier OEM flag/VaultKeeper/secure-world
+authorization, bootloader unlock runtime
+reachability, or how Samsung/Qualcomm signed
+image verification treats the persisted
+0x351055 state. The true OEM_UNLOCK predicate
+also requires independent native source provenance.
+
+### New bounded original-source gate: entry callers and OEM flag helper
+
+New tools:
+- tools/y2q_hxl1_rea_avb_oem_unlock_routes.py
+- tools/test_y2q_hxl1_rea_avb_oem_unlock_routes.py
+- tools/run_y2q_hxl1_rea_avb_oem_unlock_routes.sh
+
+The offline analyzer reattests the entire original
+HXL1 firmware chain through the five source-verified
+0x33928 native BL caller dossiers. It fails
+closed unless the four exact owners, complete
+original native branch and mode/value instruction
+sequences, Ghidra decompilation source markers and
+original evidence IDs match. Prior Evidence
+files are never replaced.
+
+It then issues at most seven new read-only
+Ghidra queries:
+- xrefs to owners 0x2f538, 0x34238, 0x34370,
+  and 0x674d8;
+- function and full native instructions of
+  OEM_UNLOCK predicate candidate 0x608c8;
+- xrefs to 0x608c8 itself to identify other
+  policy-check uses.
+
+Owner WSL invocation:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_oem_unlock_routes.sh
+~~~
+
+Report:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-oem-unlock-routes.md
+
+The next question is whether the original
+FUN_00034238 caller chain is gated by OEM state,
+and exactly where FUN_000608c8 obtains its
+value. The current results remain offline,
+unexecuted static evidence only.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
