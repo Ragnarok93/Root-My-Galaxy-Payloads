@@ -46,6 +46,14 @@ Reports are written under a new `~/s20-artifacts/hxl1-research/port-automation-<
 
 **No `git push`, phone ADB/fastboot, flashing, guest memory patching, root operation, `qemu-system-aarch64`, KernelSU loading, or support feed publication is performed.** Only the optional NDK diagnostic is compiled, and it cannot root a phone.
 
+## October 12: owner-local Clang 10 comparison evidence
+
+The owner's newly uploaded 17-file local-pipeline archive includes `docs/HXL1-CLANG10-ABI-COMPARISON.md`, a new bounded REA/Ghidra function-slice tool, and a second untracked eleven-step research orchestrator. See the full [consolidation and evidence-grading review](SM-G986U1-HXL1-LOCAL-PIPELINE-CONSOLIDATION-20261012.md).
+
+The canonical runner now includes an **optional** `03_clang10_checkpoint` step. If the existing owner artifact `~/s20-artifacts/hxl1-research/clang10-abi-comparison/factory-displacement-comparison.json` is present, it rechecks the exact original Image/config SHA-256s, hashes and records this comparison JSON and inventories bounded existing AArch64 ET_REL objects under the comparison directory. It does **not** repeat the Clang 10 build or the 31-instruction/13-field analysis. If the report is missing, the step is explicitly skipped rather than fabricated.
+
+Output: `03-clang10-evidence-checkpoint.json` in the new canonical automated run. **PASS here means that a source-pinned comparison artifact inventory was created**; it does not authenticate the report's undocumented schema, individual field-to-instruction def/use relationships, the OEM factory compiler or the complete Stage 3 ABI. The vendor image, recovered source and production `target.h` remain unchanged. This is a checkpoint integration, **not a merge of the owner-untracked source modules**; review and tests are required before individual modules are versioned.
+
 ## Non-automatable acceptance gates
 
 1. Stage 3: source/compiled member layout *for the actual Samsung factory kernel* must be proved independently; Clang18 build outputs are only experimental. Do not put guessed pointers or offsets in production `target.h`.
