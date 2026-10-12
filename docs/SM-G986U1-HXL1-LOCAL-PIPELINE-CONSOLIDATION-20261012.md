@@ -1,3 +1,29 @@
+# October 12 — register-flow reconciliation of saved Stage 3 factory evidence
+
+Owner's local original-firmware run **passed 18/18 tests** and reported:
+
+- `[STOCK ORIGINAL INSTRUCTIONS] 31/31`
+- `[CLANG10 COMPARISON OBJ] 2`
+- `[REA] 31_ORIGINAL_OPCODE_WITNESSES_REA_ATTESTED`
+- `[MEMBER CANDIDATES] 13`
+- `[ORIGINAL MEMORY OPERANDS] ORIGINAL_STOCK_MEMORY_OPERANDS_INDEXED`
+- `[CERTIFIED FACTORY STRUCT OFFSETS] 0`
+- Saved full-host result: `~/s20-artifacts/hxl1-research/stage3-offset-verification-20261012T152423477542Z.json`.
+
+**Next step is no longer rebuilding Clang10 or repeating the 31 opcode checks.** Added `tools/y2q_hxl1_stage3_member_flow.py`, accepting the saved exact-factory report and archived, original-byte-authenticated REA Ghidra instructions, plus SHA-pinned Samsung rtmutex source and exact source-typed `remove_waiter(struct rt_mutex *lock, struct rt_mutex_waiter *waiter)` signature. It checks **nine explicit Ghidra register chains** (including `lock` argument, `waiter` argument, `sp_el0` current task and masked lock owner carrier) against the saved original instructions, and leaves four members needing a trustworthy field-specific chain (`rt_mutex_waiter.task`, `lock`, `prio`, `deadline`). It automatically creates a fresh per-member evidence worklist and retains `factoryMemberOffsetsVerified=0` and `stage3Complete=false`: a fixed static original instruction and likely base register are not proof of unique C field semantics, cross-branch reachability or factory debug ABI.
+
+The canonical nine-stage runner now runs this lightweight analysis **after** successful `03_field_offset_evidence` (saved full-factory attestation) as `03_member_flow_worklist`. For the exact previously completed original evidence, use one command without rerunning firmware hashing/disassembly/compiler audits:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads && git pull --ff-only && \
+python3 tools/y2q_hxl1_stage3_member_flow.py \
+  --verified-stage3-report "$HOME/s20-artifacts/hxl1-research/stage3-offset-verification-20261012T152423477542Z.json"
+```
+
+**Acceptance boundary:** Do not copy tentative member offsets to `target.h`, claim that nine matched static chains certify nine OEM members, or promote Stage 3 yet. Future work needs branch/path-sensitive, member-specific def-use and OEM source expression links (especially nested red-black tree and futex waiter paths). No original firmware bytes, REA archives, or on-device state are changed.
+
+---
+
 # October 12 — Stage 3 actual-factory REA code-slice binding strengthened
 
 Owner's October 12 console `git pull --ff-only` succeeded through commit `6bb5f68`, but the next command stopped at `python3 tools/y2q_hxl1`; Python consequently reported a missing **truncated filename**, not a Stage 3 verification failure. No local verifier report was produced by that command.
