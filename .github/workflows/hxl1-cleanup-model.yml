@@ -82,6 +82,7 @@ on:
       - tools/test_y2q_hxl1_qemu_compact_register_provenance.py
       - tools/y2q_hxl1_compact_regorigin_route_audit.py
       - tools/test_y2q_hxl1_compact_regorigin_route_audit.py
+      - tools/run_y2q_hxl1_porting_automation.sh
       - tools/y2q_hxl1_porting_automation.py
       - tools/test_y2q_hxl1_porting_automation.py
       - .github/workflows/hxl1-cleanup-model.yml
