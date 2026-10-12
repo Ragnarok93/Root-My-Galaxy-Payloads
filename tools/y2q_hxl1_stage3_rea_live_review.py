@@ -27,7 +27,7 @@ from tools import y2q_hxl1_porting_automation as port
 from tools import y2q_hxl1_stage3_offset_verification as offset
 from tools import y2q_hxl1_stage3_member_flow as flow
 from tools import y2q_hxl1_rtmutex_displacement_attest as prior
-from tools.y2q_hxl1_rea_security_audit import Runner,Target,evidence,function_record
+from tools.y2q_hxl1_rea_security_audit import Runner,Target,function_record
 
 ART=Path.home()/"s20-artifacts"
 SOURCE=Path.home()/"src/samsung-y2q-hxl1-stock"
@@ -123,8 +123,34 @@ def compare_live_native(live:dict,saved:dict):
         "nativeIdenticalToFactoryBoundArchive":live==saved,
     }
 
+def ghidra_member_displacement_leads(observed:dict)->list[dict]:
+    """Index exact Ghidra memory operands for all 13 source-typed hypotheses.
+
+    A matching immediate is not proof the base is that C object. In
+    particular offsets 0x0, 0x10 and 0x18 alias multiple ARM64 structs.
+    """
+    members=[]
+    rx=re.compile(r"\[\s*(x(?:[0-9]|[12][0-9]|30)|sp)\s*(?:,\s*#(0x[0-9a-f]+|[0-9]+))?\s*\]")
+    for ty,fields in prior.FIELDS.items():
+        for name,offset in fields.items():
+            value=int(offset,16)
+            matches=[]
+            for fn,asm in observed.items():
+                for pc,instruction in asm.items():
+                    hit=rx.search(instruction)
+                    if hit is None:continue
+                    if (int(hit.group(2),0) if hit.group(2) else 0)!=value:continue
+                    matches.append({"function":fn,"pc":pc,
+                                    "base":hit.group(1),"instruction":instruction})
+            members.append({
+                "type":ty,"member":name,"comparisonDWARFOffset":offset,
+                "exactFactoryGhidraMemoryOperandCandidates":matches[:48],
+                "truncatedCandidateSites":len(matches)>48,
+                "CFieldIdentityCertified":False,
+            })
+    return members
+
 def review_genuine_ghidra(name:str,entry:str,ev:dict,sha:str):
-    require=evidence  # evidence(...) validates provider identity in Runner.obtain
     demand(ev.get("operation")=="analyze_function" and
            ev.get("provider",{}).get("id")=="ghidra" and
            ev.get("subject",{}).get("digest",{}).get("sha256")==sha and
@@ -221,6 +247,7 @@ def run(saved:Path,artifacts:Path,source:Path,slices:Path,rea_archive:Path,
          "mode":"EXECUTE_FRESH_REA_GHIDRA",
          "functions":rows,"sourceTypedSignatureMatched":typed,
          "memberCandidateRegisterFlow":existing,
+         "liveNativeMemberDisplacementWorklist":ghidra_member_displacement_leads(observed),
          "comparedClang10Candidates":prior.FIELDS,
          "factoryMemberOffsetsVerified":0,
          "fullOEMStructABIProven":False,
