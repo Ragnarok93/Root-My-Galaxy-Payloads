@@ -2138,6 +2138,128 @@ unexecuted static evidence only.
 
 ---
 
+
+## October 11, 19:20 CDT — original OEM_UNLOCK normal return value and four entry references
+
+Owner executed all seven of the previous original-LinuxLoader
+REA/Ghidra queries. The original source SHA matches the pinned
+HXL1 firmware. Every one of the four verified 0x33928
+upstream route owners has **one** Ghidra xref:
+
+| Source function | Ghidra xref site | Existing behavior |
+|---|---|---|
+| 0x2f538 | 0x2f1f0 | table-driven mode/value |
+| 0x34238 | 0x1b48 | direct (0,1) IsUnlocked setter |
+| 0x34370 | 0x1db0 | direct (0,0) relock |
+| 0x674d8 | 0x185a4 | interactive OEM-flag-checked UI |
+
+These are original Ghidra **cross-references** only until
+their exact native instructions and containing function
+owners are verified. They must never be presumed
+privilege-bypassing, attacker-reachable or unrestricted.
+
+Original route xref Evidence:
+- 0x2f538: ev_aa33e9ee0e5da08e229770e9c5afcb112ac71a38b792748c2aa079ed86389a6e
+- 0x34238: ev_595d6f693b7f62232b5cd8d35e95e5f8baa2fb59341e76d26d4170a8a9b64a6f
+- 0x34370: ev_44b2599bfc88340615091df4aa66f87108f96a9c313d60e1b5c074578b373fa9
+- 0x674d8: ev_6ff79de2da0d9edce51ba486aa50c3624b542abdd39384b15b1c5f2314988949
+
+### 0x608c8 OEM_UNLOCK predicate: Ghidra void type disproved by native W0
+
+Original Ghidra function Evidence:
+ev_ece9e291003bd80d0c254dcd7a5f6b423749720c52de6b3d1039d1fcf5417665.
+
+Original Ghidra native 20-instruction Evidence:
+ev_63ab05fca1b765c041615094c0bc36e0cb94f22253adbe742d5e37ff08c74525.
+
+The independent Ghidra pseudocode declares
+FUN_000608c8 as "void" and contains a check
+on DAT_0035cb1c, calling FUN_00060af8 if zero.
+The native ARM64 explicitly **returns W0**:
+
+    0x608d4 adrp x9,0x35c000
+    0x608e0 ldr w8,[x9,#0xb1c]    // 0x35cb1c initialization flag
+    0x608e4 cbnz w8,0x000608ec
+    0x608e8 bl 0x00060af8         // initialize if flag was zero
+    0x608ec adrp x8,0x35c000
+    0x608f4 ldr w0,[x8,#0xb18]    // W0 <- 32-bit global 0x35cb18
+    0x608f8 ldr x8,[sp,#0x8]
+    0x608fc ldr x9,[x9,#0x4b8]
+    0x60900 cmp x9,x8
+    0x60904 b.ne 0x00060914
+    0x60908 ldr x30,[sp,#0x10]
+    0x6090c add sp,sp,#0x20
+    0x60910 ret
+
+Thus on the function's normal return path, the
+**OEM_UNLOCK eligibility predicate returns the
+32-bit global value at 0x35cb18**, and initializes
+that state via 0x60af8 if 0x35cb1c is zero. The
+0x60af8 result is not itself the returned value.
+The real writer, source, protection, origin,
+and memory integrity of these globals are UNKNOWN.
+The logged "OEM_UNLOCK flag is NOT set" at the
+interactive call site 0x674d8 does not establish
+a secure-world policy nor signed-boot enforcement.
+
+Original Ghidra xrefs to 0x608c8 are exactly
+one, at 0x67630 inside the interactive function.
+No other direct calls to this helper were observed
+in the bounded original Ghidra reference inventory.
+
+### Next bounded source-attested audit
+
+Committed:
+- tools/y2q_hxl1_rea_avb_oem_state_entry.py
+- tools/test_y2q_hxl1_rea_avb_oem_state_entry.py
+- tools/run_y2q_hxl1_rea_avb_oem_state_entry.sh
+
+The tool strictly reattests the entire original HXL1
+firmware evidence chain, the four single-xref route
+inventories, the original 0x608c8 native 20-instruction
+function, and the native W0 and init-guard register
+flow before executing any new REA query. Original
+Evidence is immutable and local to the owner host.
+
+It then permits at most 10 new read-only original
+Ghidra queries:
+
+1. Four exact native inspect-native-instruction
+   checks at 0x2f1f0, 0x1b48, 0x1db0 and 0x185a4.
+2. Only if 0x1b48 and 0x1db0 are verified as BL
+   to direct unlock/relock functions 0x34238/0x34370,
+   query their *containing* original Ghidra source
+   functions to identify upstream entry/dispatch.
+3. Obtain original function and native instructions
+   for the initialization helper 0x60af8.
+4. Obtain exact original global xrefs for 0x35cb18
+   (32-bit flag returned in W0) and 0x35cb1c
+   (32-bit initialization guard).
+
+The report presents native/source observations and
+global references but does **not** classify a cross
+reference as a store or claim that a diagnostic flag
+is hardware-authoritative absent register/address
+and protected-state evidence.
+
+Run in the owner's WSL environment:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_oem_state_entry.sh
+~~~
+
+Report:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-oem-state-entry-audit.md
+
+Next proof gates: origin of 0x35cb18 and
+the 0x1b48 direct-unlock call site, followed by
+the separate secure-boot/Odin policy decision.
+Do not claim bootloader unlocked.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
