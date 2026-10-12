@@ -1,3 +1,22 @@
+## October 12, 01:41 UTC — compact original-image SMC plus two source-verified data aborts
+
+**Owner WSL audit succeeded:** After `git pull --ff-only`, `tools.test_y2q_hxl1_compact_exception_audit` passed **13/13**; the actual SHA-pinned factory HXL1 kernel, source DTB/manifest, 35,168-byte guest runtime FDT, input hash `1530da694b887fbe9918aa922eeafcdaa3ef0c900e6eae279402464b46b83fdd`, and saved compact-mode QEMU trace revalidated. The real report `qemu-pc-compact-fdt-20261012/compact-original-exception-audit.json` establishes **three QEMU exceptions**, including the previously observed `SMC #0` instruction site `0xffffff80080a5794` and data-abort ELRs `0xffffff80082ac90c` and `0xffffff80086de39c`. A present SMC exception **does not prove a functioning Samsung secure monitor**, a successful return, or that it caused a later abort. Linux `memblock.reserved`, UH/RKP pool, userspace boot, hardware unlock and KernelSU remain unverified.
+
+**Next precise original-opcode dependency gate, committed for offline run:** The previously independently developed `tools/y2q_hxl1_qemu_secure_monitor_gate.py` encoded exact factory opcodes `d4000003` (`SMC #0`), `f9402eb8` (64-bit `LDR x24,[x21,#0x58]`) and `a9412149` (`LDP x9,x8,[x10,#0x10]`). The corresponding original compact QEMU abort FARs were `0x58` and `0x10`. Therefore a zero base register is **compatible with both effective fault addresses**, but cannot be established from QEMU ELR/FAR alone. On `LDP`, FAR may refer to either 64-bit element, so the address calculation may use offset `0x10` or `0x18`. This observation does **not** establish actual `X21` or `X10` contents, nor a causal relationship to the SMC.
+
+New `tools/y2q_hxl1_compact_fault_dependencies.py` revalidates the saved original Image SHA and linked 35,168-byte guest FDT source, hashes and parses the original compact QEMU exception log, requires three unique matching records, and independently compares exact original machine opcodes at each ELR. It fails closed on wrong opcode, FAR, ESR class, altered source or unrelated DTB capture. It prints the exact register and effective offsets, distinguishes *compatible with zero base* from *captured zero base*, and marks **SMC service X0, return X0, fault-time base registers and causality** unobserved. Host fixture tests have been committed for CI, but owner factory audit is still **pending**.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_compact_fault_dependencies
+python3 tools/y2q_hxl1_compact_fault_dependencies.py
+```
+
+Expected independent output is `~/s20-artifacts/hxl1-research/qemu-pc-compact-fdt-20261012/compact-fault-dependencies-v2.json`. This uses existing original Image and exception files only; no new QEMU run, canary generation, kernel patch, handset action or service response emulation. Once source register dependencies are verified, a separate stock-image, compact-DTB, bounded **live GDB X0-X6 at SMC and X21/X10 at the relevant fault instruction** can establish missing runtime facts. Do not reuse the previous unmodified/default-QEMU SMC argument values as if they were captured in this specific compact boot.
+
+---
+
 ## October 12, 01:34 UTC — original HXL1 compact guest FDT 35,168 bytes verified; begin secure-monitor exceptions
 
 **Actual owner WSL:** The new original factory-kernel, GDB-at-entry, input-SHA-pinned compact-FDT capture passed all 15/15 local tests, delivered the exact compact diagnostic self-reservation, and read the **complete 35,168-byte runtime FDT** from original kernel `PC=0x40080000`, `X0=0x48000000`, with `X1=X2=X3=0`. The strict verifier returned:
