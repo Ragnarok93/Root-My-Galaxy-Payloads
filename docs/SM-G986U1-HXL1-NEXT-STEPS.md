@@ -1,3 +1,30 @@
+## October 12, 01:34 UTC — original HXL1 compact guest FDT 35,168 bytes verified; begin secure-monitor exceptions
+
+**Actual owner WSL:** The new original factory-kernel, GDB-at-entry, input-SHA-pinned compact-FDT capture passed all 15/15 local tests, delivered the exact compact diagnostic self-reservation, and read the **complete 35,168-byte runtime FDT** from original kernel `PC=0x40080000`, `X0=0x48000000`, with `X1=X2=X3=0`. The strict verifier returned:
+
+```text
+[GUEST RUNTIME FDT BYTES] 35168
+[ARM64 EARLY 2MiB] True
+[CANARY FDT DELIVERY] DELIVERED_COMPACT_OVERRIDE_RUNTIME_FDT_WITHIN_2M
+[RKP PROTECTED POOL VERIFIED] NO
+[REPORT] /home/main/s20-artifacts/hxl1-research/qemu-compact-entry-fdt-20261012/compact-fdt-audit.json
+```
+
+**FDT transport, source compaction, alignment, full guest length and early-size limit gates are now proved PASS.** The guest FDT is 2,061,984 bytes below Linux ARM64's 2,097,152-byte early ceiling. The old `setup_arch` original kernel panic/stop diagnostic (source: `printk` invalid DTB, `yield; B yield`) was circumvented by **correcting the input DTB**, not by editing the kernel. The owner subsequently observed the source-matched Samsung `SMC` ELR `0xffffff80080a5794` and the known faults `0xffffff80082ac90c`, FAR `0x58`, and `0xffffff80086de39c`, FAR `0x10` under the smaller guest input. These are **separate unresolved platform/secure-call execution boundaries**; not a kernel boot, RKP pool, KernelSU, or physical bootloader unlock.
+
+**Committed next target, no new QEMU execution:** `tools/y2q_hxl1_compact_exception_audit.py` checks source/manifest SHA, the **new fully captured original guest FDT and its provenance**, and the existing compact-mode QMP input hash, then parses the already stored bounded `qemu-pc-compact-fdt-20261012/qemu-exceptions.log`. It decodes exception `ELR/ESR/FAR` and maps exact known Samsung SMC and both data-abort ELRs to original factory Image opcodes, AArch64 disassembly when available and the nearest *recovered* symbols. Long logs retain examples of the critical known sites even if the first events are repetitive. It never claims the vendor UH secure monitor is present, that a guest memory pool exists or that Linux booted successfully. The isolated HXL1 regression suite is wired in GitHub; source and test CI are tracked separately from the still-**pending owner offline audit**.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_compact_exception_audit
+python3 tools/y2q_hxl1_compact_exception_audit.py
+```
+
+**Next actual engineering decision:** use recovered exact instructions at the two abort ELRs and the Samsung `SMC` callsite to determine missing emulated secure monitor services, null/invalid address dereferences or allocation-state dependencies. Read-only evidence first. No guessing RKP allocator fields, patching around faults, repeating FDT canaries, or handset flashing.
+
+---
+
 ## October 12, 01:17 UTC — 7,584-byte compact FDT gets past original setup_arch stop and reaches known HXL1 SMC/fault sites
 
 **Owner WSL real output** after `git pull --ff-only`: **41/41** local host regressions passed. The SHA-pinned original HXL1 Image bytes at static `printk` pointer `0xffffff800a17415c` now decode definitively to `KERN_SOH` log-level 2 plus:
