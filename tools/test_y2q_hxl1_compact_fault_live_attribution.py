@@ -98,7 +98,7 @@ class LiveFaultAttributionTests(unittest.TestCase):
         off=regs.TARGETS["x21"][0]-audit.gate.VM_BASE
         changed[off:off+4]=b"\x00"*4
         with patch.object(audit.gate,"valid_source",return_value=None):
-            with self.assertRaisesRegex(audit.AttributionError,"factory"):
+            with self.assertRaisesRegex(audit.AttributionError,"Original OEM Image opcode"):
                 audit.correlate(original_report(),sample(),bytes(changed),
                                 deps(),symbols(),"x21")
 
@@ -135,11 +135,11 @@ class LiveFaultAttributionTests(unittest.TestCase):
     def test_prior_fdt_size_mismatch_fails(self):
         bad=deps()
         bad["sourceCompactRuntimeFdtBytes"]=2117184
-        with self.assertRaisesRegex(audit.AttributionError,"prior QEMU"):
+        with self.assertRaisesRegex(audit.AttributionError,"Prior QEMU"):
             self.correlate(dep=bad)
 
     def test_missing_smc_stage_in_live_gdb_cannot_attribute(self):
-        with self.assertRaisesRegex(audit.AttributionError,"actual GDB"):
+        with self.assertRaisesRegex(audit.AttributionError,"Actual GDB"):
             self.correlate(log=sample().replace("HXL1_SMC_PRE","HXL1_SMC_MISSING"))
 
     def test_x21_original_source_symbol_reconstruction_not_proof_of_function(self):
