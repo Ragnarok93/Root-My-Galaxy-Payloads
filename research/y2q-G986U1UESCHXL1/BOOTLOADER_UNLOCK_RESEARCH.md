@@ -2594,6 +2594,94 @@ demonstrated.
 
 ---
 
+
+## October 11, 20:55 CDT — bitmask 0x3651ec: 22 original source xrefs
+
+The owner completed original HXL1 SHA-attested
+y2q_hxl1_rea_avb_unlock_bitmask_producers analysis.
+
+The original Ghidra xref Evidence for 0x3651ec is
+ev_f222b6da0e67c3be5ba1628415a354af13da31c7b733a9495c70b8922573c36a.
+
+The exact 22 xrefs are grouped:
+
+- Reader 0x67df8 (0x67dd8 normal Boolean-return helper).
+- Early cluster 0x6811c and 0x68160.
+- Mid cluster 0x68d94, 0x68e1c, 0x68e24, 0x68e3c,
+  0x68e44, 0x68e5c, 0x68e64, 0x68e7c, 0x68e84,
+  0x68e9c, 0x68ea4, 0x68ebc, 0x68ec4, 0x68ee4,
+  0x68ef0.
+- Late cluster 0x6967c, 0x696b8, 0x69700,
+  0x69834.
+
+These are **references**, not 22 proven stores.
+Ghidra may attach cross references to address-formation
+instructions. Determining an actual write to the
+32-bit global requires register alias/effective address,
+store width, data producer and control-flow evidence.
+
+Exactly one original xref to 0x68f18 occurs at 0x1b34,
+before 0x67dd8(4). Original 0x68f18 source:
+ev_c91a040a53f56df4de816544dba93522734e15121f3c4c80ca9d4960f583d730.
+Its 327-instruction original native Evidence:
+ev_bdb88e625c0cb94b0ac53376c8d1c25260bc99e803384ee7b889513e646f92f7.
+
+Function 0x68f18 executes 0x67e20 and substantial
+EMC/BLInitToken initialization (buffer allocation,
+token payload, ESI/core-data calls). **No direct
+bitmask write from 0x68f18 has been established**.
+
+Original 0x60bd8 source:
+ev_dd7e3153e4dc949a8e088adaf1b15170688d4065843d8e533682764d7ef9cc1f.
+Native Evidence:
+ev_674a48ce6f156bdead18a829386ec6a1eb52283ac1ed9b644756fc2f85f436da.
+
+This helper invokes 0x5c148 but returns W0=0 on
+its normal path. Therefore, without more analysis
+it cannot simply be treated as an OEM-authority
+Boolean. Keep Odin interactive UI separate from
+direct 0x17d8 unlock request dispatch.
+
+### Next bounded original writer-cluster analysis
+
+Committed:
+- tools/y2q_hxl1_rea_avb_unlock_bitmask_clusters.py
+- tools/test_y2q_hxl1_rea_avb_unlock_bitmask_clusters.py
+- tools/run_y2q_hxl1_rea_avb_unlock_bitmask_clusters.sh
+
+This host-only audit verifies earlier original
+firmware/REA Evidence, the exact 22 original xrefs,
+and cached native 0x67dd8 reader. It requests only
+three representative Ghidra containing functions
+at 0x6811c, 0x68d94 and 0x6967c, followed by
+full native instructions of each *resolved owner*.
+
+Six is the upper bound for new read-only original
+queries; duplicate owner-native data are cached
+and reused. All 22 source xrefs are classified
+only when included in a verified owner-native
+body; remaining xrefs are explicitly marked
+NOT_YET_NATIVE_CLASSIFIED. The reported opcode
+classes (read, store, address computation) are
+not evidence of effective address to 0x3651ec.
+
+WSL:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_unlock_bitmask_clusters.sh
+~~~
+
+Report:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-unlock-bitmask-clusters.md
+
+No firmware edits or device action are performed,
+and actual bootloader unlock/Odin/signature bypass
+remains unverified.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
