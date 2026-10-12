@@ -4,7 +4,7 @@ This document records the exact procedure used for the Galaxy S24 FE Korean
 firmware `S721NKSSCDZF3`. Do not reuse its values for another build.
 
 For the research-only US Galaxy S20+ (`SM-G986U1`, HXL1, Linux 4.19.113,
-locked bootloader), **start with the [current HXL1 execution guide](SM-G986U1-HXL1-NEXT-STEPS.md)**,
+locked bootloader), **run the [single-command HXL1 porting automation](SM-G986U1-HXL1-AUTOMATED-PORTING.md)** to execute the existing safe independent stages in one host-only pass and generate a nine-stage checklist. The underlying [current HXL1 execution guide](SM-G986U1-HXL1-NEXT-STEPS.md) retains the detailed original-firmware proof gates.
 then consult the [nine-stage HXL1 port adaptation](SM-G986U1-G986U1UESCHXL1.md)
 for historical evidence. Exact firmware extraction, BL archive, stock
 symbol recovery and Clang18 *experimental* objects were already audited.
