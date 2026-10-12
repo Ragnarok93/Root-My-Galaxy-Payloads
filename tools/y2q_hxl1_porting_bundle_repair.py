@@ -17,6 +17,9 @@ import sys
 
 if not __package__:
     sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+# y2q_research_toolchain uses historic adjacent-source absolute imports.
+# Register the tools directory as its own import root without code execution.
+sys.path.insert(0,str(Path(__file__).resolve().parent))
 from tools import y2q_hxl1_porting_automation as port
 
 ROOT=Path.home()/"s20-artifacts"
