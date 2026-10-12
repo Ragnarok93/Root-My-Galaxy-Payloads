@@ -61,26 +61,26 @@ Relevant references: [PORTING.md](PORTING.md), [HXL1 readiness](SM-G986U1-G986U1
 
 ## Recovering the October 12 first-run Stage 6 ZIP
 
-The owner's actual run \`port-automation-20261012T031554640552Z\` completed **nine of ten** existing evidence/diagnostic steps on the exact pinned HXL1 firmware; only \`06_bundle_identity_only\` exited nonzero. Stages 1 and 2 remain COMPLETE, Stage 3 PARTIAL, stages 4–6 OPEN, stages 7–8 BLOCKED and Stage 9 DEFERRED. Passing static audits never changes these hardware/exploit acceptance gates.
+The owner's actual run `port-automation-20261012T031554640552Z` completed **nine of ten** existing evidence/diagnostic steps on the exact pinned HXL1 firmware; only `06_bundle_identity_only` exited nonzero. Stages 1 and 2 remain COMPLETE, Stage 3 PARTIAL, stages 4–6 OPEN, stages 7–8 BLOCKED and Stage 9 DEFERRED. Passing static audits never changes these hardware/exploit acceptance gates.
 
-**Root-cause-level software contract mismatch:** the automation originally saved the compiled identity diagnostic as \`06-hxl1-identity-diagnostic.so\`. The original diagnostic bundle function required the canonical library name \`y2q-G986U1UESCHXL1-identity-diagnostic.so\` even though the signed-off NDK diagnostic manifest's \`payload.file\` contained the actual legacy name. This contradictory filename contract leads to its \`manifest has wrong exact firmware / hash / deployability state\` error; the owner has not supplied the exact failed step log to confirm no additional cause, so the recovery tool still checks all source inputs independently.
+**Root-cause-level software contract mismatch:** the automation originally saved the compiled identity diagnostic as `06-hxl1-identity-diagnostic.so`. The original diagnostic bundle function required the canonical library name `y2q-G986U1UESCHXL1-identity-diagnostic.so` even though the signed-off NDK diagnostic manifest's `payload.file` contained the actual legacy name. This contradictory filename contract leads to its `manifest has wrong exact firmware / hash / deployability state` error; the owner has not supplied the exact failed step log to confirm no additional cause, so the recovery tool still checks all source inputs independently.
 
 Future runs now use the canonical name, and the bundler accepts **only the canonical or one pinned legacy filename**, requiring exact equality to both the actual file basename and manifest plus matching SHA256, original target identity, read-only semantics and ELF64/AArch64 type.
 
 **One command to complete only the missing packaging step** without recompiling the successful NDK object or running earlier audits again:
 
-\`\`\`bash
+```bash
 cd ~/src/Root-My-Galaxy-Payloads
 git pull --ff-only
 python3 tools/y2q_hxl1_porting_bundle_repair.py \
   --run-dir "$HOME/s20-artifacts/hxl1-research/port-automation-20261012T031554640552Z"
-\`\`\`
+```
 
 The repair script validates the prior run's factory Image/config SHA-256, original report's scan/build PASS states, exact stored scan and ELF hashes, recorded filename and payload manifest. It then writes **only** two fresh files inside that run:
 
-- \`06-hxl1-diagnostics-only-recovered.zip\`: inert research-only device identity diagnostic
-- \`06-hxl1-bundle-repair.json\`: explicit proof that the original full-run output and gate results were **not changed**
+- `06-hxl1-diagnostics-only-recovered.zip`: inert research-only device identity diagnostic
+- `06-hxl1-bundle-repair.json`: explicit proof that the original full-run output and gate results were **not changed**
 
-If either recovery file already exists, it refuses to overwrite it. The old \`port-automation.json\` deliberately retains its original failed-step record so research provenance is not falsified. \`--preflight-only\` checks the recovery prerequisites without writing. GitHub Actions exercises the real build/bundle code paths with independent fixture binaries and validates the repair gates; **only the user's local WSL run can confirm recovery against their actual original files**.
+If either recovery file already exists, it refuses to overwrite it. The old `port-automation.json` deliberately retains its original failed-step record so research provenance is not falsified. `--preflight-only` checks the recovery prerequisites without writing. GitHub Actions exercises the real build/bundle code paths with independent fixture binaries and validates the repair gates; **only the user's local WSL run can confirm recovery against their actual original files**.
 
-The \`SyntaxWarning: invalid escape sequence '\\\`'\` warnings were separately corrected by removing the unnecessary escape before Markdown backticks in the report renderer. These warnings were not the reason a properly named and hashed zip could not be packaged.
+The `SyntaxWarning: invalid escape sequence '\\`'` warnings were separately corrected by removing the unnecessary escape before Markdown backticks in the report renderer. These warnings were not the reason a properly named and hashed zip could not be packaged.
