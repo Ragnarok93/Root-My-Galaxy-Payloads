@@ -2365,6 +2365,150 @@ the hardware-authoritative bootloader unlock decision.
 
 ---
 
+
+## October 11, 20:11 CDT — OEM flag is partition-derived; main dispatch chooses direct unlock/relock
+
+Owner successfully executed original HXL1 REA/Ghidra
+five-query OEM and FRP provider audit. The original
+firmware source pin and saved evidence records match.
+
+### OEM value provider 0x60790
+
+Original Ghidra function Evidence:
+ev_4061f57f9aca8f9c2f6f69286221e92891c4d196c1f7ef08caceef2caf8acb14.
+
+Native Evidence:
+ev_0df311a9a017ee403b2301ae9310f39f8d593199e3d18184aa2c141f2d6dbc99.
+
+Ghidra pseudocode:
+- Finds partition named **"persistent"** via
+  FUN_0001e5f0("persistent",&local_40,&local_48).
+- Uses an indirect device read method at local_40+0x18
+  to copy partition data into an allocated buffer.
+- Extracts **the final byte of the partition buffer**:
+  FUN_0000f9d8(&local_4c,lVar3+lVar5-1,1).
+- local_4c is initialized to zero. The byte value is
+  returned as a 32-bit function result.
+- Failure to find/read/allocate the partition may
+  result in a 0x10001 error indicator; exact device
+  method return-status propagation is NOT verified.
+
+Original native ARM64 critical evidence:
+
+    0x607c4 str wzr,[sp,#0x4]   // zero local OEM result
+    0x607c8 bl 0x0001e5f0     // named partition lookup
+    0x607d8 ldrsw x21,[x8,#0xc] // buffer length
+    0x607dc ldr x22,[x8,#0x18]  // read metadata
+    0x60814 blr x9             // indirect storage read
+    0x60818 add x8,x20,x21
+    0x6081c sub x1,x8,#0x1   // partition buffer last byte
+    0x60820 add x0,sp,#0x4
+    0x60824 mov w2,#0x1
+    0x60828 bl 0x0000f9d8
+    0x60864 ldr w19,[sp,#0x4]
+    0x6087c mov w0,w19        // normal return 32-bit OEM byte
+
+This identifies a *partition-derived software state
+source*, not an authenticated or immutable permission.
+It is not yet established that the selected persistent
+partition is protected by RPMB, secure world, or a
+verified partition signature, or that its last byte
+alone governs image-signature authorization.
+
+### FRP-related provider 0x60918
+
+Original function Evidence:
+ev_faf5e68e8326c73df1695864ac8c6df9cc11715e33ef40c71c962751bb33c2ee.
+
+Native Evidence:
+ev_67dd2ef3b411f5fcc0ebd5293e348a709b145e00d3ad619d10c4982a5779c123.
+
+Also resolves "persistent" using FUN_0001e5f0,
+but reads **4 bytes from its partition buffer at
+offset +0x24**, then reverses byte order:
+
+    0x609cc add x1,x19,#0x24
+    0x609d0 mov w2,#0x4
+    0x609d8 bl 0x0000f9d8
+    0x609dc ldr w8,[x20]
+    0x609e0 rev w8,w8
+    0x609e4 str w8,[x20]
+
+This is a challenge_size-related FRP field; no
+evidence it is the same field as the OEM byte.
+The 0x60af8 initializer suppresses OEM eligibility
+when either provider reports 0x10001.
+
+### Main bootloader entry 0x17d8 selector
+
+Original complete 569-native-instruction Evidence:
+ev_8e936443a80102c3a7047a85808c2f253d5db4675221b368d4e839d73eea67b1.
+
+Native ARM64:
+
+    0x1b34 bl 0x00068f18
+    0x1b38 mov w0,#0x4
+    0x1b3c bl 0x00067dd8
+    0x1b40 tst w0,#0xff
+    0x1b44 b.eq 0x00001db0   // zero -> relock
+    0x1b48 bl 0x00034238     // nonzero -> direct unlock request
+
+    0x1db0 bl 0x00034370     // relock request
+
+The exact local condition establishes that the
+low byte of FUN_00067dd8(4)'s returned W0
+chooses these two routines. It does not establish
+what (4) represents or whether it requires a
+trusted/physical/privileged condition. The entry's
+independent FUN_000182d0, jump table at 0x1d00,
+and recovery boot cases are also still under study.
+The existence of a bootloader-entry direct unlock
+routine does not itself show that it is reachable
+without security authorization or that unsigned
+code will be accepted.
+
+### New six-query original-only provenance gate
+
+Committed:
+- tools/y2q_hxl1_rea_avb_oem_persistent_boundary.py
+- tools/test_y2q_hxl1_rea_avb_oem_persistent_boundary.py
+- tools/run_y2q_hxl1_rea_avb_oem_persistent_boundary.sh
+
+First reattests previous original firmware/Evidence
+chain, exact 569 native main instructions and the
+78/92 native OEM/FRP partition readers, including
+last-byte and offset +0x24 read instructions. Any
+missing source or altered address fails closed.
+
+Then at most six additional read-only Ghidra queries:
+1. Decompile and list native instructions of
+   FUN_00067dd8, the unlock-vs-relock selector
+   taking mode/option 4.
+2. Decompile and list native instructions of
+   FUN_0001e5f0, the "persistent" partition resolver.
+3. Decompile and list native instructions of
+   FUN_000182d0, the main boot-mode selector
+   before the separate computed jump at 0x1d00.
+
+Owner WSL:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_oem_persistent_boundary.sh
+~~~
+
+Report:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-oem-persistent-selector-boundary.md
+
+No firmware modification, no device access, no
+unauthorized state change, no actual unlock,
+and no evidence that reported AVB device state
+is sufficient to bypass Qualcomm/Samsung signed
+image authorization.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
