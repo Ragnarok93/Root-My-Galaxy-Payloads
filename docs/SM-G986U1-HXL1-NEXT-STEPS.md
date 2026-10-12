@@ -1,3 +1,26 @@
+## Owner v3 verified — memreserve canary fully covers original QEMU guest FDT
+
+**Owner WSL exact output, October 11:** 31/31 `tools.test_y2q_hxl1_qemu_fdt_canary` unit tests passed, existing v3 canary SHA `630d405830964399e3be63a2c685442e42d5512d62ba394da3d9eef248f5c575` was accepted by independent prelaunch verification, QEMU/GDB read complete guest FDT of **2,117,184 bytes** at `X0=0x48000000`, and the strict offline verifier returned `[MEMRESERVE REACHED KERNEL ENTRY] YES`, `DELIVERED_AND_FULLY_COVERED` and `SELF RESERVATION COVERS RUNTIME FDT True`.
+
+The single canary reservation covers **2,117,632 bytes** at `[0x48000000,0x48205000)`. The owner's earlier builder printed `[STOP] Canary output directory already exists` simply because v3 had been created; the subsequent SHA-pinned verifier explicitly passed the saved v3 content. **The original-image QEMU FDT transport and complete self-coverage gates are now CLOSED/PASS.** Preserve the v3 report `qemu-fdt-canary-delivery-v3-20261011/canary-delivery-audit.json` and cease repetitive canary construction.
+
+**New limited guest instrumentation:** `tools/y2q_hxl1_memblock_trace_gate.py` checks the original factory Image hash, anchored recovered `memblock_reserve` function entry and the existing guest-confirmed v3 canary. It prepares a host-only plan without execution by default. With `--execute`, it runs bounded original-image QEMU with `-nic none` and GDB conditional breakpoints to *observe whether the candidate stock function receives X0 equal to the FDT start*. It compares the live opcode to original Image bytes and records X1 length. This is only a **function-call argument observation**, never allocator exclusion proof: no source-verified `struct memblock` layout, successful return observation or reserved-region state is established.
+
+Owner can run **only after isolated tests pass**:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_memblock_trace_gate
+python3 tools/y2q_hxl1_memblock_trace_gate.py
+python3 tools/y2q_hxl1_memblock_trace_gate.py --execute \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-memblock-callsite-v1-20261011"
+```
+
+If the symbol is absent/ambiguous or original Image bytes fail, the tool stops before guest startup. If no matching GDB call is hit, classify **inconclusive**, not Linux ignoring the reservation. The next valid state gate is to observe the fully initialized `memblock.reserved` table (with independently validated exact factory ABI) before page allocator startup. Physical-phone bootloader unlock, RKP protected pool, root and KernelSU remain separate blocked gates.
+
+---
+
 # SM-G986U1 HXL1 — current porting execution guide
 
 **Current October 11 REA FDT/boot-chain evidence:** [verified overlay composition, calculated FDT copy, boot/recovery component lookup, gzip classifier and remaining gates](SM-G986U1-HXL1-ABL-FDT-BOOTCHAIN-20261011.md). This research note supersedes earlier tentative names for `FUN_000228e0` and `FUN_00023a78`; root feasibility remains unproven.
