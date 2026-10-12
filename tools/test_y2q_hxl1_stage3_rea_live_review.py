@@ -1,0 +1,166 @@
+"""Live REA/Ghidra Stage 3 original-byte verifier and safe command regression."""
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+from tools import y2q_hxl1_stage3_rea_live_review as m
+from tools import test_y2q_hxl1_stage3_member_flow as fixtures
+
+def fake_native(sha="ab"*32):
+    return {"operation":"read_function_instructions",
+            "provider":{"id":"ghidra"},
+            "subject":{"digest":{"sha256":sha},"architecture":"arm64"},
+            "parameters":{"procedure":"0x10000"},
+            "evidence_id":"ev_fake_native",
+            "normalized_result":{"instructions":[
+                "0x10000: ldr x8, [x0, #0x10]",
+                "0x10004: ret"]}}
+
+class LiveStage3ReaTests(unittest.TestCase):
+    def test_only_three_original_ghidra_functions(self):
+        self.assertEqual(m.TARGETS,("remove_waiter","rt_mutex_start_proxy_lock","futex_lock_pi"))
+
+    def test_typed_13_member_registry_preserved(self):
+        self.assertEqual(sum(map(len,m.prior.FIELDS.values())),13)
+
+    def test_native_requires_exact_original_elf_hash(self):
+        with self.assertRaisesRegex(m.LiveProofError,"provenance"):
+            m.native_map(fake_native(), "cd"*32)
+        d=m.native_map(fake_native(),"ab"*32)
+        self.assertEqual(d["0x10000"],"ldr x8, [x0, #0x10]")
+
+    def test_native_mismatch_cannot_validate_original_field(self):
+        saved={"0x10000":"ldr x8, [x0, #0x18]",
+               "0x10004":"ret"}
+        result=m.compare_live_native(m.native_map(fake_native(),"ab"*32),saved)
+        self.assertFalse(result["nativeIdenticalToFactoryBoundArchive"])
+        self.assertEqual(result["differentOrMissingInstructionCount"],1)
+
+    def test_native_duplicate_pc_fails_closed(self):
+        e=fake_native()
+        e["normalized_result"]["instructions"].append("0x10000: nop")
+        with self.assertRaisesRegex(m.LiveProofError,"duplicate"):
+            m.native_map(e,"ab"*32)
+
+    def test_no_injection_via_string_object_in_native(self):
+        e=fake_native()
+        e["normalized_result"]["instructions"]=[{"addr":"0x10000","opcode":"mov"}]
+        with self.assertRaisesRegex(m.LiveProofError,"invalid live"):
+            m.native_map(e,"ab"*32)
+
+    def test_function_original_elf_hash_required(self):
+        e={"operation":"analyze_function","provider":{"id":"ghidra"},
+           "subject":{"digest":{"sha256":"ab"*32}},
+           "parameters":{"procedure":"0x10000"}}
+        with self.assertRaisesRegex(m.LiveProofError,"exact isolated ELF"):
+            m.review_genuine_ghidra("remove_waiter","0x10000",e,"cd"*32)
+
+    def test_function_attested_body_and_not_just_pseudocode(self):
+        e={"operation":"analyze_function","provider":{"id":"ghidra"},
+           "subject":{"digest":{"sha256":"ab"*32}},
+           "parameters":{"procedure":"0x10000"},
+           "evidence_id":"ev_func",
+           "normalized_result":{
+               "procedure":{"address":"0x10000","name":"FUN_00010000",
+                 "body":{"available":True,"ranges":[
+                      {"start":"0x10000","end":"0x10120"}]}},
+               "pseudocode":"void FUN_00010000() { /* rt_mutex.owner hypothesis */ }",
+               "native_value_flow":{"available":True}
+           }}
+        info=m.review_genuine_ghidra("remove_waiter","0x10000",e,"ab"*32)
+        self.assertTrue(info["pcodeAvailable"])
+        self.assertIn("owner",info["lexicalMemberNameHints"])
+        self.assertFalse(info["sourceAndRegisterToCFieldIdentityProven"])
+        self.assertEqual(info["factoryMemberOffsetsCertified"],0)
+
+    def test_plan_does_not_call_ghidra_or_make_output(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base=Path(temp)
+            dest=base/"future"
+            sha="ab"*32
+            report={"reaEvidence":{"savedGhidraDossiers":{}}}
+            inp={name:{"archiveMember":name+".elf",
+                       "sha256":sha,"factoryStaticVA":"0x1",
+                       "fileBytes":b"fixture"} for name in m.TARGETS}
+            with patch.object(m,"saved_report",return_value=(report,{})), \
+                 patch.object(m,"slice_manifest",return_value=inp), \
+                 patch.object(m.flow,"original_instructions",return_value={name:{} for name in m.TARGETS}), \
+                 patch.object(m,"Runner") as runner:
+                res=m.run(base/"saved",base,base/"src",base/"slices.zip",
+                          base/"rea.zip",base/"missing.mjs",dest,False,240)
+                runner.assert_not_called()
+            self.assertEqual(res["mode"],"PLAN_ONLY")
+            self.assertEqual(len(res["planned"]),3)
+            self.assertFalse(dest.exists())
+
+    def test_execute_exact_six_read_only_ghidra_queries(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base=Path(temp)
+            dest=base/"fresh"
+            sha="ab"*32
+            report={"reaEvidence":{"savedGhidraDossiers":{}}}
+            subjects={name:{"archiveMember":name+".elf",
+                            "sha256":sha,"factoryStaticVA":"0x1",
+                            "fileBytes":b"fixture"}
+                      for name in m.TARGETS}
+            saved_map=m.native_map(fake_native(),sha)
+            class FakeRunner:
+                queries=[]
+                def __init__(self,*args,**kwargs):
+                    self.kwargs=kwargs
+                def obtain(self,target,args,dest,**kwargs):
+                    self.queries.append((target.name,args[0],kwargs["operation"]))
+                    if kwargs["operation"]=="read_function_instructions":
+                        return fake_native()
+                    return {"operation":"analyze_function","provider":{"id":"ghidra"},
+                            "subject":{"digest":{"sha256":sha}},
+                            "parameters":{"procedure":"0x10000"},
+                            "evidence_id":"ev_mock"}
+            script=base/"rea.mjs"
+            script.write_text("fixture")
+            with patch.object(m,"saved_report",return_value=(report,{})), \
+                 patch.object(m,"slice_manifest",return_value=subjects), \
+                 patch.object(m.flow,"original_instructions",return_value={
+                     name:saved_map for name in m.TARGETS}), \
+                 patch.object(m.flow,"source_signature",return_value=True), \
+                 patch.object(m,"Runner",FakeRunner), \
+                 patch.object(m,"review_genuine_ghidra",return_value={
+                     "factoryMemberOffsetsCertified":0}):
+                result=m.run(base/"saved",base,base/"src",base/"slices.zip",
+                             base/"rea.zip",script,dest,True,240)
+            self.assertEqual(len(FakeRunner.queries),6)
+            self.assertEqual({q[1] for q in FakeRunner.queries},{"instructions","function"})
+            self.assertEqual(result["factoryMemberOffsetsVerified"],0)
+            self.assertEqual(result["memberCandidateRegisterFlow"]["factoryCertifiedMemberOffsets"],0)
+            self.assertFalse(result["stage3Complete"])
+            self.assertTrue((dest/"live-stage3-rea-review.json").is_file())
+
+    def test_existing_output_directory_is_never_overwritten(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            with self.assertRaisesRegex(m.LiveProofError,"output directory exists"):
+                m.run(root/"saved",root,root/"src",root/"slices.zip",
+                      root/"rea.zip",root/"rea.mjs",root,False,240)
+
+    def test_source_safety_and_no_exploit_or_device_calls(self):
+        code=Path(m.__file__).read_text()
+        for text in ("adb shell","fastboot flash","qemu-system-aarch64",
+                     "target_h.write","git push","write_kernel"):
+            self.assertNotIn(text,code)
+        self.assertIn("Runner(",code)
+        self.assertIn('["function",str(binary),"0x10000"]',code)
+        self.assertIn('["instructions",str(binary),"0x10000"]',code)
+
+    def test_isolated_python_cli(self):
+        with tempfile.TemporaryDirectory() as temp:
+            run=subprocess.run([sys.executable,"-I",str(Path(m.__file__)),"--help"],
+                               cwd=temp,text=True,capture_output=True,timeout=20)
+            self.assertEqual(run.returncode,0,run.stderr)
+            self.assertIn("--execute",run.stdout)
+            self.assertIn("--verified-stage3-report",run.stdout)
+
+if __name__=="__main__":
+    unittest.main()
