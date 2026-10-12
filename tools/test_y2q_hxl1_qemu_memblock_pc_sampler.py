@@ -70,6 +70,18 @@ class Hxl1QmpPcSamplerTests(unittest.TestCase):
             self.assertTrue(any(x.startswith("unix:") for x in command))
             self.assertIn("-d",command)
 
+    def test_compact_fdt_mode_uses_only_explicit_override(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            kernel=root/"factory.bin"
+            override=root/"compact-override.dtb"
+            command=sampler.build_qemu_command(kernel,override,
+                                               root/"output","compact-canary")
+            self.assertEqual(command[command.index("-dtb")+1],str(override))
+            self.assertIn("-nic",command)
+            self.assertIn("-S",command)
+            self.assertNotIn("-drive",command)
+
     def test_baseline_omits_dt_override_but_still_factory_source(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d)
