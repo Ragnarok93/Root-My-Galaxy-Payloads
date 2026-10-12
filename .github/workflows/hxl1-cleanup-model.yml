@@ -89,6 +89,7 @@ on:
       - tools/test_y2q_hxl1_stage3_offset_verification.py
       - tools/y2q_hxl1_stage3_member_flow.py
       - tools/test_y2q_hxl1_stage3_member_flow.py
+      - tools/run_y2q_hxl1_stage3_rea_live_review.sh
       - tools/y2q_hxl1_stage3_rea_live_review.py
       - tools/test_y2q_hxl1_stage3_rea_live_review.py
       - tools/run_y2q_hxl1_rea_member_abi.sh
