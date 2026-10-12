@@ -90,11 +90,7 @@ def write_input(folder):
 class Hxl1PersistentBoundaryTests(unittest.TestCase):
     def test_both_partition_providers_attest_fixed_offsets(self):
         with tempfile.TemporaryDirectory() as td:
-            folder=Path(td)
-            write_input(folder)
-            result=stage.saved_provider_evidence(Path(td).parent,"a"*64,source_prior()) if False else None
-            # saved sources are always under the relative LinuxLoader directory
-            root=folder
+            root=Path(td)
             target_folder=root/"rea-security-audit"/"LinuxLoader"
             write_input(target_folder)
             p=stage.saved_provider_evidence(root,"a"*64,
