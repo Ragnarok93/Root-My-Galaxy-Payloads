@@ -203,6 +203,18 @@ class Hxl1AutoPortTests(unittest.TestCase):
             self.assertIn("missing/mismatch",proc.stderr)
             self.assertFalse(out.exists())
 
+    def test_single_command_wrapper_only_fast_forwards_and_runs_host_pipeline(self):
+        wrapper=Path(m.REPO/"tools/run_y2q_hxl1_porting_automation.sh")
+        body=wrapper.read_text()
+        self.assertIn("git pull --ff-only",body)
+        self.assertIn("PYTHONDONTWRITEBYTECODE=1",body)
+        self.assertIn("exec python3 tools/y2q_hxl1_porting_automation.py --mode run",body)
+        for operation in ("git reset","git push","adb shell","fastboot","sudo ",
+                          "qemu-system-aarch64","rm -rf"):
+            self.assertNotIn(operation,body)
+        proc=subprocess.run(["bash","-n",str(wrapper)],capture_output=True,text=True)
+        self.assertEqual(proc.returncode,0,proc.stderr)
+
     def test_static_refuse_phone_flash_feed_and_qemu_path(self):
         s=Path(m.__file__).read_text()
         for op in ("subprocess.Popen(","os.system(","requests.post(",
