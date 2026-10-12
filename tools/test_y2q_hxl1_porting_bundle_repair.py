@@ -141,6 +141,103 @@ class BundleRepairTests(unittest.TestCase):
             with self.assertRaisesRegex(m.RepairError,"source scan"):
                 self.inspect(folder,artifacts)
 
+    def verify_previous(self,folder,artifacts):
+        with patch.object(m.port,"check_factory_inputs",return_value=factory_integrity()):
+            return m.verify_existing(folder,artifacts)
+
+    def test_existing_recovery_is_verified_idempotently_without_writes(self):
+        with setup_run() as (artifacts,folder):
+            self.recover(folder,artifacts)
+            tracked=[folder/m.RECOVERED,folder/m.REPORT,
+                     folder/"port-automation.json",folder/m.MANIFEST]
+            original={p.name:p.read_bytes() for p in tracked}
+            result=self.verify_previous(folder,artifacts)
+            second=self.verify_previous(folder,artifacts)
+            self.assertEqual(result,second)
+            self.assertEqual(result["status"],
+                             "EXISTING_HXL1_DIAGNOSTIC_BUNDLE_VERIFIED")
+            self.assertTrue(result["archiveMatchesOriginalInputs"])
+            self.assertFalse(result["rootOrKernelSuVerified"])
+            self.assertEqual(original,{p.name:p.read_bytes() for p in tracked})
+
+    def test_existing_canonical_bundle_is_also_verified(self):
+        with setup_run(m.CANONICAL) as (artifacts,folder):
+            self.recover(folder,artifacts)
+            result=self.verify_previous(folder,artifacts)
+            self.assertEqual(result["status"],
+                             "EXISTING_HXL1_DIAGNOSTIC_BUNDLE_VERIFIED")
+
+    def test_only_zip_existing_is_reported_partial_not_overwritten(self):
+        with setup_run() as (artifacts,folder):
+            (folder/m.RECOVERED).write_bytes(b"prior partial output")
+            with self.assertRaisesRegex(m.RepairError,"Partial recovery"):
+                self.verify_previous(folder,artifacts)
+            self.assertEqual((folder/m.RECOVERED).read_bytes(),
+                             b"prior partial output")
+
+    def test_only_report_existing_is_reported_partial(self):
+        with setup_run() as (artifacts,folder):
+            (folder/m.REPORT).write_text("{}")
+            with self.assertRaisesRegex(m.RepairError,"Partial recovery"):
+                self.verify_previous(folder,artifacts)
+            self.assertEqual((folder/m.REPORT).read_text(),"{}")
+
+    def test_no_recovered_outputs_fails_verification_without_writing(self):
+        with setup_run() as (artifacts,folder):
+            with self.assertRaisesRegex(m.RepairError,"No existing recovery"):
+                self.verify_previous(folder,artifacts)
+            self.assertFalse((folder/m.RECOVERED).exists())
+
+    def test_existing_report_hash_mismatch_refused(self):
+        with setup_run() as (artifacts,folder):
+            self.recover(folder,artifacts)
+            report=folder/m.REPORT
+            saved=json.loads(report.read_text())
+            saved["recoveredZipSha256"]="0"*64
+            report.write_text(json.dumps(saved))
+            with self.assertRaisesRegex(m.RepairError,"recoveredZipSha256"):
+                self.verify_previous(folder,artifacts)
+
+    def test_existing_zip_content_tamper_refused(self):
+        with setup_run() as (artifacts,folder):
+            self.recover(folder,artifacts)
+            zipfile=folder/m.RECOVERED
+            zipfile.write_bytes(zipfile.read_bytes()+b"modified")
+            with self.assertRaisesRegex(m.RepairError,"recoveredZipSha256"):
+                self.verify_previous(folder,artifacts)
+
+    def test_existing_archive_symlink_refused(self):
+        with setup_run() as (artifacts,folder):
+            self.recover(folder,artifacts)
+            z=folder/m.RECOVERED
+            preserved=folder/"saved-bundle.zip"
+            z.rename(preserved)
+            z.symlink_to(preserved)
+            with self.assertRaisesRegex(m.RepairError,"symlinks"):
+                self.verify_previous(folder,artifacts)
+
+    def test_verify_existing_preserves_original_root_denial(self):
+        with setup_run() as (artifacts,folder):
+            self.recover(folder,artifacts)
+            data=json.loads((folder/m.MANIFEST).read_text())
+            data["rootVerified"]=True
+            (folder/m.MANIFEST).write_text(json.dumps(data))
+            with self.assertRaisesRegex(m.RepairError,"inert"):
+                self.verify_previous(folder,artifacts)
+
+    def test_verify_existing_option_is_read_only_and_exclusive(self):
+        with tempfile.TemporaryDirectory() as temp:
+            proc=subprocess.run([sys.executable,"-I",str(Path(m.__file__)),"--help"],
+                                cwd=temp,text=True,capture_output=True,timeout=15)
+            self.assertEqual(proc.returncode,0,proc.stderr)
+            self.assertIn("--verify-existing",proc.stdout)
+            bad=subprocess.run([sys.executable,"-I",str(Path(m.__file__)),
+                                "--run-dir",str(Path(temp)/"fake"),
+                                "--verify-existing","--preflight-only"],
+                               capture_output=True,text=True,timeout=15)
+            self.assertNotEqual(bad.returncode,0)
+            self.assertIn("not allowed",bad.stderr)
+
     def test_help_without_current_working_tree(self):
         with tempfile.TemporaryDirectory() as temp:
             proc=subprocess.run([
