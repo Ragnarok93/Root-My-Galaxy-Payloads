@@ -33,6 +33,9 @@ PROBE_SOURCE = ROOT / "research/y2q-G986U1UESCHXL1/diagnostic_payload.c"
 DEFAULT_EVIDENCE = ROOT / "research/y2q-G986U1UESCHXL1/evidence.json"
 PROFILE = "y2q-G986U1UESCHXL1"
 SHARED_LIBRARY = PROFILE + "-identity-diagnostic.so"
+# Name emitted by the first HXL1 automation runner; support its existing
+# checksum-pinned, identity-only artifacts for local bundle recovery.
+LEGACY_PIPELINE_LIBRARY = "06-hxl1-identity-diagnostic.so"
 RESEARCH_KIND = "RMG_HXL1_READ_ONLY_IDENTITY_NOT_ROOT"
 REFERENCES = (
     {
@@ -264,7 +267,8 @@ def command_bundle(args):
             or manifest.get("kernelWriteCapability") is not False
             or manifest.get("moduleLoadCapability") is not False
             or manifest.get("scanReportSha256") != sha256(scan_path)
-            or manifest.get("payload", {}).get("file") != SHARED_LIBRARY
+            or manifest.get("payload", {}).get("file") not in (SHARED_LIBRARY, LEGACY_PIPELINE_LIBRARY)
+            or manifest["payload"]["file"] != library_path.name
             or manifest["payload"]["sha256"] != sha256(library_path)
             or manifest["payload"]["sizeBytes"] != library_path.stat().st_size):
         raise ValueError("manifest has wrong exact firmware / hash / deployability state")
@@ -280,7 +284,7 @@ def command_bundle(args):
         "README.txt": readme,
         "candidate.json": scan_path.read_bytes(),
         "diagnostic-manifest.json": manifest_path.read_bytes(),
-        SHARED_LIBRARY: library_path.read_bytes(),
+        library_path.name: library_path.read_bytes(),
     }
     with output.open("xb") as destination:
         with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as package:
