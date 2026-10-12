@@ -170,6 +170,29 @@ class Hxl1AutoPortTests(unittest.TestCase):
             self.assertEqual(r["status"],"FAIL")
             self.assertIn("no stock source",(root/"fake.log").read_text())
 
+    def test_stage6_filename_contract_matches_bundle_expectation(self):
+        from tools import y2q_research_toolchain as bundle
+        with tempfile.TemporaryDirectory() as temp:
+            rows=m.tasks(m.REPO,Path(temp),Path(temp)/"source",
+                         Path(temp)/"fresh",None)
+            built=next(r for r in rows if r.id=="06_build_identity_only")
+            packed=next(r for r in rows if r.id=="06_bundle_identity_only")
+            self.assertEqual(Path(built.output).name,bundle.SHARED_LIBRARY)
+            self.assertEqual(built.args[6],built.output)
+            self.assertEqual(packed.args[4],built.output)
+            self.assertIn("--manifest",built.args)
+            self.assertIn("--manifest",packed.args)
+
+    def test_markdown_renderer_emits_unescaped_backtick(self):
+        report={"runId":"fixture","inputIntegrity":{},
+                "steps":[{"id":"06_bundle_identity_only","stage":6,"status":"PASS"}],
+                "stages":m.validate_readiness(sample_gates())}
+        rendered=m.summarize(report)
+        q=chr(96)
+        self.assertIn(q+"fixture"+q,rendered)
+        self.assertIn(q+"06_bundle_identity_only"+q,rendered)
+        self.assertNotIn(chr(92)+q,rendered)
+
     def test_summary_never_confuses_task_pass_with_firmware_root(self):
         mfest={"runId":"fixture","inputIntegrity":{},
                "steps":[{"id":"03_layout","stage":3,"status":"PASS"}],
