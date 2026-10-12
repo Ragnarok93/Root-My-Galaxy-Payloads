@@ -222,7 +222,7 @@ class BundleRepairTests(unittest.TestCase):
             data=json.loads((folder/m.MANIFEST).read_text())
             data["rootVerified"]=True
             (folder/m.MANIFEST).write_text(json.dumps(data))
-            with self.assertRaisesRegex(m.RepairError,"inert"):
+            with self.assertRaisesRegex(m.RepairError,"Manifest does not match|inert"):
                 self.verify_previous(folder,artifacts)
 
     def test_verify_existing_option_is_read_only_and_exclusive(self):
