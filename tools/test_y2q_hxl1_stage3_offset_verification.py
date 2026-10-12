@@ -81,6 +81,25 @@ class Stage3OffsetVerifierTests(unittest.TestCase):
             root=Path(d);alias=root/"alias";alias.symlink_to(root,target_is_directory=True)
             self.assertEqual(m.compiled_objects(alias),[])
 
+    def test_offset_matching_is_not_c_member_identity(self):
+        asm="""ffffff8008147e00: f9400e68 ldr x8, [x19, #24]
+ffffff8008147e04: f9400260 ldr x0, [x19]
+ffffff8008147e08: d65f03c0 ret
+ffffff8008147e0c: f9400a62 ldr x2, [x19, #0x10]
+"""
+        rows=m.parse_disassembly_candidates(asm,{0,0x10,0x18,0x20})
+        self.assertEqual(len(rows[0x18]),1)
+        self.assertEqual(len(rows[0x10]),1)
+        self.assertEqual(len(rows[0]),1)
+        self.assertEqual(len(rows[0x20]),0)
+        self.assertFalse(rows[0x18][0]["originalCStructFieldIdentified"])
+
+    def test_unavailable_objdump_reports_unknown(self):
+        with patch.object(m.shutil,"which",return_value=None):
+            indexed=m.indexed_original_operands(synthetic_factory_image(),{0,0x10})
+        self.assertEqual(indexed["state"],"OBJDUMP_UNAVAILABLE")
+        self.assertEqual(indexed["candidateSites"],{})
+
     def test_archived_rea_missing_does_not_claim_success(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);factory=root/"stock";factory.mkdir()
@@ -88,7 +107,8 @@ class Stage3OffsetVerifierTests(unittest.TestCase):
             report={"originalReport":{"sha256":"a"*64},"aarch64ObjectCount":0}
             hashes={"kernel.bin":{"state":"VERIFIED"},"config.gz":{"state":"VERIFIED"}}
             with patch.object(m.port,"check_factory_inputs",return_value=hashes), \
-                 patch.object(m.checkpoint,"audit",return_value=report):
+                 patch.object(m.checkpoint,"audit",return_value=report), \
+                 patch.object(m,"indexed_original_operands",return_value={"state":"OBJDUMP_UNAVAILABLE","candidateSites":{}}):
                 result=m.audit(factory,root,root,root/"build",
                                root/"not-found-slices.zip",root/"not-found-rea.zip")
             self.assertEqual(result["stockOpcodeWitnessesVerified"],31)
@@ -110,7 +130,8 @@ class Stage3OffsetVerifierTests(unittest.TestCase):
             with patch.object(m.port,"check_factory_inputs",return_value=hashes), \
                  patch.object(m.checkpoint,"audit",return_value=report), \
                  patch.object(m.prior,"attest",return_value={"witnessCount":31}), \
-                 patch.object(m,"verify_rea_dossiers",return_value={"remove_waiter":{"actualGhidraRecordsIndependentlyChecked":True}}):
+                 patch.object(m,"verify_rea_dossiers",return_value={"remove_waiter":{"actualGhidraRecordsIndependentlyChecked":True}}), \
+                 patch.object(m,"indexed_original_operands",return_value={"state":"OBJDUMP_UNAVAILABLE","candidateSites":{}}):
                 got=m.audit(factory,root,root,root/"build",sl,rea)
             self.assertIn("ATTESTED",got["reaEvidence"]["state"])
             self.assertFalse(got["reaEvidence"]["memberSpecificFactoryDefUseProven"])
@@ -124,7 +145,8 @@ class Stage3OffsetVerifierTests(unittest.TestCase):
             fake={"kernel.bin":{"state":"VERIFIED"},"config.gz":{"state":"VERIFIED"}}
             with patch.object(m.port,"check_factory_inputs",return_value=fake), \
                  patch.object(m.checkpoint,"audit",return_value={"originalReport":{"sha256":"a"*64},"aarch64ObjectCount":0}), \
-                 patch.object(m.prior,"attest",return_value={"witnessCount":30}):
+                 patch.object(m.prior,"attest",return_value={"witnessCount":30}), \
+                 patch.object(m,"indexed_original_operands",return_value={"state":"OBJDUMP_UNAVAILABLE","candidateSites":{}}):
                 with self.assertRaisesRegex(m.ProofError,"witness mismatch"):
                     m.audit(fac,root,root,root/"build",a,b)
 
