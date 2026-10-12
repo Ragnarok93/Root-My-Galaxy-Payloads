@@ -39,9 +39,18 @@ class CompactExceptionError(ValueError):
 def extract_event_log(raw:bytes,limit:int=24)->dict:
     if len(raw)>MAX_LOG:
         raise CompactExceptionError("Exception log exceeds 16MiB bound")
+    if limit<3 or limit>64:
+        raise CompactExceptionError("Retained event bound must be 3..64")
     lines=raw.decode("utf8","replace").splitlines()
-    events=[]
+    first=[]
+    last=[]
+    tracked=[]
+    targets={SMC_PC,*KNOWN_FAULTS}
     total=0
+    # Retain original sequence indices. Never interpret log position as a
+    # complete executed-instruction sequence; QEMU may omit events.
+    import collections
+    recent=collections.deque(maxlen=limit)
     for i,line in enumerate(lines):
         if not line.startswith("Taking exception "):
             continue
@@ -56,19 +65,44 @@ def extract_event_log(raw:bytes,limit:int=24)->dict:
         elr=ELR_RE.search(joined)
         far=sites.FAR_RE.search(joined)
         esr=sites.ESR_RE.search(joined)
-        if len(events)<limit:
-            events.append({
-                "line":i+1,
-                "kind":line[:120],
-                "elr":hex(int(elr.group(1),16)) if elr else None,
-                "far":hex(int(far.group(1),16)) if far else None,
-                "esr":hex(int(esr.group(1),16)) if esr else None,
-                "esrDecoded":sites.decode_esr(int(esr.group(1),16)) if esr else None,
-            })
-    return {"events":events,"totalExceptionMarkers":total,
-            "retainedEventCount":len(events),
-            "samplesTruncatedToLimit":total>len(events),
-            "logSha256":hashlib.sha256(raw).hexdigest()}
+        entry={
+            "line":i+1,
+            "kind":line[:120],
+            "elr":hex(int(elr.group(1),16)) if elr else None,
+            "far":hex(int(far.group(1),16)) if far else None,
+            "esr":hex(int(esr.group(1),16)) if esr else None,
+            "esrDecoded":sites.decode_esr(int(esr.group(1),16)) if esr else None,
+        }
+        if len(first)<limit:
+            first.append(entry)
+        recent.append(entry)
+        if entry["elr"] is not None and int(entry["elr"],16) in targets:
+            if not any(e["elr"]==entry["elr"] for e in tracked):
+                tracked.append(entry)
+    last=list(recent)
+    # Prioritize one independently observed event at each target, first
+    # chronological exception and final exceptions. Deduplicate by line.
+    chosen={}
+    for entry in tracked:
+        if len(chosen)<limit:
+            chosen[entry["line"]]=entry
+    first_cap=max(1,limit//3)
+    tail_cap=max(1,limit//3)
+    for entry in first[:first_cap]+last[-tail_cap:]+first+last:
+        if len(chosen)>=limit:
+            break
+        chosen.setdefault(entry["line"],entry)
+    events=sorted(chosen.values(),key=lambda e:e["line"])
+    return {
+        "events":events,
+        "totalExceptionMarkers":total,
+        "retainedEventCount":len(events),
+        "knownSourceElrsEncounteredInFullLog":[hex(x) for x in (SMC_PC,*KNOWN_FAULTS)
+            if any(e["elr"]==hex(x) for e in tracked)],
+        "samplesTruncatedToLimit":total>len(events),
+        "logSha256":hashlib.sha256(raw).hexdigest(),
+        "evidenceSelection":"first_tail_and_first_occurrence_of_known_source_ELRs",
+    }
 
 def source_correlate(evidence:dict,image:bytes,symbols:dict)->dict:
     gate.valid_source(image)
