@@ -169,6 +169,17 @@ class AbiViaRealGhidraTests(unittest.TestCase):
         self.assertIn('["function",str(subject),"0x10000"]',s)
         self.assertIn("originalStage3ReportSha256",s)
 
+    def test_wsl_runner_invokes_real_ghidra_and_preserves_factory_report(self):
+        script=Path(m.__file__).parent/"run_y2q_hxl1_rea_member_abi.sh"
+        body=script.read_text()
+        p=subprocess.run(["bash","-n",str(script)],capture_output=True,text=True)
+        self.assertEqual(p.returncode,0,p.stderr)
+        self.assertIn("y2q_hxl1_rea_member_abi.py",body)
+        self.assertIn("--execute",body)
+        self.assertIn("--verified-stage3-report",body)
+        for forbidden in ("rm -rf","git reset","adb shell","fastboot","qemu-system"):
+            self.assertNotIn(forbidden,body)
+
     def test_executable_help_without_local_ghidra(self):
         with tempfile.TemporaryDirectory() as temp:
             p=subprocess.run([sys.executable,"-I",str(Path(m.__file__)),"--help"],
