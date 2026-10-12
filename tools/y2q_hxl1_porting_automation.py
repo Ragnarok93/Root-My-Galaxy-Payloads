@@ -113,7 +113,10 @@ def tasks(repo:Path,artifacts:Path,source:Path,out:Path,ndk:Path|None)->list[Ste
               "--analysis",str(artifacts/"hxl1-research/ghostlock-upstream-analysis-isolated.txt"),
               "--diagnostics",str(artifacts/"hxl1-research/ghostlock-upstream-diagnostics-isolated.txt"),
               "--output",path("05-ghostlock-original-binary.json")),
-             path("05-ghostlock-original-binary.json"),optional=True),
+             path("05-ghostlock-original-binary.json"),
+             inputs=(str(artifacts/"hxl1-research/ghostlock-upstream-analysis-isolated.txt"),
+                     str(artifacts/"hxl1-research/ghostlock-upstream-diagnostics-isolated.txt")),
+             optional=True),
         Step("05_source_candidate",5,script("y2q_research_toolchain.py"),
              ("scan","--audit-json",str(artifacts/"samsung-hxl1-source-audit.json"),
               "--stock-source",str(source),
@@ -168,8 +171,14 @@ def run_step(step:Step, statuses:dict[str,str],log_dir:Path,
         result.update(status="SKIP_DEPENDENCY",
                       reason="Prerequisite did not pass: "+", ".join(skipped))
         return result
+    missing=[name for name in step.inputs if Path(name).is_absolute() and
+             (not Path(name).is_file() or Path(name).is_symlink())]
+    if missing and step.optional:
+        result.update(status="SKIP_MISSING_PREREQUISITE",
+                      reason="Original optional inputs not available: "+", ".join(missing))
+        return result
     if step.id=="06_build_identity_only" and not (
-            Path(step.args[5]).is_dir()):
+            Path(step.args[4]).is_dir()):
         result.update(status="SKIP_MISSING_PREREQUISITE",
                       reason="Verified Android NDK path is not available")
         return result
