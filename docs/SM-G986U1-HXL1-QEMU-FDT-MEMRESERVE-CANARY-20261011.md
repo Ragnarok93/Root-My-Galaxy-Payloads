@@ -83,6 +83,45 @@ If the new guest still moves its FDT, reallocates the blob, changes reservation 
 
 ---
 
+## 23:57 UTC — guest override delivered; QEMU expands to 2,117,184-byte runtime FDT
+
+The owner completed v2 WSL runtime capture and the script printed **`[GUEST DECLARED FDT BYTES] 2117184`**, followed by an exact-length binary GDB read. The verifier stopped only at `Canary does not cover the complete page-rounded FDT`. Its preceding validation requires: verified original HXL1 GDB `PC/X0/X1-X3`, complete 2,117,184-byte saved runtime DTB, original SHA-pinned source DTBs, exact canary source+manifest reconstruction, and exact equality of guest `memoryReservationEntries` to the constructed canary. **Therefore actual guest delivery of the memreserve entry is confirmed by source/control-flow evidence**, while **complete FDT self-coverage fails**.
+
+Actual runtime `FDT totalsize=2,117,184 (0x204e40)`; at the confirmed physical pointer `0x48000000`, its interval is `[0x48000000,0x48204e40)`. The v2 reservation was only `[0x48000000,0x48101000)`, 1,052,672 bytes. The **minimum 4 KiB-rounded self-reservation supported by this observed runtime length** is 2,117,632 bytes (`0x205000`), covering `[0x48000000,0x48205000)`. The runtime FDT's growth is a QEMU guest-delivery observation; **the source of that growth has not yet been isolated in QEMU implementation or GDB traces**. This is *not* a free-RAM or UH RKP carveout choice.
+
+Updated code permits `--audit-delivery-only` on the original v2 capture. This still validates every original FDT/provenance/GDB/memreserve gate but reports `DELIVERED_BUT_SELF_RESERVATION_UNDERSIZED` and an accurately calculated minimum page-rounded extent. Default verification **still refuses** an undersized reservation. The canary constructor additionally permits an optional, **explicitly measured** 4KiB-aligned `--self-reserve-bytes` to build a separate v3 diagnostic FDT, with size/bounds and source verification. [Isolated HXL1 CI run #38186388440](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38186388440) confirmed **222/222 tests PASS, including 27/27 canary tests**. These are host synthetic/fixture tests; owner's offline v2 audit and v3 execution are pending.
+
+**First, replay the already captured v2 guest evidence offline (no new QEMU run):**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_fdt_canary
+
+python3 tools/y2q_hxl1_qemu_fdt_canary_verify.py \
+  --canary-dir "$HOME/s20-artifacts/hxl1-research/qemu-memreserve-canary-v2-20261011" \
+  --delivery-dir "$HOME/s20-artifacts/hxl1-research/qemu-fdt-canary-delivery-v2-20261011" \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-fdt-canary-delivery-v2-20261011/canary-delivery-evidence-v2.json" \
+  --audit-delivery-only
+```
+
+After confirming that classification, a fully covered diagnostic v3 can be constructed (again **NOT an RKP pool**):
+
+```bash
+CAN="$HOME/s20-artifacts/hxl1-research/qemu-memreserve-canary-v3-20261011"
+CAP="$HOME/s20-artifacts/hxl1-research/qemu-fdt-canary-delivery-v3-20261011"
+
+python3 tools/y2q_hxl1_qemu_fdt_canary.py \
+  --self-reserve-bytes 2117632 --output-dir "$CAN"
+bash tools/run_y2q_hxl1_qemu_fdt_canary_capture.sh "$CAN" "$CAP"
+python3 tools/y2q_hxl1_qemu_fdt_canary_verify.py \
+  --canary-dir "$CAN" --delivery-dir "$CAP"
+```
+
+Because QEMU may change the runtime FDT size in the v3 execution, a successful v3 cannot be asserted until the new guest FDT passes the strict dynamic-size and self-coverage checks. If it fails, preserve the directory and return to the specific guest output; do not endlessly bump arbitrary reservation sizes. A v3 canary success **only demonstrates delivery and full coverage of the FDT at kernel handoff**. It proves neither Linux memblock exclusion nor UH/RKP secure-memory allocation.
+
+---
+
 ## What comes after canary success
 
 1. Independently establish the actual early Linux memblock reserve behavior. A memreserve entry being present in the FDT at Linux entry is necessary evidence, not proof of allocator exclusion.
