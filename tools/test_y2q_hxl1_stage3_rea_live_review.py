@@ -26,6 +26,22 @@ class LiveStage3ReaTests(unittest.TestCase):
     def test_typed_13_member_registry_preserved(self):
         self.assertEqual(sum(map(len,m.prior.FIELDS.values())),13)
 
+    def test_live_ghidra_site_index_has_13_candidates_without_fabricating_members(self):
+        inventory=m.ghidra_member_displacement_leads({
+            "remove_waiter":{"0x10018":"ldr x22, [x0, #0x18]",
+                             "0x1003c":"ldr x24, [x19, #0x20]",
+                             "0x100b0":"ldr x0, [x19, #0x0]"},
+            "futex_lock_pi":{"0x100a0":"ldr w2, [x21, #0x40]"}
+        })
+        self.assertEqual(len(inventory),13)
+        self.assertFalse(any(x["CFieldIdentityCertified"] for x in inventory))
+        self.assertTrue(next(x for x in inventory
+                             if x["type"]=="rt_mutex" and x["member"]=="owner")
+                        ["exactFactoryGhidraMemoryOperandCandidates"])
+        self.assertTrue(next(x for x in inventory
+                             if x["type"]=="rt_mutex_waiter" and x["member"]=="prio")
+                        ["exactFactoryGhidraMemoryOperandCandidates"])
+
     def test_native_requires_exact_original_elf_hash(self):
         with self.assertRaisesRegex(m.LiveProofError,"provenance"):
             m.native_map(fake_native(), "cd"*32)
