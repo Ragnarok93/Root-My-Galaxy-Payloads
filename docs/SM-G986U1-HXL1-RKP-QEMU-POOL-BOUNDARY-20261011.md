@@ -1,3 +1,50 @@
+## 2026-10-12 01:50 — source-verified RKP bitmap request on verified compact guest
+
+The owner completed an **actual** fresh compact-FDT QEMU/GDB breakpoint capture of the original SHA-256-pinned HXL1 factory Image (kernel SHA `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`) after prevalidating the exact compact DTB input SHA `1530da694b887fbe9918aa922eeafcdaa3ef0c900e6eae279402464b46b83fdd` and the previously complete **35,168-byte guest FDT**. The 24/24 local offline/regression tests passed. Unlike the earlier original-config capture, this is evidence from the corrected, compact-DTB original-kernel run.
+
+At `0xffffff80080a5794` GDB independently matched original `SMC #0` opcode `d4000003`, kernel entry `PC=0x40080000,X0=0x48000000,X1=X2=X3=0`, and registers:
+
+```text
+X0 0xc300c002
+X1 0x15
+X2 0xffffff800a4dd0b8
+X3 0x40000000
+X4 0
+X5 0
+X6 0x3f
+```
+
+The **previous original HXL1 `include/linux/uh.h` and `include/linux/rkp.h` source audit** (see `tools/y2q_hxl1_rkp_bitmap_abi_audit.py`) resolves the first four meaningful values: `UH_APP_RKP=0xc300c002`, command `RKP_GET_RKP_GET_BUFFER_BITMAP=0x15`, X2 = recovered `rkp_s_bitmap_buffer` address, X3 = `memstart_addr`, which matches QEMU RAM base. This **reconfirms the original HXL1 RKP bitmap request in the now size-valid QEMU configuration**. It is *not* a KDP namespace-flags command, despite the numeric collision with the existing public QEMU fork. The original `uh_call` source has four explicit arguments after app-ID and command; **X6=0x3f is a captured machine register, not an established extra bitmap command argument**. Do not implement its semantics from the register value.
+
+The live SMC was halted **before** the instruction executed. There is **no same-run SMC response/return proof**, no actual guest pointer write to X2, no guest bitmap ownership descriptor, no safe/protected UH memory region, and no source-faithful RKP dispatcher. The compact run's existing QEMU exception trace also logged reads at `0xffffff80082ac90c` (`LDR x24,[x21,#0x58]`, FAR 0x58) and `0xffffff80086de39c` (`LDP x9,x8,[x10,#0x10]`, FAR 0x10); those offsets are compatible with a zero base register, but no same-run fault-time X21/X10 values were recorded.
+
+**New reproducible next stages**, both restricted to the host's original source and bounded QEMU tests:
+1. `tools/y2q_hxl1_compact_bitmap_call_audit.py` re-checks original source `uh.h`/`rkp.h`, recovered `rkp_s_bitmap_buffer` symbol and the exact saved compact GDB `X0..X6` report independently against its original GDB log, the factory Image and the compact 35,168-byte guest FDT proof. Fails closed on source/argument/format mismatch. Its host fixture tests enforce the KDP/RKP collision and X6 ambiguity.
+2. `tools/y2q_hxl1_qemu_compact_fault_regs.py` is a **separate host-only** bounded QEMU guest capture using original kernel, same compact FDT and no NIC; optionally it first samples X0 at `SMC+4` and then captures **X21** at the first stock data-abort instruction or **X10** at the second, reading and validating each live source opcode against exact original Image bytes before claiming the register was observed. Separate fresh output directories are required for each target; fault breakpoint absence remains inconclusive. The optional X0 at SMC+4 is a *raw register*, not success evidence. It never writes guest memory, fakes UH responses or patches the kernel.
+
+Owner commands (run without modifying earlier captures):
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v \
+  tools.test_y2q_hxl1_compact_bitmap_call_audit \
+  tools.test_y2q_hxl1_qemu_compact_fault_regs
+python3 tools/y2q_hxl1_compact_bitmap_call_audit.py
+
+python3 tools/y2q_hxl1_qemu_compact_fault_regs.py \
+  --target x21 --preflight-only \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-compact-fault-x21-v1-20261012"
+
+python3 tools/y2q_hxl1_qemu_compact_fault_regs.py \
+  --target x21 \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-compact-fault-x21-v1-20261012"
+```
+
+**Read-only source/fixture CI success is not evidence that the new live fault breakpoint has fired.** A separate X10 run should follow only if X21 capture is conclusive or its failure is understood. As always, none of these experiments unlocks the SM-G986U1 bootloader or establishes a KernelSU deployment route.
+
+---
+
 # HXL1 — RKP sparse-bitmap pool boundary for Samsung QEMU (2026-10-11)
 
 **Status:** Host-side C component implemented, tests committed but owner/CI execution not yet verified. **Not integrated into QEMU; no kernel boot or root claim.**
