@@ -1,6 +1,8 @@
 """Synthetic tests: independent stock-Image opcode witnesses and honest offset ledger."""
 from __future__ import annotations
 import hashlib
+import json
+import zipfile
 from pathlib import Path
 import subprocess
 import sys
@@ -107,7 +109,8 @@ class Stage3OffsetVerifierTests(unittest.TestCase):
             report={"originalReport":{"sha256":"a"*64},"aarch64ObjectCount":0}
             with patch.object(m.port,"check_factory_inputs",return_value=hashes), \
                  patch.object(m.checkpoint,"audit",return_value=report), \
-                 patch.object(m.prior,"attest",return_value={"witnessCount":31}):
+                 patch.object(m.prior,"attest",return_value={"witnessCount":31}), \
+                 patch.object(m,"verify_rea_dossiers",return_value={"remove_waiter":{"actualGhidraRecordsIndependentlyChecked":True}}):
                 got=m.audit(factory,root,root,root/"build",sl,rea)
             self.assertIn("ATTESTED",got["reaEvidence"]["state"])
             self.assertFalse(got["reaEvidence"]["memberSpecificFactoryDefUseProven"])
@@ -124,6 +127,71 @@ class Stage3OffsetVerifierTests(unittest.TestCase):
                  patch.object(m.prior,"attest",return_value={"witnessCount":30}):
                 with self.assertRaisesRegex(m.ProofError,"witness mismatch"):
                     m.audit(fac,root,root,root/"build",a,b)
+
+    def evidence_archives(self,root):
+        slices=root/"slices.zip"
+        rea=root/"rea.zip"
+        entries={}
+        with zipfile.ZipFile(slices,"w") as code, zipfile.ZipFile(rea,"w") as extracted:
+            for name,(addr,length,_,_) in m.prior.ELFS.items():
+                if name not in ("remove_waiter","rt_mutex_start_proxy_lock"):continue
+            records={}
+            for name,addr in (("remove_waiter","0x100"),("rt_mutex_start_proxy_lock","0x200"),("futex_lock_pi","0x300")):
+                address=addr[2:]
+                data=("synthetic-"+name).encode()
+                digest=hashlib.sha256(data).hexdigest()
+                code.writestr("isolated-"+name+"-"+address+".elf",data)
+                doc={"operation":"read_function_instructions","provider":{"id":"ghidra"},
+                     "subject":{"digest":{"sha256":digest}},
+                     "parameters":{"procedure":"0x10000"},
+                     "normalized_result":{"instructions":["0x10000: nop","0x10004: ret"]}}
+                extracted.writestr("rea-slice-"+name+"-"+address+".json",json.dumps(doc))
+                records[name]={"symbolVA":addr,"reaInstructionCount":2,
+                               "isolatedCode":{"sha256":digest,"stockBytes":16}}
+            manifest={"status":"STATIC_CODE_CORRELATION_ONLY",
+                      "firmware":"G986U1UESCHXL1",
+                      "originalKernelSha256":m.prior.ORIGINAL_IMAGE_SHA,
+                      "functions":records}
+            extracted.writestr("stage3-rea-correlation.json",json.dumps(manifest))
+        return slices,rea
+
+    def test_all_three_bounded_original_ghidra_dossiers_checked(self):
+        with tempfile.TemporaryDirectory() as d:
+            slices,rea=self.evidence_archives(Path(d))
+            docs=m.verify_rea_dossiers(slices,rea)
+            self.assertEqual(len(docs),3)
+            self.assertEqual(sum(x["ghidraInstructionCount"] for x in docs.values()),6)
+            self.assertFalse(any(x["sourceToCMemberFullDefUseCertified"] for x in docs.values()))
+
+    def test_wrong_rea_ghidra_instruction_address_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);slices,rea=self.evidence_archives(root)
+            bad=root/"bad.zip"
+            with zipfile.ZipFile(rea) as reader, zipfile.ZipFile(bad,"w") as writer:
+                for name in reader.namelist():
+                    body=reader.read(name)
+                    if name.startswith("rea-slice-remove_waiter"):
+                        obj=json.loads(body)
+                        obj["normalized_result"]["instructions"][0]="0x30000: nop"
+                        body=json.dumps(obj).encode()
+                    writer.writestr(name,body)
+            with self.assertRaisesRegex(m.ProofError,"escaped"):
+                m.verify_rea_dossiers(slices,bad)
+
+    def test_rea_evidence_wrong_provider_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);slices,rea=self.evidence_archives(root)
+            bad=root/"bad.zip"
+            with zipfile.ZipFile(rea) as reader, zipfile.ZipFile(bad,"w") as writer:
+                for name in reader.namelist():
+                    body=reader.read(name)
+                    if name.startswith("rea-slice-futex_lock_pi"):
+                        obj=json.loads(body)
+                        obj["provider"]["id"]="invented"
+                        body=json.dumps(obj).encode()
+                    writer.writestr(name,body)
+            with self.assertRaisesRegex(m.ProofError,"provenance"):
+                m.verify_rea_dossiers(slices,bad)
 
     def test_script_help_from_isolated_dir(self):
         with tempfile.TemporaryDirectory() as d:
