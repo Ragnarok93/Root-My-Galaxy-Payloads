@@ -1,3 +1,40 @@
+## October 12, 02:11 UTC — both faulting bases observed as zero; panic/minidump likely secondary
+
+**Owner WSL completed the next original-stock-image evidence gate:** after `git pull --ff-only` through `d39087c`, all **15/15** host source-correlator tests passed. The read-only offline `tools/y2q_hxl1_compact_fault_live_attribution.py --target x21` independently rechecked the previous actual compact-original-QEMU GDB register report and raw GDB log, exact original `kernel.bin` SHA-256, original live `LDR` opcode, 35,168-byte original guest FDT source and earlier QEMU exception FAR:
+```text
+[LIVE FAULT BASE] X21 0x0
+[STOCK INSTRUCTION] 0xffffff80082ac90c f9402eb8
+[RECOVERED FUNCTION] kmem_cache_alloc
+[LINK REGISTER] 0xffffff80082ac83c nearest kmem_cache_alloc
+[SEPARATE QEMU FAR] 0x58 matches candidate address True
+[SMC+4 CAPTURED] False
+```
+The owner then independently launched a **fresh bounded original factory Image QEMU/GDB capture with exact compact FDT** using `--target x10`. It stopped before original live `LDP x9,x8,[x10,#0x10]`, `PC=0xffffff80086de39c`, verified original opcode `a9412149` and **actually read X10=0**. The independent offline source audit returned:
+```text
+[LIVE FAULT BASE] X10 0x0
+[STOCK INSTRUCTION] 0xffffff80086de39c a9412149
+[RECOVERED FUNCTION] dump_stack_minidump
+[LINK REGISTER] 0xffffff80080b8d1c nearest panic
+[SEPARATE QEMU FAR] 0x10 matches candidate address True
+[SMC+4 CAPTURED] False
+```
+These are **two separately repeated compact QEMU guest runs**. Each live null-base value and original opcode is directly observed by GDB before executing its respective instruction. QEMU's earlier original compact-FDT exception log **independently** reported Data Abort FARs `0x58` and `0x10`, respectively. This cross-run corroboration is stronger than an opcode-only theory, but does **not** prove both aborts occurred in either newly halted GDB run. The `LDP` pair has two candidate addresses (`0x10` and `0x18`) for X10=0, with the **separate earlier FAR=0x10** supporting the first transfer. The original `kmem_cache_alloc`, `dump_stack_minidump` and `panic` labels come from **reconstructed** symbols; source/liveness requires independent tracing, not just nearest-label matching.
+
+**Working, unproven prioritization:** the first failed read is within the recovered slab allocator `kmem_cache_alloc` path, while the second is within recovered `dump_stack_minidump` and its saved LR is nearest `panic`; the second abort may be **secondary to diagnostic/panic handling**, not an independently failing RKP bitmap request. However, neither the actual allocator-cache-object passed to `kmem_cache_alloc`, the earlier cause of an erroneous X21=0, nor the actual first panic invocation has been captured. The `SMC+4` breakpoint is **not observed** in either fault capture, but cannot by itself prove the RKP SMC didn't return, that it failed, or that it caused any slab issue. Do not manufacture a secure monitor response, edit kernel fault handlers or allocate an unauthenticated RKP pool based on these findings.
+
+**New narrowly scoped offline source-attribution tool:** `tools/y2q_hxl1_compact_fault_function_windows.py` cross-checks **both real GDB and FDT records** against original factory Image bytes, checks nearest recovered text-symbol boundaries, extracts a bounded original-AArch64 instruction window preceding both faulting sites, lists textual uses of X21/X10 plus nearby calls/branches, and reads the exact source stock `config.gz` keys to identify the allocator variant (SLAB, SLUB or SLOB) without assuming upstream source equals OEM code. It does **not** claim a register writer or path was executed just because its instruction appears in factory bytes. Tests and HXL1 CI are registered; actual owner's code-window output is pending.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_compact_fault_function_windows
+python3 tools/y2q_hxl1_compact_fault_function_windows.py
+```
+
+After the owner produces the code-window output, determine the actual X21 source/register assignment and the failing slab-cache pointer from original code (and, only if needed, new bounded original register/stack capture). Independently determine whether the second fault occurs only after a `panic` transition. FDT delivery/size is closed; UH/RKP function, allocator memblock carveout, hardware bootloader unlock and KernelSU installation remain **unverified**.
+
+---
+
 ## October 12, 02:02 UTC — first HXL1 compact-QEMU fault live X21=0; original RKP source ABI independently rechecked
 
 **Owner's real WSL, no handset touched:** After pulling feature branch through `8b79be3`, the owner ran **27/27 tests PASS** for `tools.test_y2q_hxl1_compact_bitmap_call_audit` and `tools.test_y2q_hxl1_qemu_compact_fault_regs`. The independently rechecked original HXL1 `uh.h/rkp.h` ABI confirmed **`0xc300c002 / 0x15 = UH_APP_RKP / RKP_GET_RKP_GET_BUFFER_BITMAP`**, with X2 matching the recovered `rkp_s_bitmap_buffer` address and X3 QEMU guest RAM start `0x40000000`. X6=0x3f was captured but **is not an original `uh_call` explicit source argument**. No UH response, RKP pool, kernel `memblock` reservation or root verified.
