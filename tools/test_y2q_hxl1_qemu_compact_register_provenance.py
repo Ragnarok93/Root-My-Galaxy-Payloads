@@ -114,7 +114,7 @@ class RegisterProvenanceTests(unittest.TestCase):
         self.assertEqual(r["status"],"RUNTIME_PRODUCER_OPCODE_MISMATCH")
 
     def test_wrong_fault_opcode_rejected(self):
-        changed=log_for().replace("0xa9412149","0xd503201f")
+        changed=log_for("x10").replace("0xa9412149","0xd503201f")
         r=p.analyze(changed,"x10")
         self.assertEqual(r["status"],"RUNTIME_FAULT_OPCODE_MISMATCH")
 
