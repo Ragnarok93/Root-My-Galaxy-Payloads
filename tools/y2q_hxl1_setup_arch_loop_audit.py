@@ -71,6 +71,35 @@ def candidate_printable_string(image:bytes,va:int,max_bytes:int=256)->dict:
             "value":data.decode("ascii"),"length":len(data),
             "proof":"ORIGINAL_IMAGE_BYTES_ONLY_NOT_RUNTIME_GUEST_CONTENT"}
 
+def candidate_printk_format(image:bytes,va:int,max_bytes:int=512)->dict:
+    """Accept a source printk format with optional KERN_SOH+level and newlines.
+
+    This is bounded offline OEM Image data, not captured runtime printk output.
+    Never accept arbitrary low control bytes as a diagnostic string.
+    """
+    off=va-VM_BASE
+    if off<0 or off>=len(image):
+        return {"status":"POINTER_OUTSIDE_FACTORY_IMAGE","address":hex(va)}
+    data=image[off:off+max_bytes+1]
+    end=data.find(b"\0")
+    if end<0 or end>max_bytes:
+        return {"status":"NOT_NUL_TERMINATED_WITHIN_BOUND","address":hex(va)}
+    raw=data[:end]
+    prefix=None
+    if raw[:1]==b"\x01" and len(raw)>1 and raw[1] in b"01234567":
+        prefix=chr(raw[1])
+        raw=raw[2:]
+    valid=bool(raw) and all(0x20<=b<=0x7e or b in (9,10,13) for b in raw)
+    if not valid:
+        return {"status":"INVALID_OR_NON_TEXT_PRINTK_FORMAT",
+                "address":hex(va),"first16Hex":data[:16].hex()}
+    return {"status":"CANDIDATE_ORIGINAL_PRINTK_FORMAT",
+            "address":hex(va),"imageOffset":hex(off),
+            "kernelSohLogLevelDigit":prefix,
+            "formatString":raw.decode("ascii"),
+            "rawFirst16Hex":data[:16].hex(),
+            "source":"SHA_PINNED_FACTORY_IMAGE_NOT_LIVE_PRINTK_OUTPUT"}
+
 def interpret(image:bytes,pc:int,symbols:dict)->dict:
     # Matched source bytes independently; never infer behavior from the
     # reconstructed symbol *name* without verifying the original opcodes.
@@ -130,6 +159,7 @@ def interpret(image:bytes,pc:int,symbols:dict)->dict:
         result["staticAddressSequence"]["candidateAddressEstablished"]=True
         result["staticAddressSequence"]["candidateX0Address"]=hex(va)
         result["staticAddressSequence"]["candidateImageString"]=candidate_printable_string(image,va)
+        result["staticAddressSequence"]["candidateKernelPrintkFormat"]=candidate_printk_format(image,va)
     # Independent branch from prior non-fatal path: B at PC-0x1c can
     # skip this ADRP/BL/loop block. Predecessor branch conditions are
     # NOT established by this short window.
@@ -187,6 +217,7 @@ def main()->int:
         address=r.get("staticAddressSequence",{})
         print("[STATIC X0 POINTER]",address.get("candidateX0Address","[not established]"))
         print("[SOURCE STRING]",address.get("candidateImageString",{}))
+        print("[SOURCE PRINTK FORMAT]",address.get("candidateKernelPrintkFormat",{}))
         print("[SKIP OVER LOOP BRANCH]",r.get("skipOverLoopBranch",{}))
         print("[LIVE GUEST OPCODE COMPARED] NO")
         print("[MEMBLOCK/RKP VERIFIED] NO")
