@@ -75,3 +75,53 @@ python3 tools/y2q_hxl1_qemu_memblock_pc_sampler.py \
 - v3 QEMU delivered FDT over ARM64 2MiB cap: **measured and strongly explanatory**.
 - Compact input artifact and live QMP behavior: **pending owner WSL run**.
 - Linux memblock allocator exclusion, RKP protected pool, physical unlock, KernelSU: **unverified**.
+
+## Owner compact-DTB result — original setup_arch fatal loop bypassed by valid smaller input
+
+**Direct WSL owner evidence — October 12, 01:17 local paste.** `git pull --ff-only` brought the branch to `b990257`. The owner ran all **41/41** host tests in `tools.test_y2q_hxl1_setup_arch_loop_audit`, `tools.test_y2q_hxl1_qemu_fdt_size_recovery`, and `tools.test_y2q_hxl1_qemu_memblock_pc_sampler`, all PASS.
+
+The reworked original factory Image message parser found, from original SHA-pinned factory Image offset `0x20f415c` (not from guessed upstream text), **KERN_SOH level 2** and exact diagnostic:
+
+```text
+Error: invalid device tree blob at physical address %pa (virtual address 0x%p)
+The dtb must be 8-byte aligned and must not exceed 2 MB in size
+
+Please check your bootloader.
+```
+
+This is now an **OEM original bytes confirmed** diagnostic emitted on the source `setup_arch` error path, not an OEM unlock command. The owner's original `ADRP+ADD` pointer and adjacent recovered `printk;yield; B yield` code match this log format.
+
+The exact generated `dumpdtb` source originally occupied **1,048,576** bytes, including **1,041,008** bytes of *verified trailing zero slack* outside the FDT structure, strings and reserve-list terminator. The new input retained a compacted **7,568-byte** source plus a **16-byte** diagnostic memreserve entry: **7,584 bytes**. The input artifact SHA was **`1530da694b887fbe9918aa922eeafcdaa3ef0c900e6eae279402464b46b83fdd`**; the separate independent exact-reconstruction audit passed. It self-reserves `[0x48000000,0x48200000)` for the *runtime FDT only*; the source's reserved area is **not** a free/secure UH RKP memory pool.
+
+The subsequent **real QEMU original-image** CPU sampling, using that verified compact input, returned:
+
+```text
+[PC OBSERVATION] GUEST_PC_CHANGED_ACROSS_SNAPSHOTS
+[PC SERIES] ['0xffffff8008146ad4', '0xffffff8008146ae4',
+             '0xffffff8008146ad4', '0xffffff8008146ae4']
+[QEMU EXCEPTIONS]
+...ELR 0xffffff80080a5794 (original Samsung SMC site)
+...Data Abort ELR 0xffffff80082ac90c FAR 0x58
+...Data Abort ELR 0xffffff80086de39c FAR 0x10
+```
+
+**Interpretation: comparative QEMU forward progress is directly established.** The former repeated early `0xffffff800a60514c` `setup_arch` invalid-FDT loop did **not** recur in the four sampled CPU PCs; the execution logged the **original known HXL1 secure-monitor callsite** and the two previously characterized fault sites. Thus correcting the FDT input size removes that *specific* early failure. This does **not** prove userspace boot, Linux memblock exclusion, functioning guest UH secure monitor ABI, or hardware root. The new sample PCs in `0xffffff8008146ad4/e4` may be another error-loop or post-fault handler; they are not proof of a healthy boot.
+
+**Important remaining measurement:** The QMP sampler did not dump the actual FDT at the original kernel entry. Although the input is only 7,584 bytes, QEMU previously expanded the source FDT before delivering it to the kernel. The new **guest runtime** `fdt_totalsize` therefore remains **UNVERIFIED**. A robust read-only, factory-SHA-pinned halted kernel-entry capture is required before concluding the new guest FDT is <=2MiB.
+
+### New bounded runtime size proof
+
+New `tools/y2q_hxl1_qemu_compact_fdt_capture.py` rechecks both exact original kernel SHA and compact input source/manifest, starts paused isolated QEMU with the compact override and no NIC, stops at original kernel entry `0x40080000`, verifies `X0=0x48000000,X1=X2=X3=0`, and reads the *full FDT's declared size from guest big-endian header*. It reads only those bounded bytes, validates the raw dumped FDT, the exact GDB header and full-dump marker, original guest 2GiB RAM range, the unchanged diagnostic `[0x48000000,0x48200000)` memreserve entry, and reports whether **guest totalSize <=2,097,152**.
+
+The tool keeps existing `qemu-pc-compact-fdt-20261012` and all prior source/guest evidence untouched. It never claims Linux allocator exclusion. The host unit test suite tests the exact 2MiB boundary, slightly over-limit/runtime-limit cases, rejected missing or mismatched header/markers and unexpected FDT reserve entries. Its **actual guest run still awaits owner WSL execution**.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_compact_fdt_capture
+python3 tools/y2q_hxl1_qemu_compact_fdt_capture.py \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-compact-entry-fdt-20261012"
+```
+
+If the runtime header verifies within the 2MiB bound, future work should isolate **actual** secure-monitor operation and early Linux reserved-memory state *after* this specific FDT condition. The known SMC and FAR sites, rather than FDT-padding guesswork, are then the proper investigation targets. Do not patch out the valid early FDT size error loop or label this a Samsung bootloader lock test.
+
