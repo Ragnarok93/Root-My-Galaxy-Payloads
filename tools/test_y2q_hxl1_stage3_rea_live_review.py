@@ -82,6 +82,7 @@ class LiveStage3ReaTests(unittest.TestCase):
             dest=base/"future"
             sha="ab"*32
             report={"reaEvidence":{"savedGhidraDossiers":{}}}
+            (base/"saved").write_text("{}")
             inp={name:{"archiveMember":name+".elf",
                        "sha256":sha,"factoryStaticVA":"0x1",
                        "fileBytes":b"fixture"} for name in m.TARGETS}
@@ -100,13 +101,15 @@ class LiveStage3ReaTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             base=Path(temp)
             dest=base/"fresh"
-            sha="ab"*32
+            import hashlib
+            sha=hashlib.sha256(b"fixture").hexdigest()
             report={"reaEvidence":{"savedGhidraDossiers":{}}}
+            (base/"saved").write_text("{}")
             subjects={name:{"archiveMember":name+".elf",
                             "sha256":sha,"factoryStaticVA":"0x1",
                             "fileBytes":b"fixture"}
                       for name in m.TARGETS}
-            saved_map=m.native_map(fake_native(),sha)
+            saved_map=m.native_map(fake_native(sha),sha)
             class FakeRunner:
                 queries=[]
                 def __init__(self,*args,**kwargs):
@@ -114,7 +117,7 @@ class LiveStage3ReaTests(unittest.TestCase):
                 def obtain(self,target,args,dest,**kwargs):
                     self.queries.append((target.name,args[0],kwargs["operation"]))
                     if kwargs["operation"]=="read_function_instructions":
-                        return fake_native()
+                        return fake_native(sha)
                     return {"operation":"analyze_function","provider":{"id":"ghidra"},
                             "subject":{"digest":{"sha256":sha}},
                             "parameters":{"procedure":"0x10000"},
@@ -141,9 +144,10 @@ class LiveStage3ReaTests(unittest.TestCase):
     def test_existing_output_directory_is_never_overwritten(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
-            with self.assertRaisesRegex(m.LiveProofError,"output directory exists"):
-                m.run(root/"saved",root,root/"src",root/"slices.zip",
-                      root/"rea.zip",root/"rea.mjs",root,False,240)
+            with patch.object(m,"saved_report",return_value=({"reaEvidence":{}},{})):
+                with self.assertRaisesRegex(m.LiveProofError,"output directory exists"):
+                    m.run(root/"saved",root,root/"src",root/"slices.zip",
+                          root/"rea.zip",root/"rea.mjs",root,False,240)
 
     def test_source_safety_and_no_exploit_or_device_calls(self):
         code=Path(m.__file__).read_text()
