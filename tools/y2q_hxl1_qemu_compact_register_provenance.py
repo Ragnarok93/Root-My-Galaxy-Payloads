@@ -54,6 +54,8 @@ PRODUCER_RE=re.compile(r"(?m)^HXL1_REG_PRODUCER PC="+HEX+" SOURCE_BASE="+HEX+
 FAULT_RE=re.compile(r"(?m)^HXL1_REG_FAULT PC="+HEX+" BASE="+HEX+" SP="+HEX+
                     " LR="+HEX+r"$")
 WORD_RE=re.compile(r"(?im)^0x([0-9a-f]+):\s+0x([0-9a-f]{8})$")
+SOURCE_ADDR_RE=re.compile(r"(?m)^HXL1_PRODUCER_SOURCE_ADDRESS "+HEX+r"$")
+SOURCE_WORD_RE=re.compile(r"(?im)^0x([0-9a-f]+):\s+0x([0-9a-f]{16})$")
 BAD_RE=re.compile(r"(?m)^HXL1_(?:ENTRY_INVALID|SMC_MISSING|STOP_UNEXPECTED)")
 EXPECTED_SMC=(0xc300c002,0x15,0xffffff800a4dd0b8,0x40000000)
 
@@ -175,13 +177,24 @@ def analyze(log:str,target:str)->dict:
         if p[0]!=c["producer"] or (c["producer"],c["producerOpcode"]) not in words:
             report["status"]="RUNTIME_PRODUCER_OPCODE_MISMATCH"
             return report
+        effective=p[1]+(72 if target=="x21" else 2840)
         report.update(
             producerObservedInThisRun=True,
             producerSourceRegisterValueBefore=hex(p[1]),
             producerTargetRegisterValueBefore=hex(p[2]),
             producerStackPointer=hex(p[3]),
-            producerSourceEffectiveAddress=hex(p[1]+(72 if target=="x21" else 2840)),
+            producerSourceEffectiveAddress=hex(effective),
+            producerSourceMemoryReadAttested=False,
         )
+        announced=SOURCE_ADDR_RE.findall(log)
+        saved={int(a,16):int(word,16) for a,word in SOURCE_WORD_RE.findall(log)}
+        if (len(announced)==1 and int(announced[0],16)==effective
+                and effective in saved):
+            report["producerSourceMemoryReadAttested"]=True
+            report["producerSourceMemoryValue"]=hex(saved[effective])
+            report["producerSourceMemoryZero"]=saved[effective]==0
+        # Missing/unreadable source memory remains unknown even if a
+        # subsequent fault-site register happens to equal zero.
     if faults:
         f=[int(x,16) for x in faults[0]]
         if f[0]!=c["fault"] or (c["fault"],c["faultOpcode"]) not in words:
