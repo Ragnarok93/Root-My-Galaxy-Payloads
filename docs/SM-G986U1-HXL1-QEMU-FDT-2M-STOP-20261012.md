@@ -125,3 +125,33 @@ python3 tools/y2q_hxl1_qemu_compact_fdt_capture.py \
 
 If the runtime header verifies within the 2MiB bound, future work should isolate **actual** secure-monitor operation and early Linux reserved-memory state *after* this specific FDT condition. The known SMC and FAR sites, rather than FDT-padding guesswork, are then the proper investigation targets. Do not patch out the valid early FDT size error loop or label this a Samsung bootloader lock test.
 
+
+## Owner kernel-entry FDT size gate: PASS — 35,168 bytes
+
+**Owner's actual WSL run, 2026-10-12 01:34 UTC:** after confirming the local `tools.test_y2q_hxl1_qemu_compact_fdt_capture` **15/15 PASS**, the owner executed `tools/y2q_hxl1_qemu_compact_fdt_capture.py` against the original SHA-pinned HXL1 kernel and the previously exact-reconstructed, 7,584-byte compact QEMU input device tree.
+
+```text
+[GUEST RUNTIME FDT BYTES] 35168
+[ARM64 EARLY 2MiB] True
+[CANARY FDT DELIVERY] DELIVERED_COMPACT_OVERRIDE_RUNTIME_FDT_WITHIN_2M
+[RKP PROTECTED POOL VERIFIED] NO
+[REPORT] /home/main/s20-artifacts/hxl1-research/qemu-compact-entry-fdt-20261012/compact-fdt-audit.json
+```
+
+The bounded GDB observer stopped at the **actual original ARM64 kernel entry `PC=0x40080000`**, verified `X0=0x48000000` and `X1=X2=X3=0`, captured the full guest header-derived `fdt_totalsize`, and required the **exact single diagnostic `[0x48000000,0x48200000)` FDT self-memreserve** and known 2GiB RAM interval. The original guest FDT is therefore **35,168 bytes**, which is **2,061,984 bytes below** the 2 MiB maximum. This is now proven by **guest evidence**, not by the compact 7,584-byte *input* file alone.
+
+**Decision: close the original-kernel QEMU FDT image-size, entry delivery, alignment and diagnostic self-coverage research gate.** Do not generate additional FDT canaries or patch out the original `setup_arch` invalid-DTB error loop. The earlier owner QMP compact run reached the already-known Samsung SMC instruction at `0xffffff80080a5794` and reported two subsequent QEMU data-abort ELRs at `0xffffff80082ac90c` (FAR `0x58`) and `0xffffff80086de39c` (FAR `0x10`). No actual Linux memblock allocator-exclusion proof, UH/RKP hypervisor behavior, userspace boot, KernelSU, or hardware unlock follows.
+
+### Next precise gate: correlate the saved secure-monitor and fault evidence
+
+New `tools/y2q_hxl1_compact_exception_audit.py` is **strictly offline**. It independently revalidates the factory Image SHA, original generated QEMU DTB hash, exact 7,584-byte compact input/manifest reconstruction, owner's new complete 35,168-byte guest FDT and strict GDB header/entry audit, and the owner QMP capture's `compact-canary` source SHA. It parses bounded QEMU exception records from the **existing** `qemu-pc-compact-fdt-20261012/qemu-exceptions.log`, decodes ESR/FAR/ELR, links known site addresses to source factory Image bytes and nearest recovered symbols, and reports which original SMC and Data Abort ELRs are retained. It does not infer a functioning OEM secure monitor or repaired memory allocator.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_compact_exception_audit
+python3 tools/y2q_hxl1_compact_exception_audit.py
+```
+
+The report will be written to a **new** `~/s20-artifacts/hxl1-research/qemu-pc-compact-fdt-20261012/compact-original-exception-audit.json`. Preserved original logs and kernel images are never overwritten.
+
