@@ -114,14 +114,16 @@ class QmpPcAttributionTests(unittest.TestCase):
     def test_raw_pc_tamper_rejected(self):
         v=sample()
         v["samples"][1]["registers"]["pc"]="0xffff000000001234"
-        with self.assertRaisesRegex(a.PcAttributionError,"QMP PC inconsistent"):
-            a.verify_sample_report(v)
+        with patch.object(a.gate,"KERNEL_SHA",hashlib.sha256(image()).hexdigest()):
+            with self.assertRaisesRegex(a.PcAttributionError,"QMP PC inconsistent"):
+                a.verify_sample_report(v)
 
     def test_raw_registers_must_be_complete_and_untruncated(self):
         v=sample()
         v["samples"][1]["registers"]["rawTruncated"]=True
-        with self.assertRaisesRegex(a.PcAttributionError,"missing or truncated"):
-            a.verify_sample_report(v)
+        with patch.object(a.gate,"KERNEL_SHA",hashlib.sha256(image()).hexdigest()):
+            with self.assertRaisesRegex(a.PcAttributionError,"missing or truncated"):
+                a.verify_sample_report(v)
 
     def test_sampled_pc_must_be_present_in_original_image(self):
         v=sample(pc=a.IMAGE_BASE+0x1000)
@@ -139,8 +141,9 @@ class QmpPcAttributionTests(unittest.TestCase):
         v=sample()
         v["samples"][1]["registers"]["raw"]=v["samples"][1]["registers"]["raw"].replace(
             "CPU#0",f"CPU#0 PC={PC:016x}")
-        with self.assertRaisesRegex(a.PcAttributionError,"PC inconsistent"):
-            a.verify_sample_report(v)
+        with patch.object(a.gate,"KERNEL_SHA",hashlib.sha256(image()).hexdigest()):
+            with self.assertRaisesRegex(a.PcAttributionError,"PC inconsistent"):
+                a.verify_sample_report(v)
 
     def test_nonbranch_and_negative_offset_branch(self):
         self.assertEqual(a.aarch64_unconditional_branch(0xd503201f,PC)["status"],
