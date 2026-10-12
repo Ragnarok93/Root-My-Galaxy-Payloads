@@ -39,6 +39,8 @@ class Hxl1MemblockGateTests(unittest.TestCase):
                     gate.symbol_probe(NM,b)
     def test_gdb_script_is_read_only_and_conditional(self):
         s=gate.build_gdb(12579,VA,0x44332211)
+        self.assertIn(f"hbreak *{hex(gate.KERNEL_ENTRY_PC)}",s)
+        self.assertIn("HXL1_KERNEL_ENTRY_HIT",s)
         self.assertIn(f"hbreak *{hex(VA)} if $x0 == 0x48000000",s)
         self.assertIn(f"hbreak *{hex(gate.SMC_PC)}",s)
         self.assertIn("x/wx $pc",s)
@@ -47,7 +49,8 @@ class Hxl1MemblockGateTests(unittest.TestCase):
         self.assertNotIn("shell ",s)
     def test_exact_callsite_and_fdt_arguments_without_false_allocator_proof(self):
         sym=symbol()
-        log=(f"HXL1_MEMBLOCK_RESERVE_HIT PC={hex(VA)} "
+        log=(f"HXL1_KERNEL_ENTRY_HIT PC={hex(gate.KERNEL_ENTRY_PC)} X0=0x48000000\n"+
+             f"HXL1_MEMBLOCK_RESERVE_HIT PC={hex(VA)} "
              "X0=0x48000000 X1=0x205000\n"
              f"0x{VA:x}:\t0x44332211\n")
         r=gate.parse_gdb(log,sym)
@@ -63,15 +66,58 @@ class Hxl1MemblockGateTests(unittest.TestCase):
             f"HXL1_MEMBLOCK_RESERVE_HIT PC={hex(VA+4)} X0=0x48000000 X1=0x205000\n"
             f"0x{VA+4:x}:\t0x44332211\n",
         ):
-            self.assertFalse(gate.parse_gdb(log,sym)["memblockReserveCallObserved"])
+            r=gate.parse_gdb(
+                f"HXL1_KERNEL_ENTRY_HIT PC={hex(gate.KERNEL_ENTRY_PC)} X0=0x48000000\n"+log,sym)
+            self.assertFalse(r["memblockReserveCallObserved"])
     def test_smc_stop_is_not_false_negative_about_memblock(self):
         r=gate.parse_gdb(
+            f"HXL1_KERNEL_ENTRY_HIT PC={hex(gate.KERNEL_ENTRY_PC)} X0=0x48000000\n"
             f"HXL1_SMC_REACHED PC={hex(gate.SMC_PC)}\n",symbol())
         self.assertFalse(r["memblockReserveCallObserved"])
         self.assertTrue(r["doesNotProveCallAbsent"])
     def test_missing_breakpoint_cannot_claim_observation(self):
         r=gate.parse_gdb("GDB_BOUNDED_TIMEOUT\n",symbol())
-        self.assertEqual(r["status"],"NO_BOUND_TARGET_BREAKPOINT_OBSERVED")
+        self.assertEqual(r["status"],"TIMEOUT_BEFORE_KERNEL_ENTRY_OR_GDB_STOP")
+    def test_smc_before_entry_is_not_guest_kernel_evidence(self):
+        r=gate.parse_gdb(
+            f"HXL1_SMC_REACHED PC={hex(gate.SMC_PC)}\n",symbol())
+        self.assertFalse(r["kernelEntryObserved"])
+        self.assertFalse(r["memblockReserveCallObserved"])
+
+    def test_entry_without_memblock_or_smc_remains_inconclusive(self):
+        r=gate.parse_gdb(
+            f"HXL1_KERNEL_ENTRY_HIT PC={hex(gate.KERNEL_ENTRY_PC)} X0=0x48000000\n"
+            "GDB_BOUNDED_TIMEOUT\n",symbol())
+        self.assertTrue(r["kernelEntryObserved"])
+        self.assertEqual(r["status"],"POST_ENTRY_EXECUTION_TIMEOUT")
+        self.assertFalse(r["actualAllocatorReservationVerified"])
+
+    def test_wrong_guest_entry_fdt_pointer_fails_before_trust(self):
+        r=gate.parse_gdb(
+            f"HXL1_KERNEL_ENTRY_HIT PC={hex(gate.KERNEL_ENTRY_PC)} X0=0x48001000\n"
+            f"HXL1_MEMBLOCK_RESERVE_HIT PC={hex(VA)} X0=0x48000000 X1=0x205000\n"
+            f"0x{VA:x}:\t0x44332211\n",symbol())
+        self.assertEqual(r["status"],"ENTRY_POINTER_OR_PC_MISMATCH")
+        self.assertFalse(r["memblockReserveCallObserved"])
+
+    def test_gdb_protocol_error_not_misclassified_as_no_call(self):
+        r=gate.parse_gdb("Remote connection closed\nGDB_BOUNDED_TIMEOUT\n",symbol())
+        self.assertEqual(r["status"],"GDB_OR_BREAKPOINT_SETUP_ERROR")
+        self.assertFalse(r["kernelEntryObserved"])
+
+    def test_saved_v1_timeout_log_auditable_without_qemu(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            (root/"gdb.log").write_text(
+                "Hardware assisted breakpoint 1\nGDB_BOUNDED_TIMEOUT\n")
+            (root/"gdb-exit-code.txt").write_text("124\n")
+            (root/"qemu.log").write_text("VM log placeholder\n")
+            report=gate.audit_saved_probe(root)
+            self.assertTrue(report["timeoutObserved"])
+            self.assertFalse(report["kernelEntryProof"])
+            self.assertEqual(report["gdbExitCode"],"124")
+            self.assertFalse(report["linuxMemblockAllocatorExclusionVerified"])
+
     def test_output_must_be_fresh_under_research_directory(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d)/"research"
