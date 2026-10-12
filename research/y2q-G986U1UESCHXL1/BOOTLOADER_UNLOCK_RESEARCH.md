@@ -2260,6 +2260,111 @@ Do not claim bootloader unlocked.
 
 ---
 
+
+## October 11, 19:50 CDT — original OEM/FRP initialization sources and direct entry caller
+
+Owner executed original HXL1 LinuxLoader static REA source queries.
+All four upstream references to 0x2f538, 0x34238, 0x34370 and 0x674d8
+are **real native ARM64 BL instructions**.
+
+Direct unlock route 0x34238 has a single call at
+**0x1b48**; direct relock 0x34370 has a single call at
+**0x1db0**. Both callsites have the same Ghidra-owning
+function, **FUN_000017d8**, the LinuxLoader main entry
+routine. They are confirmed *calls*, not an independent
+proof of privilege-free runtime reachability or bypassing
+the OEM_UNLOCK enablement guard.
+
+Source Evidence for 0x17d8 at both callsites:
+- ev_3f88d6e3b72d0d8b4a1dcfbabcfa59a1b9e205acc4521e874d5b59484eda9c9e
+- ev_c83c1372694e8a29f3e175bb4aebcb32ebe7cd7cf0fd375436a64f1b52790562
+
+Entry callsite evidence:
+- 0x1b48: ev_2a8968e96c6d57604ad004185a2c8b7dd70211956ec1a45f8d314e2547280050
+- 0x1db0: ev_0919dd8acf006e561118c96ef9a9e0da2496d75debab7ccf890376ce3965b740
+
+Also, the original OEM predicate initializer 0x60af8 now reveals
+exact providers for **two separate 32-bit cache fields**:
+
+- **0x60918** produces an FRP-related value stored at 0x35cb14.
+- **0x60790** produces an OEM-related value stored at 0x35cb18.
+- A 0x10001 result from either provider is treated as
+  initialization failure and forces the OEM result at 0x35cb18 to zero.
+- The success branch sets the initialization sentinel at
+  0x35cb1c to 1.
+
+Ghidra source Evidence for 0x60af8:
+ev_15afbe13dedc2f7bc744100ec044751b95494f5124e32fe18cd47ca836469f70.
+
+Original 55 native ARM64 instructions:
+ev_3f5a25be2321ff18b1c5e31e7bea1ac4fce2ed0ba2eabf769f00b9176f0400b1.
+
+Critical original native sites:
+
+    0x60b10 bl   0x00060918
+    0x60b18 str  w0,[x20,#0xb14]    // cached 0x35cb14 (FRP-related)
+    0x60b1c bl   0x00060790
+    0x60b2c str  w0,[x20,#0xb18]    // cached 0x35cb18 (OEM)
+    0x60b34 orr  w8,wzr,#0x10001
+    0x60b38 cmp  w19,w8
+    0x60b3c b.eq 0x00060b80
+    0x60b40 cmp  w21,w8
+    0x60b44 b.eq 0x00060b80
+    0x60b78 str  w9,[x8,#0xb1c]   // init flag 0x35cb1c
+    0x60ba8 str  wzr,[x20,#0xb18] // error clears OEM cache
+
+These prove native assignments and comparison.
+They do NOT establish whether the OEM provider performs
+an RPMB/TEE/secure-monitor query, reads a trusted
+partition, or simply reads another software value.
+The meaning of the 0x10001 failure code must not be
+inferred beyond the observed error branch.
+
+### Next five read-only original Ghidra queries
+
+Committed:
+- tools/y2q_hxl1_rea_avb_oem_providers_entry.py
+- tools/test_y2q_hxl1_rea_avb_oem_providers_entry.py
+- tools/run_y2q_hxl1_rea_avb_oem_providers_entry.sh
+
+The audit revalidates the SHA-pinned source archive, all
+saved upstream callsite evidence, both independently
+decompiled 0x17d8 function copies, and exact 55-instruction
+0x60af8 native assignment/error-guard pattern.
+
+Only five new original static host Ghidra requests:
+1. Full original native instructions for **0x17d8**,
+   extracting source-addressed windows around the
+   0x1b48 direct-unlock and 0x1db0 direct-relock BL sites.
+   Native branch hints are **not** CFG dominance proof.
+2. Original function and native instructions at **0x60790**,
+   the OEM value provider.
+3. Original function and native instructions at **0x60918**,
+   the FRP-related value provider.
+
+Original Ghidra source context around the two direct
+call sites is also extracted from preexisting cached
+0x17d8 decompilation to identify the boot dispatch
+decision and avoid unnecessary Ghidra queries.
+
+Owner WSL:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_oem_providers_entry.sh
+~~~
+
+Report:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-oem-providers-entry.md
+
+No device/firmware operation, unlock, secure-world state
+modification, boot signature policy edit or flash attempted.
+The OEM cache and FRP cache are not assumed equivalent to
+the hardware-authoritative bootloader unlock decision.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
