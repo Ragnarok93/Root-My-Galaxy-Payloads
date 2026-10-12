@@ -1,3 +1,46 @@
+## October 12, 00:34 UTC — stock kernel entered; post-entry timeout and below-RAM read
+
+The owner ran **16/16** updated memblock-probe host tests PASS and the offline v1 audit:
+```json
+{"status":"OFFLINE_DIAGNOSTICS_ONLY","gdbExitCode":"124","gdbLogLines":6,
+ "timeoutObserved":true,"kernelEntryProof":false,
+ "qemuExceptionLogBytes":0,"linuxMemblockAllocatorExclusionVerified":false}
+```
+The old v1 GDB log had exactly the hardware breakpoints at `0xffffff80082a0844` and `0xffffff80080a5794` followed by timeout. It contained no proven kernel-entry state and no retained QEMU exception log.
+
+The owner then actually ran the corrected two-stage GDB v2 capture, **preserving the original factory Image and verified v3 canary**. This time GDB independently proved kernel entry `PC=0x40080000` with the expected `X0=0x48000000`, but **neither** the candidate `memblock_reserve` call nor the earlier known Samsung UH SMC breakpoint fired before the 30-second timeout. The exact report was:
+
+```text
+[MEMBLOCK PROBE] POST_ENTRY_EXECUTION_TIMEOUT
+[entryFdtPointerValidated] true
+[memblockReserveCallObserved] false
+[statusCode] 124
+[QEMU] Invalid read at addr 0x3FFFFFFC, size 4, region '(null)', reason: rejected
+```
+
+**Interpretation:** Kernel entry is independently confirmed *in this v2 session*; the failure occurs **after entry, before any instrumented later breakpoint**. An invalid read at `0x3FFFFFFC` is exactly four bytes below QEMU virt's guest RAM base `0x40000000`. Without an actual guest `PC/ELR/FAR/ESR` snapshot at that time, the warning neither identifies the responsible original kernel instruction nor proves a stuck instruction loop, memblock exclusion failure, or FDT corruption. The recovered `memblock_reserve` remains anchored to an original opcode `0xd10103ff`, but is a recovered candidate, not an independent original runtime symbol. Do **not** diagnose this as Linux rejecting the reservation or conclude that secure UH is bypassed.
+
+**New focused diagnostic implementation:** `tools/y2q_hxl1_qemu_memblock_pc_sampler.py` starts the same SHA-pinned original Image under the local `virt,gic-version=3` QEMU machine and revalidates prior v3 guest-canary evidence. It adds an isolated local UNIX QMP monitor and takes a bounded set of CPU snapshots using `human-monitor-command: info registers`, plus QMP `query-status`, while recording QEMU exception tails. It **does not** depend on the recovered memblock breakpoint, install firmware hooks, modify guest memory, or touch the physical S20+. It emits live `PC/ELR/FAR/ESR` where exposed by the QEMU monitor; missing register fields remain **unknown**, never fabricated. A frozen-looking `PC` at multiple sample times is **not itself proof of a loop**. The monitor uses a maximum 24-second sampling window, an exception-log size guard and automatic emulator shutdown. It supports `--mode v3-canary` and `--mode baseline`, the latter omitting the custom `-dtb` for a controlled comparison. Eleven additional host-only regressions and HXL1 CI paths have been committed; the **owner-run** CPU snapshot evidence is pending.
+
+Run the read-only preflight, then the v3 comparison. The output directory is fresh and does not replace any earlier GDB capture:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_qemu_memblock_pc_sampler
+python3 tools/y2q_hxl1_qemu_memblock_pc_sampler.py --preflight-only
+
+python3 tools/y2q_hxl1_qemu_memblock_pc_sampler.py \
+  --mode v3-canary \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-memblock-pc-samples-v3-20261012"
+
+cat "$HOME/s20-artifacts/hxl1-research/qemu-memblock-pc-samples-v3-20261012/pc-sample-report.json"
+```
+
+If the snapshot shows an identifiable guest failure PC or repeated synchronous exception, correlate it against **original stock Image bytes/source** before changing any guest memory. If QMP cannot return registers or the outcome is still inconclusive, check `samplingError`, `qemuStdout`, `exceptionLog`, and keep the original output. The optional unmodified baseline is only justified if needed to isolate `-dtb` effects.
+
+---
+
 ## October 12 — first memblock probe timed out before any attested breakpoint
 
 **Owner-run, original firmware SHA-pinned and guest v3 preflight VERIFIED.** The owner's WSL ran **11/11** original `tools.test_y2q_hxl1_memblock_trace_gate` host fixture tests successfully and independently confirmed `memblock_reserve` at recovered `0xffffff80082a0844`, with original Image first opcode `0xd10103ff`. Existing v3 FDT remained `DELIVERED_AND_FULLY_COVERED`.
