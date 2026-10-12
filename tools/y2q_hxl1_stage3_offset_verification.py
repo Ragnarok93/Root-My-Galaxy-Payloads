@@ -12,6 +12,7 @@ import json
 import re
 import hashlib
 import zipfile
+import tempfile
 from pathlib import Path
 import subprocess
 import shutil
@@ -130,6 +131,64 @@ def verify_rea_dossiers(slices:Path,rea:Path)->dict:
                "Three original Ghidra dossiers required")
     return rows
 
+def parse_disassembly_candidates(text:str,requested:set[int])->dict:
+    """Potential memory operands only; matching displacement != field identity."""
+    matches={n:[] for n in requested}
+    pattern=re.compile(r"^\s*([0-9a-fA-F]+):\s*[0-9a-fA-F]{8}\s+(.+)$")
+    memory=re.compile(r"\[\s*(x[0-9]+|sp)\s*(?:,\s*#(0x[0-9a-fA-F]+|[0-9]+))?\s*\]")
+    for line in text.splitlines():
+        m=pattern.match(line)
+        if not m:continue
+        assembly=m.group(2).strip()
+        ptr=memory.search(assembly)
+        if not ptr:continue
+        offset=int(ptr.group(2),0) if ptr.group(2) else 0
+        if offset not in requested:continue
+        for_hit={"nativeVA":"0x"+m.group(1).lower(),
+                 "memoryBaseRegister":ptr.group(1),
+                 "operandOffset":hex(offset),"instruction":assembly[:160],
+                 "originalCStructFieldIdentified":False}
+        if len(matches[offset])<80:matches[offset].append(for_hit)
+    return matches
+
+def indexed_original_operands(image:bytes,requested:set[int])->dict:
+    """Disassemble three SHA-pinned complete stock code slices (read-only)."""
+    binary=shutil.which("aarch64-linux-gnu-objdump")
+    if not binary:return {"state":"OBJDUMP_UNAVAILABLE","candidateSites":{}}
+    bounds={
+        **{name:(int(addr,16),size,digest)
+           for name,(addr,size,_,digest) in prior.ELFS.items()},
+        "futex_lock_pi":(
+             0xffffff8008191984,2216,
+             "3462531faa8fa208f7efa776a5d502878d4595812ceca16b418dba8bc1e3a48b")
+    }
+    found={n:[] for n in requested}
+    for name,(addr,size,digest) in bounds.items():
+        start=addr-original.TEXT_VA
+        insist(0<=start<=len(image)-size,"disassembler window outside original Image")
+        data=image[start:start+size]
+        insist(hashlib.sha256(data).hexdigest()==digest,
+               "independent original function digest mismatch "+name)
+        with tempfile.TemporaryDirectory(prefix="hxl1-asm-readonly-") as work:
+            source=Path(work)/"original-code.bin"
+            source.write_bytes(data)
+            try:
+                result=subprocess.run([binary,"-D","-b","binary","-m","aarch64",
+                         "--adjust-vma="+hex(addr),str(source)],
+                         capture_output=True,text=True,timeout=30,check=False)
+            except (OSError,subprocess.TimeoutExpired):
+                return {"state":"OBJDUMP_FAILED","candidateSites":{}}
+        insist(result.returncode==0 and len(result.stdout)<2*1024*1024,
+               "original stock AArch64 objdump failed")
+        decoded=parse_disassembly_candidates(result.stdout,requested)
+        for offset,sites in decoded.items():
+            for site in sites:
+                site["recoveredFunction"]=name
+                if len(found[offset])<120:found[offset].append(site)
+    return {"state":"ORIGINAL_STOCK_MEMORY_OPERANDS_INDEXED",
+            "candidateSites":{hex(k):v for k,v in found.items()},
+            "sourceMemberIdentitiesIndependentlyProven":False}
+
 def audit(artifacts:Path,source:Path,comparison:Path,build:Path,
           slices:Path,rea:Path):
     pinned=port.check_factory_inputs(artifacts)
@@ -151,10 +210,13 @@ def audit(artifacts:Path,source:Path,comparison:Path,build:Path,
                    "memberSpecificFactoryDefUseProven":False}
     else:rea_state={"state":"OWNER_REA_ARCHIVES_UNAVAILABLE",
                      "memberSpecificFactoryDefUseProven":False}
+    offset_candidates={int(offset,16) for table in prior.FIELDS.values() for offset in table.values()}
+    operand_index=indexed_original_operands(raw,offset_candidates)
     members=[
         {"type":ty,"memberPath":path,"previousComparisonCandidateOffset":offset,
          "originalSourceMemberIdentityProven":False,
          "factoryCompiledMemberOffsetProven":False,
+         "nativeOperandCandidates":operand_index["candidateSites"].get(hex(int(offset,16)),[]),
          "requiredNextEvidence":"Clang10 DWARF member + original stock instruction base-register and field-def/use mapping"}
         for ty,table in prior.FIELDS.items() for path,offset in table.items()
     ]
@@ -169,7 +231,8 @@ def audit(artifacts:Path,source:Path,comparison:Path,build:Path,
             "separateClang10BuildDirectory":str(build),
             "separateClang10Objects":objs,
             "separateClang10Aarch64ObjectCount":sum(1 for o in objs if o["aarch64ET_REL"]),
-            "reaEvidence":rea_state,"memberCandidates":members,
+            "reaEvidence":rea_state,"originalAssemblyOperandIndex":operand_index,
+            "memberCandidates":members,
             "factoryMemberOffsetsVerified":0,"completeFactoryAbiVerified":False,
             "stage3Complete":False,"runtimeRootOrKernelSuProven":False,
             "deviceModified":False}
@@ -215,6 +278,7 @@ def main():
         print("[CLANG10 COMPARISON OBJ]",report["separateClang10Aarch64ObjectCount"])
         print("[REA]",report["reaEvidence"]["state"])
         print("[MEMBER CANDIDATES]",len(report["memberCandidates"]))
+        print("[ORIGINAL MEMORY OPERANDS]",report["originalAssemblyOperandIndex"]["state"])
         print("[CERTIFIED FACTORY STRUCT OFFSETS]",0)
         print("[REPORT]",output)
         return 0
