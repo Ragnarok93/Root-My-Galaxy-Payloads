@@ -2790,6 +2790,108 @@ No firmware/phone changes or bypass demonstrated.
 
 ---
 
+
+## October 11, 21:47 CDT — original BLGetStatus token transport is upstream of bit-2
+
+Owner successfully ran the original SHA-pinned HXL1
+run_y2q_hxl1_rea_avb_bit2_writer_origin.sh.
+The three originally requested function/native pairs
+were retrieved. The two previously unclassified
+0x3651ec cross-references are **both reads**:
+- 0x68160 belongs to 0x68148; original function
+  Evidence ev_0bc194958c2b9665212f754a64ade249bff3ad038055796a0b945cf2e83e3ceb;
+  16 original ARM64 instructions Evidence
+  ev_70cd312eb70ffdab6164d7c6259b766e15ad8740fe9c9fc88810d8fd88c320c1;
+  LDR W0,[X9,#0x1ec] loads the original global.
+- 0x69834 belongs to 0x69780; original source
+  ev_a35c4311c5a33caad6ee17e33265cacf4b89105fa9581b5b914c547cf72700d0;
+  native ev_eb2593e9ed3ae7e5998c8baa40e319dd077e0a3371fe6f26129d54217f678ba3;
+  LDRB W8,[X8,#0x1ec] checks bit 5 in a downstream
+  UI/response state machine.
+
+**Original EMC BLGetStatus implementation 0x68810**:
+- 173 lines original Ghidra source Evidence
+  ev_fab3bbd627147f33a835de419bb0434989597a982ae689e46b723dafa0232f7a.
+- 318 original native ARM64 instruction Evidence
+  ev_debdab51db37a29833ab94339c1ecbafc0bef974f9d6ea7ca843e0e12f7358f6.
+
+It accepts 2 arguments and saves them in local
+variables. Native 0x68828 MOV W20,W0 and
+0x68834 STP W1,W0,[SP] preserve their values.
+The request passes through FUN_00067e20, and
+the structured EMC request sequence includes:
+
+    0x68878 bl 0x000712b8    // initialize request
+    0x68a14 ldr x0,[x19,#0x18]
+    0x68a18 mov w1,#0x1
+    0x68a1c add x2,sp,#0x4
+    0x68a20 mov w3,#0x2
+    0x68a24 bl 0x000715e8    // item 1, two bytes
+    0x68a34 ldr x0,[x19,#0x18]
+    0x68a38 mov w1,#0x15
+    0x68a3c mov x2,sp
+    0x68a40 mov w3,#0x4
+    0x68a44 bl 0x000715e8    // item 0x15, four bytes
+    0x68a68 bl 0x0006d820    // transfer/status processing
+
+Original pseudocode then sets iVar4 to DAT_00365234.
+If DAT_00365234 == 0, it sets iVar4 = 1 before
+return. This is an **observed status handling
+rule**, not proof of secure permission. There
+may be error branches that return a negative
+value, and the pseudocode alone does not
+independently establish native W0 reaching
+definitions. The status global is 0x365234.
+
+The principal bit-2 write in FUN_00068d08 is
+controlled by return code 1 from
+FUN_00068810(0,0), with the alternate bit-3
+path using FUN_00068810(4,0). These call/result
+relationships identify a token/status exchange,
+not an established Qualcomm/Samsung signature
+authorization bypass.
+
+### Next seven read-only Ghidra queries
+
+New committed analyzer:
+- tools/y2q_hxl1_rea_avb_emc_blgetstatus_provenance.py
+- tools/test_y2q_hxl1_rea_avb_emc_blgetstatus_provenance.py
+- tools/run_y2q_hxl1_rea_avb_emc_blgetstatus_provenance.sh
+
+The analyzer first revalidates saved original
+firmware hash, complete parent source/native
+Ghidra dossiers, native 318-instruction
+BLGetStatus source and exact request arguments.
+Only then does it query the original 0x365234
+status global xrefs and Ghidra source/native
+for three helper functions:
+
+1. 0x712b8 (EMC request initialization).
+2. 0x715e8 (element builder).
+3. 0x6d820 (status/response exchange).
+
+Seven new read-only Ghidra requests maximum,
+with cached unchanged original evidence reused.
+
+Owner WSL:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_emc_blgetstatus_provenance.sh
+~~~
+
+Report:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-emc-blgetstatus-provenance.md
+
+No phone or firmware mutations; no demonstrated
+secure state authorization or working bootloader
+unlock. Further native register provenance
+and trust-boundary analysis is mandatory before
+concluding that a status value is authoritative.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
