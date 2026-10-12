@@ -55,6 +55,32 @@ class RegisterProvenanceTests(unittest.TestCase):
         self.assertTrue(report["faultObservedInThisRun"])
         self.assertFalse(report["allocatorCachePointerIdentified"])
 
+    def test_attested_stack_memory_zero_correlates_with_x21_zero(self):
+        base=0xffffff800abc0000
+        record=log_for("x21",source_base=base,base=0)
+        offset=base+72
+        record=record.replace(
+            "HXL1_REG_FAULT",
+            f"HXL1_PRODUCER_SOURCE_ADDRESS {hex(offset)}\n"
+            f"{hex(offset)}:\t0x0000000000000000\n"
+            "HXL1_REG_FAULT")
+        result=p.analyze(record,"x21")
+        self.assertTrue(result["producerSourceMemoryReadAttested"])
+        self.assertEqual(result["producerSourceMemoryValue"],"0x0")
+        self.assertTrue(result["producerSourceMemoryZero"])
+        self.assertFalse(result["completeRegisterDataFlowProven"])
+
+    def test_wrong_source_memory_address_does_not_pass(self):
+        record=log_for("x10",source_base=0xffffff800a000000)
+        record=record.replace(
+            "HXL1_REG_FAULT",
+            "HXL1_PRODUCER_SOURCE_ADDRESS 0xffffff800a001000\n"
+            "0xffffff800a001000:\t0x0000000000000000\n"
+            "HXL1_REG_FAULT")
+        result=p.analyze(record,"x10")
+        self.assertFalse(result["producerSourceMemoryReadAttested"])
+        self.assertNotIn("producerSourceMemoryZero",result)
+
     def test_first_fault_without_producer_not_falsely_excluded(self):
         r=p.analyze(log_for("x21",producer=False),"x21")
         self.assertEqual(r["status"],"FAULT_CAPTURED_PRODUCER_NOT_OBSERVED")
