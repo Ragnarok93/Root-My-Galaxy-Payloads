@@ -250,6 +250,16 @@ The corrected **23 canary synthetic tests and full 218-test isolated workflow pa
 
 ---
 
+## 23:57 UTC — QEMU delivered canary memreserve; no secure pool or allocator exclusion
+
+Owner v2 full guest FDT capture conclusively measured **2,117,184 (0x204e40) bytes** at the original `X0=0x48000000` after supplying a QEMU `-dtb` override. The verifier's only failure was **`Canary does not cover the complete page-rounded FDT`**, after all prior provenance, GDB header, exact full capture, guest RAM profile, and guest memreserve equality checks succeeded. Thus the diagnostic `[0x48000000,0x48101000)` memreserve **reached the guest**, but it did **not** reserve enough bytes for the expanded `[0x48000000,0x48204e40)` runtime FDT. The observed minimum page-rounded *FDT self-reservation* is **`[0x48000000,0x48205000)`**, 2,117,632 bytes. This is **not evidence of a new free protected pool**. In particular, QEMU `-dtb` delivery changes the device tree but has not been verified to change Linux 4.19 memblock's recorded reserved regions or the physical secure UH allocation mechanisms.
+
+`tools/y2q_hxl1_qemu_fdt_canary_verify.py --audit-delivery-only` separately reports `DELIVERED_BUT_SELF_RESERVATION_UNDERSIZED` against saved v2 evidence without rewriting the input or running guest code. The normal strict verifier still rejects insufficient coverage. `tools/y2q_hxl1_qemu_fdt_canary.py --self-reserve-bytes 2117632` builds an optional independently measured *v3 self-reservation diagnostic*, **not** an RKP pool. The offline source/CLI/capture tests are now **27/27 PASS**, and isolated GitHub Actions run [#38186388440](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38186388440) is **222/222 PASS**. The owner's forensic replay and v3 runtime GDB capture remain pending.
+
+**Revised next integration gate:** Because `-dtb` memreserve delivery is now evidenced, stop treating transport as the primary blocker. Instead trace **exact original 4.19 HXL1 `early_init_fdt_scan_reserved_mem` / `early_init_dt_scan_reserved_mem` / `memblock_reserve`** control flow on the actual guest to prove the Linux allocator excludes the relevant pages before attempting any new RKP region. The exact symbol name/path on HXL1 must be verified from original stock kernel/source; these names are investigation candidates, **not proven available symbols**. Only after an actual nonoverlapping candidate plus early reserve and safe VA→PA mappings are proven can `hxl1_rkp_guest_commit` leave its current host-only test backend. Avoid guessing at secure-hypervisor ABI commands or copying fork-specific KDP handlers.
+
+---
+
 ## Required proof gates before a functional QEMU adapter
 
 | Gate | Acceptance criterion | Present status |
