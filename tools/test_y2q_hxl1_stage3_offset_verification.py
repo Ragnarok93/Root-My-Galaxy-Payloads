@@ -39,7 +39,7 @@ class Stage3OffsetVerifierTests(unittest.TestCase):
 
     def test_truncated_stock_image_is_refused(self):
         with self.assertRaisesRegex(m.ProofError,"code bounds invalid"):
-            m.factory_words(synthetic_factory_image()[:0xc8000])
+            m.factory_words(synthetic_factory_image()[:0xc7d00])
 
     def test_separate_clang10_object_is_found(self):
         with tempfile.TemporaryDirectory() as d:
