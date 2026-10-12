@@ -78,7 +78,7 @@ def tasks(repo:Path,artifacts:Path,source:Path,out:Path,ndk:Path|None)->list[Ste
     script=lambda n:str(repo/"tools"/n)
     path=lambda name:str(out/name)
     scan=path("05-cve-source-candidate.json")
-    diag=path("06-hxl1-identity-diagnostic.so")
+    diag=path("y2q-G986U1UESCHXL1-identity-diagnostic.so")
     binary=path("06-hxl1-identity-manifest.json")
     ndk_arg=str(ndk) if ndk else str(out/"MISSING_NDK")
     # All output paths are in this run's fresh directory; a step never
@@ -224,8 +224,8 @@ def summarize(manifest:dict)->str:
         "# HXL1 automated firmware-to-profile evidence run",
         "",
         "**This run cannot confer or prove root, KernelSU, bootloader unlock, or production readiness.**",
-        f"Run: \`{manifest['runId']}\`",
-        f"Stock original SHA verification: \`{manifest['inputIntegrity']}\`",
+        f"Run: `{manifest['runId']}`",
+        f"Stock original SHA verification: `{manifest['inputIntegrity']}`",
         "",
         "## Actual steps",
         "",
@@ -233,7 +233,7 @@ def summarize(manifest:dict)->str:
         "|---|---:|---|",
     ]
     for step in manifest["steps"]:
-        lines.append(f"| \`{step['id']}\` | {step['stage']} | {step['status']} |")
+        lines.append(f"| `{step['id']}` | {step['stage']} | {step['status']} |")
     lines += ["","## PORTING.md nine-stage gates","",
               "| Stage | Requirement | State |",
               "|---:|---|---|"]
