@@ -10,11 +10,10 @@ Earlier HXL1 work required executing dozens of small WSL commands and manually c
 
 ```bash
 cd ~/src/Root-My-Galaxy-Payloads
-git pull --ff-only
 
-# Execute the actual automated research porting pipeline.
-# Every run gets a unique, immutable output folder under ~/s20-artifacts/hxl1-research.
-python3 tools/y2q_hxl1_porting_automation.py --mode run
+# Fast-forward the current checkout, then execute all host-safe HXL1 stages.
+# Each run creates a fresh, immutable evidence and status directory.
+bash tools/run_y2q_hxl1_porting_automation.sh
 ```
 
 Use `--mode plan` to enumerate the steps without running them or creating artifacts. If the Android NDK is installed, set `ANDROID_NDK_HOME` to its actual directory before running. Otherwise the non-root identity diagnostic build and bundle are explicitly **skipped**, without aborting the independent evidence tasks. Use `--output-dir <new-directory>` if a custom fresh report path is needed.
