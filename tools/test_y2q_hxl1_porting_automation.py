@@ -33,12 +33,12 @@ class Hxl1AutoPortTests(unittest.TestCase):
             output=Path(temp)/"new"
             rows=m.tasks(m.REPO,Path(temp),Path(temp)/"source",output,None)
             self.assertEqual([r.id for r in rows],[
-                "01_readiness","03_layout","03_proof_matrix","03_clang10_checkpoint","03_export_table",
+                "01_readiness","03_layout","03_proof_matrix","03_clang10_checkpoint","03_field_offset_evidence","03_export_table",
                 "04_boot_v2","04_fdt_semantics","05_ghostlock_binary",
                 "05_source_candidate","06_build_identity_only",
                 "06_bundle_identity_only"])
             self.assertEqual([r.stage for r in rows],
-                             [1,3,3,3,3,4,4,5,5,6,6])
+                             [1,3,3,3,3,3,4,4,5,5,6,6])
             self.assertTrue(all(not any(b in r.script for b in (
                 "adb","fastboot","qemu-system")) for r in rows))
             m.validate_plan(rows,output,m.REPO,Path(temp)/"source")
