@@ -125,6 +125,8 @@ class AbiViaRealGhidraTests(unittest.TestCase):
             output=root/"fresh"
             for name in m.FUNCTIONS:
                 self.assertFalse((output/"subjects"/(name+".elf")).exists())
+            (root/"rea.zip").write_bytes(b"synthetic rea evidence source")
+            (root/"slice.zip").write_bytes(b"synthetic slice input")
             originals=fake_saved_dossiers()
             blobs={name:(name.encode(),hashlib.sha256(name.encode()).hexdigest())
                    for name in m.FUNCTIONS}
