@@ -2682,6 +2682,114 @@ remains unverified.
 
 ---
 
+
+## October 11, 21:23 CDT — original bit-2 writer local path identified; upstream authorization unknown
+
+Owner executed six SHA-attested original HXL1
+Ghidra queries with
+run_y2q_hxl1_rea_avb_unlock_bitmask_clusters.sh.
+Nine local synthetic tests passed. The original xref
+inventory remains exactly 22 coordinates, of which
+**20 have now been matched to verified native function
+bodies**. The two unclassified Ghidra xrefs are
+0x68160 and 0x69834.
+
+Original owners:
+- 0x6811c belongs to FUN_000680d8,
+  Ghidra Evidence ev_aa77bf47df4d929b331dffcc9b9b9384abe9b63ff6e77aed8dd05dfe3f011569,
+  native Evidence ev_06a3418eef565d9b3c823519b0a4806c678eee9ce092fadb5b385541d2602f98.
+- 0x68d94 belongs to FUN_00068d08,
+  source Evidence ev_7fd67d971edab17706c46a44c7d3d1ab5b794dc7d65c1068e1263898f606a41b,
+  full native Evidence ev_674e08ec8ec58c3b971d7c66d914a2e4e443e208fe6539e7ace39207af980725.
+- 0x6967c belongs to FUN_00069628,
+  source Evidence ev_2f9fed595a8336f72cfc57ce43f5b5d5265b075226f896d94c3950aec6944ec5,
+  native Evidence ev_62957e6afa85434fb5573e1716669d23e820349199a854c3926de696b0b71927.
+
+**Important original native discovery at FUN_00068d08:**
+
+    0x68d90 adrp x19,0x365000       // candidate global page
+    0x68d94 ldr w8,[x19,#0x1ec]    // global at 0x3651ec
+    0x68df4 cmp w0,#0x1
+    0x68df8 b.ne 0x00068e04
+    0x68dfc mov w8,#0x4           // bit 2
+    0x68e00 b 0x00068e1c
+    0x68e04 mov w0,#0x4
+    0x68e08 mov w1,wzr
+    0x68e0c bl 0x00068810
+    0x68e10 cmp w0,#0x1
+    0x68e14 b.ne 0x00068e28
+    0x68e18 mov w8,#0x8           // bit 3
+    0x68e1c ldr w9,[x19,#0x1ec]
+    0x68e20 orr w8,w9,w8
+    0x68e24 str w8,[x19,#0x1ec]
+
+There are seven source-verified
+STR W8,[X19,#0x1ec] instructions:
+0x68e24, 0x68e44, 0x68e64, 0x68e84,
+0x68ea4, 0x68ec4, 0x68ef0.
+
+These are actual STORE instructions with a
+plausible address computed from the preceding
+ADRP X19 and global offset 0x1ec, unlike
+a mere Ghidra ADRP xref. The exact local
+0x4 and 0x8 write alternatives need full
+register alias/CFG confirmation and evaluation
+of the predicate returning W0 preceding 0x68df4.
+
+Original pseudocode describes multiple
+FUN_00068810 token-index probes, including
+(0,0), (3,0) and (4,0). An ID returned as
+1 is used for the bitmask, but the provider's
+semantics, security boundaries and connection
+to OEM permission are **not yet established**.
+
+0x69628 is a separate consumer/response path,
+testing bits 2/3 among other flags. This
+reinforces the need to distinguish token
+state, requests, UI transitions, and actual
+hardware boot signature enforcement.
+
+### New read-only original source gates
+
+The committed next stage adds:
+- tools/y2q_hxl1_rea_avb_bit2_writer_origin.py
+- tools/test_y2q_hxl1_rea_avb_bit2_writer_origin.py
+- tools/run_y2q_hxl1_rea_avb_bit2_writer_origin.sh
+
+It reattests the original complete
+FUN_00068d08 native Evidence, all seven
+candidate stores, X19 page setup, and
+the two alternative native W8 constants.
+It then makes up to six new original
+read-only queries:
+1. FUN_00068810 function and native
+   instructions (token-index state source).
+2. Exact native function owner and
+   instructions at omitted xref 0x68160.
+3. Exact native function owner and
+   instructions at omitted xref 0x69834.
+
+The generated report MUST retain
+explicitly unproven whole-function
+dominance, X19 interprocedural preservation,
+trusted authorization and actual
+bootloader unlock.
+
+Owner WSL:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_bit2_writer_origin.sh
+~~~
+
+Report:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-bit2-writer-origin.md
+
+No firmware/phone changes or bypass demonstrated.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
