@@ -87,17 +87,17 @@ The `SyntaxWarning: invalid escape sequence '\\`'` warnings were separately corr
 
 ## Recovery already exists: verify without overwriting
 
-If the repair command says \`[STOP] Repair destination already exists; do not overwrite evidence\`, **do not delete the ZIP or the repair JSON**. This safeguard triggers when either destination path exists; it is not evidence of success or corruption.
+If the repair command says `[STOP] Repair destination already exists; do not overwrite evidence`, **do not delete the ZIP or the repair JSON**. This safeguard triggers when either destination path exists; it is not evidence of success or corruption.
 
 An additional **read-only**, repeatable status mode verifies both existing outputs against the original factory hashes, source scan, manifest, ELF64 ARM64 library and their recorded SHA-256s. It checks the exact archive member set and decompressed bytes against the original files and refuses incomplete, altered, or symlinked recovery outputs.
 
-\`\`\`bash
+```bash
 cd ~/src/Root-My-Galaxy-Payloads
 git pull --ff-only
 python3 tools/y2q_hxl1_porting_bundle_repair.py \
   --run-dir "$HOME/s20-artifacts/hxl1-research/port-automation-20261012T031554640552Z" \
   --verify-existing
-\`\`\`
+```
 
-Expected validated status: \`EXISTING_HXL1_DIAGNOSTIC_BUNDLE_VERIFIED\`, with SHA-256 and path. If it says **partial recovery**, retain both original paths and inspect before any new attempt; neither this mode nor the ordinary recovery tool overwrites pre-existing evidence. A successful bundle is still an **identity-only research ZIP**, not a root payload, and does not promote any of the PORTING.md stages.
+Expected validated status: `EXISTING_HXL1_DIAGNOSTIC_BUNDLE_VERIFIED`, with SHA-256 and path. If it says **partial recovery**, retain both original paths and inspect before any new attempt; neither this mode nor the ordinary recovery tool overwrites pre-existing evidence. A successful bundle is still an **identity-only research ZIP**, not a root payload, and does not promote any of the PORTING.md stages.
 
