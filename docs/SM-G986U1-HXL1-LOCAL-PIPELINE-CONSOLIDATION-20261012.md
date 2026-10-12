@@ -1,3 +1,24 @@
+# October 12 — fresh original-firmware REA/Ghidra verification (not just cached instructions)
+
+The owner confirmed the original pinned Stage 3 verifier: `31/31` factory instructions, **two** genuine AArch64 Clang10 *comparison* `.o` files, **three** authenticated Ghidra code slices, **13** member hypotheses and **zero** factory-certified C-member offsets. Do **not** rerun the complete firmware/diagnostic pipeline to investigate those same values.
+
+The new **live REA/Ghidra pass** is `tools/y2q_hxl1_stage3_rea_live_review.py`, invoked on WSL through `tools/run_y2q_hxl1_stage3_rea_live_review.sh`. Unlike `tools/y2q_hxl1_stage3_member_flow.py`, which validates saved original Ghidra instructions and nine static register chains, the new pass actually asks the installed REA provider for **six independent fresh Ghidra operations**: one `instructions` and one `function` query per original function `remove_waiter`, `rt_mutex_start_proxy_lock`, and `futex_lock_pi`. All input isolated ELF executable segments are independently rechecked against the SHA256-pinned original factory `kernel.bin`; all saved source ZIPs and original Stage 3 report digests must agree. No arbitrary binary, untrusted PE loader or different kernel is analyzed.
+
+The script compares the new Ghidra native instructions to the exact existing archive, captures genuine decompiler/high-p-code availability and original Ghidra Evidence IDs, reuses nine source-typed original register-flow chain candidates, and **indexes native immediate memory-operand candidates for all 13 fields**. It does not assert that a numeric displacement (`0x10`, `0x18`, `0x8c8`, etc.) uniquely identifies any original C structure. The four previously unmapped `rt_mutex_waiter` fields (`task`, `lock`, `prio`, `deadline`) remain special targets for real p-code/source-to-field provenance review; a decompiler lexical hint is not OEM DWARF proof. Original Samsung C code/headers and Clang10 comparison DWARF are independent corroboration, **not automatic OEM member certification**.
+
+**Execute in the owner WSL REA/Ghidra environment:**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads && git pull --ff-only && \
+bash tools/run_y2q_hxl1_stage3_rea_live_review.sh
+```
+
+The wrapper activates the existing NVM Node 24, retained `rea-ghidra-env.sh`, checks REA's provider list, and uses the owner's already verified `stage3-offset-verification-20261012T152423477542Z.json`. It creates a **fresh** `~/s20-artifacts/hxl1-research/stage3-rea-live-<UTC>/` directory containing each SHA-pinned isolated ELF and saved source-bound Ghidra Evidence, plus `live-stage3-rea-review.json`. Each of six native REA calls is bounded by a default 240-second timeout; a failed, incomplete or inconsistent result is **not** promoted, and original source/archive files and the physical device are not modified. Direct `--help` and plan-only mode are available.
+
+This command is the **actual REA/Ghidra investigative validation phase**, not another generic static Ghidra name search. It will identify verified original instruction sites and likely register carrier chains. A complete OEM factory ABI still requires independently verified source-member identities and coverage of all necessary fields before Stage 3 can be considered complete, and no work here claims runtime CVE reproduction, root, KernelSU or bootloader unlock.
+
+---
+
 # October 12 — REA/Ghidra is now the active original-factory offset investigation
 
 **Owner requirement:** find and validate Stage 3 RT-mutex/waiter/task offsets with **REA/Ghidra** against the **exact HXL1 factory Image**, not by publishing static displacement matches or derived `target.h` values.
