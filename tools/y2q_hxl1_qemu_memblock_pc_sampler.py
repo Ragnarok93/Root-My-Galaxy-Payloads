@@ -148,7 +148,7 @@ def build_qemu_command(kernel:Path,canary:Path,out:Path,source:str)->list[str]:
         "-cpu","cortex-a57","-smp","1","-m","2048",
         "-kernel",str(kernel),
     ]
-    if source=="v3-canary":
+    if source in ("v3-canary","compact-canary"):
         command+=["-dtb",str(canary)]
     command+=[
         "-append","earlycon=pl011,0x09000000 console=ttyAMA0 loglevel=8 ignore_loglevel nokaslr",
@@ -190,7 +190,7 @@ def main()->int:
     root=Path.home()/"s20-artifacts/hxl1-research"
     parser.add_argument("--research-root",type=Path,default=root)
     parser.add_argument("--kernel",type=Path,default=Path.home()/"s20-artifacts/kernel.bin")
-    parser.add_argument("--mode",choices=["v3-canary","baseline"],default="v3-canary")
+    parser.add_argument("--mode",choices=["v3-canary","baseline","compact-canary"],default="v3-canary")
     parser.add_argument("--output",type=Path,default=root/"qemu-memblock-pc-samples-v3-20261012")
     parser.add_argument("--seconds",type=int,default=12)
     parser.add_argument("--samples",type=int,default=4)
@@ -207,10 +207,28 @@ def main()->int:
         existing=gate.verify_existing_v3(root)
         can=root/"qemu-memreserve-canary-v3-20261011/canary-override.dtb"
         gate.checked_file(can,8*1024*1024)
+        verified_recovery=None
+        if args.mode=="compact-canary":
+            # Import only here: baseline and already measured v3 do not
+            # depend on a new compact DTB being available.
+            from tools import y2q_hxl1_qemu_fdt_size_recovery as recovery
+            compact_dir=root/"qemu-fdt-under-2m-20261012"
+            compact=compact_dir/"compact-override.dtb"
+            manifest=compact_dir/"compact-manifest.json"
+            original=root/"qemu-virt-dtb-20261011/qemu-virt.dtb"
+            verified_recovery=recovery.verify_recovery(
+                gate.checked_file(original,8*1024*1024),
+                gate.checked_file(compact,8*1024*1024),
+                json.loads(gate.checked_file(manifest,128*1024)))
+            can=compact
         cmd=build_qemu_command(kernel,can,out,args.mode)
         print("[STOCK IMAGE]",gate.KERNEL_SHA)
         print("[EXISTING V3]",existing["classification"])
         print("[MODE]",args.mode)
+        if verified_recovery is not None:
+            print("[COMPACT CANARY VERIFIED]",verified_recovery["overrideSha256"])
+            print("[COMPACT DTB SOURCE BYTES]",verified_recovery["overrideBytes"])
+            print("[ARM64 RUNTIME FDT SIZE VERIFIED] NO")
         if args.preflight_only:
             print("[PRECHECK] PASS, QEMU not started")
             return 0
@@ -247,6 +265,8 @@ def main()->int:
         result=classify(readings,args.mode)
         result["target"]=TARGET
         result["factorySha256"]=gate.KERNEL_SHA
+        result["inputDtbSha256"]=verified_recovery["overrideSha256"] if verified_recovery else None
+        result["qemuGuestFdtSizeWithinArm64LimitVerified"]=False
         result["samples"]=readings
         result["samplingError"]=error
         result["exceptionLog"]=log_tail(out/"qemu-exceptions.log")
