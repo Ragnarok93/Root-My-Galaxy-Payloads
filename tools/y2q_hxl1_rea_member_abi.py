@@ -12,6 +12,7 @@ patches/loads firmware, publishes target.h, interacts with phone, or claims root
 """
 from __future__ import annotations
 import argparse
+import hashlib
 from datetime import datetime,timezone
 import json
 from pathlib import Path
@@ -84,7 +85,7 @@ def bounded_slices(zip_path:Path,dossiers:dict)->dict[str,tuple[bytes,str]]:
             meta=z.getinfo(filename)
             require(0<meta.file_size<65536,"oversized original REA input: "+name)
             blob=z.read(filename)
-            digest=port.hashlib.sha256(blob).hexdigest()
+            digest=hashlib.sha256(blob).hexdigest()
             require(digest==d["sourceElfSha256"],"original REA input hash changed: "+name)
             result[name]=(blob,digest)
     return result
@@ -124,7 +125,7 @@ def check_function_evidence(ev:dict|None,name:str,digest:str)->dict:
         "evidenceId":ev["evidence_id"],
         "originalElfSha256":digest,
         "procedure":"0x10000",
-        "pseudocodeSha256":port.hashlib.sha256(text.encode()).hexdigest(),
+        "pseudocodeSha256":hashlib.sha256(text.encode()).hexdigest(),
         "pseudocodeLength":len(text),
         "pseudocodePreview":text[:3500],
         "highFunctionPcodeAvailable":flow["available"],
@@ -169,7 +170,7 @@ def validate_output(path:Path,inputs:list[Path]):
                 "cannot create outputs inside original evidence/source/repository")
 
 def run(report:Path,kernel:Path,source:Path,slices:Path,archive:Path,
-        rea:Path,output:Path,*,execute:bool,timeout:int=240)->dict:
+        rea:Path,output:Path,*,execute:bool,timeout:int=240,node:str="node")->dict:
     require(60<=timeout<=900,"bounded REA timeout must be 60..900s")
     validate_output(output,[report,kernel,source,slices,archive,Path(__file__).resolve().parents[1]])
     _,dossiers,saved=verify_source_and_archives(report,kernel,source,archive,slices)
@@ -182,7 +183,7 @@ def run(report:Path,kernel:Path,source:Path,slices:Path,archive:Path,
         (output/"subjects").mkdir()
         for name,(blob,_) in extracted.items():
             (output/"subjects"/(name+".elf")).write_bytes(blob)
-    runner=Runner(output,rea,deadline=timeout,run_commands=execute)
+    runner=Runner(output,rea,node=node,deadline=timeout,run_commands=execute)
     rows=[]
     for name in FUNCTIONS:
         blob,digest=extracted[name]
@@ -249,7 +250,7 @@ def main()->int:
                 args.slices.expanduser().absolute(),
                 args.archive.expanduser().absolute(),
                 args.rea.expanduser().absolute(),out,
-                execute=args.execute,timeout=args.timeout)
+                execute=args.execute,timeout=args.timeout,node=args.node)
         print("[REA/GHIDRA]",obj["mode"])
         for entry in obj["ghidraFunctions"]:
             print("[FUNCTION]",entry["name"],entry["state"])
