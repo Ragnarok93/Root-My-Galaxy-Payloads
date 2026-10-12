@@ -215,6 +215,61 @@ ffffff8008147e0c: f9400a62 ldr x2, [x19, #0x10]
             with self.assertRaisesRegex(m.ProofError,"provenance"):
                 m.verify_rea_dossiers(slices,bad)
 
+    def original_slice_fixture(self,name="futex_lock_pi"):
+        location,length=({
+            **{key:(int(va,16),size) for key,(va,size,_,_) in m.prior.ELFS.items()},
+            "futex_lock_pi":(0xffffff8008191984,2216),
+        })[name]
+        data=bytes((i*37+13)%256 for i in range(length))
+        kernel=bytearray(0x140000)
+        kernel[0x38:0x3c]=b"ARM\x64"
+        begin=location-m.original.TEXT_VA
+        kernel[begin:begin+length]=data
+        elf=bytearray(4096+length)
+        elf[:6]=b"\x7fELF\x02\x01"
+        elf[18:20]=(183).to_bytes(2,"little")
+        elf[4096:4096+length]=data
+        record={
+            "symbolVA":hex(location),
+            "isolatedCode":{"stockBytes":length,
+                            "originalBytesSha256":hashlib.sha256(data).hexdigest()},
+        }
+        return record,bytes(elf),bytes(kernel)
+
+    def test_all_three_rea_archived_code_slices_are_original_image_bound(self):
+        for name in ("remove_waiter","rt_mutex_start_proxy_lock","futex_lock_pi"):
+            with self.subTest(name=name):
+                record,elf,kernel=self.original_slice_fixture(name)
+                proof=m.verify_rea_slice_against_original(name,record,elf,kernel)
+                self.assertTrue(proof["archivedGhidraInputMatchesOriginalFactoryImage"])
+                self.assertFalse(proof["completeOriginalCFieldDefUseProven"])
+
+    def test_wrong_real_futex_elf_code_is_rejected(self):
+        record,elf,kernel=self.original_slice_fixture()
+        changed=bytearray(elf)
+        changed[4096+12]^=0x80
+        with self.assertRaisesRegex(m.ProofError,"differs from original factory Image"):
+            m.verify_rea_slice_against_original("futex_lock_pi",record,
+                                                bytes(changed),kernel)
+
+    def test_wrong_rea_symbol_location_not_bound_by_matching_bytes(self):
+        record,elf,kernel=self.original_slice_fixture()
+        record["symbolVA"]=hex(int(record["symbolVA"],16)+4)
+        with self.assertRaisesRegex(m.ProofError,"VA does not match"):
+            m.verify_rea_slice_against_original("futex_lock_pi",record,elf,kernel)
+
+    def test_old_or_misrepresented_futex_size_is_rejected(self):
+        record,elf,kernel=self.original_slice_fixture()
+        record["isolatedCode"]["stockBytes"]=2048
+        with self.assertRaisesRegex(m.ProofError,"length not factory-bound"):
+            m.verify_rea_slice_against_original("futex_lock_pi",record,elf,kernel)
+
+    def test_old_or_forged_original_code_hash_refused(self):
+        record,elf,kernel=self.original_slice_fixture()
+        record["isolatedCode"]["originalBytesSha256"]="0"*64
+        with self.assertRaisesRegex(m.ProofError,"digest differs"):
+            m.verify_rea_slice_against_original("futex_lock_pi",record,elf,kernel)
+
     def test_script_help_from_isolated_dir(self):
         with tempfile.TemporaryDirectory() as d:
             run=subprocess.run([sys.executable,"-I",str(Path(m.__file__)),"--help"],
