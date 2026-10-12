@@ -98,7 +98,10 @@ def initializer_native():
                         "0x60af8",[
         "0x60af8: stp x19,x30,[sp,#-0x10]!",
         "0x60afc: bl 0x00010000",
-        "0x60b00: ret",
+        "0x60b00: mov w19, w0",
+        "0x60b04: cbz w19, 0x00060b10",
+        "0x60b08: mov w0, wzr",
+        "0x60b0c: ret",
     ])
 
 
@@ -152,7 +155,7 @@ class Hxl1OemEntryTests(unittest.TestCase):
         self.assertIn("DAT_0035cb18",got["globalRefs"])
         self.assertFalse(got["trustedOEMSourceProven"])
         native=stage.init_native(initializer_native())
-        self.assertEqual(native["nativeCount"],3)
+        self.assertEqual(native["nativeCount"],6)
         self.assertFalse(native["globalWriterVerified"])
 
     def test_plan_mode_is_exactly_eight_readonly_queries(self):
