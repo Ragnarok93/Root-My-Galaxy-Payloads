@@ -32,7 +32,8 @@ class DeliveryError(ValueError):
 
 def report_delivery(source:bytes, override:bytes, baseline_runtime:bytes,
                     delivered:bytes, gdb:str, manifest:dict,
-                    strict_sha:bool=True)->dict:
+                    strict_sha:bool=True,
+                    require_self_coverage:bool=True)->dict:
     if len(delivered)<fdt.HEADER_SIZE:
         raise DeliveryError("Incomplete guest FDT header")
     magic,total=struct.unpack_from(">II",delivered)
@@ -50,7 +51,9 @@ def report_delivery(source:bytes, override:bytes, baseline_runtime:bytes,
         raise DeliveryError("Generated FDT does not match original owner's SHA")
     if strict_sha and baseline["qemuGeneratedFdtSha256"]!=BASELINE_RUNTIME_SHA:
         raise DeliveryError("Original runtime FDT does not match owner's SHA")
-    expected_override,expected=canary.make_canary(source,check_pinned=strict_sha)
+    expected_override,expected=canary.make_canary(
+        source,check_pinned=strict_sha,
+        self_reserve_bytes=manifest.get("selfReservationExplicitGuestMeasuredBytes"))
     if override!=expected_override:
         raise DeliveryError("The custom -dtb file contains changes beyond the one canary")
     if manifest.get("overrideFdtSha256")!=patched["qemuGeneratedFdtSha256"] or (
@@ -90,9 +93,13 @@ def report_delivery(source:bytes, override:bytes, baseline_runtime:bytes,
     fdt_start=canary.FDT_PA
     fdt_end=fdt_start+guest_total
     reserve=expected["addedMemreserve"]
-    if not (fdt_start==int(reserve["start"],16) and
-            fdt_end<=int(reserve["endExclusive"],16)):
-        raise DeliveryError("Canary does not cover the complete page-rounded FDT")
+    covers=(fdt_start==int(reserve["start"],16) and
+            fdt_end<=int(reserve["endExclusive"],16))
+    if require_self_coverage and not covers:
+        raise DeliveryError(
+            "Canary reached guest entry but does not cover complete runtime FDT; "
+            f"guest FDT is {guest_total} bytes, entry reserves {reserve['sizeBytes']} bytes")
+    required_rounded=((guest_total+canary.FDT_PAGE-1)//canary.FDT_PAGE)*canary.FDT_PAGE
 
     return {
         "target":TARGET,
@@ -103,7 +110,10 @@ def report_delivery(source:bytes, override:bytes, baseline_runtime:bytes,
         "deliveredGuestFdtPhysicalAddress":hex(canary.FDT_PA),
         "deliveredGuestFdtTotalSize":guest_total,
         "captureLengthMatchesDeclaredFdtBytes":True,
-        "selfReservationCoversCompleteGuestFdt":True,
+        "selfReservationCoversCompleteGuestFdt":covers,
+        "selfReservationDeficitBytes":max(0,guest_total-reserve["sizeBytes"]),
+        "observedFdtMinimumPageRoundedReserveBytes":required_rounded,
+        "observedFdtMinimumPageRoundedReserveEndExclusive":hex(canary.FDT_PA+required_rounded),
         "deliveredSelfReservation":guest["memoryReservationEntries"][0],
         "sameBaseGuestMemoryAsOwnerBaseline":True,
         "selfReservationSeenAtOriginalImageEntry":True,
@@ -112,6 +122,7 @@ def report_delivery(source:bytes, override:bytes, baseline_runtime:bytes,
             "canary":guest["chosenInitrd"],
         },
         "diagnosticCanaryDelivered":True,
+        "classification":"DELIVERED_AND_FULLY_COVERED" if covers else "DELIVERED_BUT_SELF_RESERVATION_UNDERSIZED",
         "hxl1RkpProtectedPoolReserved":False,
         "linuxMemblockReservationObserved":False,
         "guestMmuPageTableMappingVerified":False,
@@ -134,6 +145,8 @@ def main()->int:
     p.add_argument("--delivery-dir",type=Path,
                    default=root/"qemu-fdt-canary-delivery-20261011")
     p.add_argument("--output",type=Path)
+    p.add_argument("--audit-delivery-only",action="store_true",
+                   help="Attest delivery even with undersized self-reserve; no memblock/RKP claim")
     a=p.parse_args()
     src=a.generated
     baseline=a.baseline_runtime
@@ -157,12 +170,18 @@ def main()->int:
             src.read_bytes(),(can/"canary-override.dtb").read_bytes(),
             baseline.read_bytes(),(delivered/"delivered-fdt.dtb").read_bytes(),
             (delivered/"gdb-session.log").read_text(errors="replace"),
-            json.loads((can/"canary-construction.json").read_text()))
+            json.loads((can/"canary-construction.json").read_text()),
+            require_self_coverage=not a.audit_delivery_only)
         out.parent.mkdir(parents=True,exist_ok=True)
         out.write_text(json.dumps(result,indent=2)+"\n")
         print("[GUEST CANARY]",result["deliveredSelfReservation"])
         print("[DELIVERED AT X0]",result["deliveredGuestFdtPhysicalAddress"])
         print("[MEMRESERVE REACHED KERNEL ENTRY] YES")
+        print("[DIAGNOSTIC CLASSIFICATION]",result["classification"])
+        print("[SELF RESERVATION COVERS RUNTIME FDT]",result["selfReservationCoversCompleteGuestFdt"])
+        if not result["selfReservationCoversCompleteGuestFdt"]:
+            print("[MIN PAGE-ROUNDED SELF RESERVE BYTES]",result["observedFdtMinimumPageRoundedReserveBytes"])
+            print("[RUNTIME FDT BYTES]",result["deliveredGuestFdtTotalSize"])
         print("[SECURE RKP MEMORY RESERVED] NO")
         print("[LINUX MEMBLOCK VERIFIED] NO")
         print("[REPORT]",out)
