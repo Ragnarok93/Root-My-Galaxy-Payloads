@@ -1,3 +1,26 @@
+# October 12 — REA/Ghidra is now the active original-factory offset investigation
+
+**Owner requirement:** find and validate Stage 3 RT-mutex/waiter/task offsets with **REA/Ghidra** against the **exact HXL1 factory Image**, not by publishing static displacement matches or derived `target.h` values.
+
+New canonical supplemental original-Ghidra tool: `tools/y2q_hxl1_rea_member_abi.py`, with owner WSL launcher `tools/run_y2q_hxl1_rea_member_abi.sh`. It uses the exact successful saved Stage 3 host report `stage3-offset-verification-20261012T152423477542Z.json`, compares archived **three small ELF executable-code slices byte-for-byte against SHA-pinned original `kernel.bin`** and original Samsung source, rejects digest/ABI inventory mismatches, and **actually calls** `node ~/src/rea/scripts/rea.mjs function <bounded-elf> 0x10000 --provider ghidra --json` through the existing rigorously validated `Runner` for each of the three functions. It preserves each full `analyze_function` Evidence object including Ghidra pseudocode and `native_value_flow` / HighFunction P-code metadata (when the Ghidra engine supplies it). Code windows:
+
+- `remove_waiter` — original `0xffffff8008147db4`, 568 bytes
+- `rt_mutex_start_proxy_lock` — original `0xffffff8008147d14`, 160 bytes
+- `futex_lock_pi` — original `0xffffff8008191984`, 2216 bytes
+
+One command, **without re-running Clang10 or the 31-opcode verifier**:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads && git pull --ff-only && \
+bash tools/run_y2q_hxl1_rea_member_abi.sh
+```
+
+Every analysis run creates a fresh independent `~/s20-artifacts/hxl1-research/stage3-rea-highfunction-<UTC timestamp>/` folder. Original REA JSON files are kept under `ghidra-function-*.json`; a consolidated, conservative review is in `hxl1-ghidra-member-abi.json` and `.md`. Failed/partial REA operations preserve their partial files and failure status, not a fake positive. Only original byte-hashed research ELF copies are generated inside the new run directory; neither stock kernel/source nor the phone is touched.
+
+The *previous* `tools/y2q_hxl1_stage3_member_flow.py` is an **offline original-Ghidra instruction chain worklist**, not a replacement for actual `analyze_function`. The real REA tool automatically incorporates this worklist and marks each candidate separately, while preserving `factoryStructMemberOffsetsVerified=0` until actual Ghidra dataflow, path and OEM C expressions plus independently validated ABI justify promoting specific fields. Particularly, a successful HighFunction P-code response is **not** proof that Ghidra knows stripped OEM debug types. No verified root exploit, KernelSU loader, bootloader unlock or production `target.h` is produced.
+
+---
+
 # October 12 — register-flow reconciliation of saved Stage 3 factory evidence
 
 Owner's local original-firmware run **passed 18/18 tests** and reported:
