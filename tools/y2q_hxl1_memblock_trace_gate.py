@@ -16,6 +16,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import time
 
 if not __package__:
     sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
@@ -183,6 +184,10 @@ def execute(out:Path,root:Path,kernel:Path,can:Path,sym:dict,port:int,seconds:in
     with (out/"qemu.log").open("wb") as ql:
         proc=subprocess.Popen(qemu_cmd,stdout=ql,stderr=subprocess.STDOUT)
         try:
+            # QEMU must bind its localhost GDB stub before GDB connects.
+            time.sleep(1.5)
+            if proc.poll() is not None:
+                raise GateError("QEMU terminated before GDB could attach")
             try:
                 r=subprocess.run(
                     ["gdb-multiarch","-q","-nx","-batch","-x",str(out/"memblock-readonly.gdb")],
