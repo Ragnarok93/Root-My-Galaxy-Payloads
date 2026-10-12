@@ -1,3 +1,23 @@
+# October 12 — Stage 3 actual-factory REA code-slice binding strengthened
+
+Owner's October 12 console `git pull --ff-only` succeeded through commit `6bb5f68`, but the next command stopped at `python3 tools/y2q_hxl1`; Python consequently reported a missing **truncated filename**, not a Stage 3 verification failure. No local verifier report was produced by that command.
+
+The canonical existing tool is `tools/y2q_hxl1_stage3_offset_verification.py`, already documented below. This pass also strengthens **source identity** for *all three* original saved REA/Ghidra function dossiers: `remove_waiter`, `rt_mutex_start_proxy_lock`, and `futex_lock_pi`. Previously a saved synthetic ELF archive SHA alone did not prove its Ghidra instruction payload came from the actual factory kernel. The verifier now independently checks each archived ELF's original executable-code bytes at 0x1000 against the corresponding **SHA256-pinned `kernel.bin` slice**, pins the exact original recovered symbol VA and expected code-window length, and checks the archived declaration's `originalBytesSha256` against a recomputed original Image hash. This includes the longer `futex_lock_pi` witness (2216 bytes). Changed instruction bytes, wrong VA, size or forged digest fail closed.
+
+The added five regression tests passed in [GitHub Actions #38269415260](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38269415260), with **532/532 tests passing**. These are synthetic tests; the new original-firmware attestation must still be executed by the owner WSL host against the retained 31-opcode, 13-offset candidate Clang10+REA evidence.
+
+Single WSL command (no duplicate Stage 1–2 firmware extraction or Stage 6 identity build):
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads && git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_stage3_offset_verification
+python3 tools/y2q_hxl1_stage3_offset_verification.py
+```
+
+A successful run reports exact `[STOCK ORIGINAL INSTRUCTIONS] 31/31`, separate Clang10 comparison `.o` inventory, three Ghidra source byte attestations, and the 13 candidate memory-operand worklist. It does **not** confer C-field identity from numeric displacement alone, re-execute the saved Ghidra analysis, validate every ABI member, or unlock/root the phone. The remaining decisive work is **field-by-field original factory register dataflow to exact Samsung source-member** (especially pointer carriers, nested cached-rbtree, and cross-function provenance), not another generic `Run.py` scan.
+
+---
+
 ## October 12 — checkpoint and independent Stage 3 source/REA/Clang10 reconciliation
 
 The owner ran the existing source-pinned Clang10 checkpoint and obtained:
