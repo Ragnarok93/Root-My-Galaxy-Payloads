@@ -1,3 +1,29 @@
+## October 12, 02:02 UTC — first HXL1 compact-QEMU fault live X21=0; original RKP source ABI independently rechecked
+
+**Owner's real WSL, no handset touched:** After pulling feature branch through `8b79be3`, the owner ran **27/27 tests PASS** for `tools.test_y2q_hxl1_compact_bitmap_call_audit` and `tools.test_y2q_hxl1_qemu_compact_fault_regs`. The independently rechecked original HXL1 `uh.h/rkp.h` ABI confirmed **`0xc300c002 / 0x15 = UH_APP_RKP / RKP_GET_RKP_GET_BUFFER_BITMAP`**, with X2 matching the recovered `rkp_s_bitmap_buffer` address and X3 QEMU guest RAM start `0x40000000`. X6=0x3f was captured but **is not an original `uh_call` explicit source argument**. No UH response, RKP pool, kernel `memblock` reservation or root verified.
+
+The owner's independent compact original-kernel GDB test **revalidated original factory SHA, original compact DTB SHA `1530da694b887fbe9918aa922eeafcdaa3ef0c900e6eae279402464b46b83fdd`, and earlier 35,168-byte complete runtime FDT evidence**. It hit the original `SMC #0` service request in the same guest run and then stopped **before** the original factory instruction `LDR x24,[x21,#0x58]` at `0xffffff80082ac90c`. It independently checked the runtime instruction word `0xf9402eb8`, measured **X21=0x0** and returned **`LIVE_ORIGINAL_FAULT_BASE_REGISTER_CAPTURED`**. Thus the first faulting load would compute **address `0x58`** with that captured base. A different, earlier compact-QEMU run actually logged a Data Abort at that same stock ELR with **FAR `0x58`**, providing strong **cross-run agreement**, not an additional abort in this halted GDB run.
+
+The same-session **`SMC+4` breakpoint was not observed** (`smcNextPcObserved=false`), even though the subsequent fault-load breakpoint was reached. This does **not** prove the SMC failed, returned an error or skipped a particular AArch64 instruction; exception returns and GDB breakpoint behavior require their own trace. The X21 null-base condition is now measured; its upstream initialization/provenance and causal relationship to the Samsung SMC remain unproven. The *other* original compact-QEMU fault `LDP x9,x8,[x10,#0x10]` at `0xffffff80086de39c` had FAR `0x10`; no **actual** X10 register capture has been performed yet.
+
+**Next offline proof tool committed:** `tools/y2q_hxl1_compact_fault_live_attribution.py` revalidates the exact owner X21 GDB report against the saved raw GDB log, original factory Image/source opcode, reconstructed nearest stock symbol, and earlier independent QEMU exception report, while retaining that **the FAR came from a separate run**. It emits a small source disassembly window and source-nearest candidate for both the fault ELR and captured LR; it cannot establish the true writer of X21 or a secure-monitor response. The 15 synthetic tests check null-base interpretation, altered GDB/source, prior FAR mismatch, guest FDT origin and X10 paired-load address alternatives. The companion independent X10 debugger probe **already exists** in `tools/y2q_hxl1_qemu_compact_fault_regs.py`; it must use a *fresh* output folder.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_compact_fault_live_attribution
+python3 tools/y2q_hxl1_compact_fault_live_attribution.py --target x21
+
+# After reviewing the original X21 source window, separately test X10
+python3 tools/y2q_hxl1_qemu_compact_fault_regs.py \
+  --target x10 \
+  --output "$HOME/s20-artifacts/hxl1-research/qemu-compact-fault-x10-v1-20261012"
+```
+
+The explicit **no-fake-UH/no-kernel-patch** stance remains. Establish source-level X21 initialization and both fault-time bases before deciding what, if anything, a source-faithful QEMU secure-monitor adapter must do. Original HXL1 FDT delivery and full guest `fdt_totalsize=35168` are proved and do not require rework.
+
+---
+
 ## October 12, 01:50 UTC — compact guest's original RKP bitmap SMC request independently captured; next fault-time register gate
 
 **Owner direct WSL result:** the original SHA-pinned factory HXL1 Image, SHA-pinned compact `-dtb` and 35,168-byte guest runtime FDT revalidated. Both `tools.test_y2q_hxl1_compact_fault_dependencies` and `tools.test_y2q_hxl1_qemu_compact_smc_registers` passed **24/24**. The prior original compact-run exception audit was independently reproduced. The newest bounded GDB run stopped **before** original `SMC #0` at `0xffffff80080a5794`, with original live `0xd4000003` opcode and registers `X0=0xc300c002,X1=0x15,X2=0xffffff800a4dd0b8,X3=0x40000000,X4=X5=0,X6=0x3f`. It classified `STOCK_SMC_0_LIVE_ARGUMENTS_CAPTURED`. **No original HXL1 SMC response, pointer write, protected bitmap/pool, memblock exclusion or KernelSU was observed.**
