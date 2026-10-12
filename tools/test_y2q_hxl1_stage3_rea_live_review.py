@@ -121,6 +121,8 @@ class LiveStage3ReaTests(unittest.TestCase):
             sha=hashlib.sha256(b"fixture").hexdigest()
             report={"reaEvidence":{"savedGhidraDossiers":{}}}
             (base/"saved").write_text("{}")
+            (base/"slices.zip").write_bytes(b"fixture slices")
+            (base/"rea.zip").write_bytes(b"fixture rea")
             subjects={name:{"archiveMember":name+".elf",
                             "sha256":sha,"factoryStaticVA":"0x1",
                             "fileBytes":b"fixture"}
