@@ -111,16 +111,58 @@ def make_canary(original:bytes, check_pinned:bool=True,
     }
 
 
+
+def verify_existing_canary(source:bytes, override:bytes, record:dict,
+                           check_pinned:bool=True)->dict:
+    """Reconstruct and verify existing canary bytes + measured-size manifest.
+
+    No QEMU, device access or guest memory changes. This cannot prove
+    Linux memblock exclusion or an HXL1 RKP protected physical pool.
+    """
+    if not isinstance(record,dict):
+        raise CanaryError("Canary manifest must be a JSON object")
+    selected=record.get("selfReservationExplicitGuestMeasuredBytes")
+    if selected is not None and type(selected) is not int:
+        raise CanaryError("Manifest measured reservation must be an integer")
+    expected,manifest=make_canary(
+        source, check_pinned=check_pinned, self_reserve_bytes=selected)
+    if override!=expected:
+        raise CanaryError("Canary bytes differ from reconstructed source")
+    if record!=manifest:
+        raise CanaryError("Canary manifest differs from reconstructed record")
+    return manifest
+
+
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__)
     source=Path.home()/"s20-artifacts/hxl1-research/qemu-virt-dtb-20261011/qemu-virt.dtb"
     output=Path.home()/"s20-artifacts/hxl1-research/qemu-memreserve-canary-20261011"
     p.add_argument("--source",type=Path,default=source)
     p.add_argument("--output-dir",type=Path,default=output)
+    p.add_argument("--verify-dir",type=Path,
+                   help="Validate existing canary and manifest without starting QEMU")
     p.add_argument("--self-reserve-bytes",type=int,
                    help="Optional independently measured, 4KiB-aligned guest FDT extent; not an RKP pool")
     a=p.parse_args()
     try:
+        if a.verify_dir is not None:
+            directory=a.verify_dir.expanduser().absolute()
+            if (not directory.is_dir() or directory.is_symlink() or
+                not a.source.is_file() or a.source.is_symlink()):
+                raise CanaryError("Missing or symlinked canary directory or source")
+            override=directory/"canary-override.dtb"
+            manifest_file=directory/"canary-construction.json"
+            if any((not p.is_file() or p.is_symlink()) for p in (override,manifest_file)):
+                raise CanaryError("Canary FDT or manifest missing or symlinked")
+            record=verify_existing_canary(
+                a.source.read_bytes(), override.read_bytes(),
+                json.loads(manifest_file.read_text()))
+            print("[PRELAUNCH CANARY] VERIFIED")
+            print("[CANARY FDT]",record["overrideFdtSha256"])
+            print("[CANARY RESERVATION]",record["addedMemreserve"])
+            print("[DELIVERED TO QEMU GUEST] NOT YET VERIFIED")
+            print("[RKP PROTECTED POOL RESERVED] NO")
+            return 0
         if not a.source.is_file() or a.source.is_symlink():
             raise CanaryError("Missing or symlinked source generated DTB")
         out=a.output_dir.expanduser().absolute()
