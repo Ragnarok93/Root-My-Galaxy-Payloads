@@ -1,3 +1,28 @@
+## Fresh REA/Ghidra offsets: exact factory code (Stage 3)
+
+REA/Ghidra is an **active source of original ARM64 machine-code and HighFunction/P-code evidence** for HXL1, not just a label on a pre-existing disassembly. The saved Stage 3 checker has already attested **31 original instruction words, three factory-byte-identical bounded Ghidra inputs and two separate Clang10 comparison objects**; all 13 C-member offsets remain **hypotheses**.
+
+**Preferred targeted continuation** (reuses the owner's actual saved verified Stage 3 report without repeating firmware extraction or the 10 completed diagnostic tasks):
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads && git pull --ff-only
+bash tools/run_y2q_hxl1_stage3_rea_live_review.sh
+```
+
+This wrapper loads the already configured WSL Node 24 and REA/Ghidra provider environment, verifies REA availability and performs six fresh, bounded operations on **SHA-pinned factory-equivalent ARM64 code slices**: three native-instruction reads and three Ghidra function/decompiler reviews. It compares live instructions against the independently attested original-firmware REA archive, indexes exact native load/store displacements against the **13** Clang10 candidate members, checks source-typed static register chains, and records available HighFunction/P-code and their evidence IDs. Artifacts are isolated in a fresh `~/s20-artifacts/hxl1-research/stage3-rea-live-<UTC>/` directory; existing reports and original firmware are never overwritten.
+
+When doing a **new complete** nine-stage evidence pass instead of this targeted continuation, the canonical runner now accepts:
+
+```bash
+bash tools/run_y2q_hxl1_porting_automation.sh --rea-ghidra
+```
+
+The opt-in `03_live_rea_ghidra` step executes **only after** the real Stage 3 original-opcode/Clang10/REA archive verifier and saved-register worklist pass. Missing REA CLI, missing source archives, or missing prerequisite evidence are explicitly reported as skipped or failed; the tool never pretends that CI fixtures have accessed the owner WSL binaries. Per-provider calls are bounded and an overall task ceiling applies. Use the targeted command above to avoid redundant full pipeline reruns.
+
+**Acceptance distinction:** a Ghidra instruction match plus a numeric immediate `[xN,#offset]` does **not** establish which Samsung C member the base pointer refers to. Untyped synthetic ELF slices also lack OEM C type information. Production acceptance requires *uniquely established pointer provenance/branch reachability and C field attribution*, corroborated by the stock source and comparative DWARF; the generated `target.h` remains provisional. Never promote any of the 13 members automatically or call Stage 3 complete merely because Ghidra ran.
+
+---
+
 # Galaxy S20+ HXL1 — single-command porting automation
 
 **Scope:** `SM-G986U1`, exact `G986U1UESCHXL1`, Linux `4.19.113-27095354`. This is a **host-only research evidence and diagnostic pipeline**, **not** a working Root-My-Galaxy exploit, a bootloader unlock, a KernelSU loader, or a production support profile.
