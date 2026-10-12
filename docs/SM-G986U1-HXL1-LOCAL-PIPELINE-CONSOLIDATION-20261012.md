@@ -1,3 +1,36 @@
+## October 12 — checkpoint and independent Stage 3 source/REA/Clang10 reconciliation
+
+The owner ran the existing source-pinned Clang10 checkpoint and obtained:
+
+- Original saved comparison report SHA-256: `b00bd3bedb6778e49d386d436ff919236cf2d884635c580d3ececce6b891eace`.
+- `[AARCH64 OBJECTS] 0` **inside the report-directory inventory**. This is not evidence the Clang10 compilation failed: the separate source/build tree `~/src/samsung-y2q-hxl1-clang10-abi-comparison` was not searched by that prior checkpoint.
+- Factory ABI CERTIFIED: NO; Stage 3 still PARTIAL.
+
+We independently checked the *already uploaded* `HXL1-Stage3-Code-Slices.zip` and `HXL1-Stage3-REA-Evidence.zip` in this conversation: the three bounded ARM64 ELF executable code slices have matching SHA256s and 31/31 selected factory instruction words agree with the saved witness map, consisting of **25** in `remove_waiter` and **6** in `rt_mutex_start_proxy_lock`. The saved REA correlation additionally records **140**, **38** and **545** instructions for `remove_waiter`, `rt_mutex_start_proxy_lock`, and `futex_lock_pi`, respectively. These uploaded archives do **not** contain the owner’s actual original `kernel.bin` or original Clang10 `.o` files; their existing manifest's assertion of source/image validation is not independent authentication of those absent inputs.
+
+**New canonical Stage 3 continuation**: `tools/y2q_hxl1_stage3_offset_verification.py` is included as the *optional Stage 3 check* `03_field_offset_evidence` in the canonical nine-gate runner. On the owner WSL host it rechecks **every 31 pinned original instruction words directly against the SHA-pinned factory `kernel.bin`**, validates the same archived REA instruction witnesses and exact Samsung RT-mutex/futex C source hashes where original ZIPs are available, searches the **separate** Clang10 comparison build directory for real ARM64 `rtmutex.o` and `futex.o` objects, hashes the objects and optionally obtains read-only `pahole` type layouts.
+
+The report deliberately carries one row per **13 pre-existing comparison-member hypotheses**:
+
+- `rt_mutex`: `waiters.rb_root.rb_node`, `waiters.rb_leftmost`, `owner`.
+- `rt_mutex_waiter`: `tree_entry`, `pi_tree_entry`, `task`, `lock`, `prio`, `deadline`.
+- `task_struct`: `pi_lock`, `pi_waiters.rb_root.rb_node`, `pi_waiters.rb_leftmost`, `pi_blocked_on`.
+
+**Original assembly-mnemonic agreement, candidate displacement agreement and rebuilt Clang10 DWARF are distinct evidence.** Because the factory ARM64 def-use register-to-C-member mapping has not yet been independently proved for all fields, this report must say `factoryMemberOffsetsVerified=0` and `stage3Complete=false` until further original native dataflow/Ghidra evidence is reviewed. Do not treat these 13 hypothesized offsets as deployment-ready `target.h` entries or confuse the unrelated configfs/ashmem offsets written by the owner-local `Run.py` with RT-mutex structure offsets.
+
+To execute the focused check **without re-running the ten already successful diagnostic tasks**:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_stage3_offset_verification
+python3 tools/y2q_hxl1_stage3_offset_verification.py
+```
+
+The tool emits a fresh `~/s20-artifacts/hxl1-research/stage3-offset-verification-<UTC>.json` and matching Markdown summary. If the original `.o` files are stored elsewhere, use `--object-root /actual/clang10/build/directory`. It does not run REA anew, fabricate compiler provenance, write kernel/debug inputs or contact the phone. **The actual WSL execution and any additional factory source-to-field proof are still outstanding**.
+
+---
+
 # SM-G986U1 HXL1 — owner WSL local-pipeline review and consolidation (2026-10-12)
 
 **Target:** SM-G986U1 / `G986U1UESCHXL1` / Snapdragon 865 / Linux `4.19.113-27095354`. **Source:** owner-uploaded `hxl1-local-pipeline-review.tar.gz` (17 members, including `Run.py`, provisional `target.h`, two READMEs, four additional Markdown reports, four research modules and five tests). These are owner-local, **untracked** files; they are not automatically authoritative GitHub repository code or authenticated vendor binary evidence. Preserve original owner evidence.
