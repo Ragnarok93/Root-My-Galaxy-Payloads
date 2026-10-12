@@ -50,13 +50,15 @@ class FdtCanaryTests(unittest.TestCase):
         self.baseline=self.orig
         self.guest=self.override
 
-    def probe(self,guest=None,log=None,manifest=None,override=None):
+    def probe(self,guest=None,log=None,manifest=None,override=None,
+              require_self_coverage=True):
         return verify.report_delivery(
-            self.orig,override or self.override,self.baseline,
+            self.orig,override if override is not None else self.override,
+            self.baseline,
             guest if guest is not None else self.guest,
             log if log is not None else gdblog(self.guest),
             manifest if manifest is not None else self.manifest,
-            strict_sha=False)
+            strict_sha=False,require_self_coverage=require_self_coverage)
 
     def test_add_only_one_memreserve_and_preserve_all_device_nodes(self):
         prior=fdt.parse_fdt(self.orig)
@@ -128,7 +130,7 @@ class FdtCanaryTests(unittest.TestCase):
         guest=bytearray(self.guest)
         struct.pack_into(">I",guest,4,size)
         guest.extend(bytes(size-len(guest)))
-        with self.assertRaisesRegex(verify.DeliveryError,"complete page-rounded FDT"):
+        with self.assertRaisesRegex(verify.DeliveryError,"complete runtime FDT"):
             self.probe(guest=bytes(guest),log=gdblog(bytes(guest)))
 
     def test_launcher_does_not_assume_one_mib_after_memreserve_insertion(self):
@@ -138,6 +140,62 @@ class FdtCanaryTests(unittest.TestCase):
         self.assertIn("len(raw)==total",sh)
         self.assertNotIn("FDT_LENGTH=1048576",sh)
         self.assertIn("MAX_FDT_LENGTH=8388608",sh)
+
+    def test_observed_2117184_byte_runtime_fdt_delivers_canary_but_undersized(self):
+        # Exactly the user's v2 reported guest header. The original source
+        # 1MiB DTB grew by 16B and QEMU later expanded it to 2,117,184B.
+        n=2117184
+        guest=bytearray(self.guest)
+        struct.pack_into(">I",guest,4,n)
+        guest.extend(bytes(n-len(guest)))
+        log=gdblog(bytes(guest))
+        result=self.probe(guest=bytes(guest),log=log,
+                          require_self_coverage=False)
+        self.assertEqual(result["classification"],
+                         "DELIVERED_BUT_SELF_RESERVATION_UNDERSIZED")
+        self.assertTrue(result["diagnosticCanaryDelivered"])
+        self.assertFalse(result["selfReservationCoversCompleteGuestFdt"])
+        self.assertEqual(result["deliveredGuestFdtTotalSize"],n)
+        self.assertEqual(result["deliveredSelfReservation"]["sizeBytes"],1052672)
+        self.assertEqual(result["observedFdtMinimumPageRoundedReserveBytes"],2117632)
+        self.assertEqual(result["observedFdtMinimumPageRoundedReserveEndExclusive"],
+                         "0x48205000")
+        self.assertFalse(result["linuxMemblockReservationObserved"])
+        self.assertFalse(result["hxl1RkpProtectedPoolReserved"])
+        with self.assertRaisesRegex(verify.DeliveryError,
+                                    "Canary reached guest entry but does not cover"):
+            self.probe(guest=bytes(guest),log=log)
+
+    def test_explicit_measured_reservation_covers_observed_guest_growth(self):
+        measured=2117632
+        override,manifest=canary.make_canary(
+            self.orig,check_pinned=False,self_reserve_bytes=measured)
+        self.assertEqual(manifest["selfReservationExplicitGuestMeasuredBytes"],measured)
+        guest=bytearray(override)
+        struct.pack_into(">I",guest,4,2117184)
+        guest.extend(bytes(2117184-len(guest)))
+        report=self.probe(guest=bytes(guest),log=gdblog(bytes(guest)),
+                          manifest=manifest,override=override)
+        self.assertEqual(report["classification"],"DELIVERED_AND_FULLY_COVERED")
+        self.assertTrue(report["selfReservationCoversCompleteGuestFdt"])
+        self.assertEqual(report["deliveredSelfReservation"]["endExclusive"],
+                         "0x48205000")
+        self.assertFalse(report["hxl1RkpProtectedPoolReserved"])
+
+    def test_measured_self_reserve_refuses_unaligned_and_insufficient_size(self):
+        for bad in (2117184,1052671,0,8388609):
+            with self.subTest(reserve_bytes=bad),self.assertRaises(canary.CanaryError):
+                canary.make_canary(self.orig,False,self_reserve_bytes=bad)
+        with self.assertRaisesRegex(canary.CanaryError,"cannot truncate"):
+            canary.make_canary(self.orig,False,self_reserve_bytes=1048576)
+
+    def test_mismatched_measured_canary_manifest_refused(self):
+        override,manifest=canary.make_canary(self.orig,False,2117632)
+        altered=copy.deepcopy(manifest)
+        altered["selfReservationExplicitGuestMeasuredBytes"]=2113536
+        with self.assertRaises(verify.DeliveryError):
+            self.probe(override=override,manifest=altered,
+                       guest=override,log=gdblog(override))
 
     def test_guest_without_canary_fails_closed(self):
         with self.assertRaisesRegex(verify.DeliveryError,"not present exactly"):
