@@ -2509,6 +2509,91 @@ image authorization.
 
 ---
 
+
+## October 11 20:35 CDT — original 0x67dd8 returns bitmask Boolean (HXL1)
+
+Owner ran the previous six-query read-only Ghidra audit
+against original SHA256-pinned HXL1. All three owner
+dossiers were verified.
+
+Original 18-instruction 0x67dd8 native Evidence:
+ev_9da33d5d7cadf9186d8663a8c9e778397c5e0a518005d97f832372321471b13c
+
+Ghidra's void decompilation is **not** the native ABI.
+The original instruction sequence:
+
+    0x67de4 adrp x9,0x365000
+    0x67df8 ldr w8,[x9,#0x1ec] // 32-bit global 0x3651ec
+    0x67e00 tst w8,w0
+    0x67e04 cset w0,ne
+    0x67e18 ret
+
+proves the normal W0 result is
+(uint32_at_0x3651ec & incoming_W0) != 0.
+Original main entry 0x17d8 passes mask 4:
+
+    0x1b34 bl 0x00068f18
+    0x1b38 mov w0,#0x4
+    0x1b3c bl 0x00067dd8
+    0x1b40 tst w0,#0xff
+    0x1b44 b.eq 0x00001db0 // zero -> relock 0x34370
+    0x1b48 bl 0x00034238 // nonzero -> unlock request
+
+Thus the direct unlock/relock request is chosen by
+**bit 2 of 0x3651ec**, but this does not identify
+the writer, initialization, authority or true
+security semantics of the bit. The immediately
+preceding call to 0x68f18 is a source candidate,
+not proof of a direct write to this global.
+
+The partition resolver 0x1e5f0 source/native confirms
+enumeration of partition handles and matching the
+requested name "persistent". It does not prove
+partition authentication, RPMB trust or hardware
+unlock authority.
+
+The 0x182d0 boot-mode selector source/native confirms
+separate Odin boot/key handling and uses FUN_00060bd8
+to condition the interactive FUN_000674d8
+unlock-confirmation path. Do not conflate this path
+with the direct 0x17d8 bitmask dispatch.
+
+### Next six read-only original-source queries
+
+Committed:
+- tools/y2q_hxl1_rea_avb_unlock_bitmask_producers.py
+- tools/test_y2q_hxl1_rea_avb_unlock_bitmask_producers.py
+- tools/run_y2q_hxl1_rea_avb_unlock_bitmask_producers.sh
+
+The new gate reattests the existing HXL1 original
+archive/component hashes, Ghidra Evidence IDs,
+full saved native 0x67dd8 and 0x17d8 lists and
+saved 0x182d0 pseudocode before any query.
+
+Exactly six new Ghidra source requests:
+xrefs to 0x3651ec and 0x68f18; original Ghidra
+function+native instructions for 0x68f18 and
+0x60bd8. Xrefs remain *unclassified* until
+their native opcode, effective address and owner
+have been proven.
+
+Owner command:
+
+~~~bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_rea_avb_unlock_bitmask_producers.sh
+~~~
+
+Report:
+~/s20-artifacts/hxl1-research/bootloader-unlock/rea-security-audit/avb-unlock-bitmask-producers.md
+
+No device modification, no trusted unlock/flash
+permission proven, and no unsigned-boot capability
+demonstrated.
+
+---
+
 ## Reverse-engineering decision gates
 
 1. **Image provenance:** independently hash and identify both firmware archives;
