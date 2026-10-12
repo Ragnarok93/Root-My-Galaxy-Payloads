@@ -1,3 +1,18 @@
+## October 12, 02:51 UTC — single-command automated nine-stage HXL1 porting evidence pipeline
+
+**Workflow correction:** stop requiring repeated manual one-audit-per-turn instructions. The owner now has a [single-command Stage 1–9 host-only porting pipeline](SM-G986U1-HXL1-AUTOMATED-PORTING.md), implemented at `tools/y2q_hxl1_porting_automation.py`, with convenience wrapper `tools/run_y2q_hxl1_porting_automation.sh` that fast-forwards the current Git branch. This reuses the actual pinned factory source and kernel evidence plus existing stage 3 proof matrix, stage 4 stock boot/FDT, stage 5 GhostLock research checks, and optional stage 6 NDK identity-only diagnostic/bundle. It outputs a **new immutable** Markdown/JSON step log and precise nine-stage blockers every run; it continues independent checks on one failed step and skips unavailable optional inputs explicitly.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+bash tools/run_y2q_hxl1_porting_automation.sh
+```
+
+**CI:** the 20 new local-input-free regression tests and the full HXL1 suite passed **465/465** in [GitHub Actions run #38198179809](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38198179809). The separate CI task also executed `--mode plan` and validated actual script wiring; **the owner's original WSL-only factory files are not available in the hosted GitHub runner**. An actual owner host run is therefore still required before its new readiness report can be interpreted.
+
+**No false gate promotions:** nine-stage readiness remains Stage 1–2 COMPLETE, Stage 3 PARTIAL, Stage 4–6 OPEN, Stage 7–8 BLOCKED, Stage 9 DEFERRED until independently authenticated evidence changes. The Clang18 DWARF and verified original instruction offsets are valuable, but do **not** automatically establish a complete factory Clang10 compiled structure ABI. The GhostLock source bug-pattern is confirmed in reconstructed vendor source, yet controlled runtime exploitation/root, authorized Linux 4.19 KernelSU loading, actual physical OEM unlocking and production feed integration remain unverified. The automation does not launch an exploit, alter physical firmware, contact ADB, or fabricate guest RKP services. Focus subsequent development on **the exact missing factory ABI and runtime CVE primitive**, not endless manual standalone reports.
+
+---
+
 ## October 12, 02:36 UTC — X21 stack-restore candidate not executed in capture; X10 field-load observed
 
 **Owner actual WSL evidence, two separate original stock-HXL1 compact QEMU guest runs:** `tools.test_y2q_hxl1_qemu_compact_register_provenance` passed **18/18** locally. Factory Image SHA `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`, compact guest input DTB SHA `1530da694b887fbe9918aa922eeafcdaa3ef0c900e6eae279402464b46b83fdd`, and previously independently captured complete **35,168-byte** guest FDT were all verified.
