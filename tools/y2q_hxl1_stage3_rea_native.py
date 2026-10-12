@@ -99,6 +99,7 @@ def extract_slices(archive:Path,records:dict,out:Path,*,write:bool)->list[dict]:
                 "label":name, "originalSymbolVA":info["originalStockByteAttestation"]["symbolVA"],
                 "providerInput":str(file),"sha256":expected,
                 "originalStockBytes":info["originalStockByteAttestation"]["stockCodeBytes"],
+                "originalKernelCodeSha256":info["originalStockByteAttestation"]["originalKernelFunctionBytesSha256"],
                 "originalImageBytesIndependentlyVerified":True,
             })
     return planned
@@ -128,7 +129,8 @@ def parse_function_analysis(response:dict,record:dict)->dict:
     else:native_status="GHIDRA_HIGH_PCODE_UNAVAILABLE"
     return {
         "label":record["label"],"originalSymbolVA":record["originalSymbolVA"],
-        "originalFactoryCodeSha256":record["sha256"],
+        "originalFactoryCodeSha256":record["originalKernelCodeSha256"],
+        "isolatedInputElfSha256":record["sha256"],
         "provider":"ghidra","analyzeFunctionEvidenceId":response["evidence_id"],
         "isolatedProcedure":"0x10000","functionBodyVerified":True,
         "ghidraPseudocodeSha256":hashlib.sha256(pse.encode("utf-8")).hexdigest(),
@@ -148,6 +150,14 @@ def run_pipeline(report:Path,image:Path,slices:Path,archive:Path,source:Path,
            and Path(__file__).resolve().parents[1] not in output.parents,
            "Ghidra evidence output cannot modify source or Git checkout")
     insist(not output.is_symlink(),"Output directory cannot be symlink")
+    protected=(report,image,slices,archive,source)
+    insist(all(output!=p and output not in p.parents for p in protected),
+           "Output would replace an original factory research input")
+    insist(output.parent.is_dir() and not output.parent.is_symlink(),
+           "Ghidra output parent must exist and be an ordinary directory")
+    insist(not any(p.is_symlink() for p in (output/"inputs",output/"ghidra")),
+           "Ghidra output subdirectories cannot be symlinks")
+
     if execute:
         insist(rea_script.is_file() and not rea_script.is_symlink(),
                "REA engine missing or symlinked; --execute requires installed REA")
