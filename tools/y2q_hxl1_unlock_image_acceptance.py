@@ -64,8 +64,7 @@ def exact_saved_case(root:Path,target,seed:str,site:str,entry:str,word:str)->dic
     lines=pseudo.splitlines()
     if not 3<=len(lines)<=MAX_LINES:
         raise TriageError("Original policy function line budget exceeded")
-    if word.casefold() not in pseudo.casefold() and not all(
-        w in pseudo.casefold() for w in word.casefold().split()[:2]):
+    if word.casefold() not in pseudo.casefold():
         raise TriageError("Original selected policy diagnostic disappeared: "+word)
     selected=set(range(min(14,len(lines))))
     hits=[i for i,l in enumerate(lines) if SOURCE_PATTERN.search(l)]
