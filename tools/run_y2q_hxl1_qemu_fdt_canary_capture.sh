@@ -29,19 +29,13 @@ for tool in python3 qemu-system-aarch64 gdb-multiarch timeout; do
 done
 [[ "$OUT" =~ ^[a-zA-Z0-9_./-]+$ ]] ||
     stop "Output path contains GDB-unsafe characters"
-python3 - "$CANARY_DIR" <<'PY' || stop "Canary FDT manifest/content mismatch"
-import hashlib,json,pathlib,struct,sys
-p=pathlib.Path(sys.argv[1])
-blob=(p/"canary-override.dtb").read_bytes()
-record=json.loads((p/"canary-construction.json").read_text())
-magic,total,off_struct,off_strings,off_rsv=struct.unpack_from(">5I",blob)
-if (magic!=0xd00dfeed or total!=len(blob) or
-    record.get("purpose")!="FDT_SELF_RESERVATION_DELIVERY_CANARY_NOT_RKP_POOL" or
-    hashlib.sha256(blob[:total]).hexdigest()!=record.get("overrideFdtSha256") or
-    struct.unpack_from(">QQ",blob,off_rsv)!=(0x48000000,(total+4095)&~4095) or
-    struct.unpack_from(">QQ",blob,off_rsv+16)!=(0,0)):
-    sys.exit(2)
-PY
+# Verify the byte-exact source, manifest and optional measured reserve.
+# The old validator wrongly required reserve=align_up(override totalsize,4KiB);
+# explicit measured guest FDT sizes can legitimately reserve more.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+python3 "$SCRIPT_DIR/y2q_hxl1_qemu_fdt_canary.py" \
+    --verify-dir "$CANARY_DIR" ||
+    stop "Canary FDT manifest/content mismatch"
 mkdir -p -- "$OUT"
 OUT="$(cd "$OUT" && pwd -P)"
 CANARY_DIR="$(cd "$CANARY_DIR" && pwd -P)"
