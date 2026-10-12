@@ -43,6 +43,60 @@ class Hxl1AutoPortTests(unittest.TestCase):
                 "adb","fastboot","qemu-system")) for r in rows))
             m.validate_plan(rows,output,m.REPO,Path(temp)/"source")
 
+    def test_rea_ghidra_mode_runs_only_after_pinned_factory_and_member_worklist(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            output=root/"fresh"
+            cli=root/"rea.mjs"
+            rows=m.tasks(m.REPO,root,root/"source",output,None,
+                         rea_ghidra=True,rea_cli=cli,rea_node="node")
+            names=[row.id for row in rows]
+            self.assertEqual(len(names),14)
+            self.assertEqual(names.index("03_live_rea_ghidra"),
+                             names.index("03_member_flow_worklist")+1)
+            task=next(x for x in rows if x.id=="03_live_rea_ghidra")
+            self.assertEqual(task.dependencies,
+                             ("03_field_offset_evidence","03_member_flow_worklist"))
+            self.assertIn("--execute",task.args)
+            self.assertEqual(task.output,
+                             str(output/"03-live-rea-ghidra/live-stage3-rea-review.json"))
+            self.assertIn(str(cli),task.inputs)
+            m.validate_plan(rows,output,m.REPO,root/"source")
+
+    def test_rea_step_skips_without_host_ghidra_provider(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            task=next(x for x in m.tasks(m.REPO,root,root/"source",root/"fresh",
+                          None,rea_ghidra=True,rea_cli=root/"missing-rea.mjs")
+                      if x.id=="03_live_rea_ghidra")
+            result=m.run_step(task,{"03_field_offset_evidence":"PASS",
+                                    "03_member_flow_worklist":"PASS"},
+                              root,30,{})
+            self.assertEqual(result["status"],"SKIP_MISSING_PREREQUISITE")
+            self.assertFalse((root/"fresh").exists())
+
+    def test_rea_step_never_executes_if_factory_stage3_failed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            task=next(x for x in m.tasks(m.REPO,root,root/"source",root/"fresh",
+                          None,rea_ghidra=True)
+                      if x.id=="03_live_rea_ghidra")
+            result=m.run_step(task,{"03_field_offset_evidence":"FAIL",
+                                    "03_member_flow_worklist":"SKIP_DEPENDENCY"},
+                              root,30,{})
+            self.assertEqual(result["status"],"SKIP_DEPENDENCY")
+
+    def test_live_rea_output_path_substitution_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            rows=m.tasks(m.REPO,root,root/"source",root/"fresh",None,
+                         rea_ghidra=True)
+            from dataclasses import replace
+            idx=next(i for i,r in enumerate(rows) if r.id=="03_live_rea_ghidra")
+            rows[idx]=replace(rows[idx],output=str(root/"outside"/"forged.json"))
+            with self.assertRaisesRegex(m.PipelineError,"Refuse external"):
+                m.validate_plan(rows,root/"fresh",m.REPO,root/"source")
+
     def test_run_location_inside_git_repo_forbidden(self):
         out=m.REPO/"temporary-output-should-not-be-created"
         with self.assertRaisesRegex(m.PipelineError,"Refuse outputs inside"):
