@@ -27,7 +27,7 @@ python3 -m unittest -v tools.test_y2q_hxl1_stage3_offset_verification
 python3 tools/y2q_hxl1_stage3_offset_verification.py
 ```
 
-The tool emits a fresh `~/s20-artifacts/hxl1-research/stage3-offset-verification-<UTC>.json` and matching Markdown summary. If the original `.o` files are stored elsewhere, use `--object-root /actual/clang10/build/directory`. It does not run REA anew, fabricate compiler provenance, write kernel/debug inputs or contact the phone. **The actual WSL execution and any additional factory source-to-field proof are still outstanding**.
+The tool emits a fresh `~/s20-artifacts/hxl1-research/stage3-offset-verification-<UTC>.json` and matching Markdown summary. When `aarch64-linux-gnu-objdump` is available, it additionally checks the exact SHA of the complete original `remove_waiter`, `rt_mutex_start_proxy_lock` and `futex_lock_pi` code slices and indexes original load/store memory operands by the 13 candidate numeric displacements (recording their PCs and base registers). **Numeric operand matches are search leads, not confirmed C member identities.** It also independently opens all three saved REA Ghidra JSON dossiers to check actual instruction counts, SHA-pinned original bounded ELF subjects, provider identity, and instruction address ranges. If the original `.o` files are stored elsewhere, use `--object-root /actual/clang10/build/directory`. It does not run REA anew, fabricate compiler provenance, write kernel/debug inputs or contact the phone. The new isolated suite passed **527/527 tests** in [GitHub Actions run #38266933717](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38266933717). **The actual WSL execution and any additional factory source-to-field proof are still outstanding**.
 
 ---
 
