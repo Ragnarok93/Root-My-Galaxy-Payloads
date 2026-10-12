@@ -179,7 +179,15 @@ class Hxl1NativeClusterTests(unittest.TestCase):
     def test_missing_native_site_stays_unclassified(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td)
-            store(root/"rea-security-audit"/"LinuxLoader",with_owners=True)
+            folder=root/"rea-security-audit"/"LinuxLoader"
+            store(folder,with_owners=True)
+            native_file=folder/"instructions-bitmask-owner-0x68d08.json"
+            ev=json.loads(native_file.read_text())
+            ev["normalized_result"]=[
+                x for x in ev["normalized_result"]
+                if not x.startswith("0x68ef0:")
+            ]
+            native_file.write_text(json.dumps(ev))
             t=base.Target("LinuxLoader",root/"LinuxLoader-HXL1.efi","a"*64,{})
             with mock.patch.object(cluster,"verify_bitmask_producers",
                                    return_value=prior()),\
