@@ -256,7 +256,7 @@ def main()->int:
         print("[PC SERIES]",result["pcSequence"])
         print("[QEMU EXCEPTIONS]",result["exceptionLog"].get("tail","")[-500:])
         print("[REPORT]",out/"pc-sample-report.json")
-        return 0 if readings and not error else 3
+        return 0 if readings and not error and result["status"]!="GUEST_PC_UNAVAILABLE" else 3
     except (gate.GateError,MonitorError,OSError,ValueError,TypeError) as e:
         print("[STOP]",e,file=sys.stderr)
         return 2
