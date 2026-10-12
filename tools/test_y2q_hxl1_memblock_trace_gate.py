@@ -22,7 +22,7 @@ class Hxl1MemblockGateTests(unittest.TestCase):
         r=symbol()
         self.assertEqual(r["guestVirtualAddress"],hex(VA))
         self.assertEqual(r["originalFirstOpcode"],"0x44332211")
-        self.assertIn("UNVERIFIED",r["symbolTrust"])
+        self.assertIn("NOT_INDEPENDENT_RUNTIME_SYMBOL",r["symbolTrust"])
     def test_modified_factory_image_rejected(self):
         with self.assertRaisesRegex(gate.GateError,"SHA256 mismatch"):
             gate.symbol_probe(NM,IMAGE)
