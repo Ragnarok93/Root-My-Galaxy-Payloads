@@ -1,3 +1,20 @@
+## October 13 — preserve legacy Stage 3 report while enabling fresh REA/Ghidra
+
+The owner ran `bash tools/run_y2q_hxl1_stage3_rea_live_review.sh` after pulling through `df63177` and received `[STOP] 'originalStockByteAttestation'` **before any new Ghidra function analysis**. The Stage 3 source report was created on October 12 at `stage3-offset-verification-20261012T152423477542Z.json` under prior commit `6bb5f68`, which **did not serialize** `reaEvidence.savedGhidraDossiers[*].originalStockByteAttestation`. The later live analyzer unconditionally indexed that newly introduced field. This is a **schema migration defect**, not a failed OEM code or Ghidra provenance check.
+
+The corrected `y2q_hxl1_stage3_rea_live_review.py` rebuilds all three Ghidra dossier byte attestations independently from the exact SHA-pinned original `kernel.bin` and archived bounded source ELF code slices, validates the old dossier instruction counts and ELF hashes, rejects mismatches, and **upgrades only the in-memory copy** supplied to the live reviewer and saved-register correlation. It never mutates or replaces the October 12 original report, firmware, uploaded slices, source, or provisional target header. The fresh REA/Ghidra native and HighFunction review remains bounded and reports member candidates rather than certifying fields based only on matching memory displacements.
+
+**Owner WSL next command** (does not rerun all porting stages):
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads && git pull --ff-only && \
+bash tools/run_y2q_hxl1_stage3_rea_live_review.sh
+```
+
+If the program stops again, preserve the new output/partial logs and inspect the *actual next failure*; do not repeat the previous 31-word/13-candidate source check. A successful REA query is still **not** proof of a complete factory ABI or a root payload.
+
+---
+
 # October 12 — fresh original-firmware REA/Ghidra verification (not just cached instructions)
 
 The owner confirmed the original pinned Stage 3 verifier: `31/31` factory instructions, **two** genuine AArch64 Clang10 *comparison* `.o` files, **three** authenticated Ghidra code slices, **13** member hypotheses and **zero** factory-certified C-member offsets. Do **not** rerun the complete firmware/diagnostic pipeline to investigate those same values.
