@@ -148,7 +148,7 @@ def resolve_adb(adb: str | None, serial: str | None = None, timeout: int = 12) -
             diagnostics.append(f"{candidate}: ADB error (exit {rc})")
             continue
         text = listing.decode("utf-8", "replace")
-        statuses = [line.strip().split()[1] for line in text.replace("\\r", "").splitlines()
+        statuses = [line.strip().split()[1] for line in text.replace("\r", "").splitlines()
                     if len(line.strip().split()) > 1
                     and line.strip().split()[1] in ("device", "offline", "unauthorized")]
         try:
