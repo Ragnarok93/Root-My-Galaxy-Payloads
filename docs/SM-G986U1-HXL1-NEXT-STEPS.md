@@ -1,3 +1,17 @@
+## October 13, 13:45 UTC — original futex symbol provenance verified
+
+User-uploaded `stack-gate.md` established five original ARM64 HXL1 code windows with disassembly: `core_sys_select` 1,064 bytes, `do_select` 1,680, `futex_requeue` 4,384, `do_futex` 7,064, and `futex_lock_pi` 2,216. `futex_wait_requeue_pi` was not found by **exact name** in the recovered text-symbol table. This is **5/6 extraction success, not a verified cross-function stack relationship**.
+
+The subsequent uploaded `futex-symbol-provenance.md` verified exact stock `kernel/futex.c` and `config.gz` hashes. The source declares `static int futex_wait_requeue_pi` at line 3232; `CONFIG_FUTEX=y`, `CONFIG_FUTEX_PI=y`, `CONFIG_KALLSYMS=y`, `CONFIG_KALLSYMS_ALL=y`. There is no exact recovered text-symbol name and no name-containing variants. `CONFIG_LTO*` values were **NOT_RECORDED**, not proven disabled.
+
+**Interpretation:** Function source/config presence is established; factory code emission, location, inlining, and symbol recovery completeness are not established. The absence of a recovered name does not by itself disprove compilation, and it cannot be substituted with a guessed address. Do not promote the existing five function windows or source declaration to an active GhostLock payload.
+
+**Most useful next owner artifact:** the five `*.disasm.txt` files and `stack-gate.json` already present in the `ghostlock-stack-gate-*` directory. Reviewing the authentic `do_futex` and related compiled dispatch/call sites, alongside exact original source, is more useful than repeating source-name checks. Only the Markdown summaries were uploaded for this checkpoint; the native disassembly itself has not been made available for independent review.
+
+No root, KernelSU, physical bootloader handoff, or exploit-ready geometry proven.
+
+---
+
 ## October 12 — owner local Clang10 ABI comparison and bounded REA pipeline reviewed
 
 The owner supplied a 17-file `hxl1-local-pipeline-review.tar.gz` containing `Run.py`, generated provisional `target.h`, new untracked offline research tools and six README/documents. The [source review](SM-G986U1-HXL1-LOCAL-PIPELINE-CONSOLIDATION-20261012.md) records the exact scope and safety checks. **These modules are owner-local and were not blindly copied over tracked GitHub code**.
