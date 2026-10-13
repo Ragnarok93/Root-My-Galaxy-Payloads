@@ -134,3 +134,35 @@ python3 tools/y2q_hxl1_porting_bundle_repair.py \
 
 Expected validated status: `EXISTING_HXL1_DIAGNOSTIC_BUNDLE_VERIFIED`, with SHA-256 and path. If it says **partial recovery**, retain both original paths and inspect before any new attempt; neither this mode nor the ordinary recovery tool overwrites pre-existing evidence. A successful bundle is still an **identity-only research ZIP**, not a root payload, and does not promote any of the PORTING.md stages.
 
+
+## Focused runs and interruption checkpoints (October 13)
+
+Use the existing investigation branch and request only the next evidence work:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+bash tools/run_y2q_hxl1_porting_automation.sh --rea-ghidra \
+  --only 01_readiness 03_live_rea_ghidra
+```
+
+`--only` accepts space-separated plan step IDs. It automatically includes
+transitive prerequisites in their original execution order, rejects unknown
+IDs before running tools, and retains the original kernel/config hash checks.
+The example runs readiness, the Clang10 checkpoint, field-evidence check,
+member-flow worklist and bounded REA/Ghidra review. It avoids repeating boot,
+FDT, export-table and diagnostic compilation tasks. Missing original archives
+or REA providers are reported as skipped; no substitute evidence is invented.
+Use `--mode plan` with the Python entry point to inspect the selection first.
+Omitting `--only` preserves the full pipeline. Selecting live REA requires
+`--rea-ghidra`. Include `01_readiness` when a nine-stage baseline is wanted;
+without it those gates are explicitly UNVERIFIED.
+
+Every completed task now atomically updates `port-progress.json` in the fresh
+run directory, including failures and skips. An interrupted run retains the
+last completed task's result and the complete planned step list. The final
+report remains `port-automation.json` / `.md`; progress is marked FINISHED
+only after those reports are written. This is a recovery record, not automatic
+resume or permission to reuse outputs without revalidation. Existing runs
+remain untouched. Factory artifacts and actual host REA execution still need
+the owner's WSL environment; local fixture tests cannot establish device ABI,
+physical loading or root behavior.

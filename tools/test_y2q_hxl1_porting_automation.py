@@ -28,6 +28,35 @@ def sample_gates():
     }
 
 class Hxl1AutoPortTests(unittest.TestCase):
+    def test_selection_adds_transitive_dependencies_in_original_order(self):
+        rows=m.tasks(m.REPO,m.ARTIFACTS,m.SOURCE,Path("/tmp/fresh"),None,
+                     rea_ghidra=True)
+        chosen=m.select_steps(rows,["03_live_rea_ghidra"])
+        self.assertEqual([x.id for x in chosen],[
+            "03_clang10_checkpoint","03_field_offset_evidence",
+            "03_member_flow_worklist","03_live_rea_ghidra"])
+
+    def test_selection_rejects_unknown_and_empty_requests(self):
+        rows=m.tasks(m.REPO,m.ARTIFACTS,m.SOURCE,Path("/tmp/fresh"),None)
+        for requested in (["typo"],[]):
+            with self.assertRaises(m.PipelineError):
+                m.select_steps(rows,requested)
+        self.assertIs(m.select_steps(rows,None),rows)
+
+    def test_progress_preserves_completed_results_and_pending_plan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            steps=[m.Step("one",3,"unused",(),None),
+                   m.Step("two",3,"unused",(),None)]
+            m.save_progress(root,steps,[])
+            result={"id":"one","status":"FAIL","reason":"timeout"}
+            m.save_progress(root,steps,[result])
+            saved=json.loads((root/"port-progress.json").read_text())
+            self.assertEqual(saved["plannedSteps"],["one","two"])
+            self.assertEqual(saved["steps"],[result])
+            self.assertEqual(saved["state"],"IN_PROGRESS")
+            self.assertFalse((root/"port-progress.json.tmp").exists())
+
     def test_expected_tasks_span_actual_development_work_without_phone_actions(self):
         with tempfile.TemporaryDirectory() as temp:
             output=Path(temp)/"new"

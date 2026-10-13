@@ -178,6 +178,37 @@ def tasks(repo:Path,artifacts:Path,source:Path,out:Path,ndk:Path|None,*,
         planned.insert(pos,active)
     return planned
 
+def select_steps(steps:list[Step], requested:list[str]|None)->list[Step]:
+    """Select requested steps and their transitive prerequisites in plan order."""
+    if requested is None:
+        return steps
+    by_id={step.id:step for step in steps}
+    unknown=set(requested)-by_id.keys()
+    if unknown:
+        raise PipelineError("Unknown step(s): "+", ".join(sorted(unknown)))
+    if not requested:
+        raise PipelineError("Select at least one step")
+    selected=set(requested)
+    pending=list(requested)
+    while pending:
+        step=by_id[pending.pop()]
+        for parent in step.dependencies:
+            if parent not in by_id:
+                raise PipelineError("Unknown prerequisite: "+parent)
+            if parent not in selected:
+                selected.add(parent)
+                pending.append(parent)
+    return [step for step in steps if step.id in selected]
+
+def save_progress(out:Path, planned:list[Step], results:list[dict])->None:
+    """Atomically retain completed results before starting the next tool."""
+    document={"schemaVersion":1,"runId":out.name,
+              "state":"IN_PROGRESS","plannedSteps":[step.id for step in planned],
+              "steps":results,"phoneChanged":False}
+    temporary=out/"port-progress.json.tmp"
+    temporary.write_text(json.dumps(document,indent=2)+"\n")
+    temporary.replace(out/"port-progress.json")
+
 def validate_plan(steps:list[Step],out:Path,repo:Path,source:Path)->None:
     ids=[s.id for s in steps]
     if len(ids)!=len(set(ids)):raise PipelineError("Duplicate task identity")
@@ -312,6 +343,8 @@ def main()->int:
         Path(os.environ["ANDROID_NDK_HOME"]) if os.environ.get("ANDROID_NDK_HOME") else None))
     p.add_argument("--output-dir",type=Path,default=None)
     p.add_argument("--timeout-per-step",type=int,default=150)
+    p.add_argument("--only",nargs="+",metavar="STEP",
+                   help="Run selected step IDs plus prerequisites; omit to run the full pipeline")
     p.add_argument("--rea-ghidra",action="store_true",
                    help="Execute fresh REA/Ghidra native plus decompiler review of 3 original HXL1 kernel slices")
     p.add_argument("--rea-cli",type=Path,default=Path.home()/"src/rea/scripts/rea.mjs")
@@ -330,6 +363,7 @@ def main()->int:
                        rea_ghidra=a.rea_ghidra,
                        rea_cli=a.rea_cli.expanduser().absolute(),
                        rea_node=a.rea_node)
+        pipeline=select_steps(pipeline,a.only)
         validate_plan(pipeline,out,REPO,source)
         for row in pipeline:
             print("[PLAN]",row.id,"stage",row.stage,
@@ -349,10 +383,12 @@ def main()->int:
         env["PYTHONDONTWRITEBYTECODE"]="1"
         status={}
         results=[]
+        save_progress(out,pipeline,results)
         for task in pipeline:
             result=run_step(task,status,logs,a.timeout_per_step,env)
             status[task.id]=result["status"]
             results.append(result)
+            save_progress(out,pipeline,results)
             print("[STEP]",task.id,result["status"])
         readiness_path=out/"01-port-readiness.json"
         stages=[]
@@ -390,6 +426,11 @@ def main()->int:
         report=out/"port-automation.json"
         report.write_text(json.dumps(manifest,indent=2)+"\n")
         (out/"port-automation.md").write_text(summarize(manifest))
+        progress=json.loads((out/"port-progress.json").read_text())
+        progress["state"]="FINISHED"
+        temporary=out/"port-progress.json.tmp"
+        temporary.write_text(json.dumps(progress,indent=2)+"\n")
+        temporary.replace(out/"port-progress.json")
         print("[NINE-STAGE]",[(s["stage"],s["state"]) for s in stages])
         print("[ROOT / KERNELSU / DEPLOYMENT] NOT VERIFIED")
         print("[REPORT]",out/"port-automation.md")
