@@ -182,8 +182,10 @@ def compare_dtb(snapshot: dict, firmware: dict) -> dict:
               if i["runtimeModelMatches"]]
     compatibles = [i["candidateIndex"] for i in examined
                    if i["sharedCompatibleStrings"]]
-    if not model and not compatible:
-        state = "RUNTIME_ROOT_IDENTITY_MISSING_OR_EMPTY"
+    if model is None and compatible is None:
+        state = "RUNTIME_PROPERTIES_UNAVAILABLE"
+    elif not model and not compatible:
+        state = "RUNTIME_PROPERTIES_EMPTY_OR_PARTIALLY_UNAVAILABLE"
     elif len(exact) == 1:
         state = "ONE_MODEL_AND_COMPATIBLE_IDENTITY_MATCH"
     elif len(exact) > 1:
