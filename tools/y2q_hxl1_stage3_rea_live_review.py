@@ -42,6 +42,44 @@ class LiveProofError(ValueError):pass
 def demand(check,reason):
     if not check:raise LiveProofError("HXL1 Stage3 REA STOP: "+reason)
 
+def reconcile_original_dossiers(report:dict,verified:dict)->dict:
+    """Upgrade a pre-byte-attestation Stage3 report in memory only.
+
+    The owner generated a valid report with the 6bb5f68 schema which included
+    Ghidra SHA/count records but NOT originalStockByteAttestation. Recompute
+    that new field from the independent original factory Image and archived ELF
+    bytes, and reject any discrepancy in the existing report's evidence.
+    Never write an updated copy over the original report.
+    """
+    evidence=report.get("reaEvidence")
+    demand(isinstance(evidence,dict),"saved Stage3 report missing REA inventory")
+    saved=evidence.get("savedGhidraDossiers")
+    demand(isinstance(saved,dict) and set(saved)==set(TARGETS)
+           and set(verified)==set(TARGETS),"incompatible Ghidra dossier inventory")
+    for name in TARGETS:
+        old=saved[name]
+        new=verified[name]
+        demand(isinstance(old,dict),"malformed saved Ghidra entry: "+name)
+        for key in ("sourceElfSha256","ghidraInstructionCount",
+                    "actualGhidraRecordsIndependentlyChecked",
+                    "sourceToCMemberFullDefUseCertified"):
+            demand(old.get(key)==new[key],
+                   "saved Ghidra dossier differs from factory revalidation: "
+                   +name+"/"+key)
+        old_attestation=old.get("originalStockByteAttestation")
+        if old_attestation is not None:
+            demand(old_attestation==new["originalStockByteAttestation"],
+                   "old factory-byte attestation changed: "+name)
+        demand(new["originalStockByteAttestation"] is not None and
+               new["originalStockByteAttestation"].get(
+                   "archivedGhidraInputMatchesOriginalFactoryImage") is True,
+               "factory-byte attestation incomplete: "+name)
+    return {**report, "reaEvidence":{
+        **evidence,"savedGhidraDossiers":verified},
+        "legacyStage3ReportRevalidatedInMemory":any(
+            "originalStockByteAttestation" not in saved[name] for name in TARGETS)}
+
+
 def saved_report(report_file:Path,artifacts:Path,source:Path,rea_archive:Path,slices:Path):
     demand(report_file.is_file() and not report_file.is_symlink() and
            report_file.stat().st_size<=MAX_INPUT,"original owner Stage3 report missing/unsafe")
@@ -71,7 +109,7 @@ def saved_report(report_file:Path,artifacts:Path,source:Path,rea_archive:Path,sl
     with (artifacts/"kernel.bin").open("rb") as f:kernel=f.read()
     dossiers=offset.verify_rea_dossiers(slices,rea_archive,kernel)
     demand(set(dossiers)==set(TARGETS),"missing complete original REA dossier")
-    return report,dossiers
+    return reconcile_original_dossiers(report,dossiers),dossiers
 
 def slice_manifest(report:dict,source_zip:Path):
     result={}
