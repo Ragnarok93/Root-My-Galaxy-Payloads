@@ -19,6 +19,7 @@ if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tools import y2q_stock_fdt_semantic_audit as stock
+from tools import y2q_hxl1_live_identity_snapshot as live
 
 ROOT = Path.home() / "s20-artifacts"
 REPO = Path(__file__).resolve().parents[1]
@@ -86,7 +87,30 @@ def read_manifest(path: Path) -> dict:
     return data
 
 
+def normalized_device_tree_read(snapshot: dict, key: str) -> dict:
+    """Reclassify permission errors already persisted as successful ADB reads.
+
+    Does not edit original snapshots and can use the current collector's
+    error detector for both current and old schemaVersion=1 records.
+    """
+    item = snapshot["deviceReads"].get(key)
+    if not isinstance(item, dict):
+        return {"state": "MISSING", "value": None, "legacyReadErrorCorrected": False}
+    recorded_state = item.get("state", "MISSING")
+    error_state = live.device_tree_error_state(key, item.get("value"))
+    if error_state is None:
+        error_state = live.device_tree_error_state(key, item.get("error"))
+    state = error_state or recorded_state
+    return {
+        "state": state,
+        "value": item.get("value") if state == "READ" else None,
+        "legacyReadErrorCorrected": bool(error_state and recorded_state == "READ"),
+    }
+
+
 def runtime_value(snapshot: dict, key: str) -> str | list[str] | None:
+    if key in ("dtModel", "dtCompatible"):
+        return normalized_device_tree_read(snapshot, key)["value"]
     item = snapshot["deviceReads"].get(key)
     if not isinstance(item, dict) or item.get("state") != "READ":
         return None
@@ -182,7 +206,14 @@ def compare_dtb(snapshot: dict, firmware: dict) -> dict:
               if i["runtimeModelMatches"]]
     compatibles = [i["candidateIndex"] for i in examined
                    if i["sharedCompatibleStrings"]]
-    if model is None and compatible is None:
+    model_read = normalized_device_tree_read(snapshot, "dtModel")
+    compatible_read = normalized_device_tree_read(snapshot, "dtCompatible")
+    if (model_read["state"] == "PERMISSION_DENIED" and
+            compatible_read["state"] == "PERMISSION_DENIED"):
+        state = "RUNTIME_PROPERTIES_PERMISSION_DENIED"
+    elif ("PERMISSION_DENIED" in (model_read["state"], compatible_read["state"])):
+        state = "RUNTIME_PROPERTIES_PARTIALLY_PERMISSION_DENIED"
+    elif model is None and compatible is None:
         state = "RUNTIME_PROPERTIES_UNAVAILABLE"
     elif not model and not compatible:
         state = "RUNTIME_PROPERTIES_EMPTY_OR_PARTIALLY_UNAVAILABLE"
@@ -198,8 +229,12 @@ def compare_dtb(snapshot: dict, firmware: dict) -> dict:
         state = "NO_ROOT_IDENTITY_MATCH"
     return {"runtimeRootModel": model,
             "runtimeRootCompatible": compatible,
-            "runtimeModelReadState": snapshot["deviceReads"].get("dtModel", {}).get("state", "MISSING"),
-            "runtimeCompatibleReadState": snapshot["deviceReads"].get("dtCompatible", {}).get("state", "MISSING"),
+            "runtimeModelReadState": model_read["state"],
+            "runtimeCompatibleReadState": compatible_read["state"],
+            "correctedLegacyReadErrors": [
+                key for key, read in (("dtModel", model_read),
+                                      ("dtCompatible", compatible_read))
+                if read["legacyReadErrorCorrected"]],
             "runtimeRootModelPresent": bool(model),
             "runtimeRootCompatiblePresent": bool(compatible),
             "classification": state,
@@ -249,6 +284,8 @@ def markdown(report: dict) -> str:
         "- DT comparison: " + tree["classification"],
         "- Runtime DT model read: " + tree["runtimeModelReadState"],
         "- Runtime DT compatible read: " + tree["runtimeCompatibleReadState"],
+        "- Corrected legacy ADB errors: " +
+            (", ".join(tree["correctedLegacyReadErrors"]) or "(none)"),
         "- Runtime root model: " + repr(tree["runtimeRootModel"]),
         "- Runtime compatible strings: " + repr(tree["runtimeRootCompatible"]),
         "- Embedded original DTBs checked: " + str(report["originalEmbeddedFdtCount"]),
@@ -323,6 +360,8 @@ def main() -> int:
         print("[DT READ STATES]",
               result["deviceTree"]["runtimeModelReadState"],
               result["deviceTree"]["runtimeCompatibleReadState"])
+        print("[LEGACY ADB ERRORS CORRECTED]",
+              ", ".join(result["deviceTree"]["correctedLegacyReadErrors"]) or "none")
         print("[PHYSICAL BOOTLOADER HANDOFF VERIFIED] NO")
         print("[ROOT VERIFIED] NO")
         print("[REPORT]", output / "device-fdt-comparison.md")
