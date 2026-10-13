@@ -94,7 +94,10 @@ class LiveStage3ReaTests(unittest.TestCase):
                       "stockOpcodeWitnessesVerified":31,
                       "factoryMemberOffsetsVerified":0,"stage3Complete":False,
                       "factoryInputIntegrity":integrity,
-                      "memberCandidates":[{} for _ in range(13)],
+                      "memberCandidates":[{"type":ty,"memberPath":field,
+                           "previousComparisonCandidateOffset":offset}
+                          for ty,table in m.prior.FIELDS.items()
+                          for field,offset in table.items()],
                       "reaEvidence":{"slicesSha256":port.sha256(slices),
                                      "reaSha256":port.sha256(archive),
                                      "state":"31_ORIGINAL_OPCODE_WITNESSES_REA_ATTESTED",
