@@ -178,11 +178,18 @@ def ghidra_member_displacement_leads(observed:dict)->list[dict]:
                     hit=rx.search(instruction)
                     if hit is None:continue
                     if (int(hit.group(2),0) if hit.group(2) else 0)!=value:continue
+                    is_stack=hit.group(1)=="sp"
                     matches.append({"function":fn,"pc":pc,
-                                    "base":hit.group(1),"instruction":instruction})
+                                    "base":hit.group(1),"instruction":instruction,
+                                    "baseIsStack":is_stack,
+                                    "evidenceClass":"STACK_FRAME_NOT_C_MEMBER" if is_stack
+                                      else "UNTYPED_NONSTACK_OFFSET_LEAD"})
             members.append({
                 "type":ty,"member":name,"comparisonDWARFOffset":offset,
                 "exactFactoryGhidraMemoryOperandCandidates":matches[:48],
+                "allCandidateSitesCount":len(matches),
+                "nonstackOperandLeadCount":sum(not m["baseIsStack"] for m in matches),
+                "stackFrameFalsePositiveCount":sum(m["baseIsStack"] for m in matches),
                 "truncatedCandidateSites":len(matches)>48,
                 "CFieldIdentityCertified":False,
             })
@@ -207,7 +214,24 @@ def review_genuine_ghidra(name:str,entry:str,ev:dict,sha:str):
                    if "." not in f}
     referenced=[f for f in member_tokens
                 if re.search(r"\b"+re.escape(f)+r"\b",pseudo)]
+    highflow=data.get("native_value_flow")
+    if not isinstance(highflow,dict):
+        highflow={}
+    native_ops=highflow.get("operations")
+    high_complete=(
+        highflow.get("available") is True
+        and highflow.get("truncated") is False
+        and highflow.get("omitted_operations_lower_bound")==0
+        and highflow.get("known_omitted_inputs")==0
+        and highflow.get("known_omitted_edges")==0
+        and isinstance(native_ops,list) and bool(pseudo.strip())
+    )
     return {"entry":info["entry"],"ghidraFunctionName":info["name"],
+            "highPcodeCompleteWithinProviderLimits":high_complete,
+            "highPcodeTruncated":highflow.get("truncated"),
+            "retainedHighPcodeOperations":len(native_ops) if isinstance(native_ops,list) else None,
+            "knownOmittedPcodeEdges":highflow.get("known_omitted_edges"),
+            "knownOmittedPcodeInputs":highflow.get("known_omitted_inputs"),
             "ghidraFunctionBodyAvailable":True,
             "pcodeAvailable":info["pcodeAvailable"],
             "nativeValueFlowFieldPresent":isinstance(data.get("native_value_flow"),dict),
@@ -284,6 +308,9 @@ def run(saved:Path,artifacts:Path,source:Path,slices:Path,rea_archive:Path,
          "savedIsolatedELFArchiveSha256":port.sha256(slices),
          "mode":"EXECUTE_FRESH_REA_GHIDRA",
          "functions":rows,"sourceTypedSignatureMatched":typed,
+         "completeHighPcodeFunctions":sum(
+             bool(entry["freshGhidraFunction"]["highPcodeCompleteWithinProviderLimits"])
+             for entry in rows.values()),
          "memberCandidateRegisterFlow":existing,
          "liveNativeMemberDisplacementWorklist":ghidra_member_displacement_leads(observed),
          "comparedClang10Candidates":prior.FIELDS,
@@ -324,6 +351,8 @@ def main():
             print("[LIVE GHIDRA FUNCTIONS]",len(result["functions"]))
             print("[MEMBER REGISTER CHAINS]",
                   result["memberCandidateRegisterFlow"]["matchedStaticChains"],"/13")
+            print("[COMPLETE GHIDRA HIGH P-CODE]",
+                  result["completeHighPcodeFunctions"],"/3")
             print("[OEM FACTORY MEMBER OFFSETS CERTIFIED] 0")
             print("[REPORT]",output/"live-stage3-rea-review.json")
         else:
