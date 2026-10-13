@@ -287,7 +287,8 @@ class LiveStage3ReaTests(unittest.TestCase):
                  patch.object(m.flow,"source_signature",return_value=True), \
                  patch.object(m,"Runner",FakeRunner), \
                  patch.object(m,"review_genuine_ghidra",return_value={
-                     "factoryMemberOffsetsCertified":0}):
+                     "factoryMemberOffsetsCertified":0,
+                     "highPcodeCompleteWithinProviderLimits":False}):
                 result=m.run(base/"saved",base,base/"src",base/"slices.zip",
                              base/"rea.zip",script,dest,True,240)
             self.assertEqual(len(FakeRunner.queries),6)
