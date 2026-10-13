@@ -7,6 +7,10 @@ from pathlib import Path
 import re
 import sys
 import tarfile
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from tools import y2q_hxl1_dispatch_archive_audit as prior
 
 INSN = re.compile(r"^([0-9a-f]{16}):\s+[0-9a-f]{8}\s+(\S+)(?:\s+(.*?))?\s*$", re.I)
