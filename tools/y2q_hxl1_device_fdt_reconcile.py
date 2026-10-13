@@ -182,8 +182,8 @@ def compare_dtb(snapshot: dict, firmware: dict) -> dict:
               if i["runtimeModelMatches"]]
     compatibles = [i["candidateIndex"] for i in examined
                    if i["sharedCompatibleStrings"]]
-    if model is None and compatible is None:
-        state = "RUNTIME_PROPERTIES_UNAVAILABLE"
+    if not model and not compatible:
+        state = "RUNTIME_ROOT_IDENTITY_MISSING_OR_EMPTY"
     elif len(exact) == 1:
         state = "ONE_MODEL_AND_COMPATIBLE_IDENTITY_MATCH"
     elif len(exact) > 1:
@@ -196,6 +196,10 @@ def compare_dtb(snapshot: dict, firmware: dict) -> dict:
         state = "NO_ROOT_IDENTITY_MATCH"
     return {"runtimeRootModel": model,
             "runtimeRootCompatible": compatible,
+            "runtimeModelReadState": snapshot["deviceReads"].get("dtModel", {}).get("state", "MISSING"),
+            "runtimeCompatibleReadState": snapshot["deviceReads"].get("dtCompatible", {}).get("state", "MISSING"),
+            "runtimeRootModelPresent": bool(model),
+            "runtimeRootCompatiblePresent": bool(compatible),
             "classification": state,
             "modelAndCompatibleMatches": exact,
             "modelMatches": models,
@@ -241,6 +245,10 @@ def markdown(report: dict) -> str:
             ("MATCH" if identity["strictManifestIdentityMatches"] else "MISMATCH"),
         "- Boot state: " + lock["classification"],
         "- DT comparison: " + tree["classification"],
+        "- Runtime DT model read: " + tree["runtimeModelReadState"],
+        "- Runtime DT compatible read: " + tree["runtimeCompatibleReadState"],
+        "- Runtime root model: " + repr(tree["runtimeRootModel"]),
+        "- Runtime compatible strings: " + repr(tree["runtimeRootCompatible"]),
         "- Embedded original DTBs checked: " + str(report["originalEmbeddedFdtCount"]),
         "",
         "| Candidate | Root model | Root compatible | Runtime relation |",
@@ -308,6 +316,11 @@ def main() -> int:
               else "MISMATCH")
         print("[BOOT STATE]", result["bootState"]["classification"])
         print("[RUNTIME DT ROOT IDENTITY]", result["deviceTree"]["classification"])
+        print("[RUNTIME DT MODEL]", repr(result["deviceTree"]["runtimeRootModel"]))
+        print("[RUNTIME DT COMPATIBLE]", repr(result["deviceTree"]["runtimeRootCompatible"]))
+        print("[DT READ STATES]",
+              result["deviceTree"]["runtimeModelReadState"],
+              result["deviceTree"]["runtimeCompatibleReadState"])
         print("[PHYSICAL BOOTLOADER HANDOFF VERIFIED] NO")
         print("[ROOT VERIFIED] NO")
         print("[REPORT]", output / "device-fdt-comparison.md")
