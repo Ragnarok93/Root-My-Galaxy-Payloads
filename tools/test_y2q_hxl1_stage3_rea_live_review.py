@@ -20,6 +20,14 @@ def fake_native(sha="ab"*32):
                 "0x10004: ret"]}}
 
 class LiveStage3ReaTests(unittest.TestCase):
+    def test_boundary_warning_is_a_hypothesis_not_callee_proof(self):
+        info={"decompilerWarnings":["Bad instruction - Truncating control flow here"]}
+        result=m.slice_boundary_diagnostic({"0x10004":"bl 0x20000","0x10000":"nop"},info)
+        self.assertTrue(result["terminalExternalCallWithBadFlowWarning"])
+        self.assertFalse(result["calleeIdentityOrNonreturningBehaviorProven"])
+        result=m.slice_boundary_diagnostic({"0x10004":"ret"},info)
+        self.assertFalse(result["terminalExternalCallWithBadFlowWarning"])
+
     def test_coverage_separates_absent_comparison_from_mismatch(self):
         report={"functions":{"large":{
             "freshGhidraInstructions":{"nativeIdenticalToFactoryBoundArchive":True},

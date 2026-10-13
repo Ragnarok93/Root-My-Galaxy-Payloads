@@ -50,12 +50,25 @@ def make_fixture(root):
     return src,archive
 
 class MemberFlowTests(unittest.TestCase):
-    def test_real_saved_instruction_chains_cover_nine_candidates_only(self):
+    def test_new_comparisons_reject_wrong_base_or_access(self):
+        sites={"lock":"0x100b8","prio":"0x100d0",
+               "deadline":"0x101e0","task":"0x1013c"}
+        for field,pc in sites.items():
+            with self.subTest(member=field):
+                records=fake_records()
+                records["remove_waiter"][pc]="ldr x8, [sp, #0x38]"
+                report=m.correlate(records,True)
+                row=next(x for x in report["candidates"]
+                         if x["type"]=="rt_mutex_waiter" and x["member"]==field)
+                self.assertFalse(row["staticGhidraChainMatched"])
+                self.assertFalse(row["factoryCMemberIdentityCertified"])
+
+    def test_fixture_chains_cover_all_candidates_without_certification(self):
         r=m.correlate(fake_records(),True)
-        self.assertEqual(r["matchedStaticChains"],9)
+        self.assertEqual(r["matchedStaticChains"],13)
         self.assertEqual(len(r["candidates"]),13)
         self.assertEqual(r["factoryCertifiedMemberOffsets"],0)
-        self.assertEqual(sum(not c["staticGhidraChainMatched"] for c in r["candidates"]),4)
+        self.assertEqual(sum(not c["staticGhidraChainMatched"] for c in r["candidates"]),0)
 
     def test_missing_source_signature_never_credits_genuine_asm(self):
         r=m.correlate(fake_records(),False)
@@ -65,7 +78,7 @@ class MemberFlowTests(unittest.TestCase):
         asm=fake_records()
         asm["remove_waiter"]["0x1003c"]="ldr x24, [x19, #0x18]"
         r=m.correlate(asm,True)
-        self.assertLess(r["matchedStaticChains"],9)
+        self.assertLess(r["matchedStaticChains"],13)
         for c in r["candidates"]:
             if c["member"]=="owner":self.assertFalse(c["staticGhidraChainMatched"])
 
@@ -101,7 +114,7 @@ class MemberFlowTests(unittest.TestCase):
             report,archive=make_fixture(root)
             with patch.object(m,"source_signature",return_value=True):
                 data=m.analyze(report,root,archive)
-            self.assertEqual(data["registerFlowWorklist"]["matchedStaticChains"],9)
+            self.assertEqual(data["registerFlowWorklist"]["matchedStaticChains"],13)
             self.assertEqual(data["factoryMemberOffsetsVerified"],0)
             self.assertFalse(data["stage3Complete"])
             self.assertFalse(data["rootOrKernelSuVerified"])

@@ -161,6 +161,17 @@ def compare_live_native(live:dict,saved:dict):
         "nativeIdenticalToFactoryBoundArchive":live==saved,
     }
 
+def slice_boundary_diagnostic(instructions:dict,function:dict)->dict:
+    pc=max(instructions,key=lambda x:int(x,16))
+    last=instructions[pc]
+    warnings=function.get("decompilerWarnings",[])
+    bad_flow=any("Bad instruction - Truncating control flow" in w for w in warnings)
+    return {"lastInstructionPc":pc,"lastInstruction":last,
+            "terminalExternalCallWithBadFlowWarning":last.startswith("bl ") and bad_flow,
+            "possibleCause":"Unmodeled nonreturning callee at isolated slice boundary"
+                if last.startswith("bl ") and bad_flow else None,
+            "calleeIdentityOrNonreturningBehaviorProven":False}
+
 def ghidra_member_displacement_leads(observed:dict)->list[dict]:
     """Index exact Ghidra memory operands for all 13 source-typed hypotheses.
 
@@ -226,7 +237,10 @@ def review_genuine_ghidra(name:str,entry:str,ev:dict,sha:str):
         and highflow.get("known_omitted_edges")==0
         and isinstance(native_ops,list) and bool(pseudo.strip())
     )
+    warnings=re.findall(r"/\*\s*WARNING:\s*(.*?)\*/",pseudo,re.DOTALL)
     return {"entry":info["entry"],"ghidraFunctionName":info["name"],
+            "decompilerWarnings":[w.strip() for w in warnings],
+            "exportCompleteDoesNotCertifyDecompilerSemantics":True,
             "highPcodeCompleteWithinProviderLimits":high_complete,
             "highPcodeTruncated":highflow.get("truncated"),
             "retainedHighPcodeOperations":len(native_ops) if isinstance(native_ops,list) else None,
@@ -292,6 +306,7 @@ def run(saved:Path,artifacts:Path,source:Path,slices:Path,rea_archive:Path,
                         operation="analyze_function",parameter="procedure",value="0x10000")
         demand(f is not None,"live Ghidra function missing")
         info=review_genuine_ghidra(name,"0x10000",f,item["sha256"])
+        info["sliceBoundaryDiagnostic"]=slice_boundary_diagnostic(live,info)
         observed[name]=live
         rows[name]={"sourceELFSha256":item["sha256"],
                     "originalStaticVA":item["factoryStaticVA"],
@@ -345,12 +360,49 @@ def analysis_coverage(report:dict)->dict:
             "factoryMemberIdentityPromoted":False,
             "savedReportOnly":True}
 
+def recheck_saved_live(report_file:Path)->dict:
+    """Recheck saved provider records against their retained isolated ELFs."""
+    def read_json(path,limit=MAX_INPUT):
+        demand(path.is_file() and not path.is_symlink() and path.stat().st_size<=limit,
+               "saved live JSON missing/unsafe")
+        return json.loads(path.read_text())
+    report=read_json(report_file)
+    demand(report.get("target")=="SM-G986U1/G986U1UESCHXL1" and
+           report.get("sourceOriginalFactoryKernelSha256")==prior.ORIGINAL_IMAGE_SHA and
+           report.get("mode")=="EXECUTE_FRESH_REA_GHIDRA" and
+           set(report["functions"])==set(TARGETS),"saved live report identity mismatch")
+    observed={}
+    functions={}
+    for name in TARGETS:
+        directory=report_file.parent/name
+        sha=report["functions"][name]["sourceELFSha256"]
+        binaries=list(directory.glob("*.elf"))
+        demand(len(binaries)==1 and not binaries[0].is_symlink() and
+               port.sha256(binaries[0])==sha,"saved isolated ELF digest mismatch")
+        native=read_json(directory/"live-instructions.json")
+        observed[name]=native_map(native,sha)
+        function=read_json(directory/"live-function.json",32*1024*1024)
+        info=review_genuine_ghidra(name,"0x10000",function,sha)
+        info["sliceBoundaryDiagnostic"]=slice_boundary_diagnostic(observed[name],info)
+        functions[name]={"freshGhidraInstructions":report["functions"][name]["freshGhidraInstructions"],
+                         "freshGhidraFunction":info}
+    result={"functions":functions,
+            "memberCandidateRegisterFlow":flow.correlate(observed,report.get("sourceTypedSignatureMatched") is True),
+            "factoryMemberOffsetsVerified":0,
+            "sourceSignatureReusedFromSavedReport":True,
+            "originalFactoryImageRevalidated":False,
+            "savedReportSha256":port.sha256(report_file)}
+    result["analysisCoverage"]=analysis_coverage(result)
+    return result
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     inputs=p.add_mutually_exclusive_group(required=True)
     inputs.add_argument("--verified-stage3-report",type=Path)
     inputs.add_argument("--coverage-report",type=Path,
                         help="Print coverage from saved live JSON; do not invoke REA")
+    inputs.add_argument("--recheck-saved-live",type=Path,
+                        help="Recheck retained ELF/provider records using current comparison logic")
     p.add_argument("--artifacts",default=ART,type=Path)
     p.add_argument("--source",default=SOURCE,type=Path)
     p.add_argument("--slices",default=SLICES,type=Path)
@@ -362,12 +414,16 @@ def main():
     p.add_argument("--execute",action="store_true",
                    help="Request six live, bounded Ghidra operations on the SHA-pinned code slices")
     args=p.parse_args()
-    if args.coverage_report:
+    if args.coverage_report or args.recheck_saved_live:
         try:
             demand(not args.execute,"coverage report cannot execute REA")
-            raw=args.coverage_report.read_bytes()
-            demand(len(raw)<=MAX_INPUT,"coverage report too large")
-            print(json.dumps(analysis_coverage(json.loads(raw)),indent=2))
+            if args.recheck_saved_live:
+                result=recheck_saved_live(args.recheck_saved_live)
+            else:
+                raw=args.coverage_report.read_bytes()
+                demand(len(raw)<=MAX_INPUT,"coverage report too large")
+                result=analysis_coverage(json.loads(raw))
+            print(json.dumps(result,indent=2))
             return 0
         except (OSError,ValueError,KeyError,TypeError) as e:
             print("[STOP]",e,file=sys.stderr)

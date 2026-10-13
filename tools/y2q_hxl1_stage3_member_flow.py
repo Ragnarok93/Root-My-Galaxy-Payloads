@@ -39,11 +39,12 @@ CHAINS=(
  ("task_struct","pi_blocked_on",(("0x10034","mrs x20, sp_el0"),("0x10068","str xzr, [x20, #0x8f8]")),"sp_el0 -> x20","CURRENT_TASK"),
  ("task_struct","pi_waiters.rb_root.rb_node",(("0x1001c","mov x19, x0"),("0x1003c","ldr x24, [x19, #0x20]"),("0x10078","and x21, x24, #-0x2"),("0x100c4","ldr x12, [x21, #0x8e0]")),"lock owner -> masked task x21","CONDITIONAL_OWNER"),
  ("task_struct","pi_waiters.rb_leftmost",(("0x1001c","mov x19, x0"),("0x1003c","ldr x24, [x19, #0x20]"),("0x10078","and x21, x24, #-0x2"),("0x10138","ldr x8, [x21, #0x8e8]")),"lock owner -> masked task x21","CONDITIONAL_OWNER"),
+ ("rt_mutex_waiter","lock",(("0x1001c","mov x19, x0"),("0x100b0","ldr x0, [x19, #0x18]"),("0x100b8","ldr x8, [x0, #0x38]"),("0x100bc","cmp x8, x19")),"lock -> top waiter; lock consistency check","TOP_WAITER"),
+ ("rt_mutex_waiter","prio",(("0x1001c","mov x19, x0"),("0x100b0","ldr x0, [x19, #0x18]"),("0x100d0","ldr w10, [x0, #0x40]"),("0x100f4","cmp w10, w12")),"lock -> top waiter; priority ordering","TOP_WAITER"),
+ ("rt_mutex_waiter","deadline",(("0x1001c","mov x19, x0"),("0x100b0","ldr x0, [x19, #0x18]"),("0x100d0","ldr w10, [x0, #0x40]"),("0x100d4","tbnz w10, #0x1f, 0x000101d0"),("0x101e0","ldr x12, [x0, #0x48]"),("0x101e8","sub x12, x12, x13")),"lock -> top waiter; conditional deadline ordering","CONDITIONAL_TOP_WAITER"),
+ ("rt_mutex_waiter","task",(("0x1001c","mov x19, x0"),("0x1003c","ldr x24, [x19, #0x20]"),("0x10078","and x21, x24, #-0x2"),("0x10138","ldr x8, [x21, #0x8e8]"),("0x1013c","ldr x1, [x8, #0x18]")),"owner -> leftmost PI tree node; candidate task displacement relative to nested node (0x18 + 0x18)","NESTED_PI_NODE"),
 )
-UNMAPPED={
- ("rt_mutex_waiter","task"),("rt_mutex_waiter","lock"),
- ("rt_mutex_waiter","prio"),("rt_mutex_waiter","deadline")
-}
+UNMAPPED=set()
 
 def original_instructions(archive:Path,stage3:dict)->dict:
     require(archive.is_file() and not archive.is_symlink(),"Ghidra ZIP missing/unsafe")
