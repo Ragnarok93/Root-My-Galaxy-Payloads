@@ -5,6 +5,8 @@ on:
       - feature/s20plus-investigation-shizuku-20261009
     paths:
       - .github/workflows/hxl1-device-tree-identity-ci.yml
+      - tools/y2q_hxl1_live_identity_snapshot.py
+      - tools/test_y2q_hxl1_live_identity_snapshot.py
       - tools/y2q_hxl1_device_fdt_reconcile.py
       - tools/test_y2q_hxl1_device_fdt_reconcile.py
       - tools/y2q_stock_fdt_semantic_audit.py
@@ -25,7 +27,12 @@ jobs:
       - name: Syntax-check read-only audit
         run: |
           python -m py_compile \
+            tools/y2q_hxl1_live_identity_snapshot.py \
+            tools/test_y2q_hxl1_live_identity_snapshot.py \
             tools/y2q_hxl1_device_fdt_reconcile.py \
             tools/test_y2q_hxl1_device_fdt_reconcile.py
-      - name: Run HXL1 identity reconciliation regression tests
-        run: python -m unittest -v tools.test_y2q_hxl1_device_fdt_reconcile
+      - name: Run HXL1 snapshot and reconciliation regression tests
+        run: |
+          python -m unittest -v \
+            tools.test_y2q_hxl1_live_identity_snapshot \
+            tools.test_y2q_hxl1_device_fdt_reconcile
