@@ -137,6 +137,49 @@ class LiveStage3ReaTests(unittest.TestCase):
                              if x["type"]=="rt_mutex_waiter" and x["member"]=="prio")
                         ["exactFactoryGhidraMemoryOperandCandidates"])
 
+    def test_stack_immediates_are_not_accepted_as_member_displacements(self):
+        items=m.ghidra_member_displacement_leads({
+            "remove_waiter":{"0x10010":"stp x22, x21, [sp, #0x20]",
+                             "0x10028":"ldr x8, [x22, #0x38]",
+                             "0x100d0":"ldr w10, [x0, #0x40]"}
+        })
+        owner=next(v for v in items if v["type"]=="rt_mutex" and v["member"]=="owner")
+        self.assertEqual(owner["stackFrameFalsePositiveCount"],1)
+        self.assertEqual(owner["nonstackOperandLeadCount"],0)
+        self.assertEqual(owner["exactFactoryGhidraMemoryOperandCandidates"][0][
+            "evidenceClass"],"STACK_FRAME_NOT_C_MEMBER")
+        waiter=next(v for v in items if v["type"]=="rt_mutex_waiter" and v["member"]=="lock")
+        self.assertEqual(waiter["nonstackOperandLeadCount"],1)
+        self.assertEqual(waiter["stackFrameFalsePositiveCount"],0)
+        self.assertFalse(waiter["CFieldIdentityCertified"])
+        priority=next(v for v in items if v["type"]=="rt_mutex_waiter" and v["member"]=="prio")
+        self.assertEqual(priority["nonstackOperandLeadCount"],1)
+        self.assertFalse(priority["CFieldIdentityCertified"])
+
+    def test_ghidra_pcode_incomplete_when_omitted_edges_remain(self):
+        ev={"operation":"analyze_function","provider":{"id":"ghidra"},
+            "subject":{"digest":{"sha256":"ab"*32}},
+            "parameters":{"procedure":"0x10000"},
+            "evidence_id":"ev_pcode",
+            "normalized_result":{
+                "procedure":{"address":"0x10000","name":"remove_waiter",
+                             "body":{"available":True,"ranges":[
+                                 {"start":"0x10000","end":"0x10120"}]}},
+                "pseudocode":"void remove_waiter() { return; }",
+                "native_value_flow":{"available":True,
+                    "truncated":False,"omitted_operations_lower_bound":0,
+                    "known_omitted_inputs":0,"known_omitted_edges":0,
+                    "operations":[{"opcode":"LOAD"}]}}}
+        complete=m.review_genuine_ghidra("remove_waiter","0x10000",ev,"ab"*32)
+        self.assertTrue(complete["highPcodeCompleteWithinProviderLimits"])
+        self.assertEqual(complete["retainedHighPcodeOperations"],1)
+        ev["normalized_result"]["native_value_flow"]["truncated"]=True
+        ev["normalized_result"]["native_value_flow"]["known_omitted_edges"]=52
+        partial=m.review_genuine_ghidra("remove_waiter","0x10000",ev,"ab"*32)
+        self.assertFalse(partial["highPcodeCompleteWithinProviderLimits"])
+        self.assertTrue(partial["highPcodeTruncated"])
+        self.assertEqual(partial["knownOmittedPcodeEdges"],52)
+
     def test_native_requires_exact_original_elf_hash(self):
         with self.assertRaisesRegex(m.LiveProofError,"provenance"):
             m.native_map(fake_native(), "cd"*32)
