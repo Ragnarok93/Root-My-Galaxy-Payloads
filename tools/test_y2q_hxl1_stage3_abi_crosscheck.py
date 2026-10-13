@@ -96,5 +96,101 @@ class Stage3AbiCrosscheckTest(unittest.TestCase):
         self.assertIn("not OEM factory DWARF", md)
 
 
+    def test_saved_original_nine_not_relabelled_as_retrospective_thirteen(self):
+        import json
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from tools.y2q_hxl1_rtmutex_displacement_attest import FIELDS
+        members = [(kind, name) for kind, fields in FIELDS.items()
+                   for name in fields]
+        self.assertEqual(len(members), 13)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "tools").mkdir()
+            (root / "tools/y2q_hxl1_stage3_rea_live_review.py").write_text(
+                "# isolated test fixture\n")
+            report = root / "live-stage3-rea-review.json"
+            original = {
+                "target": "SM-G986U1/G986U1UESCHXL1",
+                "mode": "EXECUTE_FRESH_REA_GHIDRA",
+                "factoryMemberOffsetsVerified": 0,
+                "memberCandidateRegisterFlow": {
+                    "matchedStaticChains": 9,
+                    "candidates": [
+                        {"type": typ, "member": field,
+                         "staticGhidraChainMatched": i < 9}
+                        for i, (typ, field) in enumerate(members)
+                    ]
+                }
+            }
+            report.write_text(json.dumps(original))
+            recheck = {
+                "factoryMemberOffsetsVerified": 0,
+                "analysisCoverage": {
+                    "factoryMemberIdentityPromoted": False,
+                    "memberComparisons": [
+                        {"type": typ, "member": field,
+                         "status": "MATCHED_STATIC_CHAIN"}
+                        for typ, field in members
+                    ]
+                }
+            }
+            fake = SimpleNamespace(returncode=0,
+                                   stdout=json.dumps(recheck), stderr="")
+            with patch.object(a.subprocess, "run", return_value=fake):
+                result = a.saved_rea_review(root, report)
+            self.assertEqual(result["originalMatchedStaticChains"], 9)
+            self.assertEqual(result["retrospectiveMatchedStaticChains"], 13)
+            self.assertEqual(
+                sum(x == "NOT_PRESENT_IN_ORIGINAL_CHAIN_REPORT"
+                    for x in result["originalMemberStatus"].values()), 4)
+            self.assertEqual(result["factoryMemberOffsetsCertified"], 0)
+
+    def test_saved_chain_counter_drift_rejected(self):
+        import json
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from tools.y2q_hxl1_rtmutex_displacement_attest import FIELDS
+        members = [(kind, name) for kind, fields in FIELDS.items()
+                   for name in fields]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "tools").mkdir()
+            (root / "tools/y2q_hxl1_stage3_rea_live_review.py").write_text(
+                "# isolated fixture\n")
+            report = root / "live-stage3-rea-review.json"
+            report.write_text(json.dumps({
+                "target": "SM-G986U1/G986U1UESCHXL1",
+                "mode": "EXECUTE_FRESH_REA_GHIDRA",
+                "factoryMemberOffsetsVerified": 0,
+                "memberCandidateRegisterFlow": {
+                    "matchedStaticChains": 13,
+                    "candidates": [
+                        {"type": typ, "member": name,
+                         "staticGhidraChainMatched": index < 9}
+                        for index, (typ, name) in enumerate(members)
+                    ]
+                }
+            }))
+            recheck = {
+                "factoryMemberOffsetsVerified": 0,
+                "analysisCoverage": {
+                    "factoryMemberIdentityPromoted": False,
+                    "memberComparisons": [
+                        {"type": kind, "member": name,
+                         "status": "MATCHED_STATIC_CHAIN"}
+                        for kind, name in members
+                    ]
+                }
+            }
+            with patch.object(
+                    a.subprocess, "run",
+                    return_value=SimpleNamespace(
+                        returncode=0, stdout=json.dumps(recheck), stderr="")):
+                with self.assertRaisesRegex(a.AuditError, "chain count mismatch"):
+                    a.saved_rea_review(root, report)
+
+
+
 if __name__ == "__main__":
     unittest.main()
