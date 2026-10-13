@@ -1,3 +1,23 @@
+## October 13, 14:19 UTC — original five-function frame footprints independently audited
+
+Using the owner's existing `hxl1-disassembly-review.tar.gz`, an independent local offline script verified **5/5 disassembly text SHA-256s**, instruction counts, contiguous original-image-relative addresses and the operation-11 branch target. Then it extracted *only* literal AArch64 stack-pointer adjustment and restoration instructions from each verified function window:
+
+| Stock recovered function window | Observed entry stack allocation | Corresponding restoration instructions observed |
+|---|---:|---|
+| `core_sys_select` | 448 bytes (`sub sp, sp, #0x1c0`) | YES |
+| `do_select` | 880 bytes (preindexed save 96 + `sub sp, sp, #0x310`) | YES |
+| `do_futex` | 480 bytes (`sub sp, sp, #0x1e0`) | YES |
+| `futex_requeue` | 288 bytes (`sub sp, sp, #0x120`) | YES |
+| `futex_lock_pi` | 384 bytes (`sub sp, sp, #0x180`) | YES |
+
+The compiled opcode-11 branch continues into instructions *within the same next-symbol-bounded `do_futex` window*. That is stronger evidence than source presence alone; it is **not** certified DWARF evidence of a specific C helper's inlining, nor proof of a cross-syscall stack-object relationship. The five sizes are per-function static entry prologue allocations, **not live relative stack locations**; matching restore instructions do not prove all control-flow paths were validated. Those original code windows were initially extracted by the owner from SHA-pinned `kernel.bin` and then text-digest checked here; this archive lacks the raw Image for an independent second factory-byte check.
+
+A standalone offline frame-footprint analyzer ran against this archive, and **7/7 synthetic tests passed locally** (normal/preindexed frame accounting, non-entry adjustment caution, missing instruction slot, altered disassembly, unsafe tar symlink, no-root claim). All stages related to exploitability and KernelSU are unchanged: source-helper attribution OPEN, stack alias/lifetime OPEN, transient root UNPROVEN, and KernelSU BLOCKED.
+
+Stop treating numeric layout parity or a fixed frame size as an exploitability proof. Advance only if independent original factory C-to-assembly mapping can establish the relevant function boundaries and object lifetimes without extrapolating Redmi offsets.
+
+---
+
 ## October 13, 14:06 UTC — compiled HXL1 futex dispatcher addresses missing-name ambiguity
 
 **Input independently reviewed:** user-supplied `hxl1-disassembly-review.tar.gz`, including five disassembly texts and `stack-gate.json`. All five text digests match the manifest, and the windows contain **4,102 contiguous four-byte instructions**.
