@@ -58,7 +58,7 @@ It preserves the source hashing and separate callback spellings, switches
 bootloader-input selection to a verified ARM64 PE/COFF LinuxLoader instead of
 interpreting outer ARM32 ABL as AArch64, refuses compilation with `PARTIAL`
 definitions, blocks support-feed publication, and disables automatic evidence
-cleanup. Seven local off-device regression tests passed. This stand-alone file
+cleanup. Nine local off-device regression tests passed. The updated stand-alone script also provides `--review-419-only` (read-only JSON stdout); its payload build, support feed and automatic evidence cleanup are disabled in the research build. This stand-alone file
 is not yet a production Root-My-Galaxy payload and is not used to assert
 on-device CVE triggering.
 
@@ -67,3 +67,27 @@ on-device CVE triggering.
 Stages 1–2 COMPLETE; Stage 3 PARTIAL (0 factory-certified struct-member offsets);
 Stages 4–6 OPEN; 7–8 BLOCKED; 9 DEFERRED. Neither the K40 PoC nor the HXL1
 reference audit proves a Samsung privilege escalation or KernelSU deployment.
+
+## Additional pinned-source compatibility gate
+
+The canonical repository also includes `tools/y2q_hxl1_kernel419_compatibility.py` and
+`tools/test_y2q_hxl1_kernel419_compatibility.py`. Unlike the general read-only
+reference auditor above, this tool **fails closed unless both Samsung C files
+match the original pinned SHA256s** used by the existing Stage 3 Ghidra pipeline.
+It probes additional vendor-source categories when present (`fs/configfs/file.c`,
+ashmem, seccomp and `include/linux/cred.h`), returning `NOT_CHECKED_SOURCE_MISSING`
+instead of treating an absent file or generic Linux 4.19 layout as HXL1 proof.
+
+Run without any Ghidra repetition or payload compilation:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads && git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_kernel419_compatibility
+python3 tools/y2q_hxl1_kernel419_compatibility.py \
+  --source "$HOME/src/samsung-y2q-hxl1-stock"
+```
+
+Both audit tools are informational only. Prefer the SHA-pinned compatibility
+gate for decisions about Stage 3 source provenance. No K40 numeric offset,
+credential modification, privilege escalation chain or runtime root test has
+been imported.
