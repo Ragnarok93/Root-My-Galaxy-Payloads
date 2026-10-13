@@ -1,3 +1,20 @@
+## October 13, 14:00 UTC — original compiled select/futex archive independently reviewed
+
+The owner supplied `hxl1-disassembly-review.tar.gz` with `stack-gate.json` and five disassembly text files, each corresponding to its exact recovered HXL1 original-code window. Independent review confirmed **5/5 matching disassembly text SHA-256 hashes**, **4,102 contiguous AArch64 instruction slots**, and **241 direct-call instructions** across the five windows. The archive did not contain raw `kernel.bin` or each original `*.bin`, so text-to-manifest hash verification was independently performed, while the original factory-byte hash assertion remains the prior owner's pinned collector result.
+
+The verified callgraph *inside the five archived windows* includes:
+- `core_sys_select` directly calls `do_select`.
+- `do_futex` directly calls `futex_requeue`.
+- `do_futex` directly calls `futex_lock_pi`.
+
+The following function windows are accounted for: `core_sys_select` 1,064 bytes, `do_select` 1,680, `do_futex` 7,064, `futex_requeue` 4,384 and `futex_lock_pi` 2,216. **These represent next-symbol-bounded windows, not certified compiler function extents.** Unmapped direct-call destinations remain outside the five supplied windows.
+
+`futex_wait_requeue_pi` remains **ABSENT AS A RECOVERED SYMBOL NAME** despite its existing `static int` declaration at line 3232 in hash-verified Samsung `kernel/futex.c` and `CONFIG_FUTEX=y`, `CONFIG_FUTEX_PI=y`. Do not infer that the compiled implementation is present, removed, inlined, or at a particular address from this evidence alone. Its exact code emission remains unresolved.
+
+This compilation review does **not** demonstrate a cross-function stack-object relationship, original runtime function base, an exploitation prerequisite, temporary root, or KernelSU. No new device experiment is justified by these five windows alone. Retain these distinctions in all downstream readiness reporting.
+
+---
+
 ## October 13, 13:45 UTC — original futex symbol provenance verified
 
 User-uploaded `stack-gate.md` established five original ARM64 HXL1 code windows with disassembly: `core_sys_select` 1,064 bytes, `do_select` 1,680, `futex_requeue` 4,384, `do_futex` 7,064, and `futex_lock_pi` 2,216. `futex_wait_requeue_pi` was not found by **exact name** in the recovered text-symbol table. This is **5/6 extraction success, not a verified cross-function stack relationship**.
