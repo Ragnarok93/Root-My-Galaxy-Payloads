@@ -1,3 +1,25 @@
+## October 13, 14:34 UTC — original compiled HXL1 control-flow gate
+
+**No new device or firmware extraction run.** Reused the owner's previously supplied `hxl1-disassembly-review.tar.gz` (SHA256 `20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997`), retaining exact 5/5 archived disassembly text digest validation and 4,102 contiguous ARM64 instruction slots. The checked file-relative function windows and the approximate direct-control-flow result are:
+
+| Window | Instructions | Direct branches | Unresolved direct targets | Indirect branches | May be reached from entry |
+|---|---:|---:|---:|---:|---:|
+| `core_sys_select` | 266 | 37 | 0 | 0 | 266 |
+| `do_select` | 420 | 65 | 0 | 0 | 420 |
+| `futex_requeue` | 1,096 | 226 | 0 | 0 | 1,078 |
+| `do_futex` | 1,766 | 355 | 0 | 0 | 1,742 |
+| `futex_lock_pi` | 554 | 81 | 0 | 0 | 546 |
+
+The previously verified case-11 compare and in-window branch are present. A bounded intraprocedural graph, in which both sides of conditional branches are possible and direct function calls may return, reaches the case-11 block from `do_futex`'s entry; from the case-11 block it can reach the common dispatcher return. Exactly **335 possible instruction nodes** are reachable from that block under this conservative model. The only literal `sp` adjustments in the complete `do_futex` window are its original **480-byte entry allocation and matching restoration**. This supports an in-frame dispatch relationship, not exact source-helper inlining nor source object lifetime/aliasing.
+
+The graph leaves 24 `do_futex` instruction slots and 26 combined `futex_requeue`/`futex_lock_pi` slots unvisited under direct-edge reachability. These are not certified dead instructions; trap paths, error handling, data/text layout, or model incompleteness may explain them. No paths outside the five named windows were inferred from decoded direct branches, but cross-function BLs were modeled only as potentially returning; their side effects are not proven.
+
+**Test results:** A self-contained local control-flow archive verifier ran against the owner's real archive, and **8/8 local synthetic tests passed**. Committed the reusable GitHub-side static CFG tool, five synthetic CI tests, and workflow integration. GitHub CI execution and the owner's HXL1 run of the newly committed implementation have not yet been observed; do not misstate CI as PASS.
+
+**Acceptance boundary:** archival text hashes match the saved collector manifest, but the original `kernel.bin` bytes were not independently supplied in this archive for fresh comparison. This confirms **intra-function static reachability only**. It does not prove the C helper's exact compiled boundary, C local-variable layout, runtime cross-syscall stack reclamation, GhostLock exploitability, temporary root, or KernelSU. Future work needs source-to-assembly attribution with the hash-pinned original Samsung `kernel/futex.c`, not another offset or frame-size loop.
+
+---
+
 ## October 13, 14:19 UTC — original five-function frame footprints independently audited
 
 Using the owner's existing `hxl1-disassembly-review.tar.gz`, an independent local offline script verified **5/5 disassembly text SHA-256s**, instruction counts, contiguous original-image-relative addresses and the operation-11 branch target. Then it extracted *only* literal AArch64 stack-pointer adjustment and restoration instructions from each verified function window:
