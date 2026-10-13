@@ -123,14 +123,48 @@ def collect(adb: str, serial: str | None = None, timeout: int = 12) -> dict:
             "checks": check_identity(props, device_reads),
             "stage4Complete": False, "stage5Complete": False, "rootVerified": False}
 
-def resolve_adb(adb: str | None) -> str:
+def resolve_adb(adb: str | None, serial: str | None = None, timeout: int = 12) -> str:
+    """Prefer a client that actually sees the device, not merely one on PATH."""
     if adb:
         candidate = shutil.which(adb)
         require(candidate is not None, "Specified ADB binary does not exist")
         return candidate
-    candidate = shutil.which("adb.exe") or shutil.which("adb")
-    require(candidate is not None, "No adb.exe/adb executable on PATH; supply --adb")
-    return candidate
+
+    candidates = []
+    for name in ("adb.exe", "adb"):
+        candidate = shutil.which(name)
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
+    require(bool(candidates), "No adb.exe/adb executable on PATH; supply --adb")
+
+    diagnostics = []
+    for candidate in candidates:
+        try:
+            rc, listing, stderr = run_cmd(candidate, None, ("devices", "-l"), timeout)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            diagnostics.append(f"{candidate}: unavailable ({type(exc).__name__})")
+            continue
+        if rc:
+            diagnostics.append(f"{candidate}: ADB error (exit {rc})")
+            continue
+        text = listing.decode("utf-8", "replace")
+        statuses = [line.strip().split()[1] for line in text.replace("\\r", "").splitlines()
+                    if len(line.strip().split()) > 1
+                    and line.strip().split()[1] in ("device", "offline", "unauthorized")]
+        try:
+            select_device(text, serial)
+        except SnapshotError:
+            diagnostics.append(f"{candidate}: online={statuses.count('device')}, "
+                               f"unauthorized={statuses.count('unauthorized')}, "
+                               f"offline={statuses.count('offline')}")
+            continue
+        return candidate
+
+    raise SnapshotError(
+        "No ADB backend sees the selected single authorized device. "
+        + "; ".join(diagnostics)
+        + ". Enable USB debugging, approve the USB authorization prompt, "
+        "check the USB data connection, or specify --adb / --serial.")
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -147,7 +181,7 @@ def main():
         output = output.expanduser().absolute()
         require(not output.exists() and not output.is_symlink(),
                 "A fresh output directory is required")
-        result = collect(resolve_adb(args.adb), args.serial, args.timeout)
+        result = collect(resolve_adb(args.adb, args.serial, args.timeout), args.serial, args.timeout)
         output.mkdir(parents=True, exist_ok=False)
         destination = output / "identity.json"
         destination.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
