@@ -1,3 +1,21 @@
+## October 13 — live REA/Ghidra owner run completed: 3 functions, 9 chains, 0 certified offsets
+
+Owner WSL output from `bash tools/run_y2q_hxl1_stage3_rea_live_review.sh` after pulling through commit `ef4bd58` reports:
+
+```text
+[MODE] EXECUTE_FRESH_REA_GHIDRA
+[LIVE GHIDRA FUNCTIONS] 3
+[MEMBER REGISTER CHAINS] 9 /13
+[OEM FACTORY MEMBER OFFSETS CERTIFIED] 0
+[REPORT] /home/main/s20-artifacts/hxl1-research/stage3-rea-live-20261013T011443362878Z/live-stage3-rea-review.json
+```
+
+The original `remove_waiter`, `rt_mutex_start_proxy_lock` and `futex_lock_pi` now have *actual owner-host* fresh REA/Ghidra native/function query evidence, not just CI fixtures. The user has not supplied the **full JSON or raw live-function Ghidra decompiler/HighFunction records**, so exact per-function P-code completeness, register def-use, and per-member pointer provenance remain to be inspected, not asserted as complete. The saved nine static instruction chains are candidates; the four `rt_mutex_waiter` members with no trusted original register chain in the existing worklist are `task`, `lock`, `prio`, `deadline`. This does not mean those four are absent in the compiled binary: they may be referenced in other function bodies or via transformed pointers.
+
+**Next evidence review:** consume the saved *real* `live-stage3-rea-review.json` and three `*/live-function.json` records, determine P-code availability/coverage, attribute base registers and memory accesses in the recovered original functions to typed Samsung source expressions, and compare all 13 hypothesis offsets against the existing Clang10 DWARF without inferring field identity from a matching displacement. Do **not** rerun the completed six Ghidra operations. Source/factory symbols and matching assembly alone do not prove the original factory C-member ABI. Zero factory offsets certified; Stage 3 stays PARTIAL. No on-device action or root/KernelSU claim.
+
+---
+
 ## October 13 — preserve legacy Stage 3 report while enabling fresh REA/Ghidra
 
 The owner ran `bash tools/run_y2q_hxl1_stage3_rea_live_review.sh` after pulling through `df63177` and received `[STOP] 'originalStockByteAttestation'` **before any new Ghidra function analysis**. The Stage 3 source report was created on October 12 at `stage3-offset-verification-20261012T152423477542Z.json` under prior commit `6bb5f68`, which **did not serialize** `reaEvidence.savedGhidraDossiers[*].originalStockByteAttestation`. The later live analyzer unconditionally indexed that newly introduced field. This is a **schema migration defect**, not a failed OEM code or Ghidra provenance check.
