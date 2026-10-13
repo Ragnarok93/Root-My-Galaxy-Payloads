@@ -98,6 +98,59 @@ class Hxl1DeviceFdtReconcileTests(unittest.TestCase):
         self.assertEqual(result["classification"], "RUNTIME_PROPERTIES_UNAVAILABLE")
         self.assertFalse(result["kernelPhysicalHandoffVerified"])
 
+    def test_existing_saved_cat_permission_error_is_not_a_dtb_mismatch(self):
+        data = snapshot()
+        data["deviceReads"]["dtModel"] = {
+            "state": "READ",
+            "value": "cat: /proc/device-tree/model: Permission denied",
+            "error": "",
+        }
+        data["deviceReads"]["dtCompatible"] = {
+            "state": "READ",
+            "value": ["cat: /proc/device-tree/compatible: Permission denied"],
+            "error": "",
+        }
+        before = json.dumps(data, sort_keys=True)
+        result = m.compare_dtb(data, candidates())
+        self.assertEqual(result["classification"],
+                         "RUNTIME_PROPERTIES_PERMISSION_DENIED")
+        self.assertEqual(result["runtimeModelReadState"], "PERMISSION_DENIED")
+        self.assertEqual(result["runtimeCompatibleReadState"], "PERMISSION_DENIED")
+        self.assertIsNone(result["runtimeRootModel"])
+        self.assertIsNone(result["runtimeRootCompatible"])
+        self.assertEqual(result["correctedLegacyReadErrors"],
+                         ["dtModel", "dtCompatible"])
+        self.assertFalse(result["selectedPhysicalDtbVerified"])
+        self.assertEqual(json.dumps(data, sort_keys=True), before)
+
+    def test_current_permission_denied_records_remain_inaccessible(self):
+        data = snapshot()
+        data["deviceReads"]["dtModel"] = {
+            "state": "PERMISSION_DENIED",
+            "value": None,
+            "error": "cat: /proc/device-tree/model: Permission denied",
+        }
+        data["deviceReads"]["dtCompatible"] = {
+            "state": "PERMISSION_DENIED",
+            "value": None,
+            "error": "cat: /proc/device-tree/compatible: Permission denied",
+        }
+        result = m.compare_dtb(data, candidates())
+        self.assertEqual(result["classification"],
+                         "RUNTIME_PROPERTIES_PERMISSION_DENIED")
+        self.assertEqual(result["correctedLegacyReadErrors"], [])
+
+    def test_partial_permission_does_not_become_no_match(self):
+        data = snapshot(compatible=["qcom,other"])
+        data["deviceReads"]["dtModel"] = {
+            "state": "READ",
+            "value": "cat: /proc/device-tree/model: Permission denied",
+        }
+        result = m.compare_dtb(data, candidates())
+        self.assertEqual(result["classification"],
+                         "RUNTIME_PROPERTIES_PARTIALLY_PERMISSION_DENIED")
+        self.assertEqual(result["runtimeModelReadState"], "PERMISSION_DENIED")
+
     def test_no_fdt_root_match_is_not_invented(self):
         result = m.compare_dtb(snapshot("Different device", ["qcom,other"]),
                                candidates())
