@@ -102,6 +102,28 @@ class Hxl1DeviceFdtReconcileTests(unittest.TestCase):
         result = m.compare_dtb(snapshot("Different device", ["qcom,other"]),
                                candidates())
         self.assertEqual(result["classification"], "NO_ROOT_IDENTITY_MATCH")
+        self.assertTrue(result["runtimeRootModelPresent"])
+        self.assertTrue(result["runtimeRootCompatiblePresent"])
+        self.assertEqual(result["runtimeRootModel"], "Different device")
+
+    def test_empty_runtime_dt_reads_do_not_claim_real_mismatch(self):
+        data = snapshot("", [])
+        result = m.compare_dtb(data, candidates())
+        self.assertEqual(result["classification"],
+                         "RUNTIME_ROOT_IDENTITY_MISSING_OR_EMPTY")
+        self.assertEqual(result["runtimeModelReadState"], "READ")
+        self.assertEqual(result["runtimeCompatibleReadState"], "READ")
+        self.assertFalse(result["runtimeRootModelPresent"])
+        self.assertFalse(result["runtimeRootCompatiblePresent"])
+        self.assertFalse(result["selectedPhysicalDtbVerified"])
+
+    def test_partial_runtime_dt_missing_not_called_full_no_match(self):
+        data = snapshot("", [])
+        data["deviceReads"]["dtModel"] = {"state": "UNAVAILABLE", "value": None}
+        result = m.compare_dtb(data, candidates())
+        self.assertEqual(result["classification"],
+                         "RUNTIME_ROOT_IDENTITY_MISSING_OR_EMPTY")
+        self.assertEqual(result["runtimeModelReadState"], "UNAVAILABLE")
 
     def test_malformed_or_unpinned_firmware_evidence_rejected(self):
         broken = candidates()
@@ -180,6 +202,8 @@ class Hxl1DeviceFdtReconcileTests(unittest.TestCase):
             md = m.markdown(result)
             self.assertIn("Bootloader handoff and root remain unverified", md)
             self.assertIn("MODEL_AND_COMPATIBLE", md)
+            self.assertIn("Runtime root model:", md)
+            self.assertIn("Runtime compatible strings:", md)
 
 
 if __name__ == "__main__":
