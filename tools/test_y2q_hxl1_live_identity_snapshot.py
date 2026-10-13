@@ -76,15 +76,16 @@ class SnapshotTests(unittest.TestCase):
                          ["qcom,kona","qcom,sm8250"])
         self.assertFalse(snap["stage4Complete"])
         self.assertFalse(snap["rootVerified"])
-        for cmd in commands:
-            joined = " ".join(cmd)
-            self.assertNotIn("root", joined)
-            self.assertNotIn("su -c", joined)
-            self.assertNotIn("push", joined)
-            self.assertNotIn("remount", joined)
-            self.assertNotIn("flash", joined)
-            self.assertNotIn("reboot", joined)
-        self.assertEqual(len(commands), 1 + len(m.PROPS) + len(m.READS))
+        # Validate exact ADB command argument sequences. Looking for "flash"
+        # as a substring incorrectly rejects the read-only property
+        # "ro.boot.flash.locked".
+        allowed = {("adb", "devices", "-l")}
+        allowed.update(("adb", "-s", "SERIAL", "shell", "getprop", prop)
+                       for prop in m.PROPS)
+        allowed.update(("adb", "-s", "SERIAL", *args)
+                       for args in m.READS.values())
+        self.assertEqual(set(commands), allowed)
+        self.assertEqual(len(commands), len(allowed))
 
     def test_adb_error_does_not_claim_identity(self):
         with patch.object(m.subprocess,"run",return_value=SimpleNamespace(
