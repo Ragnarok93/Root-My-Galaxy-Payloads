@@ -89,11 +89,15 @@ class Stage3AbiCrosscheckTest(unittest.TestCase):
     def test_report_keeps_oem_gate_false(self):
         sample = {"members":[{"type":"task_struct","memberPath":"pi_lock",
                   "existingClang10Candidate":"0x8c8","clang18SourceDerived":"0x8c8",
-                  "crossCompilerOffsetAgreement":True,"savedOriginalRegisterChainStatus":"MATCHED_STATIC_CHAIN"}],
+                  "crossCompilerOffsetAgreement":True,
+                  "savedOriginalRegisterChainStatus":"MATCHED_STATIC_CHAIN",
+                  "retrospectiveRecheckRegisterChainStatus":"MATCHED_STATIC_CHAIN"}],
                   "matchedOffsets":1,"candidateCount":1}
         md = a.markdown(sample)
         self.assertIn("PARTIAL", md)
         self.assertIn("not OEM factory DWARF", md)
+        self.assertIn("Original REA chain", md)
+        self.assertIn("Later recheck chain", md)
 
 
     def test_saved_original_nine_not_relabelled_as_retrospective_thirteen(self):
