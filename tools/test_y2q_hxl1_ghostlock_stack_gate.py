@@ -34,9 +34,44 @@ class StackGateTests(unittest.TestCase):
         self.assertNotIn('private_data', result)
         self.assertEqual(result['_text'], (m.IMAGE_VA, 'T'))
 
-    def test_duplicate_symbol_different_va_rejected(self):
-        with self.assertRaisesRegex(m.GateError, 'Conflicting'):
-            m.parse_nm(f'{m.IMAGE_VA:x} T foo\n{m.IMAGE_VA+8:x} t foo')
+    def test_duplicate_unrelated_symbol_names_preserve_both_addresses(self):
+        first = m.IMAGE_VA + 0x180
+        second = m.IMAGE_VA + 0x380
+        listing = (f'{m.IMAGE_VA:x} T _text\n'
+                   f'{first:x} T gic_handle_irq\n'
+                   f'{second:x} t gic_handle_irq\n')
+        parsed = m.parse_nm(listing)
+        self.assertEqual(parsed['gic_handle_irq'], (first, 'T'))
+        self.assertEqual(parsed.duplicate_unrelated_names['gic_handle_irq'],
+                         {first, second})
+        self.assertTrue({first, second}.issubset(parsed.all_text_addresses))
+
+    def test_duplicate_required_symbol_different_va_rejected(self):
+        with self.assertRaisesRegex(m.GateError, 'Ambiguous required text symbol'):
+            m.parse_nm(
+                f'{m.IMAGE_VA+0x100:x} T core_sys_select\n'
+                f'{m.IMAGE_VA+0x120:x} t core_sys_select\n')
+        with self.assertRaisesRegex(m.GateError, 'Ambiguous required text symbol'):
+            m.parse_nm(
+                f'{m.IMAGE_VA:x} T _text\n'
+                f'{m.IMAGE_VA+0x10:x} T _text\n')
+
+    def test_unrelated_duplicate_creates_correct_nearest_code_boundary(self):
+        raw = fake_image()
+        lines = [f'{va:x} {kind} {name}'
+                 for name, (va, kind) in syms().items()]
+        lines.extend([
+            f'{m.IMAGE_VA+0x180:x} T gic_handle_irq',
+            f'{m.IMAGE_VA+0x380:x} t gic_handle_irq'])
+        parsed = m.parse_nm('\n'.join(lines))
+        with patch.object(m, 'STOCK_SHA', hashlib.sha256(raw).hexdigest()):
+            result, slices = m.collect(raw, parsed)
+        self.assertEqual(len(slices['core_sys_select']), 0x80)
+        self.assertEqual(len(slices['futex_wait_requeue_pi']), 0x80)
+        self.assertEqual(result['recoveredNmDuplicateUnrelatedTextNames'], 1)
+        self.assertEqual(result['recoveredNmDuplicateUnrelatedExamples'],
+                         ['gic_handle_irq'])
+        self.assertFalse(result['validGhostLockStackReclamationEstablished'])
 
     def test_pinned_kernel_mismatch_rejected(self):
         with self.assertRaisesRegex(m.GateError, 'SHA256 mismatch'):
