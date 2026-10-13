@@ -20,6 +20,98 @@ def fake_native(sha="ab"*32):
                 "0x10004: ret"]}}
 
 class LiveStage3ReaTests(unittest.TestCase):
+    def make_attestation_fixture(self):
+        old={}
+        verified={}
+        for name in m.TARGETS:
+            base={"ghidraInstructionCount":4,
+                  "sourceElfSha256":"ab"*32,
+                  "actualGhidraRecordsIndependentlyChecked":True,
+                  "sourceToCMemberFullDefUseCertified":False}
+            old[name]=dict(base)
+            verified[name]={**base, "originalStockByteAttestation":{
+                "symbolVA":"0xffffff8008147db4",
+                "archivedGhidraInputMatchesOriginalFactoryImage":True}}
+        return old,verified
+
+    def test_legacy_report_gains_authenticated_bytes_in_memory_only(self):
+        old,verified=self.make_attestation_fixture()
+        report={"reaEvidence":{"savedGhidraDossiers":old}}
+        before=json.dumps(report,sort_keys=True)
+        upgraded=m.reconcile_original_dossiers(report,verified)
+        self.assertTrue(upgraded["legacyStage3ReportRevalidatedInMemory"])
+        self.assertEqual(upgraded["reaEvidence"]["savedGhidraDossiers"],verified)
+        self.assertEqual(json.dumps(report,sort_keys=True),before)
+        self.assertNotIn("originalStockByteAttestation",
+                         report["reaEvidence"]["savedGhidraDossiers"]["remove_waiter"])
+
+    def test_current_report_with_good_attestation_is_also_accepted(self):
+        _,verified=self.make_attestation_fixture()
+        original={"reaEvidence":{"savedGhidraDossiers":verified}}
+        upgraded=m.reconcile_original_dossiers(original,verified)
+        self.assertFalse(upgraded["legacyStage3ReportRevalidatedInMemory"])
+
+    def test_old_report_cannot_override_mismatched_elf_sha(self):
+        old,verified=self.make_attestation_fixture()
+        old["remove_waiter"]["sourceElfSha256"]="00"*32
+        with self.assertRaisesRegex(m.LiveProofError,"sourceElfSha256"):
+            m.reconcile_original_dossiers({"reaEvidence":{"savedGhidraDossiers":old}},verified)
+
+    def test_current_report_cannot_override_false_byte_attestation(self):
+        _,verified=self.make_attestation_fixture()
+        old=json.loads(json.dumps(verified))
+        old["futex_lock_pi"]["originalStockByteAttestation"][
+            "archivedGhidraInputMatchesOriginalFactoryImage"]=False
+        with self.assertRaisesRegex(m.LiveProofError,"attestation changed"):
+            m.reconcile_original_dossiers({"reaEvidence":{"savedGhidraDossiers":old}},verified)
+
+    def test_duplicate_or_missing_ghidra_dossiers_rejected(self):
+        old,verified=self.make_attestation_fixture()
+        old.pop("futex_lock_pi")
+        with self.assertRaisesRegex(m.LiveProofError,"inventory"):
+            m.reconcile_original_dossiers({"reaEvidence":{"savedGhidraDossiers":old}},verified)
+
+    def test_incomplete_new_factory_attestation_cannot_be_promoted(self):
+        old,verified=self.make_attestation_fixture()
+        verified["remove_waiter"]["originalStockByteAttestation"]=None
+        with self.assertRaisesRegex(m.LiveProofError,"incomplete"):
+            m.reconcile_original_dossiers({"reaEvidence":{"savedGhidraDossiers":old}},verified)
+
+    def test_saved_report_legacy_6bb5f68_schema_is_revalidated_and_preserved(self):
+        from tools import y2q_hxl1_porting_automation as port
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            image=root/"kernel.bin"
+            image.write_bytes(b"original-stock-fixture")
+            slices=root/"slices.zip"
+            archive=root/"rea.zip"
+            slices.write_bytes(b"slice-fixture")
+            archive.write_bytes(b"rea-fixture")
+            old,verified=self.make_attestation_fixture()
+            integrity={"kernel.bin":{"state":"VERIFIED"},
+                       "config.gz":{"state":"VERIFIED"}}
+            original={"schemaVersion":1,"firmware":"G986U1UESCHXL1",
+                      "stockOpcodeWitnessesVerified":31,
+                      "factoryMemberOffsetsVerified":0,"stage3Complete":False,
+                      "factoryInputIntegrity":integrity,
+                      "memberCandidates":[{} for _ in range(13)],
+                      "reaEvidence":{"slicesSha256":port.sha256(slices),
+                                     "reaSha256":port.sha256(archive),
+                                     "state":"31_ORIGINAL_OPCODE_WITNESSES_REA_ATTESTED",
+                                     "savedGhidraDossiers":old}}
+            prior=root/"owner-20261012-stage3.json"
+            raw=json.dumps(original)
+            prior.write_text(raw)
+            with patch.object(port,"check_factory_inputs",return_value=integrity), \
+                 patch.object(m.prior,"source_headers",return_value={}), \
+                 patch.object(m.offset,"verify_rea_dossiers",return_value=verified) as called:
+                upgraded,dossiers=m.saved_report(prior,root,root/"source",archive,slices)
+            called.assert_called_once()
+            self.assertEqual(dossiers,verified)
+            self.assertTrue(upgraded["legacyStage3ReportRevalidatedInMemory"])
+            self.assertEqual(upgraded["reaEvidence"]["savedGhidraDossiers"],verified)
+            self.assertEqual(prior.read_text(),raw)
+
     def test_only_three_original_ghidra_functions(self):
         self.assertEqual(m.TARGETS,("remove_waiter","rt_mutex_start_proxy_lock","futex_lock_pi"))
 
