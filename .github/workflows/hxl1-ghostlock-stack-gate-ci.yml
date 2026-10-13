@@ -7,6 +7,8 @@ on:
       - .github/workflows/hxl1-ghostlock-stack-gate-ci.yml
       - tools/y2q_hxl1_ghostlock_stack_gate.py
       - tools/test_y2q_hxl1_ghostlock_stack_gate.py
+      - tools/y2q_hxl1_dispatch_archive_audit.py
+      - tools/test_y2q_hxl1_dispatch_archive_audit.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,6 +25,11 @@ jobs:
         run: |
           python -m py_compile \
             tools/y2q_hxl1_ghostlock_stack_gate.py \
-            tools/test_y2q_hxl1_ghostlock_stack_gate.py
-      - name: Run synthetic original-image boundary tests
-        run: python -m unittest -v tools.test_y2q_hxl1_ghostlock_stack_gate
+            tools/test_y2q_hxl1_ghostlock_stack_gate.py \
+            tools/y2q_hxl1_dispatch_archive_audit.py \
+            tools/test_y2q_hxl1_dispatch_archive_audit.py
+      - name: Run synthetic original-image and dispatch evidence tests
+        run: |
+          python -m unittest -v \
+            tools.test_y2q_hxl1_ghostlock_stack_gate \
+            tools.test_y2q_hxl1_dispatch_archive_audit
