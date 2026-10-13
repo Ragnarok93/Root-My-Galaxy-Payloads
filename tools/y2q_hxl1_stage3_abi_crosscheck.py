@@ -155,13 +155,38 @@ def saved_rea_review(repo: Path, report: Path | None) -> dict:
     require(coverage.get("factoryMemberIdentityPromoted") is False
             and data.get("factoryMemberOffsetsVerified") == 0,
             "Saved provider report unexpectedly claims certified OEM members")
+    # Keep original immutable live-run analysis separate from later code.
+    # A saved-live recheck may use an expanded set of candidate chains.
+    original = json.loads(report.read_text(encoding="utf-8"))
+    require(original.get("target") == "SM-G986U1/G986U1UESCHXL1"
+            and original.get("mode") == "EXECUTE_FRESH_REA_GHIDRA"
+            and original.get("factoryMemberOffsetsVerified") == 0,
+            "Original live-run report identity/gate mismatch")
+    saved_candidates = original.get("memberCandidateRegisterFlow", {}).get("candidates", [])
+    original_statuses = {}
+    for entry in saved_candidates:
+        key = (entry["type"], entry["member"])
+        require(key not in original_statuses, "Duplicate original live-run member")
+        original_statuses[key] = (
+            "MATCHED_STATIC_CHAIN" if entry.get("staticGhidraChainMatched") is True
+            else "NOT_PRESENT_IN_ORIGINAL_CHAIN_REPORT")
     statuses = {(x["type"], x["member"]): x["status"]
                 for x in coverage["memberComparisons"]}
-    require(len(statuses) == 13, "Saved live report missing member comparisons")
+    require(len(statuses) == len(original_statuses) == 13
+            and set(statuses) == set(original_statuses),
+            "Original/rechecked 13-member registry mismatch")
+    require(sum(x == "MATCHED_STATIC_CHAIN" for x in original_statuses.values())
+            == original["memberCandidateRegisterFlow"]["matchedStaticChains"],
+            "Original live-run static chain count mismatch")
     return {"state": "SAVED_LIVE_RECORDS_RECHECKED_NOT_FACTORY_REAUTHENTICATED",
             "savedReportSha256": sha256(report),
             "coverage": coverage,
             "memberStatus": statuses,
+            "originalMemberStatus": original_statuses,
+            "originalMatchedStaticChains": sum(
+                x == "MATCHED_STATIC_CHAIN" for x in original_statuses.values()),
+            "retrospectiveMatchedStaticChains": sum(
+                x == "MATCHED_STATIC_CHAIN" for x in statuses.values()),
             "factoryMemberOffsetsCertified": 0}
 
 
@@ -194,12 +219,15 @@ def audit(repo: Path, source: Path, base: Path, build: Path, report: Path | None
         for path, expected in fields.items():
             derived = resolve_nested(layouts, typ, path)
             status = live.get("memberStatus", {}).get((typ, path), "NO_LIVE_REVIEW")
+            original_status = live.get("originalMemberStatus", {}).get(
+                (typ, path), "NO_ORIGINAL_LIVE_REVIEW")
             rows.append({"type": typ, "memberPath": path,
                          "existingClang10Candidate": expected,
                          "clang18SourceDerived": derived["offset"],
                          "crossCompilerOffsetAgreement": int(expected, 16) == int(derived["offset"], 16),
                          "nestedDerivation": derived["steps"],
-                         "savedOriginalRegisterChainStatus": status,
+                         "savedOriginalRegisterChainStatus": original_status,
+                         "retrospectiveRecheckRegisterChainStatus": status,
                          "factoryCMemberIdentityCertified": False})
     objects = {str(obj.relative_to(build)): sha256(obj) for obj in set(objs.values())}
     return {"schemaVersion": 1, "target": "SM-G986U1/G986U1UESCHXL1",
@@ -207,7 +235,8 @@ def audit(repo: Path, source: Path, base: Path, build: Path, report: Path | None
             "factoryImageSha256": EXPECTED_KERNEL_SHA, "sourceRtmutexSha256": EXPECTED_SOURCE_SHA,
             "configReview": config, "objectSha256": objects,
             "members": rows, "matchedOffsets": sum(r["crossCompilerOffsetAgreement"] for r in rows),
-            "candidateCount": len(rows), "reaStatus": {k: v for k, v in live.items() if k != "memberStatus"},
+            "candidateCount": len(rows), "reaStatus": {k: v for k, v in live.items()
+                          if k not in ("memberStatus", "originalMemberStatus")},
             "originalOEMFactoryCompiledABIAuthenticated": False,
             "factoryMemberOffsetsCertified": 0, "stage3Complete": False,
             "runtimeGhostlockOrRootVerified": False, "deviceModified": False}
@@ -218,13 +247,15 @@ def markdown(result: dict) -> str:
              "", "**Stage 3: PARTIAL. Factory-certified members: 0.**", "",
              "This report compares Clang18 Samsung-source DWARF with existing Clang10",
              "candidate offsets; it is not OEM factory DWARF or field-specific proof.", "",
-             "| Member | Clang10 candidate | Clang18 DWARF | Parity | Saved REA |",
-             "| --- | ---: | ---: | --- | --- |"]
+             "| Member | Clang10 candidate | Clang18 DWARF | Parity | Original REA chain | Later recheck chain |",
+             "| --- | ---: | ---: | --- | --- | --- |"]
     for item in result["members"]:
         lines.append("| `{type}.{memberPath}` | `{existingClang10Candidate}` | "
-                     "`{clang18SourceDerived}` | {parity} | {savedOriginalRegisterChainStatus} |".format(
+                     "`{clang18SourceDerived}` | {parity} | {savedOriginalRegisterChainStatus} | {retrospectiveRecheckRegisterChainStatus} |".format(
                          **item, parity="MATCH" if item["crossCompilerOffsetAgreement"] else "MISMATCH"))
     lines.extend(["", f"**Candidate matches:** {result['matchedOffsets']}/{result['candidateCount']}",
+                  "", "The original saved live-run chain status is immutable; later",
+                  "rechecks use the current registry and must be interpreted separately.",
                   "", "Any discrepancy must be investigated before using a source-derived",
                   "offset. A matching displacement does not establish OEM member identity.",
                   "No exploit, flashing, ABI gate promotion, or device access occurred.", ""])
