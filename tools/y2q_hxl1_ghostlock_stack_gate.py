@@ -42,9 +42,23 @@ def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+class TextSymbols(dict):
+    """Unique symbol lookup plus every original text VA for safe next-bound search.
+
+    A recovered kallsyms/nm listing can contain the same non-target name at
+    multiple addresses (e.g. gic_handle_irq). Discarding the extra address
+    would silently lengthen a neighbouring code slice.
+    """
+    def __init__(self):
+        super().__init__()
+        self.all_text_addresses: set[int] = set()
+        self.duplicate_unrelated_names: dict[str, set[int]] = {}
+
+
 def parse_nm(text: str) -> dict[str, tuple[int, str]]:
-    """Read genuine nm-style 3-column lines, not arbitrary symbol strings."""
-    found: dict[str, tuple[int, str]] = {}
+    """Parse nm text, fail on ambiguous *required* names, keep all code bounds."""
+    found = TextSymbols()
+    required = {'_text', *SYMBOLS}
     for line in text.splitlines():
         parts = line.split()
         if len(parts) != 3:
@@ -55,8 +69,17 @@ def parse_nm(text: str) -> dict[str, tuple[int, str]]:
         if not re.fullmatch(r'[A-Za-z_.$][\w.$]*', name):
             continue
         va = int(address, 16)
-        if name in found and found[name][0] != va:
-            raise GateError('Conflicting text symbol definitions: ' + name)
+        found.all_text_addresses.add(va)
+        if name in found:
+            prior_va = found[name][0]
+            if prior_va == va:
+                continue
+            if name in required:
+                raise GateError('Ambiguous required text symbol: ' + name +
+                                ' (' + hex(prior_va) + ', ' + hex(va) + ')')
+            found.duplicate_unrelated_names.setdefault(
+                name, {prior_va}).add(va)
+            continue
         found[name] = (va, typ)
     return found
 
@@ -85,8 +108,14 @@ def collect(raw: bytes, symbols: dict[str, tuple[int, str]]) -> tuple[dict, dict
             'Not original ARM64 Linux kernel Image')
     require(symbols.get('_text', (None,))[0] == IMAGE_VA,
             'Recovered nm _text base does not match validated HXL1 origin')
-    ordered = sorted(set(va for va, _ in symbols.values()
-                         if IMAGE_VA <= va < IMAGE_VA + len(raw)))
+    # Use every text address, including second/subsequent addresses of
+    # unrelated duplicate names; do not silently extend an adjacent slice.
+    all_addresses = getattr(symbols, 'all_text_addresses', None)
+    if all_addresses is None:
+        all_addresses = (va for va, _ in symbols.values())
+    ordered = sorted(set(va for va in all_addresses
+                         if IMAGE_VA <= va < IMAGE_VA + len(raw)
+                         and (va - IMAGE_VA) % 4 == 0))
     slices: dict[str, bytes] = {}
     records = []
     for name in SYMBOLS:
@@ -116,6 +145,11 @@ def collect(raw: bytes, symbols: dict[str, tuple[int, str]]) -> tuple[dict, dict
         'fileRelativeRecoveredBase': hex(IMAGE_VA),
         'originalFunctionsWithBoundedCode': count,
         'requestedFunctions': len(SYMBOLS),
+        'recoveredNmDuplicateUnrelatedTextNames': len(
+            getattr(symbols, 'duplicate_unrelated_names', {})),
+        'recoveredNmDuplicateUnrelatedExamples': sorted(
+            getattr(symbols, 'duplicate_unrelated_names', {}))[:10],
+        'unrelatedDuplicateAddressesRetainedForBounds': True,
         'functions': records,
         'readiness': 'NATIVE_CODE_SLICES_ONLY_STACK_OVERLAP_UNPROVEN',
         'validGhostLockStackReclamationEstablished': False,
