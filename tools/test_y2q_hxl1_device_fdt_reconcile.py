@@ -110,7 +110,7 @@ class Hxl1DeviceFdtReconcileTests(unittest.TestCase):
         data = snapshot("", [])
         result = m.compare_dtb(data, candidates())
         self.assertEqual(result["classification"],
-                         "RUNTIME_ROOT_IDENTITY_MISSING_OR_EMPTY")
+                         "RUNTIME_PROPERTIES_EMPTY_OR_PARTIALLY_UNAVAILABLE")
         self.assertEqual(result["runtimeModelReadState"], "READ")
         self.assertEqual(result["runtimeCompatibleReadState"], "READ")
         self.assertFalse(result["runtimeRootModelPresent"])
@@ -122,7 +122,7 @@ class Hxl1DeviceFdtReconcileTests(unittest.TestCase):
         data["deviceReads"]["dtModel"] = {"state": "UNAVAILABLE", "value": None}
         result = m.compare_dtb(data, candidates())
         self.assertEqual(result["classification"],
-                         "RUNTIME_ROOT_IDENTITY_MISSING_OR_EMPTY")
+                         "RUNTIME_PROPERTIES_EMPTY_OR_PARTIALLY_UNAVAILABLE")
         self.assertEqual(result["runtimeModelReadState"], "UNAVAILABLE")
 
     def test_malformed_or_unpinned_firmware_evidence_rejected(self):
