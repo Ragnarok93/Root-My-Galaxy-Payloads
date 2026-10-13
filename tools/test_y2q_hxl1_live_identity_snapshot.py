@@ -31,7 +31,7 @@ class SnapshotTests(unittest.TestCase):
     def test_adb_cat_permission_denied_stdout_even_when_exit_zero(self):
         for name in ("dtModel", "dtCompatible"):
             target = m.READS[name][-1]
-            output = f"cat: {target}: Permission denied\\n".encode()
+            output = f"cat: {target}: Permission denied\n".encode()
             record = m.read_result(name, 0, output, b"")
             self.assertEqual(record["state"], "PERMISSION_DENIED")
             self.assertIsNone(record["value"])
@@ -41,15 +41,15 @@ class SnapshotTests(unittest.TestCase):
         key = "dtModel"
         path = m.READS[key][-1]
         missing = m.read_result(
-            key, 0, f"cat: {path}: No such file or directory\\n".encode(), b"")
+            key, 0, f"cat: {path}: No such file or directory\n".encode(), b"")
         self.assertEqual(missing["state"], "UNAVAILABLE")
         self.assertIsNone(missing["value"])
         self.assertEqual(
-            m.read_result("dtCompatible", 0, b"qcom,kona\\0", b"")["value"],
+            m.read_result("dtCompatible", 0, b"qcom,kona\0", b"")["value"],
             ["qcom,kona"])
 
     def test_unrelated_permission_text_does_not_mask_valid_dt_model(self):
-        model = b"Samsung Permission denied test product\\0"
+        model = b"Samsung Permission denied test product\0"
         value = m.read_result("dtModel", 0, model, b"")
         self.assertEqual(value["state"], "READ")
         self.assertEqual(value["value"], "Samsung Permission denied test product")
