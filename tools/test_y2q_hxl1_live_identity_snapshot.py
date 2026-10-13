@@ -87,6 +87,43 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(set(commands), allowed)
         self.assertEqual(len(commands), len(allowed))
 
+    def test_wsl_fallback_prefers_online_linux_adb(self):
+        found = {"adb.exe": "/mnt/c/platform-tools/adb.exe",
+                 "adb": "/usr/bin/adb"}
+        invocations = []
+        def fake_run(cmd, **kwargs):
+            invocations.append(tuple(cmd))
+            listing = (b"List of devices attached\\n"
+                       if cmd[0].endswith("adb.exe") else
+                       b"List of devices attached\\nPHONE device product:y2q\\n")
+            return SimpleNamespace(returncode=0, stdout=listing, stderr=b"")
+        with patch.object(m.shutil, "which", side_effect=found.get), \\
+             patch.object(m.subprocess, "run", side_effect=fake_run):
+            self.assertEqual(m.resolve_adb(None, timeout=4), "/usr/bin/adb")
+        self.assertEqual(len(invocations), 2)
+        self.assertTrue(all(cmd[1:] == ("devices", "-l") for cmd in invocations))
+
+    def test_wsl_no_connected_device_explains_both_backends(self):
+        found = {"adb.exe": "/mnt/c/platform-tools/adb.exe",
+                 "adb": "/usr/bin/adb"}
+        listings = [
+            b"List of devices attached\\n",
+            b"List of devices attached\\nPHONE unauthorized\\n"
+        ]
+        def fake_run(cmd, **kwargs):
+            item = 0 if cmd[0].endswith("adb.exe") else 1
+            return SimpleNamespace(returncode=0, stdout=listings[item], stderr=b"")
+        with patch.object(m.shutil, "which", side_effect=found.get), \\
+             patch.object(m.subprocess, "run", side_effect=fake_run):
+            with self.assertRaisesRegex(m.SnapshotError, "unauthorized=1"):
+                m.resolve_adb(None, timeout=4)
+
+    def test_explicit_adb_does_not_probe_other_clients(self):
+        with patch.object(m.shutil, "which", return_value="/usr/bin/adb"), \\
+             patch.object(m.subprocess, "run") as runner:
+            self.assertEqual(m.resolve_adb("adb", timeout=4), "/usr/bin/adb")
+            runner.assert_not_called()
+
     def test_adb_error_does_not_claim_identity(self):
         with patch.object(m.subprocess,"run",return_value=SimpleNamespace(
             returncode=1, stdout=b"", stderr=b"no devices")):
