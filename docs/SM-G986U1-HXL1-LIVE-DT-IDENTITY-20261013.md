@@ -1,3 +1,34 @@
+## October 13, 12:36 UTC — resolve false device-tree mismatch
+
+The user's original read-only live snapshot conclusively showed **ADB/Android access denial**, not differing DTB identifiers:
+
+```text
+dtModel state=READ value='cat: /proc/device-tree/model: Permission denied' error=''
+dtCompatible state=READ value=['cat: /proc/device-tree/compatible: Permission denied'] error=''
+```
+
+The first snapshot collector accepted remote `cat` error text in `stdout` because the *host ADB invocation* returned 0, and serialized it as `READ`. The downstream root-property matcher compared those literal error strings to the stock FDT models and `qcom,kona`, yielding the **false** `NO_ROOT_IDENTITY_MATCH`. The original firmware and physical device identity never failed.
+
+Fixes:
+
+- `tools/y2q_hxl1_live_identity_snapshot.py`: recognize bounded shell `cat` errors for the exact `/proc/device-tree/model` and `/proc/device-tree/compatible` paths even with process exit code 0; produce `PERMISSION_DENIED` with `value=null`, preserving diagnostic text in `error`. Handle nonexistent files as `UNAVAILABLE`.
+- `tools/y2q_hxl1_device_fdt_reconcile.py`: normalize the **historical** previously saved bad `READ` records at comparison time. No modification to the original JSON, and no additional ADB call. On this evidence, expected classification is `RUNTIME_PROPERTIES_PERMISSION_DENIED`.
+- Regression tests cover both original error strings, both current correctly labeled reads, partially unavailable input and harmless valid model text containing a non-error 'Permission denied' substring.
+
+**Do not** use the prior `NO_ROOT_IDENTITY_MATCH` result as evidence that HXL1 stock DTBs do not match the running device. All four stock DTBs remain hash- and structure-verified. Their live selection is **UNDETERMINED** through unprivileged root-property reads; device state is `REPORTED_LOCKED`. Firmware identity remains HXL1 MATCH. Root and bootloader physical Linux handoff remain UNVERIFIED.
+
+Recommended targeted test (no Clang, Ghidra, firmware extraction or new ADB):
+```sh
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_live_identity_snapshot tools.test_y2q_hxl1_device_fdt_reconcile
+python3 tools/y2q_hxl1_device_fdt_reconcile.py
+```
+
+The new report should include `[RUNTIME DT ROOT IDENTITY] RUNTIME_PROPERTIES_PERMISSION_DENIED`, `[DT READ STATES] PERMISSION_DENIED PERMISSION_DENIED`, and `[LEGACY ADB ERRORS CORRECTED] dtModel, dtCompatible`. New logic and tests are committed, but owner WSL result has not yet been observed.
+
+---
+
 # HXL1 physical-device identity follow-up — 2026-10-13
 
 ## Owner-host result accepted (no root claim)
