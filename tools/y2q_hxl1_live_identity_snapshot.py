@@ -64,6 +64,52 @@ def decode_value(name: str, data: bytes) -> str | list[str]:
                 data.rstrip(b"\x00").split(b"\x00") if part]
     return data.decode("utf-8", "replace").replace("\x00", "").strip()
 
+def device_tree_error_state(name: str, value: str | list[str] | None) -> str | None:
+    """Identify shell/cat error messages mistakenly emitted on stdout by ADB.
+
+    Only recognize errors naming the exact probed /proc/device-tree path,
+    rather than treating arbitrary 'permission denied' substrings as evidence.
+    Works on current raw output and previously saved decoded string/list data.
+    """
+    command = READS.get(name)
+    if name not in ("dtModel", "dtCompatible") or command is None:
+        return None
+    if isinstance(value, list):
+        if not all(isinstance(part, str) for part in value):
+            return None
+        text = "\n".join(value)
+    elif isinstance(value, str):
+        text = value
+    else:
+        return None
+    expected = re.escape(command[-1])
+    pattern = r"(?m)^(?:cat:|sh:|/system/bin/sh:)\s*" + expected + (
+        r":\s*(Permission denied|Operation not permitted|"
+        r"No such file or directory|Not a directory)\s*$")
+    match = re.search(pattern, text.strip(), flags=re.IGNORECASE)
+    if not match:
+        return None
+    return ("PERMISSION_DENIED" if match.group(1).lower() in
+            ("permission denied", "operation not permitted") else "UNAVAILABLE")
+
+
+def read_result(name: str, rc: int, raw: bytes, stderr: bytes) -> dict:
+    """Preserve status and error without promoting shell diagnostics to data."""
+    decoded = decode_value(name, raw)
+    error_state = device_tree_error_state(name, decoded)
+    if error_state is None:
+        error_state = device_tree_error_state(
+            name, stderr.decode("utf-8", "replace"))
+    state = error_state or ("READ" if rc == 0 else "UNAVAILABLE")
+    if state != "READ":
+        errors = [part for part in (
+            raw.decode("utf-8", "replace").strip(),
+            stderr.decode("utf-8", "replace").strip()) if part]
+        return {"state": state, "value": None,
+                "error": "\n".join(errors)[-600:]}
+    return {"state": "READ", "value": decoded, "error": ""}
+
+
 def run_cmd(adb: str, serial: str | None, args: tuple[str, ...], timeout: int):
     cmd = [adb]
     if serial is not None:
@@ -110,10 +156,7 @@ def collect(adb: str, serial: str | None = None, timeout: int = 12) -> dict:
     device_reads = {}
     for name, command in READS.items():
         rc, value, err = run_cmd(adb, selected, command, timeout)
-        decoded = decode_value(name, value)
-        device_reads[name] = {"state": "READ" if rc == 0 else "UNAVAILABLE",
-                              "value": decoded if rc == 0 else None,
-                              "error": err.decode("utf-8", "replace")[-300:] if rc else ""}
+        device_reads[name] = read_result(name, rc, value, err)
     return {"schemaVersion": 1, "target": TARGET, "firmware": FIRMWARE,
             "scope": "READ_ONLY_UNPRIVILEGED_DEVICE_IDENTITY",
             "captureTimestampUTC": datetime.now(timezone.utc).isoformat(),
