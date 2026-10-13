@@ -1,0 +1,31 @@
+name: HXL1 Runtime DT Identity Audit
+on:
+  push:
+    branches:
+      - feature/s20plus-investigation-shizuku-20261009
+    paths:
+      - .github/workflows/hxl1-device-tree-identity-ci.yml
+      - tools/y2q_hxl1_device_fdt_reconcile.py
+      - tools/test_y2q_hxl1_device_fdt_reconcile.py
+      - tools/y2q_stock_fdt_semantic_audit.py
+      - tools/y2q_stock_dtb_inventory.py
+      - tools/y2q_stock_boot_v2_audit.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline_identity_tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax-check read-only audit
+        run: |
+          python -m py_compile \
+            tools/y2q_hxl1_device_fdt_reconcile.py \
+            tools/test_y2q_hxl1_device_fdt_reconcile.py
+      - name: Run HXL1 identity reconciliation regression tests
+        run: python -m unittest -v tools.test_y2q_hxl1_device_fdt_reconcile
