@@ -17,7 +17,7 @@ Owner supplied the archive `hxl1-stage3-live-ghidra-evidence.tar.gz` after runni
 
 ## Verified original-code pointer traces: additional evidence for waiter fields
 
-All `0x100xx` addresses below refer to the source-bound isolated `remove_waiter` ELF relocated to `0x10000`, **not original static virtual addresses**. The factory static function entry was `0xffffff8008147db4`.
+All `0x100xx` addresses below refer to the source-bound isolated `remove_waiter` ELF relocated to `0x10000`, **not original static virtual addresses**. The factory static function entry was `0xffffff8008147db4`. An isolated address `0x100xx` corresponds to **function displacement** `0xXX` and to original factory virtual address `0xffffff8008147db4 + 0xXX`; the table uses **@** to mean an isolated Ghidra instruction address, not an arithmetic addition to the function entry.
 
 **Candidate `rt_mutex_waiter.lock` at `0x38`:**
 
@@ -48,19 +48,19 @@ To determine whether it represents the proposed wrong-task proxy-lock cleanup be
 
 | Comparison object / member | Clang10 comparison offset | Factory Ghidra read/source lead | Current disposition |
 |---|---:|---|---|
-| `rt_mutex.waiters.rb_root.rb_node` | 0x10 | `remove_waiter +0x100a8` lock argument | static mapped candidate |
-| `rt_mutex.waiters.rb_leftmost` | 0x18 | `remove_waiter +0x10018`, `+0x100b0` | static mapped candidate |
-| `rt_mutex.owner` | 0x20 | `remove_waiter +0x1003c`; proxy-lock `+0x10084` | static mapped candidate |
-| `rt_mutex_waiter.tree_entry` | 0x00 | `remove_waiter +0x10048` waiter argument | static mapped candidate |
-| `rt_mutex_waiter.pi_tree_entry` | 0x18 | `remove_waiter +0x1008c` waiter argument | static mapped candidate |
+| `rt_mutex.waiters.rb_root.rb_node` | 0x10 | `remove_waiter @0x100a8` lock argument | static mapped candidate |
+| `rt_mutex.waiters.rb_leftmost` | 0x18 | `remove_waiter @0x10018`, `@0x100b0` | static mapped candidate |
+| `rt_mutex.owner` | 0x20 | `remove_waiter @0x1003c`; proxy-lock `@0x10084` | static mapped candidate |
+| `rt_mutex_waiter.tree_entry` | 0x00 | `remove_waiter @0x10048` waiter argument | static mapped candidate |
+| `rt_mutex_waiter.pi_tree_entry` | 0x18 | `remove_waiter @0x1008c` waiter argument | static mapped candidate |
 | `rt_mutex_waiter.task` | 0x30 | no independently identified direct waiter pointer load | **still unmapped** |
-| `rt_mutex_waiter.lock` | 0x38 | `+0x10028`, `+0x100b8` from lock-leftmost pointer | **new P-code pointer trace** |
-| `rt_mutex_waiter.prio` | 0x40 | `+0x100d0` plus nested-node `+0x28` | **new P-code pointer trace** |
-| `rt_mutex_waiter.deadline` | 0x48 | `+0x101e0` plus nested-node `+0x30` | **new P-code pointer trace** |
-| `task_struct.pi_lock` | 0x8c8 | `remove_waiter +0x10034` `sp_el0`; `+0x10038` add | static mapped candidate |
-| `task_struct.pi_waiters.rb_root.rb_node` | 0x8e0 | `remove_waiter +0x100c4`, `+0x10130` | static mapped candidate |
+| `rt_mutex_waiter.lock` | 0x38 | `@0x10028`, `@0x100b8` from lock-leftmost pointer | **new P-code pointer trace** |
+| `rt_mutex_waiter.prio` | 0x40 | `@0x100d0` plus nested-node `+0x28` | **new P-code pointer trace** |
+| `rt_mutex_waiter.deadline` | 0x48 | `@0x101e0` plus nested-node `+0x30` | **new P-code pointer trace** |
+| `task_struct.pi_lock` | 0x8c8 | `remove_waiter @0x10034` `sp_el0`; `@0x10038` add | static mapped candidate |
+| `task_struct.pi_waiters.rb_root.rb_node` | 0x8e0 | `remove_waiter @0x100c4`, `@0x10130` | static mapped candidate |
 | `task_struct.pi_waiters.rb_leftmost` | 0x8e8 | `remove_waiter +0x10138` | static mapped candidate |
-| `task_struct.pi_blocked_on` | 0x8f8 | `remove_waiter +0x10068`, `+0x10150` | static mapped candidate |
+| `task_struct.pi_blocked_on` | 0x8f8 | `remove_waiter @0x10068`, `@0x10150` | static mapped candidate |
 
 The original `liveNativeMemberDisplacementWorklist` includes stack spills such as `[sp,#0x20]` alongside object references like `[x22,#0x38]`, and the `futex_lock_pi` function includes accesses to objects with *other* layouts. None may be counted as a typed waiter field until the base is authenticated. The source runner now separately counts stack-frame false positives and records P-code truncation.
 
