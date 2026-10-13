@@ -166,3 +166,25 @@ resume or permission to reuse outputs without revalidation. Existing runs
 remain untouched. Factory artifacts and actual host REA execution still need
 the owner's WSL environment; local fixture tests cannot establish device ABI,
 physical loading or root behavior.
+# Saved live-analysis coverage
+
+The live JSON now includes `analysisCoverage`. Missing chain definitions are
+`UNIMPLEMENTED_COMPARISON`, populated chains that disagree are `MISMATCH`, and
+matching chains are `MATCHED_STATIC_CHAIN`. High P-code coverage is reported
+separately as complete, truncated, or unavailable/incomplete. These labels
+do not certify factory C member identities.
+
+Existing live JSON can be summarized without running REA again:
+
+```bash
+python3 tools/y2q_hxl1_stage3_rea_live_review.py \
+  --coverage-report /path/to/live-stage3-rea-review.json
+```
+
+The uploaded October 13 live run has 723 matching native instruction records,
+9 matched chains, 4 comparisons without defined chains, and no observed native
+instruction mismatches. `futex_lock_pi` is explicitly truncated at 3,000 retained
+operations with 52 known omitted edges. A supported provider export setting
+must be established before requesting a larger export; no guessed REA flags
+or automatic retries are added here.
+

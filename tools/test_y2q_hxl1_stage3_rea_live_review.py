@@ -20,6 +20,23 @@ def fake_native(sha="ab"*32):
                 "0x10004: ret"]}}
 
 class LiveStage3ReaTests(unittest.TestCase):
+    def test_coverage_separates_absent_comparison_from_mismatch(self):
+        report={"functions":{"large":{
+            "freshGhidraInstructions":{"nativeIdenticalToFactoryBoundArchive":True},
+            "freshGhidraFunction":{"highPcodeCompleteWithinProviderLimits":False,
+                                    "highPcodeTruncated":True}}},
+            "memberCandidateRegisterFlow":{"candidates":[
+                {"type":"sample","member":"absent","staticGhidraChainMatched":False},
+                {"type":"sample","member":"different","steps":[{}],"staticGhidraChainMatched":False},
+                {"type":"sample","member":"same","steps":[{}],"staticGhidraChainMatched":True}]}}
+        before=json.dumps(report)
+        result=m.analysis_coverage(report)
+        self.assertEqual(result["functions"][0]["highPcodeStatus"],"TRUNCATED")
+        self.assertEqual([x["status"] for x in result["memberComparisons"]],
+                         ["UNIMPLEMENTED_COMPARISON","MISMATCH","MATCHED_STATIC_CHAIN"])
+        self.assertFalse(result["factoryMemberIdentityPromoted"])
+        self.assertEqual(json.dumps(report),before)
+
     def make_attestation_fixture(self):
         old={}
         verified={}

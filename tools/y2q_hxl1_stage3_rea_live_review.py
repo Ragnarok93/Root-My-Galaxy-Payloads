@@ -318,13 +318,39 @@ def run(saved:Path,artifacts:Path,source:Path,slices:Path,rea_archive:Path,
          "fullOEMStructABIProven":False,
          "stage3Complete":False,"rootOrKernelSuVerified":False,
          "deviceModified":False}
+    out["analysisCoverage"]=analysis_coverage(out)
     with (output/"live-stage3-rea-review.json").open("x") as file:
         file.write(json.dumps(out,indent=2)+"\n")
     return out
 
+def analysis_coverage(report:dict)->dict:
+    """Classify saved analysis coverage without promoting field identities."""
+    functions=[]
+    for name,row in report["functions"].items():
+        native=row["freshGhidraInstructions"]
+        high=row["freshGhidraFunction"]
+        functions.append({"function":name,
+            "instructionStatus":"MATCHED" if native["nativeIdenticalToFactoryBoundArchive"] else "MISMATCH",
+            "highPcodeStatus":"COMPLETE" if high["highPcodeCompleteWithinProviderLimits"] else
+                "TRUNCATED" if high.get("highPcodeTruncated") is True else "UNAVAILABLE_OR_INCOMPLETE",
+            "retainedOperations":high.get("retainedHighPcodeOperations"),
+            "knownOmittedEdges":high.get("knownOmittedPcodeEdges")})
+    comparisons=[]
+    for row in report["memberCandidateRegisterFlow"]["candidates"]:
+        steps=row.get("steps",[])
+        state=("UNIMPLEMENTED_COMPARISON" if not steps else
+               "MATCHED_STATIC_CHAIN" if row["staticGhidraChainMatched"] else "MISMATCH")
+        comparisons.append({"type":row["type"],"member":row["member"],"status":state})
+    return {"functions":functions,"memberComparisons":comparisons,
+            "factoryMemberIdentityPromoted":False,
+            "savedReportOnly":True}
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--verified-stage3-report",required=True,type=Path)
+    inputs=p.add_mutually_exclusive_group(required=True)
+    inputs.add_argument("--verified-stage3-report",type=Path)
+    inputs.add_argument("--coverage-report",type=Path,
+                        help="Print coverage from saved live JSON; do not invoke REA")
     p.add_argument("--artifacts",default=ART,type=Path)
     p.add_argument("--source",default=SOURCE,type=Path)
     p.add_argument("--slices",default=SLICES,type=Path)
@@ -336,6 +362,16 @@ def main():
     p.add_argument("--execute",action="store_true",
                    help="Request six live, bounded Ghidra operations on the SHA-pinned code slices")
     args=p.parse_args()
+    if args.coverage_report:
+        try:
+            demand(not args.execute,"coverage report cannot execute REA")
+            raw=args.coverage_report.read_bytes()
+            demand(len(raw)<=MAX_INPUT,"coverage report too large")
+            print(json.dumps(analysis_coverage(json.loads(raw)),indent=2))
+            return 0
+        except (OSError,ValueError,KeyError,TypeError) as e:
+            print("[STOP]",e,file=sys.stderr)
+            return 2
     base=ART/"hxl1-research"/("stage3-rea-live-"+datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"))
     output=(args.output_dir or base).expanduser().absolute()
     try:
