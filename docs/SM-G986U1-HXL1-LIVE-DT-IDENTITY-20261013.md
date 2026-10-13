@@ -1,3 +1,56 @@
+## October 13, 13:02 UTC — owner verified 28/28 regression tests, permission denied confirmed
+
+Owner WSL console result:
+
+```text
+Ran 28 tests in 0.018s
+OK
+[STRICT DEVICE IDENTITY] MATCH
+[BOOT STATE] REPORTED_LOCKED
+[RUNTIME DT ROOT IDENTITY] RUNTIME_PROPERTIES_PERMISSION_DENIED
+[RUNTIME DT MODEL] None
+[RUNTIME DT COMPATIBLE] None
+[DT READ STATES] PERMISSION_DENIED PERMISSION_DENIED
+[LEGACY ADB ERRORS CORRECTED] dtModel, dtCompatible
+[PHYSICAL BOOTLOADER HANDOFF VERIFIED] NO
+[ROOT VERIFIED] NO
+[REPORT] /home/main/s20-artifacts/hxl1-research/device-fdt-comparison-20261013T130243473179Z/device-fdt-comparison.md
+```
+
+**Resolution:** The `NO_ROOT_IDENTITY_MATCH` result was a false mismatch caused by ADB shell `cat` permission-error text presented as successful data. The corrected test and saved snapshot reconciliation passed, and current firmware identity/locked boot state are unchanged. The original four DTBs are intact, but the running DTB selection cannot be verified from the inaccessible `/proc/device-tree` fields. Do **not** repeat these tests or request elevated reads solely for this mismatch.
+
+### Next hard blockers: true execution chain, not ABI or DTB
+
+**HXL1 stock security controls**, from `research/y2q-G986U1UESCHXL1/evidence.json` and `tools/y2q_porting_readiness.py`:
+
+| Kernel control | HXL1 | Practical consequence |
+|---|---|---|
+| `CONFIG_MODULES` | `y` | Module machinery is compiled in, but loading is independently restricted |
+| `CONFIG_MODVERSIONS` | `y` | Imported symbols require compatible versioning/ABI |
+| `CONFIG_MODULE_SIG_FORCE` | `y` | Ordinary unsigned modules are rejected under stock policy |
+| `CONFIG_KPROBES` | `n` | Standard kprobe hook strategy is unavailable |
+| `CONFIG_FUNCTION_TRACER` | `n` (recorded elsewhere in evidence) | Function-tracer-based fallback is unavailable |
+| `CONFIG_UH_RKP`, `CONFIG_KDP_CRED`, `CONFIG_SECURITY_DEFEX` | `y` | Samsung-specific restrictions demand independent compatibility review |
+
+**Do not assume that transient root gives permission to load an unsigned KernelSU module.** The existing Samsung KernelSU patch family also documents hardware-specific faults caused by direct KDP credential operations and RKP-protected write attempts, as recorded in `kernelsu/README.md`. Those successes belong to other kernel/device combinations and cannot be transferred to HXL1 without verification.
+
+**Concrete cross-device ABI mismatch:** upstream GhostLock 4.19 `src/targets/alioth-4.19.157-perf/target.h` uses `TASK_PI_LOCK_OFF=0x8b4` and `TASK_PI_BLOCKED_ON_OFF=0x8d8`. HXL1 Samsung-source comparison candidates are `task_struct.pi_lock=0x8c8` and `pi_blocked_on=0x8f8` (13/13 Clang10/18 candidate parity). An unchanged Redmi payload would be using demonstrably different task-structure offsets, aside from unproven allocator, memory map, address slide, and Samsung security assumptions.
+
+**Upstream blocker:** GhostLock's original `ccp-p/ghostlock-cve-2026-43499-4.19-k40/docs/status.md` lists its root chain as blocked and records unsuccessful device-root trials; it does not demonstrate a successful complete root solution for its own 4.19 target. HXL1 has no demonstrated privilege escalation or KernelSU initialization.
+
+### Decision
+
+Close the unprivileged DTB comparison as **INACCESSIBLE, NOT MISMATCHED** and do not burn another owner cycle on static Clang or DTB reruns. The key remaining tasks are independent of the completed 28-test suite:
+
+1. Independently demonstrate exploit applicability and successful privilege transition on the exact stock Samsung kernel before labeling a native GhostLock port functional.
+2. Independently establish a genuinely authorized and compatible KernelSU loading mechanism under signature enforcement, unavailable kprobes, and Samsung KDP/RKP/DEFEX. A loader compiled for a different model/KMI does not meet this gate.
+3. Keep the bootloader locked/reported state separate from physical firmware handoff; neither ordinary ADB nor stock boot.img header fields establish kernel load location.
+4. Keep support-feed integration blocked until hardware root, module, reboot/recovery, and versioned-artifact tests actually pass.
+
+**No functional root solution was developed, run or proven by this checkpoint.**
+
+---
+
 ## October 13, 12:36 UTC — resolve false device-tree mismatch
 
 The user's original read-only live snapshot conclusively showed **ADB/Android access denial**, not differing DTB identifiers:
