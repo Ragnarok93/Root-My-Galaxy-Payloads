@@ -1,3 +1,17 @@
+## October 13, 14:06 UTC — compiled HXL1 futex dispatcher addresses missing-name ambiguity
+
+**Input independently reviewed:** user-supplied `hxl1-disassembly-review.tar.gz`, including five disassembly texts and `stack-gate.json`. All five text digests match the manifest, and the windows contain **4,102 contiguous four-byte instructions**.
+
+**New original HXL1 compiled-code finding:** the `do_futex` dispatcher contains a distinct comparison and internal branch for command **11** (`FUTEX_WAIT_REQUEUE_PI`) and a distinct case **12** (`FUTEX_CMP_REQUEUE_PI`) routed to the separately extracted `futex_requeue` function. The three previously established direct calls among the extracted functions were reverified.
+
+**Interpretation:** A missing recovered text-symbol name for `futex_wait_requeue_pi` is no longer a credible argument that the entire operation-11 dispatch path is absent. The source function was independently verified in pinned Samsung `kernel/futex.c` at line 3232. However, the archive does **not** prove the exact compiler inlining/renaming decision, source object placement, a cross-function stack overlap, exploit applicability, or root access.
+
+**Evidence boundary:** this is an original-image-relative disassembly review. The archive lacks raw original `kernel.bin` and does not verify physical bootloader handoff, current KASLR, live addresses, kernel privileges, or KernelSU. No phone writes or exploit runs were performed. Mainline Linux v4.19 futex switch semantics corroborate the command names but are not substituted for the Samsung source.
+
+**Decision:** No more searches for that exact symbol name are warranted merely to determine whether operation 11 has code. Investigations must center on independent source-to-compiled-code attribution and actual compatibility constraints, not guessed function boundaries.
+
+---
+
 ## October 13, 14:00 UTC — original compiled select/futex archive independently reviewed
 
 The owner supplied `hxl1-disassembly-review.tar.gz` with `stack-gate.json` and five disassembly text files, each corresponding to its exact recovered HXL1 original-code window. Independent review confirmed **5/5 matching disassembly text SHA-256 hashes**, **4,102 contiguous AArch64 instruction slots**, and **241 direct-call instructions** across the five windows. The archive did not contain raw `kernel.bin` or each original `*.bin`, so text-to-manifest hash verification was independently performed, while the original factory-byte hash assertion remains the prior owner's pinned collector result.
