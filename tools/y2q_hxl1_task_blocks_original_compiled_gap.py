@@ -73,7 +73,7 @@ def disassemble(elf:Path,end:int,program:str)->dict:
             rows[va]={"relative":hex(va-EXPECTED_ENTRY),
                       "pc":hex(va),"word":m.group(2).lower(),
                       "op":m.group(3).lower(),
-                      "args":(m.group(4) or "").split("//",1)[0].strip()}
+                      "args":(m.group(4) or "").split("//",1)[0].split(" <",1)[0].strip()}
     need(len(rows)==(end-EXPECTED_ENTRY)//4 and
          all(EXPECTED_ENTRY+4*i in rows for i in range(len(rows))),
          "Original compiler function text incomplete; do not infer control flow")
