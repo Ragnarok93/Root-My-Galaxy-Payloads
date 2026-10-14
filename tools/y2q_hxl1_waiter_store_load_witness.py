@@ -8,6 +8,7 @@ import tarfile
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools import y2q_hxl1_waiter_store_load_cfg as cfg
+from tools import y2q_hxl1_ghostlock_call_target_crosswalk as kallsyms
 
 CALLS=(0x11d4,0x12a4,0x12b0,0x12e8)
 BRANCHES=(0x11dc,0x1230,0x12c0,0x12d0,0x12e0)
@@ -46,14 +47,52 @@ def witness(rows):
             'pointerLifetimeAcrossWaitVerified':False,
             'crossSyscallStackReuseOrRootVerified':False,'kernelSuLoaded':False}
 
-def run(source,disasm):
+def resolved_witness_call_labels(witness_data:dict,nm_bytes:bytes|None)->dict:
+    """Only name the exact direct BL destinations; no callee side-effect proof."""
+    calls=witness_data.get('directCalls')
+    cfg.need(isinstance(calls,list) and
+             tuple(int(x['relativeVA'],16) for x in calls)==CALLS,
+             'Original four-call witness identity changed')
+    if nm_bytes is None:
+        return {'recoveredNmIndependentlyRehashed':False,
+                'namedCalls':[
+                    {'relativeVA':c['relativeVA'],
+                     'staticTarget':c['directTarget'],
+                     'status':'ORIGINAL_NM_NOT_PROVIDED',
+                     'calleeMemoryEffectsExcluded':False,
+                     'pointerLifetimeProven':False}
+                    for c in calls]}
+    labels,addresses=kallsyms.read_symbols(nm_bytes)
+    out=[]
+    for c in calls:
+        match=kallsyms.symbol_match(c['directTarget'],labels,addresses)
+        out.append({'relativeVA':c['relativeVA'],
+                    'staticTarget':c['directTarget'],
+                    'recoveredLabel':match,
+                    'calleeMemoryEffectsExcluded':False,
+                    'pointerLifetimeProven':False,
+                    'trampolineEffectiveTargetProven':False})
+    return {'recoveredNmIndependentlyRehashed':True,
+            'recoveredNmSha256':kallsyms.sha(nm_bytes),
+            'namedCalls':out,
+            'exactDirectDestinationLabelCount':sum(
+                c['recoveredLabel']['status']=='EXACT_RECOVERED_TEXT_LABEL'
+                for c in out),
+            'interproceduralPointerAliasEffectsExcluded':False,
+            'effectiveIndirectCalleeResolutionProven':False}
+
+
+def run(source,disasm,nm_bytes:bytes|None=None):
     prior=cfg.audit(source,disasm)
+    original_witness=witness(cfg.parse(disasm))
+    call_labels=resolved_witness_call_labels(original_witness,nm_bytes)
     return {'schemaVersion':1,'target':prior['target'],
             'scope':'ORIGINAL_DOFUTEX_SHORTEST_STATIC_STORE_LOAD_PATH_WITNESS',
             'originalSourceArchiveSha256':cfg.PIN_SOURCE,
             'originalDisassemblyArchiveSha256':cfg.PIN_DISASM,
             'priorSourceFieldMapping':prior['calleeSourceFieldQrtWaiterMapping'],
-            'witness':witness(cfg.parse(disasm)),
+            'witness':original_witness,
+            'originalCalleeLabelLedger':call_labels,
             'interpretation':'Static branch path only; four callee effects and five predicates unproved. No waiter lifetime, alias, root or KernelSU validation.'}
 
 def main():
@@ -61,6 +100,7 @@ def main():
     p.add_argument('--source-archive',type=Path,required=True)
     p.add_argument('--disassembly-archive',type=Path,required=True)
     p.add_argument('--output',type=Path,required=True)
+    p.add_argument('--nm',type=Path,help='Optional SHA-pinned recovered original NM for four direct call labels')
     a=p.parse_args()
     try:
         out=a.output.expanduser().resolve()
@@ -69,14 +109,25 @@ def main():
         source=cfg.member(a.source_archive,cfg.PIN_SOURCE,'kernel/futex.c',cfg.PIN_FUTEX)
         disasm=cfg.member(a.disassembly_archive,cfg.PIN_DISASM,
                           'do_futex.disasm.txt',cfg.PIN_TEXT)
-        result=run(source,disasm)
+        nm=None
+        if a.nm is not None:
+            source_nm=a.nm.expanduser().resolve()
+            cfg.need(source_nm.is_file() and not a.nm.expanduser().is_symlink()
+                     and 0<source_nm.stat().st_size<20_000_000,
+                     'Missing or unsafe original recovered NM')
+            nm=source_nm.read_bytes()
+        result=run(source,disasm,nm)
         out.parent.mkdir(parents=True,exist_ok=True)
         with out.open('x',encoding='utf-8') as stream:
             json.dump(result,stream,indent=2);stream.write('\n')
         print('[STATIC PATH STEPS]',result['witness']['staticInstructionCount'])
         print('[CONDITIONAL BRANCHES]',len(result['witness']['conditionalBranches']))
         print('[DIRECT CALLS WITH UNKNOWN EFFECTS]',len(result['witness']['directCalls']))
-        print('[RUNTIME LIFETIME / ROOT] NOT VERIFIED')
+        print('[ORIGINAL NM REHASHED]',result['originalCalleeLabelLedger']['recoveredNmIndependentlyRehashed'])
+        for c in result['originalCalleeLabelLedger']['namedCalls']:
+            m=c.get('recoveredLabel',{})
+            print('[CALL LABEL]',c['relativeVA'],c['staticTarget'],m.get('status','NM_UNAVAILABLE'),m.get('labels',m.get('lowerLabels',[])))
+        print('[CALLEE MEMORY EFFECTS / RUNTIME LIFETIME / ROOT] NOT VERIFIED')
         print('[REPORT]',out)
         return 0
     except (OSError,ValueError,UnicodeError,tarfile.TarError) as e:
