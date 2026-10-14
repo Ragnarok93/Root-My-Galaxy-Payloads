@@ -202,6 +202,27 @@ def examine_op11(code:dict,entry:int,labels:dict,addresses:list)->dict:
       "branchTakenDynamicallyObserved":False,
     }
 
+def verify_known_twohop_callees(branch:dict)->None:
+    """Corroborate the five original HXL1 direct BL labels; no C-local claims."""
+    expected=[
+        ("0xc48","hrtimer_init"),
+        ("0xc58","hrtimer_init_sleeper"),
+        ("0xc68","ktime_add_safe"),
+        ("0x1198","rt_mutex_init_waiter"),
+        ("0x11b0","get_futex_key"),
+    ]
+    seen=[]
+    for block in branch["twoHopSuccessorBlocks"]:
+        for call in block["directCalls"]:
+            target=call["recoveredTarget"]
+            need(target.get("status")=="EXACT_RECOVERED_TEXT_LABEL"
+                 and isinstance(target.get("labels"),list)
+                 and len(target["labels"])==1,
+                 "Original two-hop direct call target not exactly labeled")
+            seen.append((call["relativeToDoFutexEntry"],target["labels"][0]))
+    need(sorted(seen)==sorted(expected),"Original two-hop recovered callee ledger drift")
+
+
 def review(archive:Path,nm:Path)->dict:
     need(archive.is_file() and not archive.is_symlink() and
          0<archive.stat().st_size<4_000_000,
@@ -227,6 +248,7 @@ def review(archive:Path,nm:Path)->dict:
          len(branch["immediateSuccessorBlocks"])==2 and
          actual==expected and branch["twoHopDirectCalls"]==5,
          "Pinned original operation-11 two-hop block inventory mismatch")
+    verify_known_twohop_callees(branch)
     return {
       "schemaVersion":1,
       "target":"SM-G986U1/G986U1UESCHXL1",
