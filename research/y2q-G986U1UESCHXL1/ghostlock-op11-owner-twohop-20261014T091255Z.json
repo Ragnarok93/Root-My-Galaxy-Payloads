@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "observedOriginalOwnerPath": "/home/main/s20-artifacts/hxl1-research/ghostlock-original-futex-op11-20261014T091255731595838Z.json",
+  "source": "user-uploaded owner-run JSON parsed independently 2026-10-14",
+  "uploadedJsonSha256": "82735ba24c2b14b652e0f965cdc9939918d812985153fa1a98548be59731de75",
+  "reportedArchiveSha256": "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997",
+  "reportedNmSha256": "c2306a026756230fb009576613c07e5461cccf8fd92ca5f72a52647933870f2f",
+  "archiveImageIndependentRehash": false,
+  "originalInstructionsValidatedByTool": 4102,
+  "staticOperation11ReachableUnderConservativeGraph": true,
+  "firstBlock": {
+    "relativeStart": "0xbd0",
+    "instructions": 24,
+    "directBlCount": 0,
+    "terminator": "b.eq"
+  },
+  "immediateSuccessors": [
+    {
+      "relativeStart": "0xc30",
+      "instructions": 1,
+      "terminator": "cbz"
+    },
+    {
+      "relativeStart": "0x117c",
+      "instructions": 2,
+      "terminator": "b"
+    }
+  ],
+  "secondHop": [
+    {
+      "relativeStart": "0xc34",
+      "instructions": 16,
+      "calleeLabels": [
+        "hrtimer_init",
+        "hrtimer_init_sleeper",
+        "ktime_add_safe"
+      ]
+    },
+    {
+      "relativeStart": "0x118c",
+      "instructions": 11,
+      "calleeLabels": [
+        "rt_mutex_init_waiter",
+        "get_futex_key"
+      ]
+    },
+    {
+      "relativeStart": "0x128c",
+      "instructions": 2,
+      "calleeLabels": []
+    }
+  ],
+  "allFiveRecoveredDirectTargetLabelsExact": true,
+  "recoveredCallsitesInScope": 5,
+  "compilerWaiterLocalProof": false,
+  "interproceduralPointerDataflowProof": false,
+  "runtimeFeasiblePathProof": false,
+  "rootOrKernelSuProof": false,
+  "action": "CHECKPOINT_ONLY_NO_PRIMITIVE_NO_DEPLOYMENT",
+  "interpretation": "Direct rt_mutex_init_waiter call observed in the original operation-11 compiled path. It corroborates that waiter setup code exists, but does not by itself authenticate C-local ownership, lifetime, stack alias, dynamic path feasibility or exploitability.",
+  "readinessUpdate": "NONE"
+}
