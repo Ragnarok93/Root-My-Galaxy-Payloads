@@ -124,7 +124,7 @@ class HelperClassesTests(unittest.TestCase):
         d=fixture()
         item=next(x for x in d["directTargets"] if x["labels"]==["kfree"])
         item["labels"]=["kmalloc"]
-        with self.assertRaisesRegex(m.Gate,"inventory drift"):
+        with self.assertRaisesRegex(m.Gate,"binding mismatch"):
             m.summarize(d)
 
     def test_changed_frequency_rejected(self):
