@@ -1,3 +1,21 @@
+## October 14, 11:07 UTC — original HXL1 waiter stack-slot store/load and null-test linked conservatively
+
+Owner uploaded the completed extended waiter report, SHA-256 440c7fa2426b5e620eb6b28c1d7ad1ac20057767a4e6b0b56f8574f8d2407da3 (6461 bytes). The tool independently rehashed recovered NM and confirmed 12 original source landmarks, 3 compiled waiter helper arguments, 158 original SP references/2 writes in a 480-byte frame, and conditional x25 store. This upload **does not contain a 25-test console transcript**.
+
+Further independent analysis of the exact SHA-pinned original source and disassembly archives identified a machine-code store at do_futex+0x11d0, first value to SP+0xa0, and a later load at +0x12ec, second LDP register x9 from **the same SP+0xa0**. The next original instruction +0x12f0 tests x9 for null. The bounded conservative CFG finds a **31-instruction static path** from the store to the reload. The original C source assigns q.rt_waiter=&rt_waiter (3274) and checks if (!q.rt_waiter) (3314); source struct futex_q is marked __randomize_layout, and actual OEM field layout, branch-path feasibility, and indirect memory aliasing remain **UNPROVEN**.
+
+New tools/y2q_hxl1_waiter_store_load_cfg.py, 15 synthetic tests, GhostLock CI integration and the extended existing waiter-lifetime owner runner are committed. Local independently authored equivalent tests passed 15/15; **owner/hosted new suite run unconfirmed**. The exact [research evidence](../research/y2q-G986U1UESCHXL1/ghostlock-owner-waiter-store-load-cfg-20261014.json) and [complete store/load CFG notes](SM-G986U1-HXL1-GHOSTLOCK-WAITER-STORE-LOAD-CFG-20261014.md) distinguish actual binary memory addresses from source-field hypotheses.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_waiter_argument_lifetime_audit.sh
+```
+
+This is read-only, uses the existing original archives and recovered NM, and does not run a payload or modify a phone. Stage 3 PARTIAL, 4–6 OPEN, 7–8 BLOCKED, 9 DEFERRED; no GhostLock primitive/root/KernelSU established.
+
+---
+
 ## October 14, 10:53 UTC — owner NM pin passed; original do_futex frame SP invariant and conditional waiter-pointer stack store
 
 Owner's uploaded full report `hxl1-waiter-source-compiled-20261014T105255123936007Z.json` (SHA-256 `f90df3db38e68e246fda6052896f72607b8dfd8a950e19c8a45d70c7500f3a40`) confirms 12 source markers, all three compiled waiter-helper arguments and **independent recovered NM rehash**. The upload does not include console test output, so 12 prior tests can be described only as earlier local test work.
