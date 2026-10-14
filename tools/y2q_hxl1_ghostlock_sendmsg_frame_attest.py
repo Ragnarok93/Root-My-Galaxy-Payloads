@@ -24,7 +24,7 @@ from tools import y2q_hxl1_frame_footprint_audit as frames
 
 REPO=Path(__file__).resolve().parents[1]
 SOURCE=Path.home()/"src/samsung-y2q-hxl1-stock"
-INSTRUCTION=re.compile(r"^\s*([0-9a-f]{16}):\s*([0-9a-f]{8})\s+([a-z][a-z0-9_.]*)(?:\s+(.*?))?\s*$",re.I)
+INSTRUCTION=re.compile(r"^\s*([0-9a-f]{16}):\s*([0-9a-f]{8})\s+(\.?[a-z][a-z0-9_.]*)(?:\s+(.*?))?\s*$",re.I)
 SP_ADDRESS=re.compile(r"^(?:x(?:[12]?\d|30)|w(?:[12]?\d|30)),\s*sp(?:,\s*#(0x[0-9a-f]+|\d+))?$",re.I)
 MAX_DISASM=200000
 MAX_REPORT=200000
