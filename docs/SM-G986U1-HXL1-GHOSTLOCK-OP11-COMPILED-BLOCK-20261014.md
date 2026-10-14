@@ -1,3 +1,46 @@
+## Owner result — 08:35:39 UTC; bounded successor audit extension
+
+The owner ran the original single-block runner after pulling `b37bf5d`. All **13/13 original regression tests passed**, and the exact cached HXL1 archive and original NM validation succeeded. **The first compiled operation-11 block begins at `do_futex + 0xbd0`, contains 24 consecutive AArch64 instructions, and has no direct `bl` calls before an explicit control transfer.** The original output is `/home/main/s20-artifacts/hxl1-research/ghostlock-original-futex-op11-20261014T083539553990891Z.json`; its full bytes were not uploaded. The terminating opcode and branch operand are **not visible in the pasted terminal output**, so they cannot yet be classified.
+
+This is an authentic static code-window boundary, **not** proof of a missing helper, inlining, waiter stack storage, or an impossible exploit. Do not claim zero calls across the entire operation-11 control-flow subgraph from a zero-call first block.
+
+An extension to the **same** `tools/y2q_hxl1_ghostlock_futex_op11_block.py` now captures the first block's terminal opcode and operand and, when an explicit conservative control-flow edge exists, examines **only its immediate successor blocks**. The bounds are two successors maximum and 64 contiguous instructions each, stopping at the first control transfer. Any branch back to the first block is recorded as a cycle and not re-traversed. The extended output contains each inspected opcode and operand, any direct call target resolved against the pinned recovered NM, and flags confirming runtime-path feasibility, pointer flow, helper identity, and waiter-slot attribution are **not verified**.
+
+Five new synthetic regression tests were added, bringing the suite to **18 tests**, and the existing CI workflow already tracks these exact files. The original 13 passed on the owner host; the new 18-test suite, one-hop algorithm, and original-pinned successor output have **not yet been observed running**.
+
+The same runner is used; it reuses the SHA-pinned archive and recovered NM without another firmware extraction or device operation:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh
+```
+
+The saved JSON, not just the console summary, provides detailed one-hop original code findings. For a concise review:
+
+```bash
+python3 - "$HOME/s20-artifacts/hxl1-research" <<'PY'
+import json,sys
+from pathlib import Path
+paths=sorted(Path(sys.argv[1]).glob("ghostlock-original-futex-op11-*.json"))
+if not paths:raise SystemExit("No op11 report found")
+r=json.loads(paths[-1].read_text())
+b=r["operation11LinearBlock"]
+print("First block:",b["case11BlockStartRelativeToDoFutexEntry"],"instructions:",b["originalLinearInstructionSlotsReviewed"])
+print("Terminal:",b["terminalControlTransfer"])
+for x in b["immediateSuccessorBlocks"]:
+    print("One-hop:",x["relativeToDoFutexEntry"],x["status"],
+          x.get("instructionSlots"),x.get("stopReason"))
+    for call in x.get("directCalls",[]):
+        print("  Branch-to:",call)
+print("Waiter compiler-local identified:",r["exactFutexWaiterCompilerLocalProven"])
+PY
+```
+
+**Evidence boundary unchanged:** Source-local waiter lifetime is supported by the pinned original Samsung source; compiled C-local position, stack reuse, live GhostLock operation and KernelSU remain unverified. Stage 3 stays PARTIAL.
+
+---
+
 # HXL1 GhostLock — original operation-11 compiled branch gate (2026-10-14)
 
 **Research-only.** Samsung Galaxy S20+ SM-G986U1, original G986U1UESCHXL1 Linux 4.19.113-27095354. No GhostLock payload, root execution, kernel patch, phone access, KernelSU deployment, runtime physical addresses or support-feed changes.
