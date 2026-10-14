@@ -1,3 +1,21 @@
+## October 14, 06:49 UTC — original HXL1 sendmsg windows accepted; byte-level audit next
+
+Owner uploaded original-sendmsg-windows.json (SHA-256 8b95591b0da9b8645db862c0d3c2e8b8d9646492fd3dcdb32227dce4a466c7e8): six of eight requested original Samsung code windows found, all capped=false, each with saved disassembly metadata. Recovered `____sys_sendmsg` and `futex_wait_requeue_pi` names were absent, but **compiled absence/inlining is not proved**. No original disassembly text was uploaded in this message; the actual saved .bin/disasm files remain on owner WSL. The manifest verifies original kernel SHA on the owner's side, but those kernel bytes were not rehashed here.
+
+New `tools/y2q_hxl1_ghostlock_sendmsg_frame_attest.py` checks every original kernel Image byte, recovered nm entry and next-symbol bound, saved binary and disassembly SHA, and machine instruction word for each of the six windows. It uses the existing frame-footprint parser only to report conservative static SP instructions. `tools/run_y2q_hxl1_ghostlock_sendmsg_frame_attest.sh` finds the **exact uploaded manifest** by hash and runs the verifier plus its 15 synthetic tests in one command, without another original extraction or device operation. The files are added to GhostLock CI; owner/CI success **not confirmed yet**.
+
+See [the owner result and runner guide](SM-G986U1-HXL1-GHOSTLOCK-SENDMSG-ORIGINAL-WINDOWS-20261014.md) and the exact [machine-readable report transcription](../research/y2q-G986U1UESCHXL1/ghostlock-original-sendmsg-owner-result-20261014.json). Run only:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_ghostlock_sendmsg_frame_attest.sh
+```
+
+No original compiled-local alias, ghostlock runtime primitive, root, kernel physical handoff or KernelSU verified. Stage 3 PARTIAL, Stage 5 OPEN, Stage 7 BLOCKED.
+
+---
+
 ## October 14 — GhostLock 4.19 investigation resumed (current priority)
 
 User requested a return to HXL1 GhostLock kernel research rather than continued Stage 4 LinuxLoader index-tracing. Source path, select arithmetic, compact CFG and five original disassembly windows have already been analyzed; **do not repeat earlier source-bug checks or borrow K40 offsets**.
