@@ -54,9 +54,35 @@
     "ownerExecutionValidated": false,
     "hostedCiSuccessConfirmed": false,
     "appendedToWorkflow": ".github/workflows/hxl1-ghostlock-stack-gate-ci.yml",
-    "safeOperation": "Source docs offline only; no ADB, no generated target.h, no exploit binary, no source/firmware writes"
+    "safeOperation": "Source docs offline only; no ADB, no generated target.h, no exploit binary, no source/firmware writes",
+    "originalImageCodeWindows": {
+      "collector": "tools/y2q_hxl1_ghostlock_original_sendmsg_windows.py",
+      "regressionModule": "tools.test_y2q_hxl1_ghostlock_original_sendmsg_windows",
+      "testsWritten": 9,
+      "originalImageSha256Pin": "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123",
+      "nmTrust": "recovered kallsyms only; no direct OEM debug symbol authentication",
+      "imageRelativeStaticTextBase": "0xffffff8008080000",
+      "maximumCodeWindowBytes": 4096,
+      "sourceSymbolNames": [
+        "__sys_sendmsg",
+        "___sys_sendmsg",
+        "____sys_sendmsg",
+        "__sys_sendto",
+        "__sys_sendmmsg",
+        "rw_copy_check_uvector",
+        "copy_msghdr_from_user",
+        "futex_wait_requeue_pi"
+      ],
+      "duplicateNamesRejected": true,
+      "missingNamesNotProofOfCompilationAbsence": true,
+      "optionalRawBinDisassembly": "aarch64-linux-gnu-objdump; native instruction bytes only",
+      "compiledWaiterLocalOrSendmsgStackOverlapVerified": false,
+      "ownerExecutionConfirmed": false,
+      "noDeviceOrExploitExecution": true
+    },
+    "totalNewSyntheticTests": 19
   },
-  "nextMilestone": "Run pinned cross-fork gate once on existing owner original source and cloned reference; then prioritize stock factory sendmsg/futex frame-window attribution rather than repeating source bug heuristics or copying K40 physical constants.",
+  "nextMilestone": "Run both pinned checks and native stock sendmsg-code-window extraction in one owner WSL batch. Correlate resulting genuine OEM Image instruction windows and original Samsung source; do not infer waiter lifetime or import K40 geometry from code windows alone.",
   "stageStatus": [
     "COMPLETE",
     "COMPLETE",
