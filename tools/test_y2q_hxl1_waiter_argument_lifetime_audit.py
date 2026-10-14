@@ -45,7 +45,59 @@ def fake_sp_frame_rows():
         rows[addr]=('910023e9','add','x9, sp, #0x8')
     return rows
 
+def fake_conditional_pointer_store_rows():
+    rows={}
+    for offset in range(0x1194,0x11d4,4):
+        rows[m.BASE+offset]=('d503201f','nop','')
+    rows.update({
+        m.BASE+0x1194:('910303f9','add','x25, sp, #0xc0'),
+        m.BASE+0x1198:('97fedf8e','bl','0xffffff80081474fc'),
+        m.BASE+0x11b0:('94000e84','bl','0xffffff80081930ec'),
+        m.BASE+0x11b4:('35004ac0','cbnz','w0, 0xffffff8008190038'),
+        m.BASE+0x11d0:('a90a6ff9','stp','x25, x27, [sp, #160]'),
+    })
+    return rows
+
 class OriginalWaiterArgumentTests(unittest.TestCase):
+    def test_conditional_stack_store_of_callee_saved_waiter_pointer(self):
+        result=m.compiled_conditional_waiter_pointer_store(
+            fake_conditional_pointer_store_rows())
+        self.assertTrue(result['fallThroughWhenW0ZeroToStore'])
+        self.assertTrue(result['branchWhenW0NonzeroSkipsThisStore'])
+        self.assertEqual(result['firstStoredValueStackOffset'],'sp + 0xa0')
+        self.assertFalse(result['originalCompilerSourceLocalFieldIdentified'])
+        self.assertFalse(result['queuePointerFieldProven'])
+
+    def test_wrong_original_stp_pair_rejected(self):
+        r=fake_conditional_pointer_store_rows()
+        r[m.BASE+0x11d0]=('a90a6ff9','stp','x24, x27, [sp, #160]')
+        with self.assertRaisesRegex(m.AuditError,'pointer store provenance drift'):
+            m.compiled_conditional_waiter_pointer_store(r)
+
+    def test_wrong_return_guard_rejected(self):
+        r=fake_conditional_pointer_store_rows()
+        r[m.BASE+0x11b4]=('35004ac0','cbz','w0, 0xffffff8008190038')
+        with self.assertRaisesRegex(m.AuditError,'pointer store provenance drift'):
+            m.compiled_conditional_waiter_pointer_store(r)
+
+    def test_intervening_x25_write_requires_review(self):
+        r=fake_conditional_pointer_store_rows()
+        r[m.BASE+0x11a8]=('aa1403f9','mov','x25, x20')
+        with self.assertRaisesRegex(m.AuditError,'Intervening original x25'):
+            m.compiled_conditional_waiter_pointer_store(r)
+
+    def test_unverified_interval_instruction_missing_rejected(self):
+        r=fake_conditional_pointer_store_rows()
+        del r[m.BASE+0x11ac]
+        with self.assertRaisesRegex(m.AuditError,'Incomplete original waiter'):
+            m.compiled_conditional_waiter_pointer_store(r)
+
+    def test_indirect_or_changed_get_futex_key_rejected(self):
+        r=fake_conditional_pointer_store_rows()
+        r[m.BASE+0x11b0]=('d63f0100','blr','x8')
+        with self.assertRaisesRegex(m.AuditError,'pointer store provenance drift'):
+            m.compiled_conditional_waiter_pointer_store(r)
+
     def test_original_frame_has_only_entry_and_return_sp_writes(self):
         r=m.compiled_sp_integrity(fake_sp_frame_rows())
         self.assertEqual(r['observedInstructionsReferencingSp'],158)
