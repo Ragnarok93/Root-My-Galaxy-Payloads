@@ -1,3 +1,28 @@
+## October 14, 08:06 UTC — GhostLock original sendmsg labels all 21/21 resolved
+
+Owner WSL completed **12/12** `tools.test_y2q_hxl1_ghostlock_call_target_crosswalk` tests, then resolved **all 21 immediate BL branch destinations** among 41 original sendmsg/iovec callsites to the existing SHA-pinned HXL1 recovered symbol labels. This includes three direct calls to `jopp_springboard_blr_x8`. The springboard label is authentic as a recovered immediate target; the *actual* x8-mediated destination beyond the trampoline is **NOT** known. No CFG or C-local pointer lifetime was inferred from an exact label.
+
+Other original static destinations include `___sys_sendmsg` (3), `copy_msghdr_from_user` (1), allocator/free helpers `__kmalloc`, `kfree`, `sock_kmalloc`, `sock_kfree_s` (one branch each), `security_socket_sendmsg` (2), and compiler failure handler `__stack_chk_fail` (5). These are branch *sites*, not measured runtime hit counts or proof of matching allocated objects.
+
+The source reports are already sufficient to build a compact family ledger, so new `tools/y2q_hxl1_ghostlock_helper_classes.py` and 10 synthetic tests (CI-wired) classify all 41 branch sites and preserve unverified JOP effective callees and memory object lifetimes. No live GhostLock test was attempted. See [21-symbol reconciliation and single no-device command](SM-G986U1-HXL1-GHOSTLOCK-21-SYMBOLS-20261014.md), plus [versioned owner observation](../research/y2q-G986U1UESCHXL1/ghostlock-sendmsg-21-exact-symbols-20261014.json). New checker owner/CI run still pending.
+
+Next **substantive** evidence is actual original Samsung futex waiter local/object-lifetime source-to-machine attribution, and separate proof a sendmsg buffer remains resident on the intended stack under a real blocked call. Additional call-label grouping cannot establish either. KernelSU, exploitation and deployment gates are unchanged.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_ghostlock_helper_classes
+
+EVIDENCE="$HOME/s20-artifacts/hxl1-research"
+OUT="$EVIDENCE/ghostlock-helper-classes-$(date -u +%Y%m%dT%H%M%SZ).json"
+python3 -m tools.y2q_hxl1_ghostlock_helper_classes \
+  --crosswalk "$EVIDENCE/ghostlock-call-targets-20261014T080638Z.json" \
+  --output "$OUT"
+cat "$OUT"
+```
+
+---
+
 ## October 14, 07:51 UTC — GhostLock 41 stock sendmsg callsites, 21 unique targets
 
 Owner reran the previous fail-closed, original-HXL1 instruction callsite audit: **13/13 tests passed**, 746 original Image instruction slots confirmed, and 41 direct BL calls over the six bounded original sendmsg/iovec code windows. There are 21 distinct static destinations. Exactly 19 of the calls have textual SP-address constructions in the preceding 12 instruction slots; **40 of 41** also have a prior branch or other call in that linear interval, which does not prove dataflow or dynamic control flow.
