@@ -6,6 +6,7 @@ exploit execution, flashing, module loading, or source-code modification.
 """
 from __future__ import annotations
 import argparse
+from collections import deque
 import hashlib
 import json
 import os
@@ -13,8 +14,6 @@ from pathlib import Path
 import re
 import struct
 import sys
-import tarfile
-import zipfile
 
 STOCK_CONFIG_SHA = 'ec6da4cfe412f7d0669c7d621751753375e32197a2602f98627eb95e71b9c0b2'
 EXPECTED = {'CONFIG_DEBUG_INFO': 'y', 'CONFIG_DEBUG_INFO_SPLIT': 'n',
@@ -33,10 +32,16 @@ def require(ok, msg):
     if not ok: raise DiscoveryError(msg)
 
 def likely_candidate(name: str) -> bool:
+    """Filter out kernel source/linker scripts mistaken for DWARF files."""
     lower = name.lower()
-    return (lower.startswith('vmlinux') or lower.startswith('stock-vmlinux') or
-            lower.endswith(('.dwo', '.dwp', '.debug', '.sym', '.symbols', '.elf')) or
-            lower in {'kallsyms', 'system.map', 'vmlinux.bin'})
+    if (lower in {'kconfig.debug', 'vmlinux.lds', 'vmlinux.lds.s',
+                  'system.map', 'kallsyms'} or
+        lower.endswith(('.lds', '.lds.s', '.debug.c', '.debug.h'))):
+        return False
+    return (lower == 'vmlinux' or lower.startswith('vmlinux.') or
+            lower.startswith('stock-vmlinux') or
+            lower.endswith(('.dwo', '.dwp', '.debug', '.sym', '.symbols', '.elf')))
+
 
 def config_flags(raw: bytes) -> dict:
     require(hashlib.sha256(raw).hexdigest() == STOCK_CONFIG_SHA, 'Stock HXL1 config hash mismatch')
@@ -113,47 +118,128 @@ def classify(path: Path, elf: dict) -> str:
         return 'STOCK_RECONSTRUCTED_NOT_ORIGINAL_DEBUG_ELF'
     if elf['elfMachine'] != 183:
         return 'NON_AARCH64_OR_NON_ELF_CANDIDATE'
+    if elf.get('sectionHeadersUsable') is not True:
+        return 'UNREADABLE_ELF_SECTION_TABLE_INDETERMINATE'
     if elf['debugSections']:
         return 'DEBUG_BEARING_CANDIDATE_REQUIRES_OEM_PROVENANCE'
     if elf['debugLinks'] or elf['gnuBuildIdNoteSection']:
         return 'METADATA_ONLY_CANDIDATE_REQUIRES_OEM_PROVENANCE'
     return 'NO_DEBUG_METADATA_IN_CANDIDATE'
 
-def inventory(roots: list[Path], max_depth: int = 7, max_entries: int = MAX_ENTRIES) -> dict:
-    records = []
-    seen = 0
-    truncated = False
+def inventory(roots: list[Path], max_depth: int = 7,
+              max_entries: int = MAX_ENTRIES) -> dict:
+    """Breadth-first, multi-root fair scan with explicit incomplete-coverage flags.
+
+    Previously os.walk exhausted the file budget in an alphabetically first
+    Linux source directory before visiting sibling working trees. The queue
+    now visits shallower directories across all roots before their subtrees.
+    """
+    require(0 <= max_depth <= 14, 'Depth must be between 0 and 14')
+    require(1 <= max_entries <= 2_000_000, 'Invalid file scanning bound')
+    unique = []
     for root in roots:
-        require(root.is_dir() and not root.is_symlink(), 'Missing/unsafe scan root: '+str(root))
-        base_depth = len(root.resolve().parts)
-        for dirname, dirs, files in os.walk(root, followlinks=False):
-            directory = Path(dirname)
-            depth = len(directory.parts) - base_depth
-            dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not (directory / d).is_symlink()) if depth < max_depth else []
-            for name in sorted(files):
-                seen += 1
-                if seen > max_entries or len(records) >= MAX_CANDIDATES:
-                    truncated = True
-                    break
-                if not likely_candidate(name): continue
-                path = directory / name
-                if path.is_symlink() or not path.is_file(): continue
-                size = path.stat().st_size
-                if size < 64 or size > MAX_FILE: continue
+        require(root.is_dir() and not root.is_symlink(),
+                'Missing/unsafe scan root: ' + str(root))
+        if root not in unique:
+            unique.append(root)
+    queue = deque((r, r, 0) for r in unique)
+    records, errors = [], []
+    files_seen = nonelf = directories = depth_limited = 0
+    skipped = 0
+    truncated = False
+    root_counters = {str(r): {'filesExamined': 0, 'candidateFiles': 0,
+                              'directoriesVisited': 0} for r in unique}
+    while queue:
+        root, directory, depth = queue.popleft()
+        try:
+            with os.scandir(directory) as scan:
+                entries = sorted(scan, key=lambda e: e.name)
+        except OSError as exc:
+            errors.append({'directory': str(directory),
+                           'errorType': type(exc).__name__})
+            continue
+        directories += 1
+        root_counters[str(root)]['directoriesVisited'] += 1
+        children = []
+        for entry in entries:
+            if entry.is_symlink():
+                skipped += 1
+                continue
+            try:
+                if entry.is_dir(follow_symlinks=False):
+                    if entry.name in SKIP_DIRS:
+                        skipped += 1
+                    elif depth < max_depth:
+                        children.append((root, Path(entry.path), depth + 1))
+                    else:
+                        depth_limited += 1
+                    continue
+                if not entry.is_file(follow_symlinks=False):
+                    continue
+            except OSError as exc:
+                errors.append({'path': entry.path,
+                               'errorType': type(exc).__name__})
+                continue
+            if files_seen >= max_entries:
+                truncated = True
+                break
+            files_seen += 1
+            root_counters[str(root)]['filesExamined'] += 1
+            if not likely_candidate(entry.name):
+                continue
+            path = Path(entry.path)
+            try:
+                size = entry.stat(follow_symlinks=False).st_size
+                if not (64 <= size <= MAX_FILE):
+                    continue
                 elf = inspect_elf(path)
-                records.append({'path':str(path),'sizeBytes':size,
-                                'classification':classify(path,elf),**elf})
-            if truncated: break
-        if truncated: break
+            except OSError as exc:
+                errors.append({'path': str(path),
+                               'errorType': type(exc).__name__})
+                continue
+            if not elf['isElf']:
+                nonelf += 1
+                continue
+            if len(records) >= MAX_CANDIDATES:
+                truncated = True
+                break
+            records.append({'path': str(path), 'sizeBytes': size,
+                            'classification': classify(path, elf), **elf})
+            root_counters[str(root)]['candidateFiles'] += 1
+        queue.extend(children)
+        if truncated:
+            break
     summary = {}
     for row in records:
         kind = row['classification']
-        summary[kind] = summary.get(kind,0) + 1
-    return {'scanRoots':[str(root) for root in roots], 'filesExamined': min(seen,max_entries),
-            'candidateFiles':len(records),'truncated':truncated,
-            'classificationCounts':summary,'candidates':records,
-            'oemSymbolsAuthenticated':False,
-            'note': 'Discovery only; file names, debug sections and build-id notes do not authenticate a match to original HXL1 machine code.'}
+        summary[kind] = summary.get(kind, 0) + 1
+    return {
+        'scanStrategy': 'BREADTH_FIRST_ALL_ROOTS',
+        'scanRoots': [str(r) for r in unique],
+        'filesExamined': files_seen,
+        'directoriesVisited': directories,
+        'candidateFiles': len(records),
+        'filenameMatchedButNonElf': nonelf,
+        'skippedSymlinksOrIgnoredDirectoryEntries': skipped,
+        'depthLimitedDirectoryCount': depth_limited,
+        'maxDepth': max_depth,
+        'maxEntries': max_entries,
+        'truncated': truncated,
+        'pendingDirectoryCountAtTruncation': len(queue) if truncated else 0,
+        'pendingDirectoryExamplesAtTruncation':
+            [str(item[1]) for item in list(queue)[:12]] if truncated else [],
+        'errors': errors[:30],
+        'errorCount': len(errors),
+        'scopeCompleteAtRequestedDepth': not truncated and not errors,
+        'rootCoverage': root_counters,
+        'classificationCounts': summary, 'candidates': records,
+        'oemSymbolsAuthenticated': False,
+        'note': ('Discovery only; no debug-section or build-id match is proof '
+                 'of OEM origin. Sections cannot be ruled out for ELF files '
+                 'with unreadable section tables. Any truncated scan or '
+                 'unvisited deeper directories leaves coverage incomplete.')
+    }
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
@@ -161,10 +247,11 @@ def main() -> int:
     ap.add_argument('--stock-config', type=Path)
     ap.add_argument('--output', type=Path, required=True)
     ap.add_argument('--max-depth',type=int,default=7)
+    ap.add_argument('--max-entries',type=int,default=180000)
     args = ap.parse_args()
     try:
         require(0 <= args.max_depth <= 14, 'Depth must be between 0 and 14')
-        result = inventory(args.root,args.max_depth)
+        result = inventory(args.root,args.max_depth,args.max_entries)
         if args.stock_config:
             require(args.stock_config.is_file() and not args.stock_config.is_symlink(), 'Original config missing/unsafe')
             result['stockConfigVerification'] = config_flags(args.stock_config.read_bytes())
@@ -173,7 +260,9 @@ def main() -> int:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, indent=2)+'\n',encoding='utf-8')
         print('[FILES CHECKED]',result['filesExamined'],'[CANDIDATES]', result['candidateFiles'])
-        print('[TRUNCATED]', result['truncated'],'[FACTORY DEBUG AUTHENTICATED] NO')
+        print('[TRUNCATED]', result['truncated'],
+              '[PENDING DIRECTORIES]', result['pendingDirectoryCountAtTruncation'],
+              '[FACTORY DEBUG AUTHENTICATED] NO')
         for key,value in result['classificationCounts'].items():
             print('[CLASS]', key,value)
         print('[REPORT]',args.output)
