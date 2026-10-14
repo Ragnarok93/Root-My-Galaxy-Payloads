@@ -92,5 +92,71 @@ class DtbIdentityTests(unittest.TestCase):
             with self.assertRaisesRegex(m.GateError,"unavailable"):
                 m.adb_read("adb",None,["exec-out","cat","/proc/device-tree/model"])
 
+
+    def test_malformed_live_model_creates_bounded_nonroot_diagnostics(self):
+        raw=b"Qualcomm Technologies, Inc. kona v2.1 SoC\n\0"
+        result=m.diagnose(fixture(),raw,b"qcom,kona\0",props())
+        self.assertEqual(result["status"],"ROOT_PROPERTY_PARSE_REQUIRES_REVIEW")
+        self.assertIn("model",result["parseError"])
+        self.assertEqual(result["rawPropertyDiagnostics"]["model"]
+                         ["firstControlByteExcludingNul"],{"offset":40,"hex":"0a"})
+        self.assertEqual(result["rawPropertyDiagnostics"]["model"]["first128Hex"],
+                         raw.hex())
+        self.assertFalse(result["candidateRootMatchUnambiguous"])
+        self.assertFalse(result["bootloaderSelectedDtbProven"])
+        self.assertFalse(result["physicalLinuxLoadBaseVerified"])
+
+    def test_malformed_live_compatible_is_diagnosed_by_property(self):
+        raw=b"qcom,kona\0qcom,other\r\0"
+        good=m.candidate_models(fixture())[0]["rootModel"].encode()+b"\0"
+        result=m.diagnose(fixture(),good,raw,props())
+        self.assertIn("compatible",result["parseError"])
+        self.assertTrue(result["rawPropertyDiagnostics"]["compatible"]["nulTerminated"])
+        self.assertEqual(result["matchingOriginalRootModelCandidateIndices"],[])
+        self.assertFalse(result["candidateRootMatchProvesExactRuntimeDtb"])
+
+    def test_clean_live_properties_remain_unchanged(self):
+        selected=m.candidate_models(fixture())[1]
+        result=m.diagnose(fixture(),selected["rootModel"].encode()+b"\0",
+                          b"qcom,kona\0qcom,example\0",props())
+        self.assertEqual(result["status"],"ROOT_PROPERTY_PARSED")
+        self.assertEqual(result["matchingOriginalRootModelCandidateIndices"],[2])
+        self.assertTrue(result["candidateRootMatchUnambiguous"])
+        self.assertFalse(result["bootloaderSelectedDtbProven"])
+
+    def test_invalid_utf8_never_silently_replaced(self):
+        raw=b"qcom,kona\0bad\xff\0"
+        good=m.candidate_models(fixture())[0]["rootModel"].encode()+b"\0"
+        result=m.diagnose(fixture(),good,raw,props())
+        self.assertIn("Non-UTF8",result["parseError"])
+        self.assertFalse(result["candidateRootMatchUnambiguous"])
+
+    def test_live_malformed_property_still_saves_diagnostic_json_and_returns_error(self):
+        import io
+        import sys
+        import tempfile
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/"dtb-diagnostic.json"
+            bad=(b"unexpected\x01\0",b"qcom,kona\0",props())
+            argv=["probe","--output",str(path)]
+            with patch.object(sys,"argv",argv),patch.object(m,"capture",return_value=bad):
+                with patch("sys.stderr",new_callable=io.StringIO) as err:
+                    code=m.main()
+            self.assertEqual(code,2)
+            self.assertTrue(path.is_file())
+            out=json.loads(path.read_text())
+            self.assertEqual(out["status"],"ROOT_PROPERTY_PARSE_REQUIRES_REVIEW")
+            self.assertEqual(out["rawPropertyDiagnostics"]["model"]
+                             ["firstControlByteExcludingNul"],{"offset":10,"hex":"01"})
+            self.assertIn("model",err.getvalue())
+
+    def test_evidence_drift_is_not_masked_as_live_format_error(self):
+        d=fixture()
+        d["identity"]["firmware"]="OTHER"
+        with self.assertRaisesRegex(m.GateError,"Wrong original"):
+            m.diagnose(d,b"bad\n\0",b"qcom,kona\0",props())
+
+
 if __name__=="__main__":
     unittest.main()
