@@ -42,27 +42,80 @@ def candidate_models(evidence):
             "Stock FDT root identities changed")
     return trees
 
-def parse_root(data, allow_list=False):
+def parse_root(data, allow_list=False, label="root property"):
     require(isinstance(data,bytes) and 0<len(data)<8192,
-            "Missing/oversized device-tree root property")
+            label+": Missing/oversized device-tree root property")
     parts=data.split(b"\x00")
     parts=[p for p in parts if p]
-    require(bool(parts), "Empty FDT root property")
+    require(bool(parts), label+": Empty FDT root property")
     try:
         items=[p.decode("utf-8",errors="strict") for p in parts]
     except UnicodeDecodeError:
-        raise GateError("Non-UTF8 FDT root property")
+        raise GateError(label+": Non-UTF8 FDT root property")
     require(all(len(x)<1000 and x.isprintable() for x in items),
-            "FDT root property contains unsafe/nonprintable bytes")
+            label+": FDT root property contains unsafe/nonprintable bytes")
     if not allow_list:
-        require(len(items)==1, "Ambiguous root model property")
+        require(len(items)==1, label+": Ambiguous root model property")
         return items[0]
     return items
 
+
+def property_diagnostic(raw):
+    """Bounded, non-identifying raw-byte description; no silent normalization."""
+    if not isinstance(raw, bytes):
+        return {"typeError":"not bytes"}
+    control=next((i for i,b in enumerate(raw)
+                  if b != 0 and (b < 32 or b == 127)),None)
+    return {
+        "bytes":len(raw),
+        "sha256":hashlib.sha256(raw).hexdigest(),
+        "first128Hex":raw[:128].hex(),
+        "last32Hex":raw[-32:].hex(),
+        "nulTerminated":raw.endswith(b"\x00"),
+        "nulSeparatedEntryCount":sum(bool(x) for x in raw.split(b"\x00")),
+        "firstControlByteExcludingNul":(
+            {"offset":control,"hex":f"{raw[control]:02x}"}
+            if control is not None else None),
+    }
+
+
+def diagnose(evidence, raw_model, raw_compatible, properties):
+    """Always retain a report for malformed live properties, never invent a match.
+
+    The exact stock candidate list must validate before a parse failure is
+    classified as a *device* property formatting issue.
+    """
+    candidate_models(evidence)
+    try:
+        accepted=analyze(evidence,raw_model,raw_compatible,properties)
+    except GateError as err:
+        return {
+            "target":MODEL+"/"+FIRMWARE,
+            "scope":"READ_ONLY_DEVICE_TREE_ROOT_MODEL_COMPARISON",
+            "status":"ROOT_PROPERTY_PARSE_REQUIRES_REVIEW",
+            "parseError":str(err),
+            "rawPropertyDiagnostics":{
+                "model":property_diagnostic(raw_model),
+                "compatible":property_diagnostic(raw_compatible)},
+            "candidateRootMatchUnambiguous":False,
+            "matchingOriginalRootModelCandidateIndices":[],
+            "candidateRootMatchProvesExactRuntimeDtb":False,
+            "bootloaderSelectedDtbProven":False,
+            "physicalLinuxLoadBaseVerified":False,
+            "kernelRamOrKASLRMeasured":False,
+            "deviceModified":False,
+            "rootOrKernelSuDemonstrated":False,
+            "limits":"Parsing failed: raw root property requires review. "
+                     "Do not strip or reinterpret bytes, and do not certify "
+                     "a runtime DTB match or Linux physical handoff.",
+        }
+    accepted["status"]="ROOT_PROPERTY_PARSED"
+    return accepted
+
 def analyze(evidence, raw_model, raw_compatible, properties):
     candidates=candidate_models(evidence)
-    model=parse_root(raw_model)
-    compatible=parse_root(raw_compatible,allow_list=True)
+    model=parse_root(raw_model,label="model")
+    compatible=parse_root(raw_compatible,allow_list=True,label="compatible")
     device=properties.get("ro.product.model","").strip()
     build=properties.get("ro.build.display.id","").strip()
     kernel=properties.get("uname -r","").strip()
@@ -132,16 +185,20 @@ def main():
         require(hashlib.sha256(raw).hexdigest()==EVIDENCE_SHA,
                 "Exact original research manifest SHA-256 mismatch")
         evidence=json.loads(raw)
-        model,compatible,props=capture(args.adb,args.adb_serial)
-        result=analyze(evidence,model,compatible,props)
         dest=args.output.expanduser().resolve()
         repository=Path(__file__).resolve().parents[1]
         require(repository not in dest.parents and dest!=repository,
                 "Output cannot be written inside repository")
         require(not dest.exists() and not dest.is_symlink(),
                 "Refusing to overwrite existing evidence")
+        model,compatible,props=capture(args.adb,args.adb_serial)
+        result=diagnose(evidence,model,compatible,props)
         dest.parent.mkdir(parents=True,exist_ok=True)
         dest.write_text(json.dumps(result,indent=2)+"\n",encoding="utf-8")
+        if result["status"]!="ROOT_PROPERTY_PARSED":
+            print("[STOP]",result["parseError"],file=sys.stderr)
+            print("[DIAGNOSTIC REPORT]",dest)
+            return 2
         print("[HXL1 LIVE IDENTITY MATCH]",result["liveIdentityMatchesPinnedHxl1"])
         print("[ORIGINAL MODEL CANDIDATES]",result["matchingOriginalRootModelCandidateIndices"])
         print("[PHYSICAL HANDOFF/BOOTLOADER DTB SELECTED]", "NOT VERIFIED")
