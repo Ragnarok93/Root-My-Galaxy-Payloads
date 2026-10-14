@@ -1,3 +1,36 @@
+## October 14, 04:35 UTC — actual device output proves read-access denial
+
+The owner's new WSL host run **passed 18/18 existing unit tests**. The live report `hxl1-live-dtb-diagnostic-20261014T043531Z.json` subsequently returned `status=ROOT_PROPERTY_PARSE_REQUIRES_REVIEW`. Its bounded raw bytes are *not* malformed binary FDT strings. The recorded diagnostic decodes exactly to:
+
+```text
+cat: /sys/firmware/devicetree/base/model: Permission denied
+cat: /sys/firmware/devicetree/base/compatible: Permission denied
+```
+
+Both are newline-terminated textual `cat` diagnostics, 60 and 65 bytes respectively, with **no terminating NUL**, SHA-256s `e591413e7850b4a64ce8bdd10f6c435334f062d53f5cea7674086ffe12ffc0bf` and `135a778e2d5ca332e80657a1281c984126e9fb2cd87287684957d2848435e3c1`. The command can return exit 0 from the ADB transport even when remote `cat` emitted an error, so checking only `CompletedProcess.returncode` was insufficient.
+
+**Fix:** `tools/y2q_hxl1_runtime_dtb_identity.py` now treats anchored `cat:` error strings as failures, retries the alternative read-only `/proc/device-tree` root, and accepts a raw root property only if it is NUL-terminated. If neither root can be read, it writes a structured `ROOT_PROPERTIES_INACCESSIBLE` result with per-property/per-source diagnostics. It may also read only the allowlisted non-identifying Android properties `ro.hardware`, `ro.board.platform`, `ro.boot.hardware`, `ro.boot.dtb_idx` and `ro.boot.dtbo_idx`. These are labeled **unverified informational hints**, not evidence of exact original firmware FDT selection. The device is not rooted, modified or reflashed.
+
+The test suite has **25 synthetic test methods** after adding the original observed `cat` payload regression, permission-denied with false-successful ADB exit, alternate root fallback, both roots inaccessible, missing NUL, boot-hint allowlist, and non-root diagnostic JSON preservation. Those **seven new tests require a confirmed owner/CI execution**; do not report 25/25 passed based on their GitHub presence alone.
+
+Single bounded, read-only owner rerun:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_runtime_dtb_identity
+
+OUT="$HOME/s20-artifacts/hxl1-research/hxl1-live-dtb-access-v2-$(date -u +%Y%m%dT%H%M%SZ).json"
+python3 tools/y2q_hxl1_runtime_dtb_identity.py --output "$OUT"
+RET=$?
+echo "Stage 4 probe exit: $RET"
+test ! -s "$OUT" || cat "$OUT"
+```
+
+`RET=2` is expected if SELinux or file permissions still block the root properties. Upload the JSON as read-only evidence; a `ROOT_PROPERTIES_INACCESSIBLE` status does not authorize root escalation. In all cases, **Stage 4 actual selected runtime DTB and physical Linux handoff remain OPEN** unless corroborated by stronger independent evidence.
+
+---
+
 ## October 14, 04:30 UTC — live ADB property parser stopped (fixed to retain diagnostic)
 
 The owner ran `tools.test_y2q_hxl1_runtime_dtb_identity` on WSL: **12/12 PASS**. A subsequent authorized unprivileged ADB probe failed with:
