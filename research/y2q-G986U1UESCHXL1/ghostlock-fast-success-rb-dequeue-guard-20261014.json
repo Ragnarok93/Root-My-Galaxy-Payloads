@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "classification": "NEW_ORIGINAL_FACTORY_FAST_SUCCESS_NOT_SAME_AS_LATE_CHAIN_ERROR",
+  "sourceArchive": "rtmutex-stock-evidence.zip",
+  "archiveSha256": "ddc183a2fa7455a03052b5a843bc307b724a247c0bde381762ca6cafe47df648",
+  "machineSites": [
+    {
+      "address": "0xffffff8008147d44",
+      "asm": "bl try_to_take_rt_mutex",
+      "role": "immediate success candidate"
+    },
+    {
+      "address": "0xffffff8008147d48",
+      "asm": "cbz w0, 0xffffff8008147d7c",
+      "role": "nonacquired continues to task_blocks_on_rt_mutex"
+    },
+    {
+      "address": "0xffffff8008147d4c",
+      "asm": "mov w21, #0x1",
+      "role": "fast-acquired proxy returns 1"
+    },
+    {
+      "address": "0xffffff8008147d58",
+      "asm": "bl remove_waiter",
+      "role": "shared nonzero return cleanup"
+    },
+    {
+      "address": "0xffffff8008147dfc",
+      "asm": "ldr x8,[x23]",
+      "role": "waiter RB node sentinel"
+    },
+    {
+      "address": "0xffffff8008147e00",
+      "asm": "cmp x8,x23",
+      "role": "check empty node"
+    },
+    {
+      "address": "0xffffff8008147e04",
+      "asm": "b.eq 0xffffff8008147e18",
+      "role": "skip RB erase on empty node"
+    },
+    {
+      "address": "0xffffff8008147e10",
+      "asm": "bl rb_erase_cached",
+      "role": "only linked node reaches erase"
+    },
+    {
+      "address": "0xffffff8008147e1c",
+      "asm": "str xzr,[x20,#2296]",
+      "role": "PI field current-task store remains unconditional once remove_waiter entered"
+    },
+    {
+      "address": "0xffffff8008147d8c",
+      "asm": "bl task_blocks_on_rt_mutex",
+      "role": "different slowpath with potential after-publication error"
+    }
+  ],
+  "verifiedInstructionFingerprintCount": 13,
+  "newInference": "Source-level success return 1 invokes remove_waiter, but original compiled remove_waiter tests RB_EMPTY_NODE-equivalent self-pointer sentinel before erasing. Therefore ret=1 alone cannot establish invalid RB deletion. It is separate from the post-publication negative PI-chain path.",
+  "remainingUncertainty": [
+    "Ret=1 path still clears current PI-blocked field; runtime side-effect safety not fully established",
+    "Joint original HXL1 late-error, owner-present, target early-return, no-repair state remains unobserved",
+    "No exploit primitive, privilege change, KernelSU or hardware trace verified"
+  ],
+  "noDeviceOperations": true,
+  "noExploitConstruction": true
+}
