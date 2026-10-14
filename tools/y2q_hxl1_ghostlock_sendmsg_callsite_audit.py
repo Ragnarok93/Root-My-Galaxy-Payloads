@@ -114,7 +114,8 @@ def audit(frame:dict, windows:dict, directory:Path)->dict:
     windows_items=windows.get("functions",[])
     require(isinstance(frames,list) and isinstance(windows_items,list) and
             len(frames)==8 and len(windows_items)==8 and
-            [x.get("symbol") for x in frames]==[x.get("symbol") for x in windows_items],
+            [x.get("symbol") for x in frames]==[x.get("symbol") for x in windows_items] and
+            [x.get("symbol") for x in frames]==list(original.prior.NAMES),
             "Function inventory mismatch")
     details=[]
     instruction_count=0
