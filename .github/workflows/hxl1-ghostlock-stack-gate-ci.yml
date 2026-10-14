@@ -13,6 +13,8 @@ on:
       - tools/test_y2q_hxl1_frame_footprint_audit.py
       - tools/y2q_hxl1_static_cfg_audit.py
       - tools/test_y2q_hxl1_static_cfg_audit.py
+      - tools/y2q_hxl1_lifetime_contract_audit.py
+      - tools/test_y2q_hxl1_lifetime_contract_audit.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -35,11 +37,14 @@ jobs:
             tools/y2q_hxl1_frame_footprint_audit.py \
             tools/test_y2q_hxl1_frame_footprint_audit.py \
             tools/y2q_hxl1_static_cfg_audit.py \
-            tools/test_y2q_hxl1_static_cfg_audit.py
+            tools/test_y2q_hxl1_static_cfg_audit.py \
+            tools/y2q_hxl1_lifetime_contract_audit.py \
+            tools/test_y2q_hxl1_lifetime_contract_audit.py
       - name: Run synthetic original-image and dispatch evidence tests
         run: |
           python -m unittest -v \
             tools.test_y2q_hxl1_ghostlock_stack_gate \
             tools.test_y2q_hxl1_dispatch_archive_audit \
             tools.test_y2q_hxl1_frame_footprint_audit \
-            tools.test_y2q_hxl1_static_cfg_audit
+            tools.test_y2q_hxl1_static_cfg_audit \
+            tools.test_y2q_hxl1_lifetime_contract_audit
