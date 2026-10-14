@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "status": "INDEPENDENT_ARCHIVED_ORIGINAL_DOFUTEX_SP_WRITE_INVENTORY_PASS",
+  "evidenceDateUtc": "2026-10-14",
+  "uploadedOwnerReportSha256": "f90df3db38e68e246fda6052896f72607b8dfd8a950e19c8a45d70c7500f3a40",
+  "ownerReportVerified": {
+    "sourceLifetimeLandmarks": 12,
+    "compiledWaiterArgumentSites": 3,
+    "originalRecoveredNmIndependentlyRehashed": true
+  },
+  "provenance": {
+    "originalDisassemblyArchiveSha256": "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997",
+    "originalDoFutexDisassemblySha256": "56286516ae9e6a873beab22b16af3ab330a768dc1b02f901854eb96f193789a5",
+    "fullOriginalKernelImageRehashedInThisAnalysis": false,
+    "locallyGeneratedDetailedReport": "hxl1-original-dofutex-sp-frame-census-20261014.json",
+    "locallyGeneratedReportSha256": "ecc56228da824198da07c0bbb96597a2c407169db0b8807b6ecdb55ce6989560"
+  },
+  "compiledSpCensus": {
+    "originalDoFutexMachineInstructionSlots": 1766,
+    "instructionsUsingSp": 158,
+    "allSyntacticSpWrites": [
+      {
+        "relativeOffset": "0x0",
+        "machineWord": "d10783ff",
+        "instruction": "sub sp, sp, #0x1e0"
+      },
+      {
+        "relativeOffset": "0xb78",
+        "machineWord": "910783ff",
+        "instruction": "add sp, sp, #0x1e0"
+      }
+    ],
+    "epilogueImmediateRet": {
+      "relativeOffset": "0xb7c",
+      "machineWord": "d65f03c0"
+    },
+    "otherExplicitSpWrites": 0,
+    "spMemoryWritebackInstructions": 0,
+    "unexpectedSpReferenceOpcodeFamilies": 0,
+    "normalFrameAllocationBytes": 480,
+    "waiterExpression": "sp + 0xc0",
+    "waiterOffsetInsideAllocatedFrame": true,
+    "sourceToMachineMeaning": "On ordinary ABI-compliant call/return paths, the compiled do_futex function has no explicit intervening SP modification between prologue and return epilogue. Same expression applies within this frame; no path-specific call occurrence proven."
+  },
+  "supportedClaims": {
+    "staticFrameBaseConstancyWithinFunctionBodyUnderAbiAssumptions": true,
+    "runtimeThreeHelperSitesTakenOnSamePath": false,
+    "completeWaiterLifetimeProven": false,
+    "compiledCObjectIdentityAndBoundsCertified": false,
+    "crossSyscallStackAliasProven": false,
+    "rootOrKernelSuDemonstrated": false,
+    "phoneModified": false
+  },
+  "newAutomatedChecks": {
+    "tool": "tools/y2q_hxl1_waiter_argument_lifetime_audit.py",
+    "tests": "tools/test_y2q_hxl1_waiter_argument_lifetime_audit.py",
+    "casesWritten": 19,
+    "addedCases": 7,
+    "workflow": ".github/workflows/hxl1-ghostlock-stack-gate-ci.yml",
+    "ownerWslOrCiPassingNewSuite": false
+  },
+  "readinessStages": [
+    "COMPLETE",
+    "COMPLETE",
+    "PARTIAL",
+    "OPEN",
+    "OPEN",
+    "OPEN",
+    "BLOCKED",
+    "BLOCKED",
+    "DEFERRED"
+  ]
+}
