@@ -25,6 +25,7 @@ SOURCE=Path.home()/"src/samsung-y2q-hxl1-stock"
 MAX_BLOCK_INSTRUCTIONS=128
 MAX_SUCCESSOR_BLOCKS=2
 MAX_SUCCESSOR_INSTRUCTIONS=64
+MAX_SECOND_HOP_BLOCKS=4
 STOP={"b","br","ret","eret","brk","hlt","cbz","cbnz","tbz","tbnz"}
 VA=re.compile(r"0x[0-9a-fA-F]+$")
 class Stop(ValueError):
@@ -118,6 +119,63 @@ def examine_op11(code:dict,entry:int,labels:dict,addresses:list)->dict:
                 "waiterLocalSourceMappingProven":False,
             })
             successor_calls+=len(next_calls)
+    # Follow only a second bounded control-transfer edge from the original
+    # operation-11 entry. Do not treat graph edges as dynamically feasible.
+    two_hop=[]
+    two_hop_calls=0
+    if terminal:
+        seen={target}
+        seen.update(entry+int(b["relativeToDoFutexEntry"],16) for b in successors)
+        destinations=set()
+        for b in successors:
+            if b.get("status")!="ONE_HOP_STATIC_WINDOW_ONLY":
+                continue
+            begin=entry+int(b["relativeToDoFutexEntry"],16)
+            n=b["instructionSlots"]
+            if not n:
+                continue
+            last_addr=begin+(n-1)*4
+            op=code[last_addr][0]
+            if op not in STOP and not op.startswith("b."):
+                continue
+            destinations.update(x for x in graph.get(last_addr,[])
+                                if x in code and x not in seen)
+        for begin in sorted(destinations)[:MAX_SECOND_HOP_BLOCKS]:
+            rows=[]
+            calls2=[]
+            reason="MAX_TWO_HOP_LINEAR_WINDOW_REACHED"
+            for j in range(MAX_SUCCESSOR_INSTRUCTIONS):
+                va=begin+4*j
+                if va not in code:
+                    reason="STOPPED_AT_VERIFIED_WINDOW_BOUNDARY"
+                    break
+                op,args=code[va]
+                rows.append({"relativeToDoFutexEntry":hex(va-entry),
+                             "opcode":op,"operands":args[:120]})
+                if op=="bl":
+                    match=(names.symbol_match(args,labels,addresses)
+                           if VA.fullmatch(args) else
+                           {"status":"DIRECT_CALL_IMMEDIATE_NOT_RESOLVED"})
+                    calls2.append({
+                        "relativeToDoFutexEntry":hex(va-entry),
+                        "directCallTargetStaticVA":args if VA.fullmatch(args) else None,
+                        "recoveredTarget":match,
+                        "effectiveCalleeOrWaiterSourceIdentityVerified":False,
+                    })
+                if op in STOP or op.startswith("b."):
+                    reason="STOPPED_AT_EXPLICIT_CONTROL_TRANSFER"
+                    break
+            two_hop.append({
+                "relativeToDoFutexEntry":hex(begin-entry),
+                "status":"SECOND_HOP_BOUNDED_STATIC_WINDOW_ONLY",
+                "instructionSlots":len(rows),
+                "instructions":rows,
+                "directCalls":calls2,
+                "stopReason":reason,
+                "dynamicPathFeasibilityVerified":False,
+                "sourceLocalWaiterIdentityVerified":False,
+            })
+            two_hop_calls+=len(calls2)
     return {
       "dispatcherCompareRelativeOffset":"0xb14",
       "dispatcherBranchRelativeOffset":"0xb18",
@@ -134,6 +192,9 @@ def examine_op11(code:dict,entry:int,labels:dict,addresses:list)->dict:
       },
       "immediateSuccessorBlocks":successors,
       "oneHopSuccessorDirectCalls":successor_calls,
+      "twoHopSuccessorBlocks":two_hop,
+      "twoHopDirectCalls":two_hop_calls,
+      "maxOriginalBranchHopsInspected":2,
       "allRuntimePathsVerified":False,
       "interproceduralPointerDataflowVerified":False,
       "compilerInlinedFutexWaitRequeuePiProven":False,
@@ -158,6 +219,14 @@ def review(archive:Path,nm:Path)->dict:
     sym,addr=names.read_symbols(nm.read_bytes(),EXPECTED_NM)
     function=all_windows["do_futex"]
     branch=examine_op11(function["instructions"],function["start"],sym,addr)
+    expected=[("0xc34",16,3),("0x118c",11,2),("0x128c",2,0)]
+    actual=[(b["relativeToDoFutexEntry"],b["instructionSlots"],len(b["directCalls"]))
+            for b in branch["twoHopSuccessorBlocks"]]
+    need(branch["case11BlockStartRelativeToDoFutexEntry"]=="0xbd0" and
+         branch["originalLinearInstructionSlotsReviewed"]==24 and
+         len(branch["immediateSuccessorBlocks"])==2 and
+         actual==expected and branch["twoHopDirectCalls"]==5,
+         "Pinned original operation-11 two-hop block inventory mismatch")
     return {
       "schemaVersion":1,
       "target":"SM-G986U1/G986U1UESCHXL1",
@@ -205,6 +274,12 @@ def main():
               b["terminalControlTransfer"]["operands"])
         print("[IMMEDIATE SUCCESSOR BLOCKS]",len(b["immediateSuccessorBlocks"]))
         print("[ONE-HOP SUCCESSOR DIRECT CALLS]",b["oneHopSuccessorDirectCalls"])
+        print("[SECOND-HOP BLOCKS]",len(b["twoHopSuccessorBlocks"]))
+        for sub in b["twoHopSuccessorBlocks"]:
+            print("[SECOND-HOP]",sub["relativeToDoFutexEntry"],
+                  "instructions=",sub["instructionSlots"],
+                  "direct BL calls=",len(sub["directCalls"]))
+        print("[SECOND-HOP DIRECT CALLS]",b["twoHopDirectCalls"])
         print("[COMPILER WAITER-LOCAL, STACK REUSE, ROOT] UNVERIFIED")
         print("[REPORT]",out)
         return 0
