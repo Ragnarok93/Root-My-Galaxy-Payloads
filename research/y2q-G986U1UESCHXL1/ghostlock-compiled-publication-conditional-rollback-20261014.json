@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "dateUtc": "2026-10-14",
+  "scope": "NEW_FACTORY_TWO_FUNCTION_PUBLICATION_TO_CONDITIONAL_ROLLBACK_GATE",
+  "inputs": {
+    "ownerCorrectedTaskBlocksReportSha256": "6ada776b7ec27fe5f4cbc77b2c1d00e4f95a1c72717e6bee530794ccfee7caed",
+    "ownerStockElfPin": "e15f67e8253396d9e6463e5dfd78d67e324a7149842a7fbccb973ec0fd36ecdb",
+    "ownerNmPin": "c2306a026756230fb009576613c07e5461cccf8fd92ca5f72a52647933870f2f",
+    "earlierUploadedRtmutexEvidenceZipSha256": "ddc183a2fa7455a03052b5a843bc307b724a247c0bde381762ca6cafe47df648",
+    "locallyGeneratedSynthesisJsonSha256": "3027420e049afdd17d35395cf5c88cad71dae7a9c5987f95feb62ac8db56eed9"
+  },
+  "newCompiledPathEvidence": {
+    "taskBlocksEntry": "0xffffff80081479d4",
+    "instructionCount": 208,
+    "publishedPointerCandidate": {
+      "callRelativeOffset": "0xf0",
+      "word": "f9047e95",
+      "asm": "str x21,[x20,#2296]",
+      "candidateOnly": true
+    },
+    "latePiChainwalkCall": {
+      "relativeOffset": "0x18c",
+      "callee": "rt_mutex_adjust_prio_chain",
+      "target": "0xffffff8008146ca4",
+      "originalRecoveredSymbolExact": true
+    },
+    "publicationToChainwalkStaticReachable": true,
+    "chainwalkToCommonReturnStaticReachable": true,
+    "earlyReturnWithoutPublicationStaticReachable": true,
+    "callsiteReturnCapture": {
+      "relativeOffset": "0x190",
+      "instruction": "mov w20, w0",
+      "word": "2a0003f4",
+      "presentInOwnerCallContext": true
+    },
+    "compilerTaskArgumentToX20IdentityProven": false,
+    "chainwalkNonzeroErrorReturnedOutOfFunctionProven": false,
+    "runtimePathPredicateFeasibilityProven": false
+  },
+  "originalProxyCallerGate": {
+    "taskBlocksBl": "0xffffff8008147d8c",
+    "retCopy": "0xffffff8008147d90: mov w21,w0",
+    "skipOnZero": "0xffffff8008147d94: cbz w0,0xffffff8008147d5c",
+    "ownerLoad": "0xffffff8008147d98: ldr x8,[x19,#32]",
+    "ownerThreshold": "0xffffff8008147d9c: cmp x8,#2",
+    "branchToRollback": "0xffffff8008147da0: b.cs 0xffffff8008147d50",
+    "zeroOnOwnerGuardFailure": "0xffffff8008147da4: mov w21,wzr",
+    "conditionalCallRemoveWaiter": "0xffffff8008147d58: bl 0xffffff8008147db4",
+    "returnCopy": "0xffffff8008147d64: mov w0,w21",
+    "necessaryConditions": [
+      "nonzero return from task_blocks_on_rt_mutex",
+      "owner representation passes unsigned >=2 guard"
+    ]
+  },
+  "establishedInPriorRepoNotNew": "remove_waiter wrong-task PI field update already source-and-binary corroborated 2026-10-11/13; does not establish exploit",
+  "newMissingOnly": "Trace rt_mutex_adjust_prio_chain's w0 through original task_blocks_on_rt_mutex epilogue and then prove a jointly feasible nonzero late error with owner present; only afterwards assess post-return stale pointer",
+  "runtimeTraceObserved": false,
+  "exploitOrRootProven": false,
+  "kernelSuLoaded": false,
+  "deviceModified": false,
+  "readinessPromotion": false
+}
