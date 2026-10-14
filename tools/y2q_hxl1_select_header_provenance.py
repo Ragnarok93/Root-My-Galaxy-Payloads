@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import re
 import sys
+import tarfile
 
 SOURCE_PINS = {
     "kernel/futex.c": "493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5",
@@ -126,15 +127,58 @@ def audit(root: Path) -> dict:
     }
 
 
+def check_saved_disassembly(path: Path) -> dict:
+    """Confirm recorded native select source structure against saved code.
+
+    Rechecks the existing archive's own HXL1 manifest and disassembly SHA;
+    a match is not original compiler DWARF or local-object attribution.
+    """
+    from tools import y2q_hxl1_dispatch_archive_audit as archive_audit
+
+    evidence = archive_audit.audit(path)
+    with tarfile.open(path, "r:gz") as bundle:
+        manifest = json.loads(bundle.extractfile("stack-gate.json").read())
+        select_entry = next(
+            (record for record in manifest["functions"]
+             if record["symbol"] == "core_sys_select"), None)
+        insist(select_entry is not None, "Missing native select manifest")
+        text = bundle.extractfile("core_sys_select.disasm.txt").read()
+        insist(sha256(text) == select_entry["disassembly"]["textSha256"],
+               "Native select disassembly hash mismatch")
+        # Distinct SP-relative buffer choice and dynamic-allocation branch.
+        has_stack = re.search(
+            r"(?m)^[0-9a-f]{16}:\s+[0-9a-f]{8}\s+add\s+x19,\s*sp,\s*#0x50\b",
+            text.decode("utf-8")) is not None
+        has_choice = re.search(
+            r"(?m)^[0-9a-f]{16}:\s+[0-9a-f]{8}\s+cmp\s+x8,\s*#0x180\b",
+            text.decode("utf-8")) is not None
+        insist(has_stack and has_choice,
+               "Original select buffer/allocation branch evidence changed")
+        return {
+            "savedArchiveSha256": sha256(path.read_bytes()),
+            "savedDisassemblyTextHashesChecked":
+                evidence["matchedArchivedDisassemblySha256"],
+            "nativeSelectStackPathRecognized": True,
+            "nativeSelectDynamicChoiceRecognized": True,
+            "sourceMacroToExactMachineObjectCertified": False,
+            "originalKernelImageRehashedIndependently": False,
+        }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path,
                         default=Path.home() / "src/samsung-y2q-hxl1-stock")
     parser.add_argument("--output", type=Path,
                         default=None, help="New JSON report path")
+    parser.add_argument("--disassembly-archive", type=Path, default=None,
+                        help="Optional previously collected disassembly review archive")
     args = parser.parse_args()
     try:
         result = audit(args.source)
+        if args.disassembly_archive is not None:
+            result["savedMachineCodeEvidence"] = check_saved_disassembly(
+                args.disassembly_archive)
         if args.output is not None:
             insist(not args.output.exists() and not args.output.is_symlink(),
                    "Refusing to overwrite an existing report")
@@ -144,6 +188,8 @@ def main() -> int:
         print("[POLL HEADER SHA256]", result["headerSha256"])
         print("[SELECT STACK SOURCE CONSTANT]", result["selectStackAllocationSourceBytes"], "bytes")
         print("[MACRO CHAIN]", " -> ".join(result["macroAliasChain"]))
+        if "savedMachineCodeEvidence" in result:
+            print("[ARCHIVED NATIVE SELECT DISASSEMBLY] MATCH")
         print("[OEM LOCAL-VARIABLE STACK POSITIONS CERTIFIED] NO")
         print("[ROOT/KERNELSU CERTIFIED] NO")
         if args.output is not None:
