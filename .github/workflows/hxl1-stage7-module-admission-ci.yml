@@ -20,4 +20,4 @@ jobs:
         with:
           python-version: '3.12'
       - name: HXL1 candidate and module admission tests only
-        run: python3 -m unittest -q tools.test_assess_y2q_root_candidate
+        run: PYTHONPATH="$PWD/tools:$PWD" python3 -m unittest -q tools.test_assess_y2q_root_candidate
