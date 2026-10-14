@@ -23,6 +23,8 @@ EXPECTED_NM=names.ORIGINAL_NM_SHA
 REPO=Path(__file__).resolve().parents[1]
 SOURCE=Path.home()/"src/samsung-y2q-hxl1-stock"
 MAX_BLOCK_INSTRUCTIONS=128
+MAX_SUCCESSOR_BLOCKS=2
+MAX_SUCCESSOR_INSTRUCTIONS=64
 STOP={"b","br","ret","eret","brk","hlt","cbz","cbnz","tbz","tbnz"}
 VA=re.compile(r"0x[0-9a-fA-F]+$")
 class Stop(ValueError):
@@ -55,6 +57,7 @@ def examine_op11(code:dict,entry:int,labels:dict,addresses:list)->dict:
         op,args=code[addr]
         observed.append({"relativeToDoFutexEntry":hex(addr-entry),
                          "opcode":op,
+                         "operands":args[:120],
                          "directBranchOrCallTarget":args if op in ("bl","b","b.eq") and VA.fullmatch(args) else None})
         if op=="bl":
             label=(names.symbol_match(args,labels,addresses)
@@ -69,6 +72,52 @@ def examine_op11(code:dict,entry:int,labels:dict,addresses:list)->dict:
             reason="STOPPED_AT_EXPLICIT_CONTROL_TRANSFER"
             break
     need(observed,"Empty original operation-11 block")
+    last=target+(len(observed)-1)*4
+    terminal_op,terminal_args=code[last]
+    terminal=terminal_op in STOP or terminal_op.startswith("b.")
+    successors=[]
+    successor_calls=0
+    if terminal:
+        # Reuse the previously validated conservative branch-edge model.
+        # Examine ONE following block per explicit original successor only.
+        graph,_,_,_=cfg.edges_for(code)
+        for start in sorted(set(graph.get(last,[])))[:MAX_SUCCESSOR_BLOCKS]:
+            if start==target:
+                successors.append({"relativeToDoFutexEntry":hex(start-entry),
+                                   "status":"CYCLE_TO_FIRST_BLOCK_NOT_FOLLOWED",
+                                   "dynamicPathFeasibilityVerified":False})
+                continue
+            next_rows=[]
+            next_calls=[]
+            halt="MAX_SUCCESSOR_BOUND"
+            for j in range(MAX_SUCCESSOR_INSTRUCTIONS):
+                va=start+j*4
+                if va not in code:
+                    halt="STOPPED_AT_VERIFIED_WINDOW_BOUNDARY"
+                    break
+                operation,operand=code[va]
+                next_rows.append({"relativeToDoFutexEntry":hex(va-entry),
+                                  "opcode":operation,"operands":operand[:120]})
+                if operation=="bl":
+                    source=names.symbol_match(operand,labels,addresses) if VA.fullmatch(operand) else {
+                        "status":"DIRECT_CALL_IMMEDIATE_NOT_RESOLVED"}
+                    next_calls.append({"relativeToDoFutexEntry":hex(va-entry),
+                                       "recoveredTarget":source,
+                                       "calleeSourceIdentityProven":False})
+                if operation in STOP or operation.startswith("b."):
+                    halt="STOPPED_AT_CONTROL_TRANSFER"
+                    break
+            successors.append({
+                "relativeToDoFutexEntry":hex(start-entry),
+                "status":"ONE_HOP_STATIC_WINDOW_ONLY",
+                "instructionSlots":len(next_rows),
+                "instructions":next_rows,
+                "directCalls":next_calls,
+                "stopReason":halt,
+                "dynamicPathFeasibilityVerified":False,
+                "waiterLocalSourceMappingProven":False,
+            })
+            successor_calls+=len(next_calls)
     return {
       "dispatcherCompareRelativeOffset":"0xb14",
       "dispatcherBranchRelativeOffset":"0xb18",
@@ -77,6 +126,16 @@ def examine_op11(code:dict,entry:int,labels:dict,addresses:list)->dict:
       "firstBlock":observed,
       "callTargetsInFirstBlock":calls,
       "stopReason":reason,
+      "terminalControlTransfer":{
+          "relativeToDoFutexEntry":hex(last-entry),
+          "opcode":terminal_op,
+          "operands":terminal_args[:120],
+          "observedTerminator":terminal,
+      },
+      "immediateSuccessorBlocks":successors,
+      "oneHopSuccessorDirectCalls":successor_calls,
+      "allRuntimePathsVerified":False,
+      "interproceduralPointerDataflowVerified":False,
       "compilerInlinedFutexWaitRequeuePiProven":False,
       "waiterSourceLocalMachineSlotIdentified":False,
       "branchTakenDynamicallyObserved":False,
@@ -142,6 +201,10 @@ def main():
         print("[ORIGINAL OPERATION-11 BRANCH] VERIFIED")
         print("[SINGLE BASIC BLOCK INSTRUCTIONS]",b["originalLinearInstructionSlotsReviewed"])
         print("[DIRECT CALLS IN FIRST BLOCK]",len(b["callTargetsInFirstBlock"]))
+        print("[TERMINAL CONTROL TRANSFER]",b["terminalControlTransfer"]["opcode"],
+              b["terminalControlTransfer"]["operands"])
+        print("[IMMEDIATE SUCCESSOR BLOCKS]",len(b["immediateSuccessorBlocks"]))
+        print("[ONE-HOP SUCCESSOR DIRECT CALLS]",b["oneHopSuccessorDirectCalls"])
         print("[COMPILER WAITER-LOCAL, STACK REUSE, ROOT] UNVERIFIED")
         print("[REPORT]",out)
         return 0
