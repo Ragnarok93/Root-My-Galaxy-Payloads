@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "profile": "y2q-G986U1UESCHXL1-research",
+  "timestampUtc": "2026-10-14",
+  "kind": "OWNER_AUTHORITATIVE_READINESS_RECONCILIATION",
+  "ownerOutput": "readiness-authority-20261014T042254Z.json",
+  "sha256OfOwnerUploadedReport": "0bc7f1cdf4824e72e443353fdf721d032a193226225c7b1e37edf3ad5c196483",
+  "reportVerifiedFromExactUploadedBytes": true,
+  "tool": "tools/y2q_hxl1_readiness_consolidate.py",
+  "gateAuthority": "tools/y2q_porting_readiness.py",
+  "checks": {
+    "manifest": "PASS_STATIC_PINS_NO_RAW_REHASH",
+    "portingReadinessReport": "AGREES_ALL_NINE_STAGES",
+    "selectNumerics": "CORROBORATED_STATIC_ONLY",
+    "debugArtifactScan": "BOUNDED_COMPLETE_NOT_OEM_AUTHENTICATED",
+    "unsearchedDeeperDirectories": 895
+  },
+  "stages": [
+    {
+      "stage": 1,
+      "state": "COMPLETE"
+    },
+    {
+      "stage": 2,
+      "state": "COMPLETE"
+    },
+    {
+      "stage": 3,
+      "state": "PARTIAL"
+    },
+    {
+      "stage": 4,
+      "state": "OPEN"
+    },
+    {
+      "stage": 5,
+      "state": "OPEN"
+    },
+    {
+      "stage": 6,
+      "state": "OPEN"
+    },
+    {
+      "stage": 7,
+      "state": "BLOCKED"
+    },
+    {
+      "stage": 8,
+      "state": "BLOCKED"
+    },
+    {
+      "stage": 9,
+      "state": "DEFERRED"
+    }
+  ],
+  "inputReportSha256": {
+    "evidence": "d12ac8a1f7f29e8d106f87cb439cb75d60aec4253c50d6b525c2cefdcdb49303",
+    "readiness": "933da679f2db6aa1db2d480bfdaa1842ace6f275bf8ce8dd89e7f3ea779c9ef8",
+    "select": "f1c5114692a059ebc1c5d1542af19170640989054b998697c26ca0f7eb21a478",
+    "debug": "fc08987fe6a6a3f217e7a5d563ccce962ec0adf29963500a9bec13faeb0f304a"
+  },
+  "certified": {
+    "authoritativeReportStageAgreement": true,
+    "newOriginalKernelImageBytesRehashedByReconciler": false,
+    "factoryCompiledLocalObjectPositions": false,
+    "physicalLinuxKernelHandoff": false,
+    "runtimePrivilegeEscalation": false,
+    "kernelSuLoaded": false,
+    "productionFeedAllowed": false
+  },
+  "outcome": "AUTHORITATIVE_NINE_STAGE_RECONCILIATION_SUCCESS_RESEARCH_ONLY",
+  "nextStage": "Read-only provenance for actual HXL1 handset selected runtime device-tree identity and independent physical Linux handoff; do not conflate root model match with full DTB selection or physical base."
+}
