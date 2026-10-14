@@ -32,7 +32,64 @@ return ret;
 }
 '''
 
+def fake_sp_frame_rows():
+    rows=fake_rows()
+    rows[m.BASE]=('d10783ff','sub','sp, sp, #0x1e0')
+    rows[m.BASE+0xb78]=('910783ff','add','sp, sp, #0x1e0')
+    rows[m.BASE+0xb7c]=('d65f03c0','ret','')
+    present=sum(bool(m.SP_OPERAND.search(args)) for _,op,args in rows.values())
+    count=158-present
+    for i in range(count):
+        addr=m.BASE+0x200+4*i
+        assert addr not in rows
+        rows[addr]=('910023e9','add','x9, sp, #0x8')
+    return rows
+
 class OriginalWaiterArgumentTests(unittest.TestCase):
+    def test_original_frame_has_only_entry_and_return_sp_writes(self):
+        r=m.compiled_sp_integrity(fake_sp_frame_rows())
+        self.assertEqual(r['observedInstructionsReferencingSp'],158)
+        self.assertEqual(r['observedSpWriteOffsets'],['0x0','0xb78'])
+        self.assertEqual(r['frameAllocationBytes'],480)
+        self.assertTrue(r['frameBaseSpHasNoOtherSyntacticWrites'])
+        self.assertFalse(r['allPathCallSequenceAndObjectLifetimeProven'])
+
+    def test_third_sp_write_refused(self):
+        rows=fake_sp_frame_rows()
+        rows[m.BASE+0x200]=('910043ff','add','sp, sp, #0x10')
+        with self.assertRaisesRegex(m.AuditError,'SP-write instruction inventory drift'):
+            m.compiled_sp_integrity(rows)
+
+    def test_sp_memory_writeback_refused(self):
+        rows=fake_sp_frame_rows()
+        rows[m.BASE+0x200]=('f84087e9','ldr','x9, [sp], #8')
+        with self.assertRaisesRegex(m.AuditError,'implicit memory writeback'):
+            m.compiled_sp_integrity(rows)
+
+    def test_unexpected_sp_opcode_refused(self):
+        rows=fake_sp_frame_rows()
+        rows[m.BASE+0x200]=('910003e9','mov','x9, sp')
+        with self.assertRaisesRegex(m.AuditError,'Unexpected SP instruction'):
+            m.compiled_sp_integrity(rows)
+
+    def test_modified_epilogue_word_refused(self):
+        rows=fake_sp_frame_rows()
+        rows[m.BASE+0xb78]=('910683ff','add','sp, sp, #0x1e0')
+        with self.assertRaisesRegex(m.AuditError,'SP-write instruction inventory drift'):
+            m.compiled_sp_integrity(rows)
+
+    def test_early_missing_ret_refused(self):
+        rows=fake_sp_frame_rows()
+        rows[m.BASE+0xb7c]=('d503201f','nop','')
+        with self.assertRaisesRegex(m.AuditError,'not immediately followed by ret'):
+            m.compiled_sp_integrity(rows)
+
+    def test_extra_sp_reference_detected(self):
+        rows=fake_sp_frame_rows()
+        rows[m.BASE+0x500]=('910023ea','add','x10, sp, #0x8')
+        with self.assertRaisesRegex(m.AuditError,'SP reference count drift'):
+            m.compiled_sp_integrity(rows)
+
     def test_expected_original_sites_identified(self):
         sites=m.compiled_argument_ledger(fake_rows())
         self.assertEqual([s['role'] for s in sites],['initialize','proxy_wait','proxy_cleanup'])
