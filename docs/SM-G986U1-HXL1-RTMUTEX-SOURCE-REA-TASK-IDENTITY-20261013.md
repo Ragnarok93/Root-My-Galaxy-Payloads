@@ -31,9 +31,13 @@ User supplied **two** exact uploaded archives:
 - An error from the proxy start enters the error-handling branch `kernel/futex.c:2171–2186`.
 - **Conditional inconsistency**: when `task_blocks_on_rt_mutex()` has first set `task->pi_blocked_on=waiter` and subsequently reports an error for that queued target, `rt_mutex_start_proxy_lock()` calls `remove_waiter()`, which clears `current->pi_blocked_on` instead of `task->pi_blocked_on`. This is a source-level mismatched cleanup target, supported by factory `sp_el0` instructions. A particular hardware interleaving and actual state difference have **not** been observed on the phone.
 
-## Separate return-value concern
+## Separate return-value concern — RB-deletion suspicion resolved from factory instructions (October 14)
 
-`rt_mutex_start_proxy_lock` at `rtmutex.c:1804–1806` uses `if (unlikely(ret)) remove_waiter(...)`. But the documented return contract at `:1790–1793` declares `1` a successful proxy acquisition, not an error. The original Ghidra assembly likewise routes the acquisition-success `ret=1` branch through `remove_waiter` (`...7d48` -> `...7d58`). This is **not limited to the negative-error case**. It warrants independent invariant testing because the waiter may not have been enqueued on this fast-success path. Do not conclude that a successful return necessarily caused memory corruption; determine the state of the initialized waiter's tree nodes and caller PI state.
+`rt_mutex_start_proxy_lock` at `rtmutex.c:1804–1806` uses `if (unlikely(ret)) remove_waiter(...)`, so the acquisition-success `ret=1` does enter `remove_waiter` in original HXL1 code (`0xffffff8008147d48` → `0xffffff8008147d4c` → `0xffffff8008147d58`). This is **not the same path** as a negative result returned after `task_blocks_on_rt_mutex` has published a waiter pointer.
+
+**New resolution of the formerly open “unqueued waiter” concern:** the **original compiled** `remove_waiter` loads its waiter-tree node at `0xffffff8008147dfc`, compares that node's first pointer with its own address at `...7e00`, and branches over `rb_erase_cached` on equality at `...7e04`. Actual `rb_erase_cached` is reached only from the nonempty-node branch at `...7e10`. This matches the unqueued/empty-tree guard in Linux 4.19 `rt_mutex_dequeue`. Consequently, the mere `ret=1` call **does not imply an invalid RB erase**. The existing source still unconditionally clears the *calling task's* `pi_blocked_on` at `...7e1c`; absence of harmful side effects from that write has **not** been separately proven.
+
+Exactly 13 bounded original instruction sites were verified against the already uploaded `rtmutex-stock-evidence.zip` archive, with a separate [machine-readable fast-success guard note](../research/y2q-G986U1UESCHXL1/ghostlock-fast-success-rb-dequeue-guard-20261014.json). The **only relevant unresolved GhostLock branch** for the main lifetime hypothesis remains a factory-feasible **post-publication `-EDEADLK`** followed by owner-present proxy rollback and waiter exit with no legitimate repair. No runtime stale dereference, root or KernelSU claim follows.
 
 ## Go / no-go matrix
 
