@@ -1,3 +1,23 @@
+## October 14 — owner run resolves the exact header and native select threshold
+
+The owner uploaded `hxl1-select-header-provenance-20261014.json` from the hash-pinned local checkout. The audit reports:
+
+- Exact `kernel/futex.c` and `fs/select.c` checks passed using their previously recorded SHA256 pins.
+- Same-checkout `include/linux/poll.h` SHA-256: `42b7aa8396b95893d943cafebb41030034a55df67b20e914040ea97545bedeb3`. **The header bytes themselves were not uploaded**, so this hash is owner-reported, not independently rehashed here.
+- Original macro chain: `SELECT_STACK_ALLOC=FRONTEND_STACK_ALLOC` then `FRONTEND_STACK_ALLOC=256`. This verifies **256 source bytes** under the straightforward unpreprocessed alias-chain interpretation; OEM compiler header-input identity remains unproven.
+- Previously archived disassembly SHA-256: `20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997`, with **5/5** saved text digests revalidated.
+- The report correctly has `headerFactoryCompilerInputIndependentlyProven=false`, `oemCompiledStackLocalOffsetProven=false`, `runtimeStackReuseOrPrivilegeProven=false`.
+
+**New independent original select-code arithmetic review:** from the uploaded original disassembly, `core_sys_select` clamps `n` to the fdtable limit, sign-extends the resulting count, adds 63, then right-shifts by six to calculate 64-descriptor word groups. The conditional branch selects on-stack storage when the rounded intermediate is below `0x180` (384). Therefore it takes the local path for `n <= 320`, and dynamic storage for `n >= 321` (assuming nonnegative `n`, after the source-verified reject-negative gate and fdtable clamp). The dynamic allocation uses `3 * groups << 4`, equivalent to **48 bytes per 64 descriptors**, i.e. six 8-byte bitmap words.
+
+For **256 source bytes**, six equal bitmaps consume at most `6 * 5 * 8 = 240` bytes of the local array. This is an excellent source/binary consistency check: the compiled cutoff and scaling agree with the source's six-bitmaps-over-256-bytes logic. **But the observed cutoff does not uniquely authenticate 256**: any capacity from **240 through 287 source bytes** admits the same number of whole bitmap groups. The header provides the exact source declaration; the recovered machine code corroborates the allocation-path arithmetic, not an exact C-local extent or the OEM compiler's input provenance.
+
+The repository's `tools/y2q_hxl1_select_header_provenance.py` now performs this numeric cross-check when a disassembly archive is supplied (beyond its earlier two static instruction anchors), rejects incorrect comparison/branch/allocation scaling, and explicitly reports the nonuniqueness caveat. Four additional synthetic regressions test these conditions. Those newly committed tests still require a confirmed CI or owner execution; do not claim that all tests passed simply because GitHub files were committed.
+
+**Progress:** Original header macro gate `SOURCE_VERIFIED_BY_OWNER_REPORT`, compiled select allocation capacity `STATIC_CROSSWALK_CORROBORATED`; exact compiled stack-local object coordinate, futex/select stack reuse, runtime GhostLock and KernelSU remain `UNVERIFIED/BLOCKED`. No repeat firmware extraction, Clang ABI pass or device access required.
+
+---
+
 # HXL1 select header macro provenance — next evidence gate (2026-10-14)
 
 ## Current original evidence
