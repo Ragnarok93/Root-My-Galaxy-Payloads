@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "checkpoint": "2026-10-14",
+  "scope": "OFFLINE_OEM_DEBUG_DISCOVERY",
+  "originalStockConfigSha256": "ec6da4cfe412f7d0669c7d621751753375e32197a2602f98627eb95e71b9c0b2",
+  "stockConfig": {
+    "CONFIG_DEBUG_INFO": "y",
+    "CONFIG_DEBUG_INFO_SPLIT": "n",
+    "CONFIG_LTO_NONE": "y",
+    "CONFIG_CLANG_VERSION": "100006",
+    "CONFIG_BUILD_SALT": ""
+  },
+  "stockReconstructedElfSectionNames": [
+    ".kernel",
+    ".kernel2",
+    ".bss",
+    ".symtab",
+    ".strtab",
+    ".shstrtab",
+    ".rela.dyn"
+  ],
+  "stockReconstructedElf": {
+    "hasDebugInfo": false,
+    "hasBTF": false,
+    "hasGnuDebuglink": false,
+    "hasGnuBuildIdNoteSection": false,
+    "originalOemLinkerOutput": false
+  },
+  "qemuNormalBuildId": "28f1ad1f3ff4cae600ab9cd0ae9a1fe085603f31",
+  "qemuKasanBuildId": "0c30727b4f2542acf0a9f779d4a0393c8c0055b2",
+  "qemuBuildIdsIdentifyFactoryImage": false,
+  "attachedFileDiscovery": {
+    "reportSha256": "8f988eff699dc281eb50aaa8c0d006db5f921879d981f968ec57c065e9d9917d",
+    "filesExamined": 69,
+    "candidateFiles": 0,
+    "truncated": false,
+    "scanScope": "only conversation mounted attachments, not owner WSL drive"
+  },
+  "localSyntheticTests": {
+    "total": 9,
+    "passed": 9
+  },
+  "ghCiObservedPass": false,
+  "publicSearch": {
+    "exactFirmwareListingFound": true,
+    "verifiedMatchingUnstrippedVmlinuxFound": false,
+    "verifiedMatchingDebugSidecarFound": false
+  },
+  "nextOwnerAction": "Run bounded read-only candidate scanner on existing s20-artifacts and src directories and assess any debug-bearing ELF as OEM match only after independent provenance verification.",
+  "compiledSourceLocalAttributionVerified": false,
+  "crossSyscallStackReuseProven": false,
+  "rootAndKernelSuReady": false
+}
