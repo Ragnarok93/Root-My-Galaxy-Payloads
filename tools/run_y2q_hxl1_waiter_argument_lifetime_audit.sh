@@ -4,6 +4,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 python3 -m unittest -v tools.test_y2q_hxl1_waiter_argument_lifetime_audit
+python3 -m unittest -v tools.test_y2q_hxl1_waiter_store_load_cfg
 
 EVIDENCE="${HXL1_EVIDENCE_DIR:-$HOME/s20-artifacts/hxl1-research}"
 
@@ -75,4 +76,26 @@ for x in r["compiledCallArgumentSites"]:
           "relative-callsite="+x["calleeCallRelativeVA"])
 print("[COMPILER OBJECT LIFETIME / CROSS-SYSCALL OVERLAP / ROOT] UNVERIFIED")
 print("[REPORT]",sys.argv[1])
+PY
+
+
+# Independent, bounded static source/compiled store-load correlation.
+# Preserves the original report and never mutates source or device.
+NEXT="$EVIDENCE/hxl1-waiter-store-load-cfg-$(date -u +%Y%m%dT%H%M%S%NZ).json"
+python3 -m tools.y2q_hxl1_waiter_store_load_cfg \
+  --source-archive "$SOURCE" \
+  --disassembly-archive "$DISASM" \
+  --output "$NEXT"
+
+python3 - "$NEXT" <<'PY'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text())
+print("[STATIC POINTER STORE]",r["firstStoreRelativeOffset"],r["storeFirstMemorySlot"])
+print("[STATIC POINTER LOAD]",r["laterLoadRelativeOffset"],r["laterLoadedRegisterOrigin"])
+print("[STATIC REACHABILITY]",r["staticControlFlowPathStoreToLoadFound"],
+      "shortest path steps:",r["shortestStoreToLoadPathInstructions"])
+print("[OEM q.rt_waiter LAYOUT]",r["calleeSourceFieldQrtWaiterMapping"])
+print("[LIFETIME / CROSS-SYSCALL REUSE / ROOT] UNVERIFIED")
+print("[FULL STORE-LOAD REPORT]",sys.argv[1])
 PY
