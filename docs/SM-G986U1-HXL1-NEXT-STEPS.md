@@ -1,3 +1,19 @@
+## October 14, 08:35 UTC — original HXL1 futex operation-11 first block established
+
+Owner ran `bash tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh` on original SHA-pinned five-function code archive after `b37bf5d`. All **13/13** original synthetic tests passed. Exact cached compiled `do_futex` operation-11 dispatch enters a **24-instruction first basic block at `do_futex+0xbd0`**, with **zero direct `bl` calls before the first explicit control transfer**. The full JSON lives on owner WSL as `ghostlock-original-futex-op11-20261014T083539553990891Z.json`; the terminal paste does **not** include the terminating branch opcode or its target.
+
+To avoid repeating source-based searches, the same SHA-bound offline tool is now extended to capture that ending control transfer, plus at most two one-hop successor blocks capped at 64 contiguous instructions each. It preserves literal opcodes/operands and recovered static call-target labels, does not recursively traverse branches or claim dynamic feasibility. Five added synthetic tests bring the suite to **18**, but only the earlier **13/13** run is owner-confirmed so far. See [the updated original operation-11 guide and owner evidence](SM-G986U1-HXL1-GHOSTLOCK-OP11-COMPILED-BLOCK-20261014.md), and [research checkpoint](../research/y2q-G986U1UESCHXL1/ghostlock-owner-futex-op11-firstblock-20261014T083539Z.json).
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh
+```
+
+A block without immediate BL calls does not prove that the source helper is absent/inlined, that subsequent blocks have no calls, or that an `rt_mutex_waiter` can overlap `sendmsg` storage. All readiness stages, root and KernelSU gates remain unchanged.
+
+---
+
 ## October 14, 08:18 UTC — helper-class audit passed; pivot to factory futex case-11 code
 
 Owner executed the HXL1 static helper ledger after pulling `b76bfb3`: **10/10 tests PASS**. All 41 original `sendmsg`/iovec BL sites classify into nine source-agnostic classes, and the three `jopp_springboard_blr_x8` sites are now fixed in the report at `__sys_sendto:0xffffff800966eb70` and `___sys_sendmsg:0xffffff800966f498/0xffffff800966f4e0`. Their effective x8 call destinations and C pointer arguments remain **unproven**. The exact owner crosswalk SHA in the new report is `94be240898b54c51ef428e2813b3ed143117de37d2a1098c0238db076d15badd`. This classification does not upgrade GhostLock applicability.
