@@ -1,3 +1,15 @@
+## October 14 — GhostLock 4.19 investigation resumed (current priority)
+
+User requested a return to HXL1 GhostLock kernel research rather than continued Stage 4 LinuxLoader index-tracing. Source path, select arithmetic, compact CFG and five original disassembly windows have already been analyzed; **do not repeat earlier source-bug checks or borrow K40 offsets**.
+
+Current independent 4.19 reference `ccp-p/ghostlock-cve-2026-43499-4.19-k40` at `68f191029f20162de3c402935c2f0213210e2de6` has a root-chain milestone still blocked and a K40 sendmsg-carrier premature-return trial. Its later read-only/offline placement redesign is **not Samsung compiled-stack proof**. Prior HXL1 source analysis still corroborates the original CVE-2026-43499 `remove_waiter()` task mismatch, but actual waiter frame geometry/overlap, per-boot runtime primitive and module loading are unverified.
+
+New pinned offline checker `tools/y2q_hxl1_ghostlock_crossfork_419_gate.py`, with ten fail-closed regression tests and GhostLock CI wiring, authenticates the exact Samsung `rtmutex.c`/`futex.c` SHA pins and three K40 documentation blob IDs, and records optional Samsung `net/socket.c`/`fs/read_write.c` source evidence without claiming compiled placement. See [full assessment and WSL one-command check](SM-G986U1-HXL1-GHOSTLOCK-419-FORK-DELTA-20261014.md) and [machine-readable checkpoint](../research/y2q-G986U1UESCHXL1/ghostlock-k40-fork-delta-20261014.json). New tests/real owner audit **not yet confirmed**.
+
+**Next research gate:** independent HXL1 original compiled waiter and native `sendmsg` frame/lifetime attribution versus K40's nonportable carrier hypothesis. Do not generate an executable y2q target or import K40 geometry before this gate. KernelSU SIG_FORCE / disabled KPROBES / RKP-KDP-DEFEX remains a separate blocker; nine-stage status unchanged.
+
+---
+
 ## October 14, 05:28 UTC — original LinuxLoader two index getters isolated
 
 The owner completed the previously added no-provider cached analysis against SHA-pinned original `LinuxLoader-HXL1.efi`: all **12/12** tests passed, original `FUN_0002bdf8` decompile consistent across both reports, and exactly two index literals in its 398-line pseudocode. The original Ghidra pseudocode at line 252 calls `FUN_00023b00()`, guards its return against `-1`, and formats `androidboot.dtbo_idx=` at line 254. At line 261 it calls `FUN_00023b40()`, guards `-1`, and formats `androidboot.dtb_idx=` at line 263. Both branches are under the observed `FUN_000235b0()==0` condition. These are the **immediate formatter value getters**, not independently proved index computation/selector algorithms.
