@@ -1,3 +1,43 @@
+## Owner acceptance: 11/11 WSL regression tests and static-only gate matrix
+
+The owner posted a successful host-side run whose output path is `/home/main/s20-artifacts/hxl1-research/readiness-final-20261014T041230Z.json`. The Git checkout fast-forwarded through commit `8118461`, all **11/11** `tools.test_y2q_hxl1_readiness_consolidate` tests passed, and the command emitted:
+
+```
+[HXL1 STAGES] COMPLETE,COMPLETE,PARTIAL,OPEN,OPEN,OPEN,BLOCKED,BLOCKED,DEFERRED
+[ROOT / KERNELSU / FEED] NOT VALIDATED
+```
+
+This result confirms that the owner's selected report inputs agree at the static-readiness scope, with the following recorded SHA-256s:
+
+- `research/y2q-G986U1UESCHXL1/evidence.json`: `d12ac8a1f7f29e8d106f87cb439cb75d60aec4253c50d6b525c2cefdcdb49303`
+- Select numeric report: `f1c5114692a059ebc1c5d1542af19170640989054b998697c26ca0f7eb21a478`
+- OEM-debug artifact inventory: `fc08987fe6a6a3f217e7a5d563ccce962ec0adf29963500a9bec13faeb0f304a`
+
+**Scope caution:** The owner did **not** pass `--readiness`; hence `portingReadinessReport=NOT_SUPPLIED`, not `AGREES_ALL_NINE_STAGES`. The report explicitly records `PASS_STATIC_PINS_NO_RAW_REHASH` and false for `originalKernelBytesIndependentlyRehashedByThisScript`. This reconciler cannot replace the authoritative `tools/y2q_porting_readiness.py` host hash audit. The user pasted the resulting JSON; raw output bytes were not uploaded for a fresh independent digest calculation.
+
+Optional no-repeat extension when the existing report exists:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+READY="$HOME/s20-artifacts/hxl1-research/port-readiness.json"
+if test -s "$READY"; then
+  OUT="$HOME/s20-artifacts/hxl1-research/readiness-with-authority-$(date -u +%Y%m%dT%H%M%SZ).json"
+  python3 tools/y2q_hxl1_readiness_consolidate.py \
+    --evidence research/y2q-G986U1UESCHXL1/evidence.json \
+    --readiness "$READY" \
+    --select-crosswalk "$HOME/s20-artifacts/hxl1-research/hxl1-select-numeric-crosswalk-20261014.json" \
+    --debug-inventory "$HOME/s20-artifacts/hxl1-research/oem-debug-artifacts-only-20261014T033146Z.json" \
+    --output "$OUT"
+  grep -A5 'portingReadinessReport' "$OUT"
+else
+  printf '%s\n' 'Existing authoritative readiness report not present; no reread/re-extraction performed.'
+fi
+```
+
+The stage matrix and **research-only/no root/KernelSU** decision remain unchanged. The owner-run checkpoint is `research/y2q-G986U1UESCHXL1/owner-readiness-final-20261014T041230Z.json`. Do not infer authentication of any factory ABI local slots or physical Linux load address from agreement of these host reports.
+
+---
+
 # SM-G986U1 / G986U1UESCHXL1 — consolidated firmware-to-profile gate audit
 
 **2026-10-14, research-only.** This checkpoints the original Samsung S20+ HXL1 firmware evidence according to [PORTING.md](PORTING.md), the authoritative `tools/y2q_porting_readiness.py`, and the retained research manifest. It is **not** a root payload, exploit validation, unlocked bootloader, KernelSU integration, or feed-registration authorization.
