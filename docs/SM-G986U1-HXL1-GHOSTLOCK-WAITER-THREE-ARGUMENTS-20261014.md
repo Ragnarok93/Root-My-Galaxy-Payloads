@@ -1,3 +1,32 @@
+## New original `do_futex` SP-integrity census — October 14, 2026
+
+The owner uploaded the fully completed read-only audit, `hxl1-waiter-source-compiled-20261014T105255123936007Z.json`, independently SHA-256 checked as **`f90df3db38e68e246fda6052896f72607b8dfd8a950e19c8a45d70c7500f3a40`**. Its embedded status reports **12 original source landmarks**, all **three compiled waiter helper argument sites**, and `originalRecoveredNmIndependentlyRehashed=true`. It continues to mark runtime reuse, entire waiter lifetime and root unverified.
+
+The original HXL1 `do_futex.disasm.txt` was re-read directly from the hash-pinned previously uploaded disassembly archive. Across all **1,766 decoded original instruction slots**, exactly **158 instructions use the architectural stack pointer**. Auditing every SP use reveals only two instructions that **write SP explicitly**:
+
+| Original do_futex offset | Original ARM64 machine word | Instruction | Meaning |
+|---|---|---|---|
+| `+0x0` | `d10783ff` | `sub sp, sp, #0x1e0` | 480-byte entry-frame allocation |
+| `+0xb78` | `910783ff` | `add sp, sp, #0x1e0` | 480-byte frame restoration |
+
+The latter is followed immediately by `ret` at `+0xb7c` (`d65f03c0`). There are **zero** memory addressing forms that write back to SP, and **zero** unexpected instruction families referencing SP. The other 156 SP references do not have SP as their destination. This is more than repeating three matching expressions: on ordinary ABI-compliant execution through one `do_futex` frame, the disassembly contains no other explicit SP changes before the return epilogue.
+
+This supports treating `SP + 0xc0` as a constant **relative to that particular function's 480-byte allocated frame**, assuming ordinary AArch64 call-return stack-pointer preservation. `0xc0` falls within `0x1e0`. It does **not** establish whether the three waiter-related callsites are dynamically taken on one feasible control-flow path, precisely which bytes comprise the compiler C-local `rt_waiter`, whether another syscall has overlapping live objects, or a working privilege-escalation primitive.
+
+The new `compiledSpFrameInventory` field in `tools/y2q_hxl1_waiter_argument_lifetime_audit.py` implements this original machine-code census, and the existing WSL runner prints the SP writer and frame results. Seven fail-closed tests were added to `tools/test_y2q_hxl1_waiter_argument_lifetime_audit.py`, raising the suite from 12 to **19 written tests**. The original full archive was independently rechecked and passed this census locally; **the new 19-test suite has not yet been confirmed passing on the owner's WSL host or GitHub CI**. The detailed independently generated JSON is stored as `hxl1-original-dofutex-sp-frame-census-20261014.json`, SHA-256 `ecc56228da824198da07c0bbb96597a2c407169db0b8807b6ecdb55ce6989560`, and its [versioned research summary](../research/y2q-G986U1UESCHXL1/ghostlock-dofutex-sp-frame-census-20261014.json) is committed.
+
+Single owner verification (no new firmware extraction or device operations):
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_waiter_argument_lifetime_audit.sh
+```
+
+This remains a source and compiled-frame consistency result, not a validated GhostLock exploit, temporary root, KernelSU payload, or device deployment.
+
+---
+
 # HXL1 GhostLock — original waiter source/compiled argument audit (2026-10-14)
 
 **Read-only research.** Target SM-G986U1, G986U1UESCHXL1, original Linux 4.19.113-27095354. This study used two previously uploaded archives, without phone access, exploit execution, firmware flashing, kernel patching or raw runtime memory.
