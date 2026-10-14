@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "scope": "PINNED_DISASSEMBLY_BOUNDED_STATIC_OP11_TWO_BRANCH_HOPS",
+  "sourceKind": "UPLOADED_OWNER_ARCHIVE_REHASHED_AND_PARSED_LOCALLY",
+  "archiveSha256": "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997",
+  "originalDoFutexDisassemblySha256": "56286516ae9e6a873beab22b16af3ab330a768dc1b02f901854eb96f193789a5",
+  "originalKernelImageSha256ClaimedByArchive": "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123",
+  "fullOriginalKernelRehashedByThisAudit": false,
+  "doFutexRecoveredStaticVA": "0xffffff800818e52c",
+  "case11CompareOffset": "0xb14",
+  "case11BranchOffset": "0xb18",
+  "firstBlockOffset": "0xbd0",
+  "bounds": {
+    "maxBranchHops": 2,
+    "maxInstructionsPerBlock": 64,
+    "stopAtControlTransfer": true,
+    "noRuntimeExecution": true
+  },
+  "blocks": [
+    {
+      "depth": 0,
+      "offset": "0xbd0",
+      "instructionSlots": 24,
+      "terminal": "b.eq",
+      "successors": [
+        "0xc30",
+        "0x117c"
+      ],
+      "blCalls": []
+    },
+    {
+      "depth": 1,
+      "offset": "0xc30",
+      "instructionSlots": 1,
+      "terminal": "cbz",
+      "successors": [
+        "0xc34",
+        "0x118c"
+      ],
+      "blCalls": []
+    },
+    {
+      "depth": 1,
+      "offset": "0x117c",
+      "instructionSlots": 2,
+      "terminal": "b",
+      "successors": [
+        "0x128c"
+      ],
+      "blCalls": []
+    },
+    {
+      "depth": 2,
+      "offset": "0xc34",
+      "instructionSlots": 16,
+      "terminal": "b",
+      "successorsOutsideScope": [
+        "0x1190"
+      ],
+      "blCalls": [
+        {
+          "site": "0xc48",
+          "staticTarget": "0xffffff8008179e84"
+        },
+        {
+          "site": "0xc58",
+          "staticTarget": "0xffffff800817a86c"
+        },
+        {
+          "site": "0xc68",
+          "staticTarget": "0xffffff8008179084"
+        }
+      ]
+    },
+    {
+      "depth": 2,
+      "offset": "0x118c",
+      "instructionSlots": 11,
+      "terminal": "cbnz",
+      "successorsOutsideScope": [
+        "0x11b8",
+        "0x1b0c"
+      ],
+      "blCalls": [
+        {
+          "site": "0x1198",
+          "staticTarget": "0xffffff80081474fc"
+        },
+        {
+          "site": "0x11b0",
+          "staticTarget": "0xffffff80081930ec"
+        }
+      ]
+    },
+    {
+      "depth": 2,
+      "offset": "0x128c",
+      "instructionSlots": 2,
+      "terminal": "b",
+      "successorsOutsideScope": [
+        "0xb48"
+      ],
+      "blCalls": []
+    }
+  ],
+  "reviewedDistinctBlocks": 6,
+  "originalStaticBlCallsitesInScope": 5,
+  "exactSourceLocalRtMutexWaiterIdentified": false,
+  "compilerInliningProven": false,
+  "runtimePathFeasibilityProven": false,
+  "stackSlotOverlapProven": false,
+  "ghostlockPrimitiveVerified": false,
+  "rootVerified": false,
+  "kernelSuLoaded": false,
+  "interpretation": "A zero-call first block is not a zero-call operation-11 path. The original compiled branch graph contains five literal BL callsites in the next depth-2 alternatives; static reachability is overapproximate and does not prove any call executed or a source-level waiter stack object."
+}
