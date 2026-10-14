@@ -1,3 +1,23 @@
+## October 14 — original LinuxLoader DTB/DTBO getter timeout: SHA-pinned offline native fallback
+
+The owner uploaded **five files** from the already implemented two-getter targeted Ghidra runner: a valid authenticated `callsite-evidence.json` (SHA-256 `3065eaf2a075bcfa0888124f25ba2def189aedad21f0041943984e75e17f7d0f`) and two getter result pairs. **Both** `dtbo 0x23b00` and `dtb 0x23b40` exited **124** and saved the same REA `cancelled` JSON with `cleanup=complete`. Thus no function implementation, native return calculation, PE-to-Ghidra-coordinate mapping or DTB/DTBO selection is newly established; do **not** rerun the two timed-out REA calls blindly.
+
+**Completed automation (no provider, no device):** [`tools/y2q_hxl1_linuxloader_getter_raw_windows.py`](../tools/y2q_hxl1_linuxloader_getter_raw_windows.py) uses only the pinned original EFI SHA-256, validated PE32+/ARM64 executable-section mapping and original verified formatter callsites to emit two *candidate RVA* raw ARM64 instruction-word windows and a bounded direct-branch metadata ledger. It **explicitly does not** infer Ghidra coordinates equal PE RVAs, does not label exact function extents and does not claim selector semantics. **Nine synthetic unit tests passed in [CI run 38612410046](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38612410046).** Original-owner EFI execution remains unobserved.
+
+**Single command to use the already saved REA callsite packet; do not repeat Ghidra:**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_linuxloader_getter_raw_fallback.sh
+```
+
+The wrapper discovers the most recently saved `targeted-dtb-dtbo-getters-*/callsite-evidence.json`, validates it and the existing `~/s20-artifacts/hxl1-research/abl-linuxloader/LinuxLoader-HXL1.efi`, and writes a **new** `getter-raw-native-windows-*.json` in that same owner run directory. You may pass the exact callsite-evidence path as its sole argument to bypass discovery. The resulting report is the one complete raw-word evidence packet to inspect next; this is substantially cheaper than reanalysis with Ghidra and is self-contained for offline assembly decoding.
+
+[Owner timeout evidence](../research/y2q-G986U1UESCHXL1/stage4-getter-provider-timeouts-20261014.json). **Stage 4 remains OPEN; no physical handoff, actual DTB/DTBO selection, root, KernelSU or bootloader unlock was demonstrated.**
+
+---
+
 ## October 14, 16:48 UTC — Stage 4 original LinuxLoader getter probe, resumable without duplicate REA calls
 
 The actual **two unresolved original index-value getter functions** are already identified in the SHA-pinned cached LinuxLoader formatter: `0x23b00` for the observed `androidboot.dtbo_idx` formatting call and `0x23b40` for `androidboot.dtb_idx`. The owner HXL1 phone reports `ro.boot.dtbo_idx=2` and `ro.boot.dtb_idx=0`, but access to both stock device-tree root paths was denied; these boot property values **do not establish an OEM DTB or overlay selection**. The saved whole-formatter REA trace was cancelled, and its partial error JSON contains no valid value-flow results.
