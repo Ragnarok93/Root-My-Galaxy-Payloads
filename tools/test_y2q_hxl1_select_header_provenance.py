@@ -1,5 +1,8 @@
 """Synthetic tests for HXL1 read-only select header/source provenance."""
 import hashlib
+import io
+import json
+import tarfile
 from pathlib import Path
 import tempfile
 import unittest
@@ -104,6 +107,51 @@ class HeaderProvenanceTests(unittest.TestCase):
                                "kernel/futex.c": hashlib.sha256(FUTEX).hexdigest()}):
                 with self.assertRaisesRegex(m.SourceError, "does not include"):
                     m.audit(root)
+
+
+    def test_saved_native_disassembly_verified_with_existing_manifest(self):
+        code = (b"ffffff80082f8e10: 910143f3 add x19, sp, #0x50\n"
+                b"ffffff80082f8dd8: f106011f cmp x8, #0x180\n")
+        manifest = {"functions": [{
+            "symbol": "core_sys_select",
+            "disassembly": {"textSha256": hashlib.sha256(code).hexdigest()}
+        }]}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "old-evidence.tar.gz"
+            with tarfile.open(path, "w:gz") as tar:
+                for name, body in (
+                    ("stack-gate.json", json.dumps(manifest).encode()),
+                    ("core_sys_select.disasm.txt", code)):
+                    member = tarfile.TarInfo(name)
+                    member.size = len(body)
+                    tar.addfile(member, io.BytesIO(body))
+            with patch("tools.y2q_hxl1_dispatch_archive_audit.audit",
+                       return_value={"matchedArchivedDisassemblySha256": 5}):
+                result = m.check_saved_disassembly(path)
+        self.assertTrue(result["nativeSelectStackPathRecognized"])
+        self.assertTrue(result["nativeSelectDynamicChoiceRecognized"])
+        self.assertFalse(result["sourceMacroToExactMachineObjectCertified"])
+
+    def test_altered_native_disassembly_manifest_hash_rejected(self):
+        original = b"ffffff80082f8e10: 910143f3 add x19, sp, #0x50\n"
+        manifest = {"functions": [{
+            "symbol": "core_sys_select",
+            "disassembly": {"textSha256": hashlib.sha256(original).hexdigest()}
+        }]}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "tampered.tar.gz"
+            with tarfile.open(path, "w:gz") as tar:
+                for name, body in (
+                    ("stack-gate.json", json.dumps(manifest).encode()),
+                    ("core_sys_select.disasm.txt", original + b"tampered")):
+                    member = tarfile.TarInfo(name)
+                    member.size = len(body)
+                    tar.addfile(member, io.BytesIO(body))
+            with patch("tools.y2q_hxl1_dispatch_archive_audit.audit",
+                       return_value={"matchedArchivedDisassemblySha256": 5}):
+                with self.assertRaisesRegex(m.SourceError, "hash mismatch"):
+                    m.check_saved_disassembly(path)
+
 
 
 if __name__ == "__main__":
