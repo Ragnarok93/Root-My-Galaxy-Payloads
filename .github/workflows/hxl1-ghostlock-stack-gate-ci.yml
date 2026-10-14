@@ -29,6 +29,8 @@ on:
       - tools/test_y2q_hxl1_ghostlock_original_sendmsg_windows.py
       - tools/y2q_hxl1_ghostlock_sendmsg_frame_attest.py
       - tools/test_y2q_hxl1_ghostlock_sendmsg_frame_attest.py
+      - tools/y2q_hxl1_ghostlock_sendmsg_callsite_audit.py
+      - tools/test_y2q_hxl1_ghostlock_sendmsg_callsite_audit.py
       - tools/run_y2q_hxl1_ghostlock_sendmsg_frame_attest.sh
       - research/y2q-G986U1UESCHXL1/evidence.json
   workflow_dispatch:
@@ -69,7 +71,9 @@ jobs:
             tools/y2q_hxl1_ghostlock_original_sendmsg_windows.py \
             tools/test_y2q_hxl1_ghostlock_original_sendmsg_windows.py \
             tools/y2q_hxl1_ghostlock_sendmsg_frame_attest.py \
-            tools/test_y2q_hxl1_ghostlock_sendmsg_frame_attest.py
+            tools/test_y2q_hxl1_ghostlock_sendmsg_frame_attest.py \
+            tools/y2q_hxl1_ghostlock_sendmsg_callsite_audit.py \
+            tools/test_y2q_hxl1_ghostlock_sendmsg_callsite_audit.py
       - name: Run synthetic original-image and dispatch evidence tests
         run: |
           python -m unittest -v \
@@ -84,6 +88,7 @@ jobs:
             tools.test_y2q_hxl1_readiness_consolidate \
             tools.test_y2q_hxl1_ghostlock_crossfork_419_gate \
             tools.test_y2q_hxl1_ghostlock_original_sendmsg_windows \
-            tools.test_y2q_hxl1_ghostlock_sendmsg_frame_attest
+            tools.test_y2q_hxl1_ghostlock_sendmsg_frame_attest \
+            tools.test_y2q_hxl1_ghostlock_sendmsg_callsite_audit
       - name: Verify bounded owner-side report runner shell syntax
         run: bash -n tools/run_y2q_hxl1_ghostlock_sendmsg_frame_attest.sh
