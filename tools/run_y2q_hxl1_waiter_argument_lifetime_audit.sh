@@ -55,6 +55,13 @@ python3 - "$OUT" <<'PY'
 import json,sys
 from pathlib import Path
 r=json.loads(Path(sys.argv[1]).read_text())
+frame=r["compiledSpFrameInventory"]
+print("[ORIGINAL DO_FUTEX INSTRUCTIONS]",frame["originalFunctionInstructionSlots"])
+print("[ORIGINAL SP REFERENCES]",frame["observedInstructionsReferencingSp"])
+print("[SP WRITES]",frame["observedSpWrites"],frame["observedSpWriteOffsets"])
+print("[ENTRY FRAME BYTES]",frame["frameAllocationBytes"])
+print("[OTHER SP MODIFICATIONS / WRITEBACKS]",frame["unexpectedSpInstructionForms"],frame["writebackMemoryInstructionsTouchingSp"])
+print("[C-LOCAL LIFETIME / CROSS-SYSCALL OVERLAP] NOT PROVEN")
 print("[SOURCE LANDMARKS]",len(r["waiterSourceMarkers"]))
 print("[ORIGINAL COMPILED ARGUMENT SITES]",len(r["compiledCallArgumentSites"]))
 for x in r["compiledCallArgumentSites"]:
