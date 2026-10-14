@@ -111,11 +111,13 @@ def can_reach(edges,start,goal,exclude=frozenset()):
 
 def bounded_path_avoiding_register_writes(edges,rows,start,end,register):
     """One conservative path; no claim that its branch predicates are feasible."""
-    pending=[(start,[start])]
+    from collections import deque
+    pending=deque([(start,[start])])
     seen=set()
     store_ops={"str","stp","stur","stnp","stxr","stlxr","stlr","sttr"}
+    call_clobbers={"bl","blr","svc","hvc","smc"}
     while pending and len(seen)<len(rows):
-        pc,path=pending.pop(0)
+        pc,path=pending.popleft()
         if pc in seen or pc not in rows:
             continue
         seen.add(pc)
@@ -125,10 +127,11 @@ def bounded_path_avoiding_register_writes(edges,rows,start,end,register):
         first=row["args"].split(",",1)[0].strip().lower()
         second=(row["args"].split(",",2)[1].strip().lower()
                 if "," in row["args"] else "")
-        writes=(row["op"] not in store_ops and
-                (first in ("x"+register,"w"+register) or
-                 (row["op"]=="ldp" and
-                  second in ("x"+register,"w"+register))))
+        writes=((register=="0" and row["op"] in call_clobbers) or
+                (row["op"] not in store_ops and
+                 (first in ("x"+register,"w"+register) or
+                  (row["op"] in ("ldp","ldnp") and
+                   second in ("x"+register,"w"+register)))))
         if writes:
             continue
         for dest in edges.get(pc,()):
@@ -152,7 +155,19 @@ def compiled_chainwalk_return_capture(rows,edges,returns):
              row["args"] in ("w0, wzr, w20","w0, w20, wzr")):
             path=bounded_path_avoiding_register_writes(
                 edges,rows,capture_pc+4,pc,"20")
+            possibleReturnPaths=[
+                {"returnRelativeVA":rows[ret]["relative"],
+                 "conservativePath":bounded_path_avoiding_register_writes(
+                      edges,rows,pc+4,ret,"0"),
+                 "branchPredicatesJointlyFeasibleVerified":False}
+                for ret in returns
+            ]
             matches.append({
+                "postCopyReturnPaths":possibleReturnPaths,
+                "existsNoSyntacticW0ClobberCandidatePathToReturn":any(
+                    item["conservativePath"] for item in possibleReturnPaths),
+                "interveningCallsTreatedAsW0Clobber":True,
+                "returnValueMustBeNonzeroProven":False,
                 "returnCopyRelativeVA":row["relative"],
                 "originalOpcodeWord":row["word"],
                 "instruction":row["op"]+" "+row["args"],
@@ -162,6 +177,7 @@ def compiled_chainwalk_return_capture(rows,edges,returns):
                     can_reach(edges,pc,ret) for ret in returns),
                 "branchPredicatesJointlyFeasibleVerified":False,
                 "fullReturnValuePropagationProven":False,
+                "runtimeLateErrorOrPostReturnDanglingWaiterProven":False,
             })
     return {
        "chainwalkCallRelativeVA":"0x18c",
@@ -312,7 +328,8 @@ def main():
         for r in f["compiledReturnCopyCandidates"]:
             print("[RETURN COPY CANDIDATE]",r["returnCopyRelativeVA"],r["instruction"],
                   "no-clobber witness",r["w20NotSyntacticallyOverwrittenAlongAConservativePath"],
-                  "may reach ret",r["returnStaticReachableAfterCopy"])
+                  "may reach ret",r["returnStaticReachableAfterCopy"],
+                  "without w0 clobber",r["existsNoSyntacticW0ClobberCandidatePathToReturn"])
         print("[LATE ERROR / LIVE STALE REFERENCE] NOT VERIFIED")
         print("[REPORT]",output)
         return 0
