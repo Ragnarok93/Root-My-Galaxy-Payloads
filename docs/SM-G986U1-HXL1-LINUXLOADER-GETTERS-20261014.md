@@ -1,3 +1,24 @@
+## October 14 — targeted owner-run result authentication hardened (new)
+
+The existing two-function runner previously checked only that the Ghidra response's function-address field looked like a hexadecimal string. A valid response for an *enclosing or neighboring* function could therefore have been accepted for the requested `FUN_00023b00` or `FUN_00023b40` function. This is now fixed **without repeating the already pinned index xrefs or launching extra REA operations**:
+
+1. The existing `tools/y2q_hxl1_linuxloader_getter_callsites.py` exports `verify_getter_dossier()`, requiring the exact original EFI SHA-256, Ghidra `analyze_function` response, request-target echo **and actual returned function-entry equality** after canonical hexadecimal normalization, plus nonempty pseudocode.
+2. The existing `run_y2q_hxl1_linuxloader_getter_functions.sh` delegates the response checks to that shared verifier instead of merely accepting any hex-address function. Each false result remains saved as a labeled `.partial.json` and cannot enter the accepted evidence.
+3. If **both** original getter reports pass, the same runner automatically creates **one bounded** `verified-getter-packet.json` containing the two verified pseudocode bodies and explicit unknowns about selector semantics, DTB overlay mapping and physical Linux handoff. It reuses the two initial REA results; **no third native value trace** is performed.
+4. The existing [Stage 4 offline CI](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/workflows/hxl1-stage4-runtime-dtb-identity-ci.yml) now covers **22 getter-callsite / function-authentication regressions**, including mixed-function swaps, wrong hashes, cancelled results, missing dossier and oversized code. This is a fixture/host-only check; owner-specific provider execution remains unconfirmed.
+
+**Single targeted WSL invocation (no full stage rerun):**
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads && git pull --ff-only
+HXL1_GETTER_CACHE="$HOME/s20-artifacts/hxl1-research/linuxloader-index-cache-20261014T052820Z.json" \
+  bash tools/run_y2q_hxl1_linuxloader_getter_functions.sh
+```
+
+If both targeted originals return, the output directory prints `[PORTABLE TWO-GETTER EVIDENCE] .../verified-getter-packet.json`. This one file is sufficient for a *new* analysis of the two provider bodies; do not ask for the old 398-line formatter report again. If either provider times out, returns the wrong function or fails, retained partials are evidence of failure, **not** selector semantics. Stage 4 stays OPEN until authenticated selection and kernel handoff dataflow or authoritative device-runtime evidence exists; the locked device's `/sys/firmware/devicetree/base` and `/proc/device-tree` reads have already been denied and should not be repeatedly attempted.
+
+---
+
 # HXL1 Stage 4: two original LinuxLoader index getter callsites (2026-10-14)
 
 ## New owner-observed evidence
