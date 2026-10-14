@@ -66,6 +66,12 @@ class CarrierTests(unittest.TestCase):
         r=sample({0:('mov','w20, w17')})
         self.assertEqual(m.analyze(r,{P:[COPY]})['negativeLiteralOriginsCount'],0)
 
+    def test_unreachable_negative_literal_is_not_promoted(self):
+        r=sample({0:('mov','w20, #0'),4:('b',hex(COPY)),8:('mov','w20, #0xffffffdd'),12:('b',hex(COPY))})
+        report=m.analyze(r,{P+4:[COPY],P+12:[COPY]})
+        self.assertEqual(report['negativeLiteralOriginsCount'],0)
+        self.assertFalse(next(x for x in report['definitions'] if x['at']=='0x8')['entryStaticallyReachable'])
+
     def test_copy_word_must_match(self):
         r=sample({0:('mov','w20, #0xffffffdd')})
         r[COPY]['word']='00000000'
