@@ -133,6 +133,16 @@ class FrameAttestationTests(unittest.TestCase):
         with self.assertRaisesRegex(m.VerifyError,"code interval provenance"):
             self.audit()
 
+    def test_premature_runtime_overlap_claim_in_input_is_rejected(self):
+        self.report["sendmsgFrameAliasVerified"]=True
+        with self.assertRaisesRegex(m.VerifyError,"improperly certifies"):
+            self.audit()
+
+    def test_premature_exploit_claim_in_input_is_rejected(self):
+        self.report["actualGhostLockPrimitiveOrRootVerified"]=True
+        with self.assertRaisesRegex(m.VerifyError,"improperly certifies"):
+            self.audit()
+
     def test_unpinned_recovered_nm_digest_rejected(self):
         self.nm+=b"incorrect"
         with self.assertRaisesRegex(m.VerifyError,"recovered nm SHA mismatch"):
