@@ -1,3 +1,13 @@
+## October 14, 05:28 UTC — original LinuxLoader two index getters isolated
+
+The owner completed the previously added no-provider cached analysis against SHA-pinned original `LinuxLoader-HXL1.efi`: all **12/12** tests passed, original `FUN_0002bdf8` decompile consistent across both reports, and exactly two index literals in its 398-line pseudocode. The original Ghidra pseudocode at line 252 calls `FUN_00023b00()`, guards its return against `-1`, and formats `androidboot.dtbo_idx=` at line 254. At line 261 it calls `FUN_00023b40()`, guards `-1`, and formats `androidboot.dtb_idx=` at line 263. Both branches are under the observed `FUN_000235b0()==0` condition. These are the **immediate formatter value getters**, not independently proved index computation/selector algorithms.
+
+The original completed native REA value trace remains **absent**, and HighFunction p-code is marked truncated. Do **not** restart the prior full formatter value trace. Instead see [two getter callsite evidence and bounded capture commands](SM-G986U1-HXL1-LINUXLOADER-GETTERS-20261014.md), with new fail-closed static checker and two explicit per-getter REA `function` requests only if warranted. The tested prior cached auditor was deliberately preserved/restored unchanged. New owner/CI verification of the added getter tests and targeted capture runner is pending.
+
+The indices observed from the handset are still hints, not a proven mapping from `dtb_idx=0` to base FDT candidate 1 or `dtbo_idx=2` to an overlay. Stage 4 physical handoff remains **OPEN**, and no KernelSU/root readiness is claimed.
+
+---
+
 ## October 14 — REA DTB/DTBO native trace was cancelled; do NOT repeat unbounded analysis
 
 **Owner tests:** corrected Stage 4 live-device DTB identity suite **25/25 PASS**. The existing no-root ADB probe established both root-property paths as inaccessible and captured existing dtb_idx=0 and dtbo_idx=2 *hints* (already recorded in October 10 observations). No original selected DTB or physical Linux handoff established.
