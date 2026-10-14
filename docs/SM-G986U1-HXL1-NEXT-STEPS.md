@@ -1,3 +1,21 @@
+## October 14, 09:27 UTC — original futex waiter initializer receives stack-derived pointer
+
+The newly uploaded two-hop `do_futex` report (SHA-256 `9ea5655068fa39ecb0387bb9fa3b566d4463f613a585d977282056364e057321`) and independently rehashed original `do_futex.disasm.txt` establish the consecutive compiled machine instructions `do_futex+0x1190: add x0, sp, #0xc0`, `+0x1194: add x25, sp, #0xc0`, `+0x1198: bl rt_mutex_init_waiter`. Thus the original stock kernel **passes a stack-derived first argument (`x0`) to the recovered waiter-initialization function**, not merely a nearby stack address. The separate `x25` copy is also observed.
+
+The original uploaded Samsung source archive `kernel/futex.c`, independently SHA-verified, declares `struct rt_mutex_waiter rt_waiter` (archived source line 3238), explicitly describes its stack allocation (3263–3265), calls `rt_mutex_init_waiter(&rt_waiter)` (3267), and sets `q.rt_waiter = &rt_waiter` (3274). This is **strong source-to-machine consistency**, but neither archive nor static code alone certifies full compiler C-local attribution, bounds and lifetime, runtime reuse of the same stack storage, GhostLock exploitability or root.
+
+The existing operation-11 verifier was updated in place to fail closed if the exact `x0/x25` sequence or direct `rt_mutex_init_waiter` callee changes; four new synthetic tests bring that suite to **30 written cases**, pending WSL/CI execution. The new [read-only evidence checkpoint](../research/y2q-G986U1UESCHXL1/ghostlock-op11-stack-derived-argument-20261014.json) and [detailed reconciliation](SM-G986U1-HXL1-GHOSTLOCK-OP11-COMPILED-BLOCK-20261014.md) record the original SHA pins, distinct source-vs-machine facts, and unproven conclusions.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh
+```
+
+**Next substantive evidence gate:** compile/source object lifetime and all relevant cleanup and queue-pointer uses under a conservative CFG, with no assumptions about overlap with `sendmsg`. The case-11 direct pointer evidence does not promote Stage 3 or unlock KernelSU. Readiness stays COMPLETE, COMPLETE, PARTIAL, OPEN, OPEN, OPEN, BLOCKED, BLOCKED, DEFERRED.
+
+---
+
 ## October 14, 09:12 UTC — five original HXL1 futex case-11 call targets recovered
 
 Owner supplied and we parsed the updated original static `do_futex` operation-11 report, SHA-256 `82735ba24c2b14b652e0f965cdc9939918d812985153fa1a98548be59731de75` (14,815 bytes). All **five of five** direct BL addresses across the existing depth-two alternatives now have exact recovered symbol labels from the pinned HXL1 NM: `hrtimer_init`, `hrtimer_init_sleeper`, `ktime_add_safe`, **`rt_mutex_init_waiter`**, and `get_futex_key`. The first block remains `do_futex+0xbd0`, 24 instructions, zero direct calls; the later bounded alternative blocks contain all five.
