@@ -1,3 +1,27 @@
+## Targeted remaining compiled-code gap — task_blocks_on_rt_mutex (12:05 UTC)
+
+Do **not** repeat the original stock `remove_waiter` current-vs-target task mismatch: it is **already** source/binary-correlated in `SM-G986U1-HXL1-RTMUTEX-SOURCE-REA-TASK-IDENTITY-20261013.md` (including the early return and post-publication error distinction, plus nonzero 1 return consideration). The preceding broad waiter/stack regression cycles do not establish the post-publication, failing chain-walk *factory compiled path*.
+
+The as-yet-uncorroborated function is `task_blocks_on_rt_mutex` at **original static VA 0xffffff80081479d4**, which the pinned HXL1 `rt_mutex_start_proxy_lock` disassembly reaches by BL. The Linux v4.19 reference implementation sets `task->pi_blocked_on = waiter` **after** the early owner==task branch, and subsequently can call `rt_mutex_adjust_prio_chain` and return its status. Treat that as **upstream/source correspondence only** until its factory HXL1 compiled function is inspected. The official CVE advisory explicitly describes the wrong-task rollback defect but does not prove a particular live Samsung error-path interleaving.
+
+A single-purpose new offline extractor `tools/y2q_hxl1_task_blocks_original_compiled_gap.py` was added for the **previously unanalyzed** stock function only. It requires the **already existing** HXL1 reconstructed stock-vmlinux ELF (SHA-256 `e15f67e8253396d9e6463e5dfd78d67e324a7149842a7fbccb973ec0fd36ecdb`) and exact recovered NM (SHA-256 `c2306a026756230fb009576613c07e5461cccf8fd92ca5f72a52647933870f2f`); disassembles only `task_blocks_on_rt_mutex` within the next recorded recovered text-symbol boundary; lists candidate `task_struct.pi_blocked_on` displacement stores, intervening chain-walk calls, conservative early/post-store return reachability, and bounded machine-code context. No generic code window reruns, kernel compilation, source patches, device actions, exploit attempts or previous stage regression rechecks.
+
+**Trust limit:** a literal `[xN,#2296]` write is only a candidate PI-blocked-on store. Without tracking xN to the queued task argument, return-value propagation, and all control-flow predicates, the original function does **not** yet establish a factory-reachable late failure leaving a stale reference. Even a compiler-reachable condition is not a live device observation or authorization to promote root or KernelSU stages.
+
+Single missing-function extraction on WSL:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 tools/y2q_hxl1_task_blocks_original_compiled_gap.py \
+  --elf "$HOME/s20-artifacts/ghostlock-419/stock-kernel/stock-vmlinux.elf" \
+  --nm "$HOME/s20-artifacts/hxl1-research/vmlinux-stock.nm" \
+  --output "$HOME/s20-artifacts/hxl1-research/hxl1-task-blocks-original-compiled-20261014.json"
+```
+
+The output is a new report for the missing compiled function, not another summary of known `remove_waiter` instructions.
+
+---
 # HXL1 — NEW research: futex_q candidate field layout and concurrent waiter-pointer writer (2026-10-14)
 
 **Purpose:** Resolve two previously OPEN questions, without reiterating earlier call counts, hashes, unit tests, or GhostLock readiness checks. Target factory HXL1 SM-G986U1 Linux 4.19 / Samsung original source and Image-derived disassembly.
