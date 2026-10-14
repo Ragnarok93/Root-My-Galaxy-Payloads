@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "receivedAtUtc": "2026-10-14T06:49:35Z",
+  "evidenceClass": "OWNER_ORIGINAL_SENDMSG_WINDOWS_MANIFEST_UPLOAD",
+  "uploadedOriginalFile": "original-sendmsg-windows.json",
+  "uploadedFileSha256": "8b95591b0da9b8645db862c0d3c2e8b8d9646492fd3dcdb32227dce4a466c7e8",
+  "uploadedBytes": 6416,
+  "uploadedSchemaVersion": 1,
+  "originalKernelReportedSha256": "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123",
+  "originalKernelReportedRehashPassed": true,
+  "recoveredNmSha256": "c2306a026756230fb009576613c07e5461cccf8fd92ca5f72a52647933870f2f",
+  "staticImageTextVA": "0xffffff8008080000",
+  "requestedSymbols": 8,
+  "boundedCodeWindows": 6,
+  "allPresentWindowsCapped": false,
+  "presentFunctions": [
+    {
+      "name": "__sys_sendmsg",
+      "staticImageVA": "0xffffff800966f1b4",
+      "bytes": 240,
+      "sha256": "cbcdebfb280b9936c28f6928395b73a8a1328fa7c740acb836fe46b8631bffd1",
+      "disassemblySha256": "7727fc5415055d255431c4a854a3451038e929b4cb1353f4d8a23502778ff5fe"
+    },
+    {
+      "name": "___sys_sendmsg",
+      "staticImageVA": "0xffffff800966f2a4",
+      "bytes": 728,
+      "sha256": "1336bb7d846bb051d9e8dcea36252124a0e7af79a9fa55a3514711721c188420",
+      "disassemblySha256": "13dee8707ee6c9d264fe5e6880233e1f9872af59afec79bc5ac59089568fe205"
+    },
+    {
+      "name": "__sys_sendto",
+      "staticImageVA": "0xffffff800966ea64",
+      "bytes": 408,
+      "sha256": "add300f1c6d21de67b6cd643bd8365c9351dce00f217b1bfbcf1d873eb753606",
+      "disassemblySha256": "8267c4cd39d2c936f3c5960f0fae335ebe8245e2bcede3dd2ce75d85b9e8e323"
+    },
+    {
+      "name": "__sys_sendmmsg",
+      "staticImageVA": "0xffffff800966f66c",
+      "bytes": 664,
+      "sha256": "2535520ecafb003915aaeced7b74428a7e62cd3fa2700a4e45cba4ebb9de76fc",
+      "disassemblySha256": "87e6e73e37809ba458bb8fd37fe96cd7e58d5b71db2d459385a5d7faf095808f"
+    },
+    {
+      "name": "rw_copy_check_uvector",
+      "staticImageVA": "0xffffff80082db784",
+      "bytes": 536,
+      "sha256": "fa3b233dc485fa18f40139680ffc8a3c904741eef2056eeef587afbcfffd6751",
+      "disassemblySha256": "a4e1e2c87baa02c8501069cb12e03f4da7f8ae7acab38204dda8cf27e5de2553"
+    },
+    {
+      "name": "copy_msghdr_from_user",
+      "staticImageVA": "0xffffff800967357c",
+      "bytes": 408,
+      "sha256": "6e5eb5d45c290125d2e5e99284ee1382f143b1e63a6d669dfa002a81d4609e90",
+      "disassemblySha256": "99e9007c2a5595d27fea8a15fd28cbb5a50d8db2076e65b6eb258ae92cfec05c"
+    }
+  ],
+  "missingNames": [
+    {
+      "name": "____sys_sendmsg",
+      "meaning": "NOT_FOUND_IN_RECOVERED_NM",
+      "compiledAbsenceProven": false
+    },
+    {
+      "name": "futex_wait_requeue_pi",
+      "meaning": "NOT_FOUND_IN_RECOVERED_NM",
+      "compiledAbsenceProven": false
+    }
+  ],
+  "uploaderSuppliedOnlyManifest": true,
+  "originalKernelBytesIndependentlyRehashedInThisTurn": false,
+  "nativeBinaryWindowsOrDisassemblyUploaded": false,
+  "machineStackVariablesIdentified": false,
+  "sourceLocalLifeTimeVerified": false,
+  "adjacentFunctionAddressDoesNotProveStackLocalAdjacency": true,
+  "stage3": "PARTIAL",
+  "stage5": "OPEN",
+  "runtimeGhostLockOrRootVerified": false,
+  "nextVerifier": {
+    "tool": "tools/y2q_hxl1_ghostlock_sendmsg_frame_attest.py",
+    "tests": "tools/test_y2q_hxl1_ghostlock_sendmsg_frame_attest.py",
+    "testCasesWritten": 14,
+    "coverage": "Rehash original kernel, nm, each bounded code window, each disassembly and each decoded ARM64 instruction word; summarize literal SP adjustments without any alias or root claim",
+    "ownerRerunConfirmed": false,
+    "hostedCiPassConfirmed": false,
+    "originalBinDisassemblyRemainOwnerSide": true
+  }
+}
