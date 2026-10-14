@@ -28,6 +28,10 @@ SECURITY_CONFIG = (
     "CONFIG_UH_RKP", "CONFIG_KDP_CRED", "CONFIG_KDP_NS",
     "CONFIG_SECURITY_DEFEX", "CONFIG_RANDOMIZE_BASE",
     "CONFIG_MODULE_SIG_FORCE", "CONFIG_KPROBES", "CONFIG_FUTEX_PI",
+    "CONFIG_MODULES", "CONFIG_MODVERSIONS", "CONFIG_MODULE_FORCE_LOAD",
+    "CONFIG_MODULE_SIG", "CONFIG_MODULE_SIG_SHA512",
+    "CONFIG_UH", "CONFIG_UH_LKM_BLOCK",
+    "CONFIG_FTRACE", "CONFIG_FUNCTION_TRACER", "CONFIG_EXT4_FS",
 )
 SOURCE_FILES = ("kernel/locking/rtmutex.c", "kernel/futex.c")
 BLOCKING_GATES = (
@@ -157,6 +161,63 @@ def inspect_boot_file(path, record, name):
     return {"file": str(file), "sha256": observed, "verified": True}
 
 
+
+def assess_kernel_su_stock_loading(config):
+    """Separate configured features from proven module authorization/hooking.
+
+    Values must come from the exact HXL1 evidence's kernelConfig. Absent keys
+    are unknown: never substitute source defaults or other Galaxy configs.
+    This is a read-only compatibility flag, not a loading attempt.
+    """
+    def feature(name):
+        value = config.get(name, "unknown")
+        return value if value in ("y", "n", "m") else "unknown"
+
+    options = {
+        name: feature(name) for name in (
+            "CONFIG_MODULES", "CONFIG_MODVERSIONS",
+            "CONFIG_MODULE_SIG", "CONFIG_MODULE_SIG_FORCE",
+            "CONFIG_MODULE_SIG_SHA512", "CONFIG_MODULE_FORCE_LOAD",
+            "CONFIG_UH", "CONFIG_UH_RKP", "CONFIG_UH_LKM_BLOCK",
+            "CONFIG_KPROBES", "CONFIG_FTRACE", "CONFIG_FUNCTION_TRACER",
+            "CONFIG_EXT4_FS",
+        )
+    }
+
+    def configured_gate(key, expected="y"):
+        if options[key] == "unknown":
+            return "UNKNOWN_CONFIG_EVIDENCE"
+        return "CONFIGURED" if options[key] == expected else "NOT_CONFIGURED"
+
+    sig = configured_gate("CONFIG_MODULE_SIG_FORCE")
+    vendor = configured_gate("CONFIG_UH_LKM_BLOCK")
+    kprobe = configured_gate("CONFIG_KPROBES")
+    func = configured_gate("CONFIG_FUNCTION_TRACER")
+    mod = configured_gate("CONFIG_MODULES")
+    return {
+        "classification": "STAGE7_BLOCKED_NO_LOAD_OR_HOOK_PROOF",
+        "configValues": options,
+        "moduleInfrastructure": mod,
+        "mandatoryModuleSignature": sig,
+        "samsungLkmBlockingConfig": vendor,
+        "kprobeFeature": kprobe,
+        "functionTracerFeature": func,
+        "upstreamConfigMayDifferFromRmgFork": True,
+        "trustedHxl1SigningKeyProven": False,
+        "moduleAuthorizedToLoadProven": False,
+        "kernelSu419HookBackendDemonstrated": False,
+        "kdpDefexCompatibilityDemonstrated": False,
+        "factoryKernelSuLoaded": False,
+        "limits": (
+            "Config entries describe compiled capabilities only. "
+            "CONFIG_MODULES=y does not prove module admission. "
+            "CONFIG_FTRACE=y does not imply CONFIG_FUNCTION_TRACER=y. "
+            "A runtime root transition would not prove signature acceptance "
+            "or Samsung UH LKM policy bypass. Unseen entries stay unknown."
+        ),
+    }
+
+
 def make_report(evidence, source_report, image_checks):
     data = inspect_configuration(evidence)
     shizuku = evidence.get("shizuku", {})
@@ -176,6 +237,8 @@ def make_report(evidence, source_report, image_checks):
         ),
         "stockKernelInspection": source_report,
         "kernelConfig": data["securityFeatures"],
+        "kernelSu419Integration": assess_kernel_su_stock_loading(
+            data["securityFeatures"]),
         "bootArtifactChecks": image_checks,
         "runtimeEvidence": {
             "shellUid": shizuku["uid"],
