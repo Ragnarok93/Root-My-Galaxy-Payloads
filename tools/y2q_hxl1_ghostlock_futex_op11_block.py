@@ -230,7 +230,7 @@ def review(archive:Path,nm:Path)->dict:
     return {
       "schemaVersion":1,
       "target":"SM-G986U1/G986U1UESCHXL1",
-      "scope":"EXISTING_ORIGINAL_DOFUTEX_OP11_SINGLE_STATIC_BASIC_BLOCK",
+      "scope":"ORIGINAL_DOFUTEX_OP11_BOUNDED_TWO_HOP_STATIC_BRANCH_INSPECTION",
       "originalDisassemblyArchiveSha256":ARCHIVE_SHA,
       "originalNmSha256":EXPECTED_NM,
       "originalKernelImageRehashedByThisAudit":False,
