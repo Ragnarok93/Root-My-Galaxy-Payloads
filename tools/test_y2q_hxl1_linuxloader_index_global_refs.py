@@ -120,7 +120,7 @@ class XrefTests(unittest.TestCase):
         text,report,section=self._context_fixture()
         corrupted=bytearray(text)
         struct.pack_into('<I',corrupted,0x104,0xd503201f)
-        with self.assertRaisesRegex(m.Stop,'Reference not confirmed|SHA mismatch'):
+        with self.assertRaisesRegex(m.Stop,'Original loader SHA mismatch'):
             self._evaluate_context(bytes(corrupted),report,section)
 
     def test_existing_report_rejects_modified_global_summary(self):
@@ -133,6 +133,7 @@ class XrefTests(unittest.TestCase):
         text,report,section=self._context_fixture()
         corrupted=bytearray(text)
         struct.pack_into('<I',corrupted,0x100,0x90000009) # different page
+        report['originalLinuxLoaderSha256']=hashlib.sha256(corrupted).hexdigest()
         with self.assertRaisesRegex(m.Stop,'Reference not confirmed'):
             self._evaluate_context(bytes(corrupted),report,section)
 
@@ -146,6 +147,7 @@ class XrefTests(unittest.TestCase):
                          0xb9000000 | ((0x4d0//4)<<10) | (9<<5) | 8)
         row=next(x for x in report['directScalarReferences'] if x['mode']=='WRITE')
         row['accessRva']='0x23c08'
+        report['originalLinuxLoaderSha256']=hashlib.sha256(corrupted).hexdigest()
         with self.assertRaisesRegex(m.Stop,'base clobber'):
             self._evaluate_context(bytes(corrupted),report,section)
 
