@@ -102,6 +102,78 @@ def statically_reachable(edges, start, goal):
             if next_pc not in seen:q.append(next_pc)
     return False
 
+def shortest_entry_path(edges, start, goal, rows):
+    """Concrete instruction-graph witness, not satisfiable branch predicates."""
+    if start not in rows or goal not in rows:
+        return None
+    pending=deque([start]);before={start:None}
+    while pending:
+        pc=pending.popleft()
+        if pc==goal:break
+        for nxt in edges.get(pc,()):
+            if nxt in rows and nxt not in before:
+                before[nxt]=pc
+                pending.append(nxt)
+    if goal not in before:
+        return None
+    path=[];pc=goal
+    while pc is not None:
+        path.append(pc);pc=before[pc]
+    return path[::-1]
+
+def original_error_branch_packet(rows, edges, candidate_definitions):
+    """One-time portable stock instruction ledger for the still-open guard study.
+
+    The owner can upload this one report instead of repeatedly running new
+    little extractors against the same original ELF on WSL.
+    """
+    result=[]
+    for d in candidate_definitions:
+        pc=ENTRY+int(d['at'],16)
+        path=shortest_entry_path(edges,ENTRY,pc,rows)
+        require(path is not None,'Negative literal unexpectedly unreachable')
+        branch_choices=[]
+        for current,nxt in zip(path,path[1:]):
+            row=rows[current]
+            if row['op'] in ('cbz','cbnz','tbz','tbnz') or row['op'].startswith('b.'):
+                branch_choices.append({
+                    'offset':hex(current-ENTRY),
+                    'operation':row['op'],
+                    'operands':row['args'],
+                    'selectedSuccessor':hex(nxt-ENTRY),
+                    'isFallthrough':nxt==current+4,
+                    'simultaneousPredicateFeasibilityProven':False,
+                })
+        incoming=sorted(start for start,targets in edges.items() if pc in targets)
+        context=[{'offset':row['relative'],'word':row['word'],
+                  'operation':row['op'],'operands':row['args']}
+                 for at,row in sorted(rows.items())
+                 if abs(at-pc)<=0x60]
+        result.append({
+            'negativeAssignmentOffset':d['at'],
+            'signed32Literal':d['signed32Literal'],
+            'originalMachineWord':d['machineWord'],
+            'entryToAssignmentShortestPathOffsets':[hex(at-ENTRY) for at in path],
+            'branchDecisionsOnShortestPath':branch_choices,
+            'directPredecessorOffsets':[hex(at-ENTRY) for at in incoming],
+            'localOriginalInstructionContext':context,
+            'pathIsAConservativeGraphWitness':True,
+            'sourceGuardMappedToDepthOrDeadlockCycle':False,
+            'runtimePredicateSatisfiabilityProven':False,
+        })
+    ledger=[{'offset':r['relative'],'machineWord':r['word'],
+             'op':r['op'],'args':r['args']}
+            for _,r in sorted(rows.items())]
+    return {
+        'targetFunction':'rt_mutex_adjust_prio_chain',
+        'originalFunctionInstructions':ledger,
+        'totalInstructions':len(ledger),
+        'negativeReturnOriginGuardContexts':result,
+        'fullFunctionIncludedToAvoidRepeatedOwnerExtraction':True,
+        'compiledBranchGuardSatisfiabilityProven':False,
+        'postPublicationRollbackAndLifetimeProven':False,
+    }
+
 def analyze(rows,edges):
     copy_pc=ENTRY+COPY_OFFSET
     require(copy_pc in rows and rows[copy_pc]['word']==COPY_WORD and
@@ -127,7 +199,9 @@ def analyze(rows,edges):
             'feasibleWithOtherThreadsProven':False,
         })
     negatives=[d for d in definitions if d['isNegativeLiteral'] and d['witness'] and d['entryStaticallyReachable']]
+    guard_context=original_error_branch_packet(rows,edges,negatives)
     return {
+        'originalErrorBranchEvidence':guard_context,
         'schemaVersion':1,
         'target':'SM-G986U1/G986U1UESCHXL1',
         'scope':'SINGLE_STOCK_CHAINWALK_W20_RETURN_CARRIER_ORIGINS',
@@ -180,6 +254,10 @@ def main(argv=None):
         print('[W20 ORIGINAL DEFINITIONS]',result['definitionsCount'])
         print('[NEGATIVE LITERAL CANDIDATE PATHS]',result['negativeLiteralOriginsCount'])
         print('[DEADLOCK ERROR LITERAL CANDIDATE PATHS]',result['deadlockLiteralOriginsCount'])
+        print('[PORTABLE STOCK INSTRUCTION LEDGER]',
+              result['originalErrorBranchEvidence']['totalInstructions'])
+        print('[ERROR ORIGIN GUARD CONTEXTS]',
+              len(result['originalErrorBranchEvidence']['negativeReturnOriginGuardContexts']))
         for d in result['negativeLiteralOriginsWithConservativeWitness']:
             print('[CANDIDATE]',d['at'],d['instruction'],d['signed32Literal'])
         print('[RUNTIME PREDICATES AND LIFETIME] UNVERIFIED')
