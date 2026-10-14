@@ -50,7 +50,8 @@ def safe_read(path:Path,max_bytes:int):
             and 0<path.stat().st_size<=max_bytes,"Missing/unsafe input: "+str(path))
     return path.read_bytes()
 
-def read_symbols(raw:bytes,expected_hash:str=ORIGINAL_NM_SHA):
+def read_symbols(raw:bytes,expected_hash:str|None=None):
+    expected_hash=ORIGINAL_NM_SHA if expected_hash is None else expected_hash
     require(sha(raw)==expected_hash,"Original recovered NM SHA256 mismatch")
     parsed=stock.parse_nm(raw.decode("utf-8","strict"))
     require(parsed.get("_text",(-1,))[0]==stock.IMAGE_VA,
