@@ -1,3 +1,36 @@
+## October 14, 04:30 UTC — live ADB property parser stopped (fixed to retain diagnostic)
+
+The owner ran `tools.test_y2q_hxl1_runtime_dtb_identity` on WSL: **12/12 PASS**. A subsequent authorized unprivileged ADB probe failed with:
+
+```
+[STOP] FDT root property contains unsafe/nonprintable bytes
+cat: ...hxl1-live-dtb-root-20261014T043012Z.json: No such file or directory
+```
+
+The old code read the root `model` and `compatible` byte streams, then rejected any component containing `str.isprintable() == False` *before* writing a report. The console error lacks the offending property name or byte value. **This establishes a parser limit, not a failed or successful original DTB candidate match.** Never guess the nonprintable character's cause (newline, carriage return, malformed string, etc.) without raw evidence.
+
+Committed diagnostic-mode correction: `tools/y2q_hxl1_runtime_dtb_identity.py` now identifies the failing field and emits a fresh structured `ROOT_PROPERTY_PARSE_REQUIRES_REVIEW` JSON on malformed UTF-8, unexpected controls or other invalid model/compatible forms. It preserves only bounded first/last raw-property hex, SHA-256, lengths and first non-NUL control offset. No device serial, IMEI, arbitrary filesystem content or memory dump is captured. **It does not silently strip malformed data**, and does not promote a candidate match on this path. It returns a nonzero status *after* writing the diagnostic JSON. Six synthetic cases expand the existing 12 to 18; new CI/owner execution still needs to verify them.
+
+Run a single fresh **read-only** retry on the already-authorized handset:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_runtime_dtb_identity
+
+OUT="$HOME/s20-artifacts/hxl1-research/hxl1-live-dtb-diagnostic-$(date -u +%Y%m%dT%H%M%SZ).json"
+python3 tools/y2q_hxl1_runtime_dtb_identity.py --output "$OUT"
+RET=$?
+echo "probe exit: $RET"
+if test -s "$OUT"; then cat "$OUT"; else echo "ADB property read/evidence preflight failed before report creation"; fi
+```
+
+The diagnostic report is expected even if the parse step exits with status 2. Review `parseError`, `rawPropertyDiagnostics.model.firstControlByteExcludingNul` and the corresponding compatible property; the raw prefix hex then distinguishes a genuine embedded FDT control byte from ADB transport artifacts. No normalization or bootloader-selected DTB inference should be made until the uploaded diagnostic is examined.
+
+**Stage 4 remains OPEN**, physical Linux kernel base and runtime DTB selection unverified; KernelSU remains blocked.
+
+---
+
 # HXL1 authoritative readiness accepted; Stage 4 live DTB root identity
 
 2026-10-14 UTC. Research-only; this does not run an exploit, load a module, or modify firmware.
