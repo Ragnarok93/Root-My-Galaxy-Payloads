@@ -33,6 +33,38 @@ class Stop(ValueError):pass
 def need(ok,message):
     if not ok:raise Stop(message)
 
+
+def overwrites_page_base(word:int,reg:int)->bool:
+    """Recognize common A64 writes which invalidate an ADRP register value.
+
+    This is intentionally a *bounded partial kill-set*, not a general AArch64
+    def-use solver. Treat matches as candidates, never proof of all writers.
+    """
+    rd=word&31
+    # ADR/ADRP, immediate arithmetic, move-wide and common logical/ALU
+    # register/immediate operations. These replace the tracked base register.
+    if rd==reg and (
+        (word&0x1f000000)==0x10000000  # ADR/ADRP
+        or (word&0x1f000000)==0x11000000  # ADD/SUB immediate
+        or (word&0x1f800000)==0x12800000  # MOVZ/MOVN/MOVK
+        or (word&0x1f000000) in (0x0a000000,0x0b000000)  # logical/arithmetic registers
+        or (word&0x1f800000)==0x12000000  # logical immediate
+    ):
+        return True
+    # Loads to the tracked register (including a load through its own base).
+    # Stores do not overwrite Rt. This covers exact unsigned immediate
+    # scalar encodings already recognized by the scanner.
+    for mask,opcode,mode,_size in ENCODINGS:
+        if mode=='READ' and (word&mask)==opcode and rd==reg:
+            return True
+    # LDP/LDNP also assign Rt2; this cannot be detected by merely testing
+    # the low destination bits. Ignore STP/STNP which only read both.
+    if (word&0x3a000000)==0x28000000 and word&0x00400000:
+        if rd==reg or ((word>>10)&31)==reg:
+            return True
+    return False
+
+
 def scan_words(code:bytes,text_rva:int,addresses=TARGETS):
     """Return bounded direct same-register references; no path feasibility proof."""
     need(len(code)%4==0,'Text code size is not word-aligned')
@@ -61,11 +93,10 @@ def scan_words(code:bytes,text_rva:int,addresses=TARGETS):
                                   'isExact32BitAccess':size==4 and addr==target,
                                   'sameBasicBlockProven':False,
                                   'readWriteRegisterValueProven':False})
-            # Known ADRP, ADR and ADD-immediate replacing the page-base
-            # register break our assumption. Unknown register writes remain a
-            # limitation; matches are candidates, not certified dataflow.
-            if (w&31)==reg and ((w&0x9f000000) in (0x90000000,0x10000000)
-                                  or w&0xff000000 in (0x91000000,0xd1000000)):
+            # Do not extend an ADRP provenance beyond a known definition of
+            # that same register; otherwise a later STR can be a false global
+            # writer. Unrecognized writes remain explicitly out of scope.
+            if overwrites_page_base(w,reg):
                 break
     return found
 
