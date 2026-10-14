@@ -53,27 +53,16 @@ for item in "dtbo 0x23b00" "dtb 0x23b40"; do
   if python3 - "$partial" "$address" "$PIN" <<'PY'
 import json,sys
 from pathlib import Path
+from tools import y2q_hxl1_linuxloader_getter_callsites as attestation
+
 p=Path(sys.argv[1])
-addr=sys.argv[2]
-pin=sys.argv[3]
-if p.stat().st_size<=0 or p.stat().st_size>12_000_000 or p.is_symlink():
+if p.is_symlink() or not p.is_file() or not 0 < p.stat().st_size <= 12_000_000:
     raise SystemExit("Unsafe/empty/oversized REA result")
-d=json.loads(p.read_text(encoding="utf-8"))
-if not isinstance(d,dict) or "error" in d:
-    raise SystemExit("REA did not provide a successful dossier")
-if d.get("operation")!="analyze_function" or d.get("provider",{}).get("id")!="ghidra":
-    raise SystemExit("Wrong REA operation/provider")
-if d.get("subject",{}).get("digest",{}).get("sha256")!=pin:
-    raise SystemExit("Wrong original LinuxLoader hash")
-if d.get("parameters",{}).get("procedure")!=addr:
-    raise SystemExit("REA requested procedure differs from target")
-n=d.get("normalized_result",{})
-fn=n.get("procedure",{}) if isinstance(n,dict) else {}
-if not isinstance(fn.get("address"),str) or not fn["address"].startswith("0x"):
-    raise SystemExit("Missing Ghidra function identity")
-if not isinstance(n.get("pseudocode"),str):
-    raise SystemExit("Missing Ghidra decompilation text")
-print("[VERIFIED STATIC DOSSIER]",addr,"entry=",fn["address"])
+result=attestation.verify_getter_dossier(
+    json.loads(p.read_text(encoding="utf-8")), sys.argv[2], sys.argv[3])
+print("[VERIFIED STATIC GETTER IDENTITY]", result["requestedAddress"],
+      "=", result["returnedFunctionEntry"])
+print("[SELECTOR ALGORITHM / PHYSICAL HANDOFF] NOT VERIFIED")
 PY
   then
     mv "$partial" "$final"
