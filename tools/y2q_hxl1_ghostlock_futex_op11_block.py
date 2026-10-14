@@ -223,6 +223,49 @@ def verify_known_twohop_callees(branch:dict)->None:
     need(sorted(seen)==sorted(expected),"Original two-hop recovered callee ledger drift")
 
 
+def verify_stack_derived_waiter_init_argument(branch:dict)->dict:
+    """Prove a single original ARM64 x0 value at one call, not object lifetime.
+
+    This is local, straight-line instruction provenance. It does not identify
+    C-local object bounds, source inlining, full control flow, or an exploit.
+    """
+    blocks=[b for b in branch["twoHopSuccessorBlocks"]
+            if b["relativeToDoFutexEntry"]=="0x118c"]
+    need(len(blocks)==1,"Original waiter-init branch block missing")
+    block=blocks[0]
+    rows={i["relativeToDoFutexEntry"]:(i["opcode"],i["operands"])
+          for i in block["instructions"]}
+    expected={
+        "0x118c":("mov","x20, xzr"),
+        "0x1190":("add","x0, sp, #0xc0"),
+        "0x1194":("add","x25, sp, #0xc0"),
+        "0x1198":("bl","0xffffff80081474fc"),
+    }
+    need(all(rows.get(offset)==instruction for offset,instruction in expected.items()),
+         "Original waiter-init x0/x25 instruction provenance drift")
+    calls=[call for call in block["directCalls"]
+           if call["relativeToDoFutexEntry"]=="0x1198"]
+    need(len(calls)==1 and
+         calls[0]["recoveredTarget"].get("status")=="EXACT_RECOVERED_TEXT_LABEL" and
+         calls[0]["recoveredTarget"].get("labels")==["rt_mutex_init_waiter"],
+         "Original waiter-init call target or label drift")
+    return {
+        "status":"STRAIGHT_LINE_ORIGINAL_ARM64_ARGUMENT_REGISTER_VERIFIED",
+        "relativeCalleeCallsite":"0x1198",
+        "calleeRecoveredLabel":"rt_mutex_init_waiter",
+        "x0AddressConstructionRelativeOffset":"0x1190",
+        "x0Expression":"sp + 0xc0",
+        "x25SameAddressConstructionRelativeOffset":"0x1194",
+        "x25Expression":"sp + 0xc0",
+        "x0OverwrittenBetweenConstructionAndCall":False,
+        "stackDerivedFirstArgumentObserved":True,
+        "aarch64FirstArgumentRegister":"x0",
+        "stackFramePointerLifetimeVerified":False,
+        "sourceLocalRtMutexWaiterSizeAndIdentityCertified":False,
+        "stackOverlapOrExploitProven":False,
+    }
+
+
 def review(archive:Path,nm:Path)->dict:
     need(archive.is_file() and not archive.is_symlink() and
          0<archive.stat().st_size<4_000_000,
@@ -249,6 +292,7 @@ def review(archive:Path,nm:Path)->dict:
          actual==expected and branch["twoHopDirectCalls"]==5,
          "Pinned original operation-11 two-hop block inventory mismatch")
     verify_known_twohop_callees(branch)
+    waiter_argument=verify_stack_derived_waiter_init_argument(branch)
     return {
       "schemaVersion":1,
       "target":"SM-G986U1/G986U1UESCHXL1",
@@ -260,6 +304,7 @@ def review(archive:Path,nm:Path)->dict:
       "originalArchiveInstructionSlotsVerified":4102,
       "operation11StaticallyReachableUnderConservativeCFG":True,
       "operation11LinearBlock":branch,
+      "waiterInitStackDerivedArgument":waiter_argument,
       "exactFutexWaiterCompilerLocalProven":False,
       "originalWaiterLifetimeOrStackAliasProven":False,
       "usableGhostLockPrivilegeEscalationProven":False,
@@ -302,6 +347,7 @@ def main():
                   "instructions=",sub["instructionSlots"],
                   "direct BL calls=",len(sub["directCalls"]))
         print("[SECOND-HOP DIRECT CALLS]",b["twoHopDirectCalls"])
+        print("[WAITER INIT X0 ARGUMENT]",result["waiterInitStackDerivedArgument"]["x0Expression"],"STATIC ONLY")
         print("[COMPILER WAITER-LOCAL, STACK REUSE, ROOT] UNVERIFIED")
         print("[REPORT]",out)
         return 0
