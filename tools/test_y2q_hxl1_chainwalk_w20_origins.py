@@ -72,6 +72,30 @@ class CarrierTests(unittest.TestCase):
         self.assertEqual(report['negativeLiteralOriginsCount'],0)
         self.assertFalse(next(x for x in report['definitions'] if x['at']=='0x8')['entryStaticallyReachable'])
 
+    def test_portable_branch_guard_context_and_complete_code_ledger(self):
+        r=sample({0:('mov','w20, #0xffffffdd'),
+                  4:('b.eq',hex(COPY)),
+                  8:('mov','w20, #0')})
+        edges={P:[P+4],P+4:[P+8,COPY],P+8:[COPY]}
+        evidence=m.analyze(r,edges)['originalErrorBranchEvidence']
+        self.assertEqual(evidence['totalInstructions'],len(r))
+        self.assertTrue(evidence['fullFunctionIncludedToAvoidRepeatedOwnerExtraction'])
+        origin=evidence['negativeReturnOriginGuardContexts'][0]
+        self.assertEqual(origin['negativeAssignmentOffset'],'0x0')
+        self.assertEqual(origin['entryToAssignmentShortestPathOffsets'],['0x0'])
+        self.assertFalse(origin['runtimePredicateSatisfiabilityProven'])
+        self.assertEqual(len(evidence['originalFunctionInstructions']),len(r))
+
+    def test_guard_packet_refuses_absent_negative_origin_entry_path(self):
+        r=sample({0:('mov','w20, #0'),
+                  4:('b',hex(COPY)),
+                  8:('mov','w20, #0xffffffdd'),
+                  12:('b',hex(COPY))})
+        with self.assertRaisesRegex(m.GapError,'unreachable'):
+            m.original_error_branch_packet(r,{P+4:[COPY],P+12:[COPY]},
+              [{'at':'0x8','signed32Literal':-35,
+                'machineWord':'d503201f'}])
+
     def test_copy_word_must_match(self):
         r=sample({0:('mov','w20, #0xffffffdd')})
         r[COPY]['word']='00000000'
