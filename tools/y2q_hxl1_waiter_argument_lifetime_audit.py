@@ -182,6 +182,48 @@ def compiled_sp_integrity(rows:dict)->dict:
        "runtimeWaiterToSendmsgFrameOverlapProven":False,
     }
 
+X25_USE=re.compile(r"(?<![A-Za-z0-9_])[wx]25(?![A-Za-z0-9_])",re.I)
+
+def compiled_conditional_waiter_pointer_store(rows:dict)->dict:
+    """Track a callee-preserved stack-derived register to a conditional store.
+
+    Does not identify which C variable or struct field receives the pointer.
+    """
+    required={
+      0x1194:("910303f9","add","x25, sp, #0xc0"),
+      0x1198:("97fedf8e","bl","0xffffff80081474fc"),
+      0x11b0:("94000e84","bl","0xffffff80081930ec"),
+      0x11b4:("35004ac0","cbnz","w0, 0xffffff8008190038"),
+      0x11d0:("a90a6ff9","stp","x25, x27, [sp, #160]"),
+    }
+    check(all(rows.get(BASE+offset)==expected for offset,expected in required.items()),
+          "Original conditional waiter pointer store provenance drift")
+    for offset in range(0x1198,0x11d0,4):
+        check(BASE+offset in rows,"Incomplete original waiter pointer register interval")
+        check(not X25_USE.search(rows[BASE+offset][2]),
+              "Intervening original x25/w25 register use requires review")
+    return {
+      "status":"BOUNDED_ORIGINAL_X25_TO_STACK_STORE_VERIFIED",
+      "sourcePointerCreationRelativeOffset":"0x1194",
+      "sourcePointerExpression":"sp + 0xc0",
+      "calleeSavedRegister":"x25",
+      "normalAarch64AbiCalleePreservationAssumed":True,
+      "callsitesCrossedBeforeStore":["0x1198","0x11b0"],
+      "conditionalBranchRelativeOffset":"0x11b4",
+      "branchWhenW0NonzeroSkipsThisStore":True,
+      "fallThroughWhenW0ZeroToStore":True,
+      "storeRelativeOffset":"0x11d0",
+      "storeInstruction":"stp x25, x27, [sp, #160]",
+      "firstStoredValue":"x25, presumed sp + 0xc0 under ABI",
+      "firstStoredValueStackOffset":"sp + 0xa0",
+      "secondStoredValueStackOffset":"sp + 0xa8",
+      "interveningSyntacticX25Writes":0,
+      "originalCompilerSourceLocalFieldIdentified":False,
+      "queuePointerFieldProven":False,
+      "conditionalBlockingOrWaiterLifetimeProven":False,
+      "crossSyscallStackReuseProven":False,
+    }
+
 def source_markers(raw:bytes):
     text=raw.decode('utf-8','strict')
     start=text.find('static int futex_wait_requeue_pi(')
@@ -216,6 +258,7 @@ def audit(source:Path,disasm:Path,nm:Path|None=None):
     instructions=parse_original_instructions(a)
     uses=compiled_argument_ledger(instructions)
     frame=compiled_sp_integrity(instructions)
+    pointer_store=compiled_conditional_waiter_pointer_store(instructions)
     if nm is not None:exact_nm_labels(file_bytes(nm,20_000_000))
     return {
         'schemaVersion':1,'target':TARGET,
@@ -229,6 +272,7 @@ def audit(source:Path,disasm:Path,nm:Path|None=None):
         'waiterSourceMarkers':markers,
         'compiledCallArgumentSites':uses,
         'compiledSpFrameInventory':frame,
+        'conditionalWaiterDerivedPointerStore':pointer_store,
         'sameLiteralSpRelativeExpressionAcrossThreeStaticSites':True,
         'compiledSourceLocalWaiterObjectIdentityCertified':False,
         'conditionalWaiterLifetimeAcrossAllPathsCertified':False,
