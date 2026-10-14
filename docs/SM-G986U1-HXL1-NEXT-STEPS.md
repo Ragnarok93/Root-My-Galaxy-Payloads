@@ -1,3 +1,26 @@
+## October 14, 07:13 UTC — six factory sendmsg ARM64 entry frames attested
+
+Owner supplied the full HXL1 `ghostlock-sendmsg-frame-20261014T071250203042958Z.json` report, independently hashed as `a0426c036e614611c368338c9f80e298f13b23bc238e1b3dc67aa1a3c20dcc10`. The owner-side tool rehashed the exact original Image, Nm, six code slices and saved disassemblies, checking **746 native instruction slots** against original Image machine words.
+
+Original compiler-generated static entry allocations are now observed for `__sys_sendmsg` (144 bytes), `___sys_sendmsg` (400), `__sys_sendto` (320), `__sys_sendmmsg` (352), `rw_copy_check_uvector` (80), and `copy_msghdr_from_user` (112). Each has an equal-size textual restoration. **Do not** infer all-path stack-frame behavior, specific C locals or a reused `rt_mutex_waiter`. Recovered names `____sys_sendmsg` and `futex_wait_requeue_pi` remain absent; no compiled-function absence is proven.
+
+A new offline, fail-closed `tools/y2q_hxl1_ghostlock_sendmsg_callsite_audit.py` and 13 synthetic tests analyze verified original code-window disassemblies for **literal** BL/BLR calls and nearby SP-relative constructions, preserving a strict lexical-proximity-only conclusion. The static result does not prove pointer argument identities, object lifetimes, a blocking sendmsg carrier, exploit success, or KernelSU. The new suite is in GhostLock CI, but a passing owner/hosted run has **not yet been observed**. See [the exact frame ledger and one-shot command](SM-G986U1-HXL1-GHOSTLOCK-SENDMSG-STATIC-FRAMES-20261014.md) and [machine-readable result](../research/y2q-G986U1UESCHXL1/ghostlock-original-sendmsg-frame-owner-20261014.json).
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_ghostlock_sendmsg_callsite_audit
+
+EVIDENCE="$HOME/s20-artifacts/hxl1-research"
+OUT="$EVIDENCE/ghostlock-sendmsg-calls-$(date -u +%Y%m%dT%H%M%SZ).json"
+python3 -m tools.y2q_hxl1_ghostlock_sendmsg_callsite_audit --evidence-dir "$EVIDENCE" --output "$OUT"
+cat "$OUT"
+```
+
+No firmware re-extraction, new kernel build, ADB, REA, exploit invocation or source change is necessary. Stage 3 PARTIAL, Stage 5 OPEN, KernelSU BLOCKED.
+
+---
+
 ## October 14, 06:49 UTC — original HXL1 sendmsg windows accepted; byte-level audit next
 
 Owner uploaded original-sendmsg-windows.json (SHA-256 8b95591b0da9b8645db862c0d3c2e8b8d9646492fd3dcdb32227dce4a466c7e8): six of eight requested original Samsung code windows found, all capped=false, each with saved disassembly metadata. Recovered `____sys_sendmsg` and `futex_wait_requeue_pi` names were absent, but **compiled absence/inlining is not proved**. No original disassembly text was uploaded in this message; the actual saved .bin/disasm files remain on owner WSL. The manifest verifies original kernel SHA on the owner's side, but those kernel bytes were not rehashed here.
