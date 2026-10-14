@@ -13,6 +13,14 @@ from pathlib import Path
 import re
 import sys
 
+# Direct execution (python3 tools/this_file.py) puts tools/, not the
+# repository root, on sys.path. Preserve package-style imports in both modes.
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from tools.y2q_linuxloader_rea_stage4_xrefs import parse_xrefs
+from tools.y2q_linuxloader_rea_stage4_functions import validated
+
 LOADER_PIN = '5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003'
 EXPECTED = (
     ('dtb-index', '0xbfd99', '0x2c350'),
@@ -89,8 +97,6 @@ def review_cached(run: Path, loader: Path, partial: Path) -> dict:
     insist(run.is_dir() and not run.is_symlink(), 'Missing/symlink cached REA run')
     insist(loader.is_file() and not loader.is_symlink() and sha(loader)==LOADER_PIN,
            'Original stock HXL1 LinuxLoader file SHA mismatch')
-    from tools.y2q_linuxloader_rea_stage4_xrefs import parse_xrefs
-    from tools.y2q_linuxloader_rea_stage4_functions import validated
     reports=[]
     for name, literal, source in EXPECTED:
         refs=parse_xrefs(run/(name+'-xrefs.json'),literal)
