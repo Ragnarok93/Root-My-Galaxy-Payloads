@@ -1,3 +1,26 @@
+## October 14, 13:07 UTC — return-register segment resolved; next missing function is PI-chain error origin
+
+The owner supplied the post-copy report `hxl1-task-blocks-postcopy-return-20261014.json`, SHA-256 `bbb9e3817e0fbf965d7f34601b8ca9e3b0c6463def9a753a74b33d5ec3f5aaa6`, generated from the already SHA-pinned stock ELF/NM. Its conservative original-machine path preserves `w0` after `task_blocks_on_rt_mutex +0x2b8: mov w0,w20` through `ret +0x2d4`: `+0x2bc → +0x2c0 → +0x2c4 → +0x2c8 → +0x2cc → +0x2d0 → +0x2d4`. A prior segment captures `rt_mutex_adjust_prio_chain`'s `w0` into `w20` at `+0x190` and copies it back at `+0x2b8`. The tool treats intervening calls as clobbers, and this reported path has none. **This closes the bounded return-register-preservation question, not the nonzero-result/runtime-feasibility gate.** The report explicitly leaves actual nonzero chain-walk error, simultaneous branch predicate feasibility, original C task identity and post-return stale pointer unproven.
+
+**NEW source-derived constraint (Linux 4.19 reference, not newly OEM-compiled):** `rt_mutex_adjust_prio_chain` has two syntactic `-EDEADLK` origins: exceeding `max_lock_depth`, and detecting either `lock == orig_lock` or `rt_mutex_owner(lock) == top_task` while holding the requisite locks. The old HXL1 Stage-3 source investigation already noted both corresponding Samsung source regions; these are plausible **late** error classes, unlike the separate early `owner == task` rejection before waiter publication. They are not demonstrated to be executable in any particular HXL1 user-controlled thread interleaving. The proxy start caller's zero-on-missing-owner guard remains another necessary gate.
+
+One read-only, missing-function-only extractor was committed: `tools/y2q_hxl1_chainwalk_original_return_origins.py`. It consumes the **already existing** exact SHA-pinned stock-vmlinux ELF and recovered NM, disassembles *only* recovered `rt_mutex_adjust_prio_chain` at original entry `0xffffff8008146ca4`, inventories its source-independent original return sites, return-register write candidates, immediate negative error candidates, and bounded return paths that avoid syntactic `w0` clobbers. Calls count as clobbers; state-space feasibility and interprocedural memory side effects remain unknown. Three new synthetic tests isolate these rules; no prior stack/rtmutex suites are required.
+
+Only new function extraction (one time):
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -q tools.test_y2q_hxl1_chainwalk_original_return_origins
+python3 tools/y2q_hxl1_chainwalk_original_return_origins.py \
+  --elf "$HOME/s20-artifacts/ghostlock-419/stock-kernel/stock-vmlinux.elf" \
+  --nm "$HOME/s20-artifacts/hxl1-research/vmlinux-stock.nm" \
+  --output "$HOME/s20-artifacts/hxl1-research/hxl1-chainwalk-original-return-origins-20261014.json"
+```
+
+**Outstanding proof**, unchanged: a nonzero chain-walk error under satisfiable original-target concurrency conditions, lock owner state simultaneously satisfying the proxy rollback guard, and a target-task reference surviving valid cleanup and stack unwinding. The source failure cases plus static return paths are not equivalent to a GhostLock root primitive.
+
+---
 ## October 14, 12:56 UTC — NEW return-copy evidence; inspect only post-copy w0 lifetime
 
 The owner uploaded `hxl1-task-blocks-return-transfer-20261014.json` (SHA-256 `1c743d3b646bd25a679d99339df9ecb3a01e55e7ea22d75df73da7053e23877c`). The original `task_blocks_on_rt_mutex` 208-instruction compiled function now shows **one** candidate post-chain-walk result copy after `+0x18c: bl rt_mutex_adjust_prio_chain`: `+0x190: mov w20,w0` (stock word `2a0003f4`) and `+0x2b8: mov w0,w20` (stock word `2a1403e0`). Its conservative non-clobber `w20` path is `+0x194 → +0x198 → +0x19c → +0x2b8`; the common function return is statically reachable afterward at `+0x2d4`. This fills the missing **callee-return-value capture to candidate return-copy** relationship from the previous report.
