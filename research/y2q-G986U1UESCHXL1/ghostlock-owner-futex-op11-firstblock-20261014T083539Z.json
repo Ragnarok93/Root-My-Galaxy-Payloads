@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "observation": "USER_WSL_CONSOLE_20261014T083547Z",
+  "ownerBranchPulledThrough": "b37bf5d",
+  "passedTests": {
+    "suite": "tools.test_y2q_hxl1_ghostlock_futex_op11_block",
+    "count": 13,
+    "total": 13,
+    "durationSeconds": 0.085
+  },
+  "command": "bash tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh",
+  "savedOwnerJsonPath": "/home/main/s20-artifacts/hxl1-research/ghostlock-original-futex-op11-20261014T083539553990891Z.json",
+  "jsonFileNotUploaded": true,
+  "sourceDisassemblyArchiveSha256": "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997",
+  "originalRecoveredNmSha256": "c2306a026756230fb009576613c07e5461cccf8fd92ca5f72a52647933870f2f",
+  "results": {
+    "operation11OriginalBranch": "VERIFIED",
+    "firstBlockDoFutexRelativeOffset": "0xbd0",
+    "firstBlockInstructionSlots": 24,
+    "firstBlockDirectCalls": 0,
+    "stopReason": "STOPPED_AT_EXPLICIT_CONTROL_TRANSFER"
+  },
+  "ownerOutputOmittedOriginalOpcodeListing": true,
+  "terminalBranchOpcodeAndTargetUnknownFromPaste": true,
+  "interpretation": "First linear compiled block begins at original do_futex+0xbd0 and terminates at control transfer after 24 slots. Zero BL calls in that block does not imply absence of calls on successor blocks, helper inlining, or a source-local waiter slot.",
+  "unverified": {
+    "runtimeConditionObserved": false,
+    "sourceHelperInlining": false,
+    "rtMutexWaiterCompilerLocal": false,
+    "waiterSendmsgAlias": false,
+    "exploit": false,
+    "root": false,
+    "kernelSu": false
+  },
+  "nextStep": "Reuse same original SHA-bound five-function archive to analyze terminal branch and bounded one-hop successors; do not repeat source-name searches or copy a K40 offset.",
+  "stages": [
+    "COMPLETE",
+    "COMPLETE",
+    "PARTIAL",
+    "OPEN",
+    "OPEN",
+    "OPEN",
+    "BLOCKED",
+    "BLOCKED",
+    "DEFERRED"
+  ]
+}
