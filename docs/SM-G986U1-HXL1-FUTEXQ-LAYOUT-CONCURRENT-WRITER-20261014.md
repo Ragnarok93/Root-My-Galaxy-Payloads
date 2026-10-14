@@ -1,3 +1,25 @@
+## October 14, 12:22 UTC — NEW factory function report: actionable store; initial negative CFG findings invalid
+
+The owner executed the narrow, newly added original-stock compiled function extractor and uploaded `hxl1-task-blocks-original-compiled-20261014.json`. The original ELF and NM SHA pins were checked by the extractor, and it recovered the **208-instruction** `task_blocks_on_rt_mutex` function from `0xffffff80081479d4` to `0xffffff8008147d14`. Original instruction `+0xf0` (`0xffffff8008147ac4`, word `f9047e95`) is `str x21, [x20, #2296]`, a candidate publication into the target task's `pi_blocked_on` field (displacement 2296 / 0x8f8). The common return is `+0x2d4`. Original task register origin remains a **hypothesis**, not a dataflow proof.
+
+**Critical extraction bug fixed, not a negative lifetime result:** GNU AArch64 objdump emits targets such as `ffffff8008146ca4` without a `0x` prefix. The initial extractor handed that text directly to `y2q_hxl1_static_cfg_audit.edges_for()` (expects `0x...`) and to the recovered-symbol resolver (also requires a hex literal with `0x`). Thus the original report's `possibleReturnReachableAfterStore=false`, `possibleEarlyReturnAvoidingThisStore=false`, and **0 recovered chain-walk calls** are invalid **analysis-output false negatives**, not evidence that the paths are absent. It did correctly capture the original store word, function bounds and raw BL destination strings.
+
+The same targeted extractor now normalizes **only control-transfer operands** (`b`, `b.*`, `bl`, `cbz`, `cbnz`, `tbz`, `tbnz`), preserving unrelated immediate values. It lists exact stock recovered BL symbols, conservative entry/store/return graph relations, and whether a recovered `rt_mutex_adjust_prio_chain` call can be reached after publication and may reach the return. The output explicitly keeps **nonzero error feasibility, x20→target-task provenance, stale reference, and live root unverified**. A new three-test regression targets this exact parsing defect and conservative reachability; it is CI-integrated. The corrected extractor **has not yet been run on owner original ELF**.
+
+Single focused rerun of only the one new function (NOT the old 47-case stack suites):
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 tools/y2q_hxl1_task_blocks_original_compiled_gap.py \
+  --elf "$HOME/s20-artifacts/ghostlock-419/stock-kernel/stock-vmlinux.elf" \
+  --nm "$HOME/s20-artifacts/hxl1-research/vmlinux-stock.nm" \
+  --output "$HOME/s20-artifacts/hxl1-research/hxl1-task-blocks-original-compiled-corrected-20261014.json"
+```
+
+Even if corrected conservative reachability is positive, the missing independent guarantee is **post-publication nonzero chain-walk error return under jointly feasible predicates**, then target-task cleanup state on the compiled proxy rollback. No exploitability or KernelSU status is promoted by one CFG result.
+
+---
 ## Targeted remaining compiled-code gap — task_blocks_on_rt_mutex (12:05 UTC)
 
 Do **not** repeat the original stock `remove_waiter` current-vs-target task mismatch: it is **already** source/binary-correlated in `SM-G986U1-HXL1-RTMUTEX-SOURCE-REA-TASK-IDENTITY-20261013.md` (including the early return and post-publication error distinction, plus nonzero 1 return consideration). The preceding broad waiter/stack regression cycles do not establish the post-publication, failing chain-walk *factory compiled path*.
