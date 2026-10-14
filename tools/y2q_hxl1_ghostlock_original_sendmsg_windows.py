@@ -47,6 +47,10 @@ def inventory(raw:bytes,nm_text:str)->tuple[dict,dict[str,bytes]]:
     require(len(raw)>64 and raw[0x38:0x3c]==b"ARM\x64",
             "Stock original ARM64 kernel Image magic missing")
     symbols=gate.parse_nm(nm_text)
+    duplicates=getattr(symbols,"duplicate_unrelated_names",{})
+    for name in NAMES:
+        require(name not in duplicates,
+                "Ambiguous requested text symbol: "+name)
     require(symbols.get("_text",(-1,))[0]==gate.IMAGE_VA,
             "Recovered text base is not the original HXL1 Image")
     all_addresses=sorted(a for a in symbols.all_text_addresses
