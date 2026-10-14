@@ -27,6 +27,8 @@ on:
       - tools/test_y2q_hxl1_ghostlock_crossfork_419_gate.py
       - tools/y2q_hxl1_ghostlock_original_sendmsg_windows.py
       - tools/test_y2q_hxl1_ghostlock_original_sendmsg_windows.py
+      - tools/y2q_hxl1_ghostlock_sendmsg_frame_attest.py
+      - tools/test_y2q_hxl1_ghostlock_sendmsg_frame_attest.py
       - research/y2q-G986U1UESCHXL1/evidence.json
   workflow_dispatch:
 permissions:
@@ -64,7 +66,9 @@ jobs:
             tools/y2q_hxl1_ghostlock_crossfork_419_gate.py \
             tools/test_y2q_hxl1_ghostlock_crossfork_419_gate.py \
             tools/y2q_hxl1_ghostlock_original_sendmsg_windows.py \
-            tools/test_y2q_hxl1_ghostlock_original_sendmsg_windows.py
+            tools/test_y2q_hxl1_ghostlock_original_sendmsg_windows.py \
+            tools/y2q_hxl1_ghostlock_sendmsg_frame_attest.py \
+            tools/test_y2q_hxl1_ghostlock_sendmsg_frame_attest.py
       - name: Run synthetic original-image and dispatch evidence tests
         run: |
           python -m unittest -v \
@@ -78,4 +82,5 @@ jobs:
             tools.test_y2q_hxl1_oem_debug_discovery \
             tools.test_y2q_hxl1_readiness_consolidate \
             tools.test_y2q_hxl1_ghostlock_crossfork_419_gate \
-            tools.test_y2q_hxl1_ghostlock_original_sendmsg_windows
+            tools.test_y2q_hxl1_ghostlock_original_sendmsg_windows \
+            tools.test_y2q_hxl1_ghostlock_sendmsg_frame_attest
