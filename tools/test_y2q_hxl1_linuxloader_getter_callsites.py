@@ -102,5 +102,56 @@ class GetterCallsiteTests(unittest.TestCase):
         with self.assertRaisesRegex(m.ProvenanceError,"Repeated"):
             m.analyze(d)
 
+class GetterProviderDossierTests(unittest.TestCase):
+    def result(self, address="0x23b00"):
+        return {
+            "operation": "analyze_function",
+            "provider": {"id": "ghidra"},
+            "subject": {"digest": {"sha256": m.LOADER_SHA256}},
+            "parameters": {"procedure": "0x23b00"},
+            "normalized_result": {
+                "procedure": {"address": address},
+                "pseudocode": "int FUN_00023b00(void) { return -1; }",
+            },
+        }
+
+    def test_requested_getter_entry_is_actually_returned(self):
+        a = m.verify_getter_dossier(self.result("0x00023b00"), "0x23b00")
+        self.assertTrue(a["functionEntryMatchesRequested"])
+        self.assertFalse(a["getterIndexAlgorithmVerified"])
+
+    def test_neighboring_getter_cannot_be_accepted(self):
+        with self.assertRaisesRegex(m.ProvenanceError, "different Ghidra function entry"):
+            m.verify_getter_dossier(self.result("0x23b40"), "0x23b00")
+
+    def test_echoed_different_parameter_rejected(self):
+        d = self.result()
+        d["parameters"]["procedure"] = "0x23b40"
+        with self.assertRaisesRegex(m.ProvenanceError, "different procedure"):
+            m.verify_getter_dossier(d, "0x23b00")
+
+    def test_untrusted_loader_digest_stops(self):
+        d = self.result()
+        d["subject"]["digest"]["sha256"] = "0"*64
+        with self.assertRaisesRegex(m.ProvenanceError, "digest mismatch"):
+            m.verify_getter_dossier(d, "0x23b00")
+
+    def test_empty_decompilation_does_not_pass(self):
+        d = self.result()
+        d["normalized_result"]["pseudocode"] = " "
+        with self.assertRaisesRegex(m.ProvenanceError, "missing or empty"):
+            m.verify_getter_dossier(d, "0x23b00")
+
+    def test_rea_error_envelope_rejected(self):
+        d = self.result()
+        d["error"] = "cancelled"
+        with self.assertRaisesRegex(m.ProvenanceError, "error or non-object"):
+            m.verify_getter_dossier(d, "0x23b00")
+
+    def test_unsafe_request_target_rejected(self):
+        with self.assertRaisesRegex(m.ProvenanceError, "Unexpected getter target"):
+            m.verify_getter_dossier(self.result(), "0x2bdf8")
+
+
 if __name__=="__main__":
     unittest.main()
