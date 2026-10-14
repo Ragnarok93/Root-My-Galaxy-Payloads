@@ -114,6 +114,69 @@ def analyze(d: dict) -> dict:
                  "was marked truncated and the full native trace cancelled."
     }
 
+def verify_getter_dossier(value: dict, expected_address: str,
+                          loader_sha256: str = LOADER_SHA256) -> dict:
+    """Verify REA actually decompiled the *requested* stock HXL1 getter.
+
+    REA may return an enclosing or neighboring function. A successful JSON
+    envelope, the echoed requested parameter, and a generic hex function
+    address were previously insufficient to prove a matching function.
+    This validates only dossier identity, not selector semantics.
+    """
+    require(isinstance(value, dict) and "error" not in value,
+            "REA returned an error or non-object result")
+    require(type(expected_address) is str and
+            expected_address.lower() in {x[1] for x in CALLS},
+            "Unexpected getter target")
+    require(loader_sha256 == LOADER_SHA256,
+            "Unpinned original HXL1 LinuxLoader")
+    provider = value.get("provider")
+    subject = value.get("subject")
+    params = value.get("parameters")
+    normalized = value.get("normalized_result")
+    require(value.get("operation") == "analyze_function" and
+            isinstance(provider, dict) and provider.get("id") == "ghidra",
+            "Wrong analysis operation/provider")
+    require(isinstance(subject, dict) and
+            isinstance(subject.get("digest"), dict) and
+            subject["digest"].get("sha256") == loader_sha256,
+            "Original LinuxLoader digest mismatch")
+    require(isinstance(params, dict) and
+            isinstance(params.get("procedure"), str),
+            "Missing requested procedure in REA response")
+    require(isinstance(normalized, dict) and
+            isinstance(normalized.get("procedure"), dict),
+            "Missing normalized Ghidra function identity")
+    actual = normalized["procedure"].get("address")
+    require(isinstance(actual, str),
+            "Missing Ghidra function entry address")
+    try:
+        target = int(expected_address, 16)
+        echoed = int(params["procedure"], 16)
+        entry = int(actual, 16)
+    except (ValueError, TypeError) as error:
+        raise ProvenanceError("Malformed requested/returned function address") from error
+    require(target == echoed,
+            "REA response requested a different procedure")
+    require(target == entry,
+            "REA returned a different Ghidra function entry")
+    pseudo = normalized.get("pseudocode")
+    require(isinstance(pseudo, str) and len(pseudo.strip()) >= 12,
+            "Ghidra function pseudocode missing or empty")
+    return {
+        "classification": "ORIGINAL_GETTER_DOSSIER_IDENTITY_VERIFIED_ONLY",
+        "originalLinuxLoaderSha256": loader_sha256,
+        "requestedAddress": expected_address,
+        "returnedFunctionEntry": hex(entry),
+        "functionEntryMatchesRequested": True,
+        "validGhidraPseudocodePresent": True,
+        "getterIndexAlgorithmVerified": False,
+        "selectedDtbOrOverlayAuthenticated": False,
+        "physicalKernelHandoffVerified": False,
+        "deviceModified": False,
+    }
+
+
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--cached-report",required=True,type=Path)
