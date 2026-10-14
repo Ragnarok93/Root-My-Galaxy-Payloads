@@ -1,3 +1,23 @@
+## October 14, 08:18 UTC — helper-class audit passed; pivot to factory futex case-11 code
+
+Owner executed the HXL1 static helper ledger after pulling `b76bfb3`: **10/10 tests PASS**. All 41 original `sendmsg`/iovec BL sites classify into nine source-agnostic classes, and the three `jopp_springboard_blr_x8` sites are now fixed in the report at `__sys_sendto:0xffffff800966eb70` and `___sys_sendmsg:0xffffff800966f498/0xffffff800966f4e0`. Their effective x8 call destinations and C pointer arguments remain **unproven**. The exact owner crosswalk SHA in the new report is `94be240898b54c51ef428e2813b3ed143117de37d2a1098c0238db076d15badd`. This classification does not upgrade GhostLock applicability.
+
+No further helper-label counting is needed. The stronger remaining proof target is **the original compiled futex operation-11 path** and its relationship to the source-local `rt_mutex_waiter`, whose 30 pinned source lifetime landmarks and conservative original `do_futex` case-11 reachability were already documented.
+
+New bounded `tools/y2q_hxl1_ghostlock_futex_op11_block.py`, 13 synthetic tests, and one-command `tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh` reuse only the existing exact-SHA `hxl1-disassembly-review.tar.gz` (5 function disassemblies, 4,102 machine-instruction slots) and original `vmlinux-stock.nm`. They isolate **just the original compiled case-11 branch's first basic block**, label any literal calls, and stop at a branch or 128 instructions. They do not attribute compiler locals, assume helper inlining, prove runtime waiter reuse, generate an exploit or access ADB.
+
+See [details, evidence pins and automatic existing-archive discovery](SM-G986U1-HXL1-GHOSTLOCK-OP11-COMPILED-BLOCK-20261014.md) and [owner 10/10 evidence checkpoint](../research/y2q-G986U1UESCHXL1/ghostlock-owner-helper-classes-20261014T081755Z.json). **New suite 13/13 and real archive run remain pending**, so please execute only:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh
+```
+
+Readiness unchanged: stages 1–2 COMPLETE, stage 3 PARTIAL, 4–6 OPEN, 7–8 BLOCKED, 9 DEFERRED. No live GhostLock primitive, physical handoff, temporary root or KernelSU demonstrated.
+
+---
+
 ## October 14, 08:06 UTC — GhostLock original sendmsg labels all 21/21 resolved
 
 Owner WSL completed **12/12** `tools.test_y2q_hxl1_ghostlock_call_target_crosswalk` tests, then resolved **all 21 immediate BL branch destinations** among 41 original sendmsg/iovec callsites to the existing SHA-pinned HXL1 recovered symbol labels. This includes three direct calls to `jopp_springboard_blr_x8`. The springboard label is authentic as a recovered immediate target; the *actual* x8-mediated destination beyond the trampoline is **NOT** known. No CFG or C-local pointer lifetime was inferred from an exact label.
