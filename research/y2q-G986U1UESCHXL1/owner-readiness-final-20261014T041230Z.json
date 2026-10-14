@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "source": "Owner terminal output from WSL run at 2026-10-14T04:12:30Z (filename timestamp); owner-reported, not raw JSON uploaded",
+  "script": "tools/y2q_hxl1_readiness_consolidate.py",
+  "repoPulledThrough": "8118461",
+  "tests": {
+    "module": "tools.test_y2q_hxl1_readiness_consolidate",
+    "passed": 11,
+    "total": 11,
+    "failed": 0,
+    "errors": 0,
+    "durationSeconds": 0.131
+  },
+  "outputPath": "/home/main/s20-artifacts/hxl1-research/readiness-final-20261014T041230Z.json",
+  "profile": "y2q-G986U1UESCHXL1-research",
+  "gateAuthority": "tools/y2q_porting_readiness.py",
+  "stages": [
+    {
+      "stage": 1,
+      "state": "COMPLETE"
+    },
+    {
+      "stage": 2,
+      "state": "COMPLETE"
+    },
+    {
+      "stage": 3,
+      "state": "PARTIAL"
+    },
+    {
+      "stage": 4,
+      "state": "OPEN"
+    },
+    {
+      "stage": 5,
+      "state": "OPEN"
+    },
+    {
+      "stage": 6,
+      "state": "OPEN"
+    },
+    {
+      "stage": 7,
+      "state": "BLOCKED"
+    },
+    {
+      "stage": 8,
+      "state": "BLOCKED"
+    },
+    {
+      "stage": 9,
+      "state": "DEFERRED"
+    }
+  ],
+  "checks": {
+    "manifest": "PASS_STATIC_PINS_NO_RAW_REHASH",
+    "portingReadinessReport": "NOT_SUPPLIED",
+    "selectNumerics": "CORROBORATED_STATIC_ONLY",
+    "debugArtifactScan": "BOUNDED_COMPLETE_NOT_OEM_AUTHENTICATED",
+    "unsearchedDeeperDirectories": 895
+  },
+  "inputReportSha256": {
+    "evidence": "d12ac8a1f7f29e8d106f87cb439cb75d60aec4253c50d6b525c2cefdcdb49303",
+    "select": "f1c5114692a059ebc1c5d1542af19170640989054b998697c26ca0f7eb21a478",
+    "debug": "fc08987fe6a6a3f217e7a5d563ccce962ec0adf29963500a9bec13faeb0f304a"
+  },
+  "negativeAssertions": {
+    "originalKernelBytesIndependentlyRehashedByThisScript": false,
+    "originalCompilerLocalLayoutVerified": false,
+    "physicalLinuxKernelHandoffVerified": false,
+    "livePrivilegeEscalationVerified": false,
+    "kernelSuLoaded": false,
+    "productionFeedAllowed": false
+  },
+  "verifiedByAssistant": {
+    "userConsolePassRecorded": true,
+    "separatelyUploadedOriginalOutputJsonInspected": false,
+    "githubActionsCICompletionConfirmed": false
+  },
+  "decision": "OWNER_RUN_ACCEPTED_11_OF_11_TESTS_AND_EXPECTED_RESEARCH_ONLY_GATE_MATRIX",
+  "nextNoRepeatAction": "Optionally supply existing authoritative port-readiness.json with --readiness if present; do not regenerate historical extraction or promote any open/blocked gate from static agreement."
+}
