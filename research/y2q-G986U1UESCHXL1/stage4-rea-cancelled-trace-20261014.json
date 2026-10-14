@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "dateUtc": "2026-10-14",
+  "scope": "OFFLINE_CACHED_LINUXLOADER_REA_CANCELLED_TRACE",
+  "ownerUnitTests": {
+    "suite": "tools.test_y2q_hxl1_runtime_dtb_identity",
+    "passed": 25,
+    "total": 25,
+    "failed": 0,
+    "reportedDurationSeconds": 0.054,
+    "runConfirmedFromOwnerTerminal": true
+  },
+  "ownerRunGitPulledThrough": "8ba536f",
+  "cachedTrace": {
+    "filename": "rea-shared-dtb-dtbo-native-values.partial.json",
+    "sha256": "0bd68713838b2536f67ff683b284d35008b5fcdcc05cfac608dee9c0b1a5e847",
+    "originalUploadedFileVerifiedLocally": true,
+    "bytes": 292,
+    "contains": "error-only JSON; no normalized_result",
+    "error": "Analysis failed",
+    "code": "cancelled",
+    "category": "cancelled",
+    "retryable": true,
+    "details": {
+      "operation": "analyze_function",
+      "cleanup": "complete"
+    },
+    "sourceLocation": "/home/main/s20-artifacts/hxl1-research/abl-linuxloader/rea-dt-index-LBaPQ6/rea-shared-dtb-dtbo-native-values.partial.json",
+    "completedNativeValueTraceFound": false,
+    "preciseCancellationCauseKnown": false,
+    "retryRequired": false
+  },
+  "previouslyAcceptedCache": {
+    "originalEfiSha256": "5e69a9718569cfa1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003",
+    "originalFunctionEntryGhidraAnalysisCoordinate": "0x2bdf8",
+    "dtbIndexStringAddress": "0xbfd99",
+    "dtbIndexXrefSource": "0x2c350",
+    "dtboIndexStringAddress": "0xbfd82",
+    "dtboIndexXrefSource": "0x2c308",
+    "bothStringsReferencedBySameFunction": true,
+    "producerValueFlowProven": false,
+    "bootsideSelectorSemanticsKnown": false
+  },
+  "software": {
+    "newOfflineAuditor": "tools/y2q_hxl1_linuxloader_cached_index_audit.py",
+    "newTests": "tools/test_y2q_hxl1_linuxloader_cached_index_audit.py",
+    "syntheticTestsPassedInAssistantSandbox": 10,
+    "latestGitHubCiCompletionConfirmed": false,
+    "noREAProcessInvoked": true,
+    "noDeviceAccess": true
+  },
+  "gates": {
+    "actualBootloaderDtbSelected": false,
+    "physicalLinuxKernelHandoff": false,
+    "productionRootOrKernelSuDemonstrated": false,
+    "stage4": "OPEN"
+  },
+  "nextAction": "Run cached-function offline audit using preexisting owner Ghidra JSON and unchanged original LinuxLoader. Preserve partial trace. Review bounded pseudocode context only; if insufficient, record exact producer unresolved."
+}
