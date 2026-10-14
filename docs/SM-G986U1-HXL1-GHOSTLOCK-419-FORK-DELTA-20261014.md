@@ -1,3 +1,48 @@
+## Second engineering advancement — original stock Image `sendmsg` and iovec code windows
+
+The new `tools/y2q_hxl1_ghostlock_original_sendmsg_windows.py` reuses our existing hash-pinned `tools/y2q_hxl1_ghostlock_stack_gate.py` original kernel and recovered `vmlinux-stock.nm` parser. It **does not re-extract firmware or re-run the completed five-function `select`/`futex` audit**. It requests a fixed allowlist of additional source-to-binary clues:
+
+`__sys_sendmsg`, `___sys_sendmsg`, `____sys_sendmsg`, `__sys_sendto`, `__sys_sendmmsg`, `rw_copy_check_uvector`, `copy_msghdr_from_user`, `futex_wait_requeue_pi`.
+
+If a name is absent from the recovered symbol table, the tool records `NOT_FOUND_IN_RECOVERED_NM`, **not** absent from the factory build. If duplicated, it fails rather than selecting an arbitrary recovered address. For present names, it authenticates the original 52MB `kernel.bin` SHA, checks the ARM64 Image header and `_text`, bounds each sample at the next recovered text symbol and 4096 bytes, and optionally uses `aarch64-linux-gnu-objdump` to save machine-code windows. All addresses are **file-relative recovered static VAs**, not observed runtime addresses. No compiled-local geometry is certified simply because a code slice exists.
+
+The initial nine no-phone synthetic tests were added to `.github/workflows/hxl1-ghostlock-stack-gate-ci.yml`. The newly added CI **has not yet been observed green**, and no owner HXL1 stock-Image run has been reported. The scanner writes only to a *new* research directory, refuses source-tree/repo output, and never touches ADB, the phone, a kernel build or payload.
+
+### Combined one-time WSL owner verification
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+
+python3 -m unittest -v \
+  tools.test_y2q_hxl1_ghostlock_crossfork_419_gate \
+  tools.test_y2q_hxl1_ghostlock_original_sendmsg_windows
+
+EVIDENCE="$HOME/s20-artifacts/hxl1-research"
+FORK="$HOME/ghostlock-cve-2026-43499-4.19-k40"
+REF="$EVIDENCE/ghostlock-k40-hxl1-delta-$(date -u +%Y%m%dT%H%M%SZ).json"
+
+python3 -m tools.y2q_hxl1_ghostlock_crossfork_419_gate \
+  --source "$HOME/src/samsung-y2q-hxl1-stock" \
+  --reference-fork "$FORK" \
+  --output "$REF"
+
+OUT="$EVIDENCE/ghostlock-original-sendmsg-$(date -u +%Y%m%dT%H%M%SZ)"
+python3 -m tools.y2q_hxl1_ghostlock_original_sendmsg_windows \
+  --kernel "$HOME/s20-artifacts/kernel.bin" \
+  --nm "$EVIDENCE/vmlinux-stock.nm" \
+  --output-dir "$OUT"
+
+cat "$REF"
+cat "$OUT/original-sendmsg-windows.json"
+```
+
+The K40 fork must contain the exact pinned snapshot documents; if the existing clone is stale or different, the checker deliberately stops. Use a separate detached reference clone described above rather than resetting current work. We should advance only after the new *original* HXL1 code-window inventory confirms what was found or missing, especially where `futex_wait_requeue_pi` was absent as a recovered symbol.
+
+**No stage promotion is authorized:** Stage 3 partial; runtime GhostLock, exact overlap geometry, slide, KernelSU and root unverified.
+
+---
+
 # SM-G986U1 HXL1 — GhostLock Linux 4.19 fork-delta audit (2026-10-14 UTC)
 
 **Scope:** original Samsung SM-G986U1/G986U1UESCHXL1 kernel 4.19.113-27095354, research-only. This checkpoint compares existing HXL1 proof against the current K40 4.19 development fork. It does not build or run an exploit, change the handset, emit a target header, or authorize a KernelSU module.
