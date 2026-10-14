@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "checkpointUtc": "2026-10-14",
+  "type": "FIRMWARE_TO_PROFILE_CONSOLIDATED_READINESS_STATIC_LEDGER",
+  "sourceAuthority": [
+    "docs/PORTING.md",
+    "tools/y2q_porting_readiness.py",
+    "research/y2q-G986U1UESCHXL1/evidence.json"
+  ],
+  "sourceBlobSha256OrGitSha": {
+    "gitBlob": "22bf866ae900b3411a864bb1d8a0a160787d2dcf"
+  },
+  "ownerSupplementalReports": {
+    "selectNumericCrosswalk": {
+      "sha256": "f1c5114692a059ebc1c5d1542af19170640989054b998697c26ca0f7eb21a478",
+      "conclusion": "STATIC_NATIVE_SELECT_ALLOCATION_CAPACITY_MATCH_CONFIRMED"
+    },
+    "oemDebugDiscovery": {
+      "sha256": "fc08987fe6a6a3f217e7a5d563ccce962ec0adf29963500a9bec13faeb0f304a",
+      "conclusion": "BOUNDED_DEPTH_7_LOOSE_ELF_INVENTORY_COMPLETE_NO_FACTORY_SYMBOLS_VERIFIED",
+      "depthLimitedDirectories": 895
+    },
+    "originalCodeDisassemblyArchive": {
+      "sha256": "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997",
+      "hashedTextDisassembliesVerified": 5,
+      "instructions": 4102
+    }
+  },
+  "mainStockArtifactPins": {
+    "kernelSha256": "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123",
+    "bootSha256": "bd8987c28ef0b9fdb56ad3e82ce3b45929c5e53717525769e5625dd1e17f7dc8",
+    "configSha256": "1931b2c99e1dad26e93013eac8442384368e7bcde313443ba44baa65d4c053cd",
+    "originalBLPackageSha256": "f6048fb50cd83741951552866c4dcf26e6165b0a67a232b81028c266bef22d6b"
+  },
+  "stageMatrix": [
+    {
+      "stage": 1,
+      "title": "firmware identity",
+      "state": "COMPLETE",
+      "basis": "Owner read-only physical device build, kernel, bootstate, SELinux identity"
+    },
+    {
+      "stage": 2,
+      "title": "source firmware extraction and provenance",
+      "state": "COMPLETE",
+      "basis": "Pinned original extracted boot Image config source and BL inputs; raw kernel-memory equality not proven"
+    },
+    {
+      "stage": 3,
+      "title": "stock ABI/source-to-code",
+      "state": "PARTIAL",
+      "basis": "Recovered nm and stock opcode/source crosswalk, selected field matches, no authenticated complete OEM local/structure DWARF"
+    },
+    {
+      "stage": 4,
+      "title": "physical kernel load and BL handoff",
+      "state": "OPEN",
+      "basis": "BL/boot-v2/DTB evidence; no authenticated physical running Linux load base or runtime DTB selection"
+    },
+    {
+      "stage": 5,
+      "title": "runtime address/slide assumptions",
+      "state": "OPEN",
+      "basis": "Runtime per-boot KASLR, stack object behavior and relevant physical identity not proven"
+    },
+    {
+      "stage": 6,
+      "title": "native target",
+      "state": "OPEN",
+      "basis": "Unprivileged identity-only ARM64 diagnostic does not constitute working privilege chain"
+    },
+    {
+      "stage": 7,
+      "title": "4.19 KernelSU",
+      "state": "BLOCKED",
+      "basis": "SIG_FORCE=y, KPROBES=n, RKP/KDP/DEFEX, no trusted-compatible module/hooks/loader demonstrated"
+    },
+    {
+      "stage": 8,
+      "title": "app support feed",
+      "state": "BLOCKED",
+      "basis": "No hardware-verified root and 4.19 KernelSU integration; research-only profile"
+    },
+    {
+      "stage": 9,
+      "title": "retention and recovery",
+      "state": "DEFERRED",
+      "basis": "Original artifacts preserved, no hardware/root release recovery signoff"
+    }
+  ],
+  "inputChecks": {
+    "exactIdentityPin": true,
+    "originalFirmwareDigestManifestPinsMatch": true,
+    "hardwareLockedVerifiedBootGreen": true,
+    "selinuxEnforcing": true,
+    "normalUnsignedModuleLoadingPermitted": false,
+    "physicalKernelLoadVerified": false,
+    "originalFactoryCompilerLocalSlotsVerified": false,
+    "exactHxl1KernelSuModuleLoaded": false,
+    "supportFeedAllowed": false,
+    "rawOriginalImageIndependentlyRehashedInThisAudit": false
+  },
+  "result": "RESEARCH_ONLY_NOT_RELEASE_READY",
+  "noKernelSuOrRootCapabilityClaim": true,
+  "caveat": "This checkpoints already recorded evidence, not a new handset verification run. Do not promote stages based on static or QEMU evidence alone; user run of y2q_porting_readiness.py remains authoritative. No production target/header/feed change."
+}
