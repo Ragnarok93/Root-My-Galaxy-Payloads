@@ -68,6 +68,7 @@ def read_reports(archive: Path) -> tuple[dict[str, bytes], str]:
                  for name in members if name.isfile()}, digest(archive.read_bytes()))
 
 def sections(raw: bytes) -> set[str]:
+    # readelf -SW table generated for each reconstructed ELF.
     names = set(re.findall(r'^\s*\[\s*\d+\]\s+(\.[^\s]+)\s+',
                            raw.decode('utf-8'), re.M))
     must(bool(names), 'ELF section inventory missing or malformed')
