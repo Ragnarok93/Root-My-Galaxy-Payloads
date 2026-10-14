@@ -158,5 +158,119 @@ class DtbIdentityTests(unittest.TestCase):
             m.diagnose(d,b"bad\n\0",b"qcom,kona\0",props())
 
 
+
+    def test_owner_actual_adb_cat_permission_stdout_detected_even_on_exit_zero(self):
+        from subprocess import CompletedProcess
+        original=(b"cat: /sys/firmware/devicetree/base/model: Permission denied\n")
+        self.assertEqual(len(original),60)
+        self.assertEqual(m.remote_cat_failure(original),"PERMISSION_DENIED")
+        self.assertEqual(m.remote_cat_failure(
+            b"cat: /sys/firmware/devicetree/base/compatible: Permission denied\n"),
+            "PERMISSION_DENIED")
+        with patch.object(m.subprocess,"run",
+             return_value=CompletedProcess(args=[],returncode=0,stdout=original,stderr=b"")):
+            with self.assertRaisesRegex(m.GateError,"PERMISSION_DENIED"):
+                m.adb_read("adb",None,["exec-out","cat",
+                                      "/sys/firmware/devicetree/base/model"])
+
+    def test_exec_out_file_absence_detected_without_malformed_fdt_claim(self):
+        text=b"cat: /proc/device-tree/model: No such file or directory\n"
+        self.assertEqual(m.remote_cat_failure(text),"NOT_FOUND")
+        self.assertIsNone(m.remote_cat_failure(b"Qualcomm Technologies, Inc. kona v2 SoC\0"))
+
+    def test_both_root_path_access_denied_keeps_build_and_rejects_selection(self):
+        selected=m.candidate_models(fixture())[0]
+        def fake_read(_adb,_serial,args):
+            if args[:2]==["shell","getprop"]:
+                return props()[args[-1]].encode() + b"\n"
+            if args==["shell","uname","-r"]:
+                return props()["uname -r"].encode()+b"\n"
+            if args[:2]==["exec-out","cat"]:
+                raise m.GateError("PERMISSION_DENIED")
+            raise AssertionError(args)
+        with patch.object(m,"adb_read",side_effect=fake_read):
+            with self.assertRaises(m.DeviceTreeAccessError) as ctx:
+                m.capture("adb",None)
+        err=ctx.exception
+        self.assertEqual(len(err.attempts),4)
+        self.assertTrue(all(x["status"]=="PERMISSION_DENIED" for x in err.attempts))
+        report=m.access_report(err,{"ro.board.platform":"kona"})
+        self.assertEqual(report["status"],"ROOT_PROPERTIES_INACCESSIBLE")
+        self.assertTrue(report["liveIdentityMatchesPinnedHxl1"])
+        self.assertEqual(report["matchingOriginalRootModelCandidateIndices"],[])
+        self.assertFalse(report["bootPropertyHintsProveSelectedDtb"])
+        self.assertFalse(report["bootloaderSelectedDtbProven"])
+        self.assertFalse(report["physicalLinuxLoadBaseVerified"])
+
+    def test_proc_fallback_accepts_nul_data_when_sys_denies(self):
+        chosen=m.candidate_models(fixture())[1]
+        def fake_read(_adb,_serial,args):
+            if args[:2]==["shell","getprop"]:
+                return props()[args[-1]].encode()
+            if args==["shell","uname","-r"]:
+                return props()["uname -r"].encode()
+            if args[:2]==["exec-out","cat"]:
+                if "/sys/firmware/" in args[-1]:
+                    raise m.GateError("PERMISSION_DENIED")
+                if args[-1].endswith("/model"):
+                    return chosen["rootModel"].encode()+b"\0"
+                if args[-1].endswith("/compatible"):
+                    return b"qcom,kona\0"
+            raise AssertionError(args)
+        with patch.object(m,"adb_read",side_effect=fake_read):
+            model,compatible,properties=m.capture("adb",None)
+        report=m.diagnose(fixture(),model,compatible,properties)
+        self.assertEqual(report["status"],"ROOT_PROPERTY_PARSED")
+        self.assertEqual(report["matchingOriginalRootModelCandidateIndices"],[2])
+        self.assertFalse(report["bootloaderSelectedDtbProven"])
+
+    def test_hint_properties_are_fixed_allowlist_and_no_selection_proof(self):
+        queried=[]
+        def fake(_adb,_serial,args):
+            queried.append(args[-1])
+            return b"kona\n"
+        with patch.object(m,"adb_read",side_effect=fake):
+            hints=m.capture_hints("adb",None)
+        self.assertEqual(tuple(queried),m.HINTS)
+        self.assertEqual(set(hints),set(m.HINTS))
+        self.assertNotIn("ro.serialno",hints)
+        self.assertNotIn("ro.boot.serialno",hints)
+
+    def test_main_writes_access_denial_report_even_when_exit_is_two(self):
+        import io
+        import tempfile
+        import sys
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/"root-denial.json"
+            denial=m.DeviceTreeAccessError(props(),
+                  [{"property":"model","source":"/sys/firmware/devicetree/base",
+                    "status":"PERMISSION_DENIED"}],
+                  {"model":False,"compatible":False})
+            with patch.object(sys,"argv",["stage4","--output",str(path)]),\
+                 patch.object(m,"capture",side_effect=denial),\
+                 patch.object(m,"capture_hints",return_value={"ro.board.platform":"kona"}),\
+                 patch("sys.stderr",new_callable=io.StringIO) as err:
+                returncode=m.main()
+            self.assertEqual(returncode,2)
+            self.assertTrue(path.is_file())
+            report=json.loads(path.read_text())
+            self.assertEqual(report["status"],"ROOT_PROPERTIES_INACCESSIBLE")
+            self.assertEqual(report["readOnlyBootPropertyHints"]["ro.board.platform"],"kona")
+            self.assertFalse(report["bootloaderSelectedDtbProven"])
+            self.assertIn("ROOT_PROPERTIES_INACCESSIBLE",err.getvalue())
+
+    def test_no_nul_terminated_successful_cat_is_not_parsed_as_fdt(self):
+        def fake(_adb,_serial,args):
+            if args[:2]==["shell","getprop"]:
+                return props()[args[-1]].encode()
+            if args==["shell","uname","-r"]:
+                return props()["uname -r"].encode()
+            return b"Qualcomm Technologies, Inc. kona v2 SoC\n"
+        with patch.object(m,"adb_read",side_effect=fake):
+            with self.assertRaises(m.DeviceTreeAccessError) as ctx:
+                m.capture("adb",None)
+        self.assertTrue(all(x["status"]=="NOT_NUL_TERMINATED_OR_EMPTY"
+                            for x in ctx.exception.attempts))
+
 if __name__=="__main__":
     unittest.main()
