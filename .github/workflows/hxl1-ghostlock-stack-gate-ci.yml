@@ -43,6 +43,8 @@ on:
       - tools/test_y2q_hxl1_waiter_store_load_cfg.py
       - tools/y2q_hxl1_waiter_store_load_witness.py
       - tools/test_y2q_hxl1_waiter_store_load_witness.py
+      - tools/y2q_hxl1_task_blocks_original_compiled_gap.py
+      - tools/test_y2q_hxl1_task_blocks_original_compiled_gap.py
       - tools/run_y2q_hxl1_waiter_argument_lifetime_audit.sh
       - tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh
       - tools/run_y2q_hxl1_ghostlock_sendmsg_frame_attest.sh
@@ -99,7 +101,9 @@ jobs:
             tools/y2q_hxl1_waiter_store_load_cfg.py \
             tools/test_y2q_hxl1_waiter_store_load_cfg.py \
             tools/y2q_hxl1_waiter_store_load_witness.py \
-            tools/test_y2q_hxl1_waiter_store_load_witness.py
+            tools/test_y2q_hxl1_waiter_store_load_witness.py \
+            tools/y2q_hxl1_task_blocks_original_compiled_gap.py \
+            tools/test_y2q_hxl1_task_blocks_original_compiled_gap.py
       - name: Run synthetic original-image and dispatch evidence tests
         run: |
           python -m unittest -v \
@@ -121,7 +125,8 @@ jobs:
             tools.test_y2q_hxl1_ghostlock_futex_op11_block \
             tools.test_y2q_hxl1_waiter_argument_lifetime_audit \
             tools.test_y2q_hxl1_waiter_store_load_cfg \
-            tools.test_y2q_hxl1_waiter_store_load_witness
+            tools.test_y2q_hxl1_waiter_store_load_witness \
+            tools.test_y2q_hxl1_task_blocks_original_compiled_gap
       - name: Verify offline waiter argument lifetime runner shell syntax
         run: bash -n tools/run_y2q_hxl1_waiter_argument_lifetime_audit.sh
       - name: Verify bounded original futex operation-11 runner shell syntax
