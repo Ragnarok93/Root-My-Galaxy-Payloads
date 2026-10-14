@@ -1,3 +1,11 @@
+## October 14, 16:12 UTC — stock KernelSU 4.19 module-admission constraints
+
+**New, nonduplicated Stage 7 finding:** [HXL1 stock KernelSU module admission checkpoint](SM-G986U1-HXL1-KERNELSU-419-STOCK-ADMISSION-20261014.md) verifies **24 settings** in the owner-provided original `stock.config`, including the previously omitted **`CONFIG_UH_LKM_BLOCK=y`** in addition to `CONFIG_MODULE_SIG_FORCE=y` and disabled `CONFIG_KPROBES`/**`CONFIG_FUNCTION_TRACER`**. `CONFIG_MODULES=y` alone does not prove module admission; the firmware's accepted signing credentials, Samsung module-admission behavior, and a genuine Linux 4.19 KernelSU hook backend remain independent unknowns. This is **not** an alternate GhostLock exploit goal and no runtime root/KernelSU was claimed.
+
+The existing [offline root-candidate assessor](../tools/assess_y2q_root_candidate.py) now reports `kernelSu419Integration` with these conditions separately and **does not infer missing options**. Its [isolated eight-test CI](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38597657412) completed successfully after correcting the existing script's package import and the workflow's legacy helper import path. Stage 7 remains BLOCKED; Stages 3/5 runtime vulnerability feasibility and Stage 4 factory boot/handoff remain unchanged. Do not rerun already completed legacy RT-mutex/ABI audits.
+
+---
+
 ## October 14, 15:14 UTC — RESTORED ORIGINAL GHOSTLOCK ROOT PORT GOAL
 
 **The root-thread guide takes precedence:** [firmware-to-profile procedure](PORTING.md), [original HXL1 nine-stage adaptation](SM-G986U1-G986U1UESCHXL1.md) and [HXL1 port automation](SM-G986U1-HXL1-AUTOMATED-PORTING.md). The project objective is an exact-firmware **Root-My-Galaxy GhostLock/CVE-2026-43499** runtime port for Samsung Galaxy S20+ **SM-G986U1**, **G986U1UESCHXL1**, Linux **4.19.113-27095354**, Snapdragon 865, followed by compatible **KernelSU 4.19 late-load** integration, matching target/manifest packaging and hardware validation **without requiring an unlocked bootloader for the initial runtime privilege escalation**.
