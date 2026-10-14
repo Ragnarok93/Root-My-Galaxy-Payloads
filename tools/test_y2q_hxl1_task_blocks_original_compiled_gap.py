@@ -59,6 +59,42 @@ class NewFunctionBranchSyntaxTests(unittest.TestCase):
             'w20NotSyntacticallyOverwrittenAlongAConservativePath'])
         self.assertFalse(captured['runtimeNonzeroChainwalkErrorProven'])
 
+    def test_post_copy_to_return_can_preserve_w0(self):
+        output=gap.inspect(example(),{CHAIN:['rt_mutex_adjust_prio_chain']},[CHAIN])
+        candidate=output['compiledChainwalkReturnCapture']['compiledReturnCopyCandidates'][0]
+        self.assertTrue(candidate['existsNoSyntacticW0ClobberCandidatePathToReturn'])
+        self.assertEqual(candidate['postCopyReturnPaths'][0]['conservativePath'],
+                         ['0x198','0x1a4'])
+        self.assertFalse(candidate['returnValueMustBeNonzeroProven'])
+
+    def test_post_copy_call_is_a_return_register_clobber_barrier(self):
+        rows=example()
+        va=E+0x198
+        rows[va]={'relative':'0x198','pc':hex(va),
+                  'word':'94000000','op':'bl','args':hex(CHAIN)}
+        va=E+0x19c
+        rows[va]={'relative':'0x19c','pc':hex(va),
+                  'word':'14000000','op':'b','args':hex(E+0x1a4)}
+        result=gap.inspect(rows,{CHAIN:['rt_mutex_adjust_prio_chain']},[CHAIN])
+        item=result['compiledChainwalkReturnCapture']['compiledReturnCopyCandidates'][0]
+        self.assertTrue(item['returnStaticReachableAfterCopy'])
+        self.assertFalse(item['existsNoSyntacticW0ClobberCandidatePathToReturn'])
+        self.assertTrue(item['interveningCallsTreatedAsW0Clobber'])
+        self.assertFalse(item['runtimeLateErrorOrPostReturnDanglingWaiterProven'])
+
+    def test_post_copy_w0_overwrite_blocks_return_register_witness(self):
+        rows=example()
+        va=E+0x198
+        rows[va]={'relative':'0x198','pc':hex(va),
+                  'word':'52800000','op':'mov','args':'w0, #0x0'}
+        va=E+0x19c
+        rows[va]={'relative':'0x19c','pc':hex(va),
+                  'word':'14000000','op':'b','args':hex(E+0x1a4)}
+        result=gap.inspect(rows,{CHAIN:['rt_mutex_adjust_prio_chain']},[CHAIN])
+        item=result['compiledChainwalkReturnCapture']['compiledReturnCopyCandidates'][0]
+        self.assertTrue(item['returnStaticReachableAfterCopy'])
+        self.assertFalse(item['existsNoSyntacticW0ClobberCandidatePathToReturn'])
+
     def test_intermediate_w20_clobber_blocks_return_copy_witness(self):
         rows=example()
         pc=E+0x194
