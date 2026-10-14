@@ -1,3 +1,11 @@
+## October 14 — Stage 4 original DTB/DTBO getter writer-origin research (NEW)
+
+The owner's bounded REA/Ghidra getter requests both exited **124** with provider `cancelled` results, so they are **not** authenticated decompiler dossiers; do not relaunch repeated provider traces. However, the subsequently uploaded stock PE raw getter windows support two separately decoded global reads: **DTBO global `0x32a4cc`** and **DTB global `0x32a4d0`**, with shared checkword `0x32a4b8`. These are candidate original PE RVAs, **not demonstrated boot-time selected images**.
+
+The [new direct-reference scanner](../tools/y2q_hxl1_linuxloader_index_global_refs.py) uses the original EFI SHA and byte-for-byte reconciles the owner's previous getter windows before one bounded read/write candidate search over `.text`. Seven synthetic tests and [GitHub CI](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38617831654) passed; owner full-PE candidate writer counts have **not** yet been obtained. One WSL command and proof limits are documented in [the new Stage 4 reference-gate report](SM-G986U1-HXL1-STAGE4-GETTER-GLOBAL-XREFS-20261014.md). **No repeats of earlier ARM64/REA/bootloader symbol inventories.** Stages 4/5/7 remain open or blocked as recorded; no device root/KernelSU demonstrated.
+
+---
+
 ## October 14, 18:18 UTC — Stage 4 raw LinuxLoader global getter proof
 
 Owner supplied `getter-raw-native-windows-20261014T181835Z.json` (SHA-256 `e90b1afa70ff60cc1ec8de55597e0166cb790db46f17e58037b63e32ebc34a30`) from the original SHA-claimed `LinuxLoader-HXL1.efi` PE image. The previous two REA/Ghidra function requests were separately cancelled (provider partials / exit `124`), so this result does **not** require retrying those timeouts.
