@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import subprocess
+import sys
 
 PATH=Path(__file__).with_name('y2q_hxl1_linuxloader_cached_index_audit.py')
 spec=importlib.util.spec_from_file_location('y2q_hxl1_linuxloader_cached_index_audit',PATH)
@@ -75,10 +77,36 @@ class CachedIndexAuditTests(unittest.TestCase):
             with self.assertRaisesRegex(m.AuditError,'Missing/symlink'):
                 m.review_cached(Path(d)/'missing',Path(d)/'loader',Path(d)/'partial')
 
-    def test_loader_hash_mismatch_fails_before_provider_import(self):
+    def test_loader_hash_mismatch_rejected_before_cache_access(self):
         with tempfile.TemporaryDirectory() as d:
             r=Path(d);p=r/'loader';p.write_bytes(b'not a real loader')
             with self.assertRaisesRegex(m.AuditError,'SHA mismatch'):
                 m.review_cached(r,p,r/'partial')
+
+
+    def test_direct_cli_imports_package_from_outside_repo_in_isolated_python(self):
+        """Reproduce python3 tools/entrypoint.py, not only -m unittest."""
+        with tempfile.TemporaryDirectory() as outside:
+            result=subprocess.run(
+                [sys.executable, "-I", str(PATH.resolve()), "--help"],
+                cwd=outside, capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertIn("--run-dir",result.stdout)
+        self.assertNotIn("ModuleNotFoundError",result.stderr)
+
+    def test_direct_cli_fails_closed_without_legacy_tools_import_traceback(self):
+        with tempfile.TemporaryDirectory() as outside:
+            root=Path(outside)
+            cache=root/"cached"
+            cache.mkdir()
+            result=subprocess.run(
+                [sys.executable, "-I", str(PATH.resolve()),
+                 "--run-dir",str(cache),"--loader",str(root/"missing.efi"),
+                 "--output",str(root/"out.json")],
+                cwd=outside, capture_output=True, text=True, timeout=15)
+            self.assertEqual(result.returncode,2,result.stderr)
+            self.assertIn("[STOP]",result.stderr)
+            self.assertNotIn("ModuleNotFoundError",result.stderr)
+            self.assertFalse((root/"out.json").exists())
 
 if __name__=='__main__':unittest.main()
