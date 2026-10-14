@@ -1,3 +1,33 @@
+## Owner 09:12 UTC report — five exact original operation-11 callee labels
+
+The owner supplied the saved two-hop JSON report `ghostlock-original-futex-op11-20261014T091255731595838Z.json`. Its **uploaded bytes were parsed and hashed independently**: SHA-256 `82735ba24c2b14b652e0f965cdc9939918d812985153fa1a98548be59731de75` (14,815 bytes). The report attests the existing disassembly archive SHA `20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997` and NM SHA `c2306a026756230fb009576613c07e5461cccf8fd92ca5f72a52647933870f2f`. It does **not** independently rehash the complete original kernel Image.
+
+The previously observed six bounded compiled `do_futex` operation-11 blocks and five direct BL sites are reproduced. This time all five original static destination labels were available in the uploaded JSON:
+
+| First basic block where call occurs | BL offset relative to `do_futex` | Exact recovered label |
+|---|---|---|
+| `+0xc34` | `+0xc48` | `hrtimer_init` |
+| `+0xc34` | `+0xc58` | `hrtimer_init_sleeper` |
+| `+0xc34` | `+0xc68` | `ktime_add_safe` |
+| `+0x118c` | `+0x1198` | **`rt_mutex_init_waiter`** |
+| `+0x118c` | `+0x11b0` | `get_futex_key` |
+
+**Interpretation:** The HXL1 original compiled operation-11 path contains literal calls to waiter-initialization, futex-key lookup, and timer helpers. This corroborates the function family and refines the machine-code evidence beyond unlabeled call addresses. It is **not yet** proof of the particular C-local `rt_mutex_waiter` stack object's full identity, lifetime, correlation with `sendmsg` storage or exploit feasibility. Static alternative paths must not be presented as a measured execution sequence.
+
+Checkpoint: [`research/y2q-G986U1UESCHXL1/ghostlock-op11-owner-twohop-20261014T091255Z.json`](../research/y2q-G986U1UESCHXL1/ghostlock-op11-owner-twohop-20261014T091255Z.json).
+
+The static analyzer has been updated to make its scope accurately describe **two hops** rather than the former `SINGLE_STATIC_BASIC_BLOCK` misnomer, and fail closed if any of these five original callee labels or callsite offsets drifts. Four regression cases were added, bringing the suite to **26**; these **26 tests have not yet been shown passing on owner WSL or CI**. To run the existing completely offline and read-only command once:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh
+```
+
+Stage-3 compiler-local OEM attribution remains PARTIAL. Neither this report nor tests establish GhostLock privilege escalation, memory overlap or KernelSU.
+
+---
+
 ## Independently rechecked original HXL1 archive — two-hop machine-code evidence (October 14, 2026)
 
 The actual previously uploaded `hxl1-disassembly-review.tar.gz` was present in the conversation files and **independently rehashed** in the analysis environment: `20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997`. Its `do_futex.disasm.txt` has SHA-256 `56286516ae9e6a873beab22b16af3ab330a768dc1b02f901854eb96f193789a5`, containing **1,766 contiguous AArch64 instructions**. The stored manifest's original Image SHA is `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`; **the complete Image was not rehashed in this new pass**.
