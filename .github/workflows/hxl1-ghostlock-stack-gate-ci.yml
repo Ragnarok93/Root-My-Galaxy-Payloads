@@ -35,6 +35,8 @@ on:
       - tools/test_y2q_hxl1_ghostlock_call_target_crosswalk.py
       - tools/y2q_hxl1_ghostlock_helper_classes.py
       - tools/test_y2q_hxl1_ghostlock_helper_classes.py
+      - tools/y2q_hxl1_ghostlock_futex_op11_block.py
+      - tools/test_y2q_hxl1_ghostlock_futex_op11_block.py
       - tools/run_y2q_hxl1_ghostlock_sendmsg_frame_attest.sh
       - research/y2q-G986U1UESCHXL1/evidence.json
   workflow_dispatch:
@@ -81,7 +83,9 @@ jobs:
             tools/y2q_hxl1_ghostlock_call_target_crosswalk.py \
             tools/test_y2q_hxl1_ghostlock_call_target_crosswalk.py \
             tools/y2q_hxl1_ghostlock_helper_classes.py \
-            tools/test_y2q_hxl1_ghostlock_helper_classes.py
+            tools/test_y2q_hxl1_ghostlock_helper_classes.py \
+            tools/y2q_hxl1_ghostlock_futex_op11_block.py \
+            tools/test_y2q_hxl1_ghostlock_futex_op11_block.py
       - name: Run synthetic original-image and dispatch evidence tests
         run: |
           python -m unittest -v \
@@ -99,6 +103,7 @@ jobs:
             tools.test_y2q_hxl1_ghostlock_sendmsg_frame_attest \
             tools.test_y2q_hxl1_ghostlock_sendmsg_callsite_audit \
             tools.test_y2q_hxl1_ghostlock_call_target_crosswalk \
-            tools.test_y2q_hxl1_ghostlock_helper_classes
+            tools.test_y2q_hxl1_ghostlock_helper_classes \
+            tools.test_y2q_hxl1_ghostlock_futex_op11_block
       - name: Verify bounded owner-side report runner shell syntax
         run: bash -n tools/run_y2q_hxl1_ghostlock_sendmsg_frame_attest.sh
