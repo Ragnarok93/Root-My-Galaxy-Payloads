@@ -1,3 +1,15 @@
+## October 14, 19:00 UTC — correctness fix before original owner scan (12 CI tests PASS)
+
+The preexisting `scan_words()` matched `ADRP xN, page` and a subsequent scalar `STR/LDR [xN,#imm]` within 28 instructions, but did not reject common **intervening assignments to the tracked xN register**. It could therefore report a false global writer after `mov xN, xM`, `ldr xN, [...]` or a pair-load to `xN`. This is a true false-positive problem for the currently unanswered Stage 4 *writer-provenance* question, not a new ABI or security finding.
+
+**Fixed in-place:** `tools/y2q_hxl1_linuxloader_index_global_refs.py` now stops the candidate scan on recognized page-base overwrites (ADR/ADRP, immediate arithmetic, wide moves, common register ALU operations, scalar loads and both LDP destinations). A `STR` that merely uses xN as its *value* does **not** invalidate xN. Existing exact original DTB and DTBO getter reads are retained. No new PE/file extraction or REA request is performed.
+
+**Verification:** 12/12 focused synthetic regression tests passed in [GitHub Actions run 38619750462](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38619750462), including five new clobber/non-clobber cases. This still recognizes only bounded direct scalar references, **not** general pointer aliases, register provenance across calls, pointer-copy chains or actual global initializers. `sameBasicBlockProven` remains false because the control decoder is not a full CFG engine. **No factory original-PE writer counts were obtained in this chat.**
+
+**One current owner-side data gap, unchanged:** the original full-PE scan described below. Run it only if the retained `hxl1-linuxloader-index-global-refs-20261014.json` has not already been produced; preserve any existing valid report rather than rerunning blindly. Candidate writers are not authenticated producers until their dataflow and selection implications are confirmed. Stage 4 remains OPEN, no root/KernelSU or deployable profile claimed.
+
+---
+
 # HXL1 Stage 4 — two index-global writers, bounded direct-reference follow-up (2026-10-14)
 
 **Project:** exact HXL1 `Root-My-Galaxy` firmware-to-profile research. No bootloader modifications, root operation, kernel patches, module load or OEM loader flashing were performed.
