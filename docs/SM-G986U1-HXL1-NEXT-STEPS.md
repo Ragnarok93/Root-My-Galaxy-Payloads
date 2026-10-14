@@ -1,3 +1,15 @@
+## October 14 — NEW targeted gap analysis: candidate futex_q field ABI and cross-thread reference handoff
+
+**Stop duplicated archival verifications and symptom-free regression additions.** The user specifically wants only the remaining unproven relationships investigated. A new original ABI/source analysis, without another full audit cycle, narrows the former `q.rt_waiter` *field-placement* ambiguity: reconstructed upstream 4.19 64-bit `struct futex_q` gives `rt_waiter` at +0x58, `requeue_pi_key` at +0x60 and `bitset` at +0x68. The original HXL1 compiled call consistent with `futex_wait_setup(...,&q,&hb)` passes `x3=SP+0x48` as the fourth argument and stores all three fields at matching original SP slots: `SP+0xa0`, `SP+0xa8`, `SP+0xb0`. The supplied HXL1 Clang10 config has no GCC randstruct plugin enabled; the source `__randomize_layout` annotation alone is not proof of actual randomization. This yields a high-confidence original field map without claiming full OEM DWARF or changed readiness.
+
+More important, original Samsung `kernel/futex.c` has a specific **other-thread writer**: `requeue_pi_wake_futex` deliberately clears `q->rt_waiter` (1840) after successful atomic PI acquisition. `futex_requeue` passes the address stored in `this->rt_waiter` to `rt_mutex_start_proxy_lock` (2156–2158) and distinguishes successful, queued, and error cases. The original sleeper may block in `freezable_schedule` (2636), then checks `q.rt_waiter` (3314), conditionally waits/cleans (3343–3349), unqueues (3373) and returns (3402). The reported null-check is expected protocol behavior; it is not evidence of memory corruption or a dangling pointer.
+
+**Only next substantive blocker:** prove or disprove a factory-reachable inter-thread ordering that leaves an RT-mutex reference to the *expired* stack waiter after intended cleanup or the original do_futex return. A live blocked task retains its own kernel stack; matching SP offsets across unrelated syscalls do not demonstrate overlapping live objects. Intervening call names and existing static path witnesses are insufficient. Prioritize genuine source/compiled concurrency-state analysis, not more SHA runs, symbol counting or historical checkpoints.
+
+See [new field-layout and inter-thread ownership analysis](SM-G986U1-HXL1-FUTEXQ-LAYOUT-CONCURRENT-WRITER-20261014.md). Stage 3 remains PARTIAL and root/KernelSU NOT demonstrated.
+
+---
+
 ## October 14, 11:38 UTC — 47/47 owner tests confirmed; four-call witness NM crosswalk automated
 
 The owner uploaded a complete WSL console transcript with fast-forward through ac4cd4a and **all 47 current tests passing** (25 waiter/frame, 15 static store/load CFG, 7 witness). The three original-archive audits completed and rehashed recovered vmlinux-stock.nm. The original frame is 480 bytes, with two SP writes in 1,766 instructions; the candidate SP+0xa0 stack pointer store/load/null-test remains linked by a conservative 31-instruction CFG witness with four calls and five conditional branches. The full runtime lifetime, memory side effects, factory q.rt_waiter layout and root **are not established**.
