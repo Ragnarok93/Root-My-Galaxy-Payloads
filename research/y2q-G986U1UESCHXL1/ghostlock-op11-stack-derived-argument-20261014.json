@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "observedDateUtc": "2026-10-14",
+  "evidenceType": "ORIGINAL_ARM64_STACK_DERIVED_WAIT_INIT_ARGUMENT_SOURCE_CORRELATION_RESEARCH_ONLY",
+  "inputs": {
+    "ownerOp11ReportFilename": "ghostlock-original-futex-op11-20261014T092730510900548Z.json",
+    "ownerOp11ReportSha256": "9ea5655068fa39ecb0387bb9fa3b566d4463f613a585d977282056364e057321",
+    "ownerOp11ReportBytes": 14821,
+    "originalDisassemblyArchiveSha256": "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997",
+    "originalDoFutexDisassemblySha256": "56286516ae9e6a873beab22b16af3ab330a768dc1b02f901854eb96f193789a5",
+    "originalSourceDispatchArchiveSha256": "deac172780286aeca1d3b1d9ab7f036e84532a6d087cc89721fd5cc7d16fe1a3",
+    "originalSourceFutexCSha256": "493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5",
+    "originalRecoveredNmSha256": "c2306a026756230fb009576613c07e5461cccf8fd92ca5f72a52647933870f2f",
+    "originalFullKernelImageSha256Reported": "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123",
+    "originalFullKernelImageRehashedThisTurn": false
+  },
+  "machineCode": {
+    "containingFunction": "do_futex",
+    "originalVerifiedOperation11Branch": true,
+    "originalTwoHopBlockRelativeStart": "0x118c",
+    "linearStraightLineSequence": [
+      {
+        "pcRelativeToDoFutex": "0x1190",
+        "mnemonic": "add",
+        "operands": "x0, sp, #0xc0"
+      },
+      {
+        "pcRelativeToDoFutex": "0x1194",
+        "mnemonic": "add",
+        "operands": "x25, sp, #0xc0"
+      },
+      {
+        "pcRelativeToDoFutex": "0x1198",
+        "mnemonic": "bl",
+        "operands": "0xffffff80081474fc"
+      }
+    ],
+    "directBranchExactRecoveredCallee": "rt_mutex_init_waiter",
+    "aarch64FirstArgumentRegister": "x0",
+    "noInterveningWriteToX0WithinThreeInstructionSequence": true,
+    "stackDerivedPointerArgumentLocallyVerified": true,
+    "sameExpressionConstructedInX25": true,
+    "compilerCSourceObjectBoundsCertified": false,
+    "stackPointerLifetimeAcrossBlockingCallVerified": false,
+    "runtimeStackBaseOrKaslrVerified": false
+  },
+  "originalSource": {
+    "function": "futex_wait_requeue_pi",
+    "declaration": "struct rt_mutex_waiter rt_waiter;",
+    "declarationLineInUploadedSourceArchive": 3238,
+    "sourceComment": "The waiter is allocated on our stack, manipulated by the requeue code while we sleep on uaddr.",
+    "sourceCommentLines": [
+      3263,
+      3265
+    ],
+    "sourceInitializer": "rt_mutex_init_waiter(&rt_waiter);",
+    "sourceInitializerLine": 3267,
+    "sourceQueueField": "q.rt_waiter = &rt_waiter;",
+    "sourceQueueFieldLine": 3274,
+    "doFutexDispatchFutexWaitRequeuePiLine": 3736,
+    "exactCompilerSourceObjectAttributionCertified": false,
+    "sourceMachineSequenceConsistent": true
+  },
+  "verification": {
+    "operation11FileMachineSequenceDirectlyCrossCheckedWithOriginalDisassemblyArchive": true,
+    "sourceLifetimeCommentsDirectlyCrossCheckedWithSourceArchive": true,
+    "completeControlFlowPathFeasibilityProven": false,
+    "rtlObjectLifetimeThroughQueueCleanupProven": false,
+    "sendmsgObjectAliasOrStackReuseProven": false,
+    "ghostLockRootProven": false,
+    "kernelSuLoaded": false,
+    "deviceModified": false
+  },
+  "toolUpdate": {
+    "module": "tools/y2q_hxl1_ghostlock_futex_op11_block.py",
+    "newField": "waiterInitStackDerivedArgument",
+    "addedFailClosedLocalRegSequenceGate": true,
+    "regressionSuite": "tools.test_y2q_hxl1_ghostlock_futex_op11_block",
+    "numberOfRegressionCasesWritten": 30,
+    "newOwnerOrHostedTestPassingStatus": "NOT_YET_VERIFIED"
+  },
+  "interpretation": "Original compiled HXL1 operation-11 code unequivocally constructs x0=SP+0xc0 and branches to the recovered rt_mutex_init_waiter symbol; x25 separately receives the same calculated address. The source file explicitly declares a stack-resident waiter and gives its address to rt_mutex_init_waiter and q.rt_waiter. This is strong source-machine consistency, not certified compiler source-local object bounds, full lifetime, cross-syscall stack alias, exploitability or root."
+}
