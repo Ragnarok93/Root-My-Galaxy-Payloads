@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "kind": "OWNER_RUN_NUMERIC_SOURCE_BINARY_CROSSWALK_CHECKPOINT",
+  "checkpointDateUTC": "2026-10-14",
+  "uploadedReportSha256": "f1c5114692a059ebc1c5d1542af19170640989054b998697c26ca0f7eb21a478",
+  "stockFutexSourceSha256": "493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5",
+  "stockSelectSourceSha256": "8b73f69f3f1929a39d7d7549f96cf6fa670420e140b9d67cae8177d1fe4642f3",
+  "reportedSameCheckoutPollHeaderSha256": "42b7aa8396b95893d943cafebb41030034a55df67b20e914040ea97545bedeb3",
+  "disassemblyArchiveSha256": "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997",
+  "checks": {
+    "archivedSourceFilesIndependentlyRehashedHere": true,
+    "savedDisassemblyArchiveIndependentlyRehashedHere": true,
+    "savedDisassemblyTextHashesChecked": 5,
+    "selectMacroAliasSourceBytes": 256,
+    "nativeBitmapCount": 6,
+    "nativeLongBytes": 8,
+    "localBitmapCapacityFdCount": 320,
+    "firstDynamicBitmapAllocationFdCount": 321,
+    "dynamicAllocationBytesPer64Fd": 48,
+    "compiledRoundedCompareConstant": 384,
+    "compiledArithmeticMatchesSourceCapacity": true,
+    "sameCompiledCutoffCouldAriseFromOtherSourceByteCounts": [
+      240,
+      287
+    ],
+    "originalPollHeaderBytesIndependentlyRehashedHere": false,
+    "stockFactoryCompilerHeaderInputsIndependentlyEstablished": false,
+    "compiledSourceLocalVariableCoordinatesEstablished": false,
+    "crossSyscallKernelStackReuseEstablished": false,
+    "runtimeRootOrKernelSuEstablished": false
+  },
+  "conclusion": "STATIC_NATIVE_SELECT_ALLOCATION_CAPACITY_MATCH_CONFIRMED",
+  "limitation": "Archived disassembly is verified against saved collector manifest, not newly supplied raw OEM kernel Image. Reported poll.h hash was not verified against uploaded header bytes. No root, exploit geometry or physical kernel-stack alias is demonstrated."
+}
