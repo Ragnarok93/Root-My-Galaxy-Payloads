@@ -199,6 +199,11 @@ def numeric_select_crosswalk(disassembly: str, stack_bytes: int) -> dict:
         "dynamicAllocationBytesPer64Descriptors": bitmaps * word_bytes,
         "roundedCountComparisonOperand": expected_rounded_limit,
         "compiledArithmeticMatchesSourceCapacity": True,
+        "smallestSourceArrayBytesWithThisCompiledCutoff":
+            words_per_bitmap * bitmaps * word_bytes,
+        "largestSourceArrayBytesWithThisCompiledCutoff":
+            (words_per_bitmap + 1) * bitmaps * word_bytes - 1,
+        "compiledCutoffUniquelyAuthenticatesExactSourceBytes": False,
         "sourceObjectPhysicalLocationCertified": False,
         "crossSyscallReuseOrRootCertified": False,
     }
