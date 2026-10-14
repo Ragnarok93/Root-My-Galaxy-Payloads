@@ -187,6 +187,7 @@ def markdown(data: dict) -> str:
               '- The five archived original-image-derived disassembly texts have '
               'matching saved hashes (4102 instructions), not a fresh independent Image digest.',
               '', '## Remains unverified', '',
+              '**Status: NOT VERIFIED — source-local evidence only.**',
               '- Factory compiler local-to-stack slot mapping',
               '- Cross-syscall physical stack reuse or runtime exploitability',
               '- Physical bootloader handoff, temporary root and KernelSU', '']
