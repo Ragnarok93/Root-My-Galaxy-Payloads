@@ -1,3 +1,23 @@
+## Additional original x25 pointer-store corroboration — 10:53 UTC
+
+Beyond the independently authenticated `do_futex` frame census, the saved original machine code contains:
+
+```asm
+do_futex +0x1194: add x25, sp, #0xc0
+do_futex +0x1198: bl  0xffffff80081474fc    // recovered rt_mutex_init_waiter
+do_futex +0x11b0: bl  0xffffff80081930ec    // recovered get_futex_key
+do_futex +0x11b4: cbnz w0, 0xffffff8008190038
+do_futex +0x11d0: stp x25, x27, [sp, #160]
+```
+
+These exact five instruction words were checked against the original SHA-pinned 1,766-instruction `do_futex` archive. There is **no intervening syntactic `x25` or `w25` use** from immediately after `+0x1194` to before `+0x11d0`. Assuming normal AArch64 callee-saved register preservation across the two BL calls, `x25` retains the `SP+0xc0` pointer and is stored at `SP+0xa0` (the first word of the two-word STP) on the *fall-through* branch when `w0 == 0`. The second stored value is `x27` at `SP+0xa8`. This represents a **conditional original stack-memory transfer of a stack-derived pointer**, not proof that the target compiler object is `q.rt_waiter` or that its lifetime extends to a specific block.
+
+The existing `tools/y2q_hxl1_waiter_argument_lifetime_audit.py` now reports both `compiledSpFrameInventory` and `conditionalWaiterDerivedPointerStore`, with **13 new synthetic regression cases** (7 SP-census and 6 conditional-register/store cases; 25 total tests). The archived original code passed both newly added structural verifications independently in this turn. The 25-test suite and hosted CI must still be run; their pass status is not assumed.
+
+Supplemental machine-readable report `hxl1-original-waiter-conditional-stack-store-20261014.json` was generated and hashed as `3e0f71ef849232c2ee03ee13fa2c9e3c9521c7e2af5b7c174debd57145da49b8`. The [GitHub evidence checkpoint](../research/y2q-G986U1UESCHXL1/ghostlock-waiter-sp-invariant-and-store-20261014.json) distinguishes the verified straight-line transfer, normal ABI assumption and unknown source-object identity. No phone operation, root attempt or KernelSU loading has occurred.
+
+---
+
 ## New original `do_futex` SP-integrity census — October 14, 2026
 
 The owner uploaded the fully completed read-only audit, `hxl1-waiter-source-compiled-20261014T105255123936007Z.json`, independently SHA-256 checked as **`f90df3db38e68e246fda6052896f72607b8dfd8a950e19c8a45d70c7500f3a40`**. Its embedded status reports **12 original source landmarks**, all **three compiled waiter helper argument sites**, and `originalRecoveredNmIndependentlyRehashed=true`. It continues to mark runtime reuse, entire waiter lifetime and root unverified.
