@@ -1,3 +1,19 @@
+## October 14, 14:07 UTC — NEW factory-compiled deadlock-error guards classified; no more chainwalk extraction needed
+
+The owner supplied `hxl1-chainwalk-complete-20261014.json`: a **portable 534-instruction original Samsung HXL1** `rt_mutex_adjust_prio_chain` ledger, including branch contexts and both already-established `w20=-35` error origins. Its uploaded SHA-256 is `07b2b074ed49e8f82515ca024adee7d22c025c9a3189040b6e23ef23d210b1c5`. The available code packet is sufficient to determine the **actual compiled error condition categories**, without a further WSL run.
+
+**Compiled cycle-deadlock error — `+0x750`:** factory `+0x40: mov x21,x3` and `+0x44: mov x23,x2` retain lock arguments. `+0x1dc: cmp x21,x23` followed by `+0x1e0: b.eq +0x748` enters the common deadlock block if the walked lock matches the initiating lock (after earlier waiter-lock identity checks). An alternative branch `+0x1e4..0x1f4` loads the encoded walked lock owner, clears the low waiter-state bit, compares the owner against the initiating top task originally passed in `x5` (spilled at `+0x58`), and branches to the *same* `+0x748` block on equality. After releasing the lock, `+0x750` assigns `-35` to `w20`.
+
+**Compiled maximum-depth error — `+0x79c`:** factory `+0x30..0x38` checks the global maximum against an initial count of one and branches to the depth-error exit if the limit is smaller. The repeated walk updates the counter at `+0x65c` and compares it against the same configured maximum at `+0x664`; `+0x668` continues if the depth is within the limit, otherwise `+0x66c` branches to common depth-error cleanup at `+0x760`. The intermediate lock/refcount/warning steps at `+0x760..0x798` do **not** represent additional error causes. `+0x79c` assigns `-35` to `w20`.
+
+Both original error sites converge through `+0x7a0: mov w0,w20` to `ret` at `+0x7c4`. All **22 relevant original instruction fingerprints** and their precise CFG predecessors were checked against the supplied machine ledger. The two error *categories* correspond to the v4.19 Linux source's `lock == orig_lock || rt_mutex_owner(lock) == top_task` cycle test and `++depth > max_lock_depth` bound.
+
+**What this newly resolves:** the error sites are **not opaque late-error constants**; their original factory instruction guards are now known. The chainwalk register-origin and error-site-guard questions should be considered closed at the static level. No more original chainwalk disassembly, symbol crosswalks or repeated test inventories are required.
+
+**The still-missing security inference:** evidence that a valid factory `FUTEX_REQUEUE_PI` execution can satisfy the deadlock/depth predicates *and* the proxy-lock rollback owner condition while an RT-mutex waiter reference survives intended cleanup/stack lifetime. Static guards and code-path reachability do not prove that joint state. Do not promote GhostLock exploitation, temporary root or KernelSU.
+
+---
+
 ## October 14, 13:27 UTC — Missing original W20 return carrier analyzer completed
 
 Owner requested that we close the actual missing `w20` value-origin investigation, not rerun any prior stacks, symbol crosswalks, or waiter audits. The uploaded chain-walk report contains **534 stock instructions**, a common return at `+0x7c4`, and `+0x7a0: mov w0,w20`. It reports no negative immediate assignments **to w0**; that is **not** a negative result for `rt_mutex_adjust_prio_chain` because the return value is sourced from `w20`. The original 534-instruction dump and stock ELF were not uploaded in this chat, so the actual factory W20 definitions are not observable from the previously uploaded JSON alone.
