@@ -154,5 +154,59 @@ class HeaderProvenanceTests(unittest.TestCase):
 
 
 
+    @staticmethod
+    def _compiled_threshold_fixture() -> str:
+        # Equivalent arithmetic and branch form, not an exploit payload.
+        start = 0x1000
+        rows = [
+            ("sxtw", "x8, w22"),
+            ("add", "x8, x8, #0x3f"),
+            ("lsr", "x27, x8, #6"),
+            ("cmp", "x8, #0x180"),
+            ("b.cc", "0x1100"),
+            ("mov", "w1, #0xc0"),
+            ("add", "x8, x27, x27, lsl #1"),
+            ("movk", "w1, #0x60, lsl #16"),
+            ("mov", "w2, #0xffffffff"),
+            ("lsl", "x0, x8, #4"),
+        ]
+        result = [f"{start+4*i:016x}: d503201f {mn} {ops}"
+                  for i, (mn, ops) in enumerate(rows)]
+        result.append(f"{0x1100:016x}: d503201f add x19, sp, #0x50")
+        return "\n".join(result) + "\n"
+
+    def test_compiled_select_cutoff_corresponds_to_256_byte_source(self):
+        report = m.numeric_select_crosswalk(
+            self._compiled_threshold_fixture(), 256)
+        self.assertEqual(report["maximumNfdsUsingStack"], 320)
+        self.assertEqual(report["firstNfdsRequiringDynamicAllocation"], 321)
+        self.assertEqual(report["dynamicAllocationBytesPer64Descriptors"], 48)
+        self.assertEqual(report["roundedCountComparisonOperand"], 384)
+        self.assertEqual(report["smallestSourceArrayBytesWithThisCompiledCutoff"], 240)
+        self.assertEqual(report["largestSourceArrayBytesWithThisCompiledCutoff"], 287)
+        self.assertFalse(report["compiledCutoffUniquelyAuthenticatesExactSourceBytes"])
+        self.assertFalse(report["crossSyscallReuseOrRootCertified"])
+
+    def test_wrong_compiled_comparison_or_wrong_header_capacity_rejected(self):
+        body = self._compiled_threshold_fixture()
+        with self.assertRaisesRegex(m.SourceError, "disagrees"):
+            m.numeric_select_crosswalk(body.replace("#0x180", "#0x1c0"), 256)
+        with self.assertRaisesRegex(m.SourceError, "disagrees"):
+            m.numeric_select_crosswalk(body, 512)
+
+    def test_branch_must_target_the_stack_backed_path(self):
+        body = self._compiled_threshold_fixture()
+        with self.assertRaisesRegex(m.SourceError, "no longer targets"):
+            m.numeric_select_crosswalk(
+                body.replace("b.cc 0x1100", "b.cc 0x1200"), 256)
+
+    def test_dynamic_alloc_sizing_must_match_six_eight_byte_words(self):
+        body = self._compiled_threshold_fixture()
+        with self.assertRaisesRegex(m.SourceError, "sizing path"):
+            m.numeric_select_crosswalk(
+                body.replace("lsl x0, x8, #4", "lsl x0, x8, #5"), 256)
+
+
+
 if __name__ == "__main__":
     unittest.main()
