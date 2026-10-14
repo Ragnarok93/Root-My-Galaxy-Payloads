@@ -62,6 +62,11 @@ print("[SP WRITES]",frame["observedSpWrites"],frame["observedSpWriteOffsets"])
 print("[ENTRY FRAME BYTES]",frame["frameAllocationBytes"])
 print("[OTHER SP MODIFICATIONS / WRITEBACKS]",frame["unexpectedSpInstructionForms"],frame["writebackMemoryInstructionsTouchingSp"])
 print("[C-LOCAL LIFETIME / CROSS-SYSCALL OVERLAP] NOT PROVEN")
+store=r["conditionalWaiterDerivedPointerStore"]
+print("[CONDITIONAL POINTER STORE]",store["storeRelativeOffset"],
+      "source=",store["sourcePointerExpression"],
+      "stackDestination=",store["firstStoredValueStackOffset"])
+print("[SOURCE OBJECT FIELD ATTRIBUTION]",store["queuePointerFieldProven"])
 print("[SOURCE LANDMARKS]",len(r["waiterSourceMarkers"]))
 print("[ORIGINAL COMPILED ARGUMENT SITES]",len(r["compiledCallArgumentSites"]))
 for x in r["compiledCallArgumentSites"]:
