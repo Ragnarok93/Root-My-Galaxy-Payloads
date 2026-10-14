@@ -1,3 +1,29 @@
+## October 14, 04:41 UTC — live boot-index hints captured; both root paths denied
+
+Owner WSL run after pulling through `6ebaa32` reached the new `ROOT_PROPERTIES_INACCESSIBLE` result and preserved a structured JSON at `/home/main/s20-artifacts/hxl1-research/hxl1-live-dtb-access-v2-20261014T044057Z.json`. The physical handset provided the exact HXL1 identity `SM-G986U1`, `TP1A.220624.014.G986U1UESCHXL1`, and `4.19.113-27095354`.
+
+Both unprivileged `model` and `compatible` attempts received `PERMISSION_DENIED` under both `/sys/firmware/devicetree/base` and `/proc/device-tree`: **four denied root-property reads**, no raw runtime FDT properties. The probe exited 2 *as intended for this access limit*, saved its report, and reported no candidate match or physical base.
+
+The allowlisted read-only Android property hints were:
+
+| Boot property | Observed value |
+|---|---|
+| `ro.hardware` | `qcom` |
+| `ro.board.platform` | `kona` |
+| `ro.boot.hardware` | `qcom` |
+| `ro.boot.dtb_idx` | `0` |
+| `ro.boot.dtbo_idx` | `2` |
+
+**Do not equate** the observed `dtb_idx=0` with the first of the four stock embedded FDT candidates without proving Samsung/Qualcomm's indexing domain and the original bootloader's selection semantics. Similarly, `dtbo_idx=2` does not prove which overlay(s) were applied. A reported boot index cannot establish the actual kernel physical load address.
+
+The owner-side unit tests had **24 PASS, 1 FAIL** out of 25. The lone failure was an old error-message assertion `"unavailable"` in `test_adb_denial_does_not_promote_evidence`, now contradicting the more precise `"ADB_COMMAND_FAILED"` raised on generic nonzero ADB exit. Commit `b4269b64bf5cabe6736977a71c43405eda152bbb` corrects the **test expectation**, not the production ADB failure classification. **The corrected 25-test suite remains pending execution**, so don't report 25/25 PASS yet.
+
+The exact owner-typed result is checkpointed as `research/y2q-G986U1UESCHXL1/stage4-owner-live-dtb-access-20261014T044057Z.json`; the user pasted console output, so this versioned report is a faithful structured transcription, not a fresh hash of the owner's runtime JSON bytes.
+
+**Next work:** Stop repeating protected device-tree reads; use offline original firmware and vendor source metadata to establish what `ro.boot.dtb_idx` and `ro.boot.dtbo_idx` count or select. If no authentic mapping exists, preserve the indices as hints and Stage 4 as **OPEN**. No root, KernelSU, physical handoff, firmware flashing, or bootloader unlocking occurred.
+
+---
+
 ## October 14, 04:35 UTC — actual device output proves read-access denial
 
 The owner's new WSL host run **passed 18/18 existing unit tests**. The live report `hxl1-live-dtb-diagnostic-20261014T043531Z.json` subsequently returned `status=ROOT_PROPERTY_PARSE_REQUIRES_REVIEW`. Its bounded raw bytes are *not* malformed binary FDT strings. The recorded diagnostic decodes exactly to:
