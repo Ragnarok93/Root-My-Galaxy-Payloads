@@ -1,3 +1,23 @@
+## October 14, 09:12 UTC — five original HXL1 futex case-11 call targets recovered
+
+Owner supplied and we parsed the updated original static `do_futex` operation-11 report, SHA-256 `82735ba24c2b14b652e0f965cdc9939918d812985153fa1a98548be59731de75` (14,815 bytes). All **five of five** direct BL addresses across the existing depth-two alternatives now have exact recovered symbol labels from the pinned HXL1 NM: `hrtimer_init`, `hrtimer_init_sleeper`, `ktime_add_safe`, **`rt_mutex_init_waiter`**, and `get_futex_key`. The first block remains `do_futex+0xbd0`, 24 instructions, zero direct calls; the later bounded alternative blocks contain all five.
+
+This is a meaningful original compiler-code corroboration of the futex waiter/timer setup function families; it is **not evidence that C-local stack object identity, lifetime, interprocedural dataflow, cross-syscall stack alias or exploitability was established**. There was no physical phone exploit test. The input report explicitly marks original compiler-local mapping, root and KernelSU false.
+
+[Versioned 09:12 owner checkpoint](../research/y2q-G986U1UESCHXL1/ghostlock-op11-owner-twohop-20261014T091255Z.json) and [detailed five-call reconciliation](SM-G986U1-HXL1-GHOSTLOCK-OP11-COMPILED-BLOCK-20261014.md) are committed. The original `tools/y2q_hxl1_ghostlock_futex_op11_block.py` now labels the report accurately as two-hop static analysis, rejects drift in all five exact named callees, and adds four tests (suite: **26**, pending execution). The existing CI workflow already tracks both edited tool and tests.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh
+```
+
+**Next evidence gate:** independently reconcile the compiled source-object identity and lifetime to the pinned Samsung `kernel/futex.c` source, with explicit uncertainty until OEM compiler-local metadata or stronger original machine-code attribution exists. Merely counting further helper calls cannot prove reuse or root. Do not advance production or KernelSU deployment gates.
+
+Readiness unchanged: stages 1–2 COMPLETE, stage 3 PARTIAL, stages 4–6 OPEN, 7–8 BLOCKED, stage 9 DEFERRED.
+
+---
+
 ## October 14 — independent uploaded-archive verification: op11 two-hop callsites
 
 Independently rehashed the original uploaded five-function `hxl1-disassembly-review.tar.gz` (SHA-256 `20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997`) and its original `do_futex.disasm.txt` (`56286516ae9e6a873beab22b16af3ab330a768dc1b02f901854eb96f193789a5`). Analyzed the **actual static instruction text** without QEMU, a new build or device operation.
