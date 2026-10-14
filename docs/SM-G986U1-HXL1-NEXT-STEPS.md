@@ -1,8 +1,26 @@
-## October 14 — Defensive 4.19 cleanup-backport candidate staged (NEW)
+## October 14, 15:14 UTC — RESTORED ORIGINAL GHOSTLOCK ROOT PORT GOAL
 
-The outstanding source defect is independently covered by the existing [cross-task lifetime audit](SM-G986U1-HXL1-CROSS-TASK-LIFETIME-AUDIT-20261014.md) and nine-test abstract model. **Do not duplicate that work.** A separate [defensive backport review](SM-G986U1-HXL1-RTMUTEX-DEFENSIVE-419-BACKPORT-20261014.md) now stages a source-only Linux 4.19 `remove_waiter()` task-identity fix, adapted from the upstream CVE-2026-43499 correction. The patch applies cleanly to the exact archived original function excerpt (including when embedded after dummy preceding lines); the complete Samsung source tree has **not** been checked or built here. Nothing was flashed. No root/KernelSU stage change.
+**The root-thread guide takes precedence:** [firmware-to-profile procedure](PORTING.md), [original HXL1 nine-stage adaptation](SM-G986U1-G986U1UESCHXL1.md) and [HXL1 port automation](SM-G986U1-HXL1-AUTOMATED-PORTING.md). The project objective is an exact-firmware **Root-My-Galaxy GhostLock/CVE-2026-43499** runtime port for Samsung Galaxy S20+ **SM-G986U1**, **G986U1UESCHXL1**, Linux **4.19.113-27095354**, Snapdragon 865, followed by compatible **KernelSU 4.19 late-load** integration, matching target/manifest packaging and hardware validation **without requiring an unlocked bootloader for the initial runtime privilege escalation**.
 
-**Only safe next action:** run the one `git apply --check` command documented in the remediation review against the owner's full stock source checkout. A passing dry-run is source-context evidence, not factory compatibility or a deployable image.
+**Correction:** the preceding defensive `remove_waiter()` backport branch was an off-goal diversion. Its standalone research patch and review remain archival but are **not** a porting prerequisite, do **not** run or apply that patch to the stock HXL1 source/kernel for the root-port effort, and do **not** substitute remediation testing for missing exploit and KernelSU capability evidence.
+
+Current readiness per the existing nine-stage checker is **1–2 COMPLETE; 3 PARTIAL; 4–6 OPEN; 7–8 BLOCKED; 9 DEFERRED**. Static findings already covered: firmware/source/binary provenance, compiled cross-task `current` mismatch, waiter pointer publication, the two `-EDEADLK` compiled origins and their cycle/depth guards, candidate error-return propagation, and conditional cross-task lifetime model. Neither a **factory-feasible joint-state execution** nor an observed stale-reference dereference, privilege transition, KernelSU load or production HXL1 profile exists.
+
+**Next actually missing guide gates — avoid repeating completed audits:**
+
+1. **Stages 3/5, CVE applicability → runtime primitive:** investigate the unresolved joint-state feasibility and complete legitimate cleanup/repair in **the original vulnerable HXL1 kernel**, not a patched version. Separate an abstract error/rollback lifetime implication from an experimentally established kernel behavior; do not treat isolated QEMU reference-kernel observations as HXL1 hardware proof.
+2. **Stages 3/4, factory ABI and boot/handoff:** resolve *only still-unproven* original compiler member attributions, physical HXL1 load/handoff values and device slide/fingerprint assumptions. Reuse the existing original ELF/BL/DTB/REA evidence; do not reextract the firmware, recount symbols or rerun the previously passing waiter audits.
+3. **Stage 6, Samsung target:** create/validate only exact-build profile constants and host-built artifact compatibility as remaining prerequisites become substantiated. Do not transplant Redmi K40/OPPO constants or call an identity-only `.so` a root payload.
+4. **Stage 7 after a validated privilege boundary crossing:** assess exact Linux 4.19 KernelSU hooking/loading feasibility against `CONFIG_MODULE_SIG_FORCE=y`, `CONFIG_KPROBES=n`, Samsung KDP/RKP/DEFEX, matching symbol/CRC evidence and possible alternative late-load backend. **Bootloader unlock is not a prerequisite for the GhostLock research phase**, but actual module authorization still needs its own proof.
+5. **Stages 8–9 only after 5–7 succeed:** support-feed/app packaging, rollback and physical validation.
+
+**Immediate research priority:** complete the original (unpatched) HXL1 *joint-state/cleanup* analysis; do not create more symbol/count/stack audits, abstract models proving their own assumptions, or remediation patches. Preserve current research-only status and do not claim root or KernelSU until observed.
+
+---
+
+## Historical off-goal security backport — ARCHIVED; NOT PORTING NEXT STEP
+
+The October 14 defensive 4.19 remediation candidate is retained separately at [defensive backport review](SM-G986U1-HXL1-RTMUTEX-DEFENSIVE-419-BACKPORT-20261014.md). It is **not part of the GhostLock exploitation workflow** and must not be run as the next HXL1 porting action.
 
 ---
 
