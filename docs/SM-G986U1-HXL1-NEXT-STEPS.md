@@ -1,3 +1,15 @@
+## October 14 — REA DTB/DTBO native trace was cancelled; do NOT repeat unbounded analysis
+
+**Owner tests:** corrected Stage 4 live-device DTB identity suite **25/25 PASS**. The existing no-root ADB probe established both root-property paths as inaccessible and captured existing dtb_idx=0 and dtbo_idx=2 *hints* (already recorded in October 10 observations). No original selected DTB or physical Linux handoff established.
+
+**New uploaded trace evidence:** the file rea-shared-dtb-dtbo-native-values.partial.json has SHA-256 0bd68713838b2536f67ff683b284d35008b5fcdcc05cfac608dee9c0b1a5e847. It contains only error=Analysis failed, code/category=cancelled, details.operation=analyze_function, cleanup=complete. The successful native result file is missing; **no native producer dataflow was obtained**. Its retryable flag is not evidence that another attempt would complete. The reason for cancellation is unknown.
+
+Do not repeat the old trace-native-values invocation shown in the historic October 11 section below. **Use the new read-only, offline cached-function verifier** in docs/SM-G986U1-HXL1-REA-INDEX-TRACE-CANCELLED-20261014.md and tools/y2q_hxl1_linuxloader_cached_index_audit.py to reuse existing SHA-authenticated EFI, dtb-index and dtbo-index xrefs and cached Ghidra function dossiers without restarting the provider. It outputs only bounded pseudocode snippets and an explicit failed-trace status; it cannot certify selector-value origins, applied DTB/DTBO or physical kernel load. The prior instructions remain below only as historical record of the already attempted trace.
+
+**Status unchanged:** Stage 3 PARTIAL, Stage 4–6 OPEN, Stage 7–8 BLOCKED, Stage 9 DEFERRED. No root, KernelSU or feed support.
+
+---
+
 ## October 13, 14:34 UTC — original compiled HXL1 control-flow gate
 
 **No new device or firmware extraction run.** Reused the owner's previously supplied `hxl1-disassembly-review.tar.gz` (SHA256 `20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997`), retaining exact 5/5 archived disassembly text digest validation and 4,102 contiguous ARM64 instruction slots. The checked file-relative function windows and the approximate direct-control-flow result are:
