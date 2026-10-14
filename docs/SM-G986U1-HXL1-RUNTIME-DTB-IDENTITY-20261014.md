@@ -1,3 +1,14 @@
+### Avoid duplicated DT-index research
+
+This new owner observation **corroborates** the two pre-existing October 10 read-only ADB records (`20261010T130008Z` and `20261010T130021Z`) already recorded in `docs/SM-G986U1-HXL1-NEXT-STEPS.md`: both reported `dtb_idx=0`, `dtbo_idx=2`, denied raw device-tree/bootargs access, and no physical Linux base.
+
+The original SHA-pinned HXL1 `LinuxLoader-HXL1.efi` REA/Ghidra analysis already traced the `androidboot.dtb_idx=` string xref at `0x2c350` and `androidboot.dtbo_idx=` xref at `0x2c308` into **the same `FUN_0002bdf8` command-line formatter**. That correspondence is not proof that this function **chooses** the indices; it may read preselected values.
+
+The saved REA function reports are under `~/s20-artifacts/hxl1-research/abl-linuxloader/rea-dt-index-LBaPQ6`; the existing next-steps document prescribes checking the already saved `rea-shared-dtb-dtbo-native-values.json` value trace **first**, rather than rerunning string xrefs or whole-firmware disassembly. The original LinuxLoader SHA-256 pin is `5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003`.
+
+With these repeated denied reads now verified, do **not** rerun the ADB root-property probe. The next safe local action is to verify the 25 regression tests and inspect any *existing* REA trace; no need to repeat firmware extraction, BL downloads, QEMU FDT trials or string-xref discovery. Original index selection and physical kernel handoff remain unresolved.
+
+
 ## October 14, 04:41 UTC — live boot-index hints captured; both root paths denied
 
 Owner WSL run after pulling through `6ebaa32` reached the new `ROOT_PROPERTIES_INACCESSIBLE` result and preserved a structured JSON at `/home/main/s20-artifacts/hxl1-research/hxl1-live-dtb-access-v2-20261014T044057Z.json`. The physical handset provided the exact HXL1 identity `SM-G986U1`, `TP1A.220624.014.G986U1UESCHXL1`, and `4.19.113-27095354`.
