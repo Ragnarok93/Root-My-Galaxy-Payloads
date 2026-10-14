@@ -257,6 +257,51 @@ class Op11FirstBlockTests(unittest.TestCase):
         self.assertIn("ORIGINAL_DOFUTEX_OP11_BOUNDED_TWO_HOP_STATIC_BRANCH_INSPECTION",s)
         self.assertNotIn("EXISTING_ORIGINAL_DOFUTEX_OP11_SINGLE_STATIC_BASIC_BLOCK",s)
 
+    @staticmethod
+    def original_waiter_argument_fixture():
+        return {"twoHopSuccessorBlocks":[{
+            "relativeToDoFutexEntry":"0x118c",
+            "instructions":[
+                {"relativeToDoFutexEntry":"0x118c","opcode":"mov","operands":"x20, xzr"},
+                {"relativeToDoFutexEntry":"0x1190","opcode":"add","operands":"x0, sp, #0xc0"},
+                {"relativeToDoFutexEntry":"0x1194","opcode":"add","operands":"x25, sp, #0xc0"},
+                {"relativeToDoFutexEntry":"0x1198","opcode":"bl","operands":"0xffffff80081474fc"},
+            ],
+            "directCalls":[{
+                "relativeToDoFutexEntry":"0x1198",
+                "recoveredTarget":{"status":"EXACT_RECOVERED_TEXT_LABEL",
+                                   "labels":["rt_mutex_init_waiter"]},
+            }]
+        }]}
+
+    def test_original_waiter_init_argument_is_stack_derived(self):
+        result=m.verify_stack_derived_waiter_init_argument(
+            self.original_waiter_argument_fixture())
+        self.assertEqual(result["x0Expression"],"sp + 0xc0")
+        self.assertEqual(result["x25Expression"],"sp + 0xc0")
+        self.assertTrue(result["stackDerivedFirstArgumentObserved"])
+        self.assertFalse(result["sourceLocalRtMutexWaiterSizeAndIdentityCertified"])
+        self.assertFalse(result["stackOverlapOrExploitProven"])
+
+    def test_original_waiter_init_x0_drift_fails_closed(self):
+        r=self.original_waiter_argument_fixture()
+        r["twoHopSuccessorBlocks"][0]["instructions"][1]["operands"]="x0, sp, #0xb0"
+        with self.assertRaisesRegex(m.Stop,"provenance drift"):
+            m.verify_stack_derived_waiter_init_argument(r)
+
+    def test_original_waiter_init_x25_drift_fails_closed(self):
+        r=self.original_waiter_argument_fixture()
+        r["twoHopSuccessorBlocks"][0]["instructions"][2]["operands"]="x25, sp, #0xd0"
+        with self.assertRaisesRegex(m.Stop,"provenance drift"):
+            m.verify_stack_derived_waiter_init_argument(r)
+
+    def test_original_waiter_init_callee_change_fails_closed(self):
+        r=self.original_waiter_argument_fixture()
+        r["twoHopSuccessorBlocks"][0]["directCalls"][0][
+            "recoveredTarget"]["labels"]=["get_futex_key"]
+        with self.assertRaisesRegex(m.Stop,"call target or label drift"):
+            m.verify_stack_derived_waiter_init_argument(r)
+
     def test_archive_original_sha_is_strict_pin(self):
         self.assertEqual(m.ARCHIVE_SHA,
           "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997")
