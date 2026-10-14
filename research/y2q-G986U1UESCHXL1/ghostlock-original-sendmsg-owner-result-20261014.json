@@ -82,10 +82,13 @@
   "nextVerifier": {
     "tool": "tools/y2q_hxl1_ghostlock_sendmsg_frame_attest.py",
     "tests": "tools/test_y2q_hxl1_ghostlock_sendmsg_frame_attest.py",
-    "testCasesWritten": 14,
+    "testCasesWritten": 15,
     "coverage": "Rehash original kernel, nm, each bounded code window, each disassembly and each decoded ARM64 instruction word; summarize literal SP adjustments without any alias or root claim",
     "ownerRerunConfirmed": false,
     "hostedCiPassConfirmed": false,
-    "originalBinDisassemblyRemainOwnerSide": true
+    "originalBinDisassemblyRemainOwnerSide": true,
+    "singleCommandRunner": "tools/run_y2q_hxl1_ghostlock_sendmsg_frame_attest.sh",
+    "runAutomaticallyFindsExactUploadedManifestSha256": true,
+    "uncertainFinalResult": "Actual owner original code window verification not yet run with new verifier; original disassembly text not uploaded."
   }
 }
