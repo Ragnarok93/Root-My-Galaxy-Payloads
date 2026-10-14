@@ -60,6 +60,20 @@ The original waiter path declares rt_waiter on its stack (line 3238), passes &rt
 3. Proving **cross-syscall reuse** requires demonstrating a genuine escape beyond valid waiter teardown / cleanup, or a specific unintended race; observing stack object construction and a blocked task is insufficient.
 4. The correct outstanding study is **inter-thread handoff plus all return/cleanup paths**, especially whether a waiter address can remain referenced after the waiter function returns. Do not claim such an escape exists without direct evidence.
 
+## 3. Actual cross-thread handoff and return-path obligation (new source-flow analysis)
+
+The original HXL1 source contains a concrete handoff, not merely speculative changes by unknown BL targets:
+
+1. **Waiter publishes stack-local state:** futex_wait_requeue_pi initializes local rt_waiter (3267), sets q.rt_waiter and q.requeue_pi_key (3274–3275), and enters futex_wait_queue_me (3296), which can call freezable_schedule (2636).
+2. **Other task can operate under futex hash-bucket locking:** futex_requeue (1934 onward) checks that this->rt_waiter exists and this->pi_state is absent (2121–2123), validates the requeue key (2139), sets this->pi_state (2155), and calls **rt_mutex_start_proxy_lock(&pi_state->pi_mutex, this->rt_waiter, this->task)** (2156–2158). This publishes the pointer to the RT-mutex machinery when it queues a waiter.
+3. **Atomic acquisition case:** if rt_mutex_start_proxy_lock returns 1, requeue_pi_wake_futex (2168) unqueues the q, clears **q->rt_waiter = NULL** (1840), adjusts lock_ptr and wakes the original task (1842–1844).
+4. **Contended case:** after wakeup, the original waiter checks q.rt_waiter (3314); if non-NULL it may execute rt_mutex_wait_proxy_lock (3343), conditional rt_mutex_cleanup_proxy_lock (3346), debug_rt_mutex_free_waiter (3349), fixup_owner (3354) and unqueue_me_pi (3373). The return is only at 3402, after the documented cleanup control flow.
+5. **Error case in the requeue task:** a nonzero/error return from rt_mutex_start_proxy_lock causes this->pi_state to be cleared and the pi-state reference released (2171–2185), not an unconditional deletion of the stack waiter.
+
+**Security-relevant missing proof:** A dangling stack pointer requires showing that a reference survives the thread's logical waiter lifetime / function return or a failing inter-thread handoff ordering. The source outlines the expected synchronization/cleanup on ordinary paths and **does not alone demonstrate a dangling reference**. The existing shortest CFG store/load witness is not a post-return witness; it is inside an active do_futex frame. Do not claim the original return path leaves a stale waiter pointer.
+
+This is the next *unique* research question: can any **factory-reachable** interaction of the atomic-acquired, contended, and abort/error paths leave rt_waiter reachable by RT-mutex machinery after all intended cleanup? Only original stock compiled CFG/concurrency evidence supporting such a path would justify a GhostLock-use-after-return claim.
+
 ## Decision: stop duplicate verification, change research focus
 
 The factory q.rt_waiter placement is now a **high-confidence ABI-consistent mapping** supported by multiple real Image instructions and Clang config. Keep the exact OEM compiler identity qualifier rather than relabeling old Stage-3 facts as new discoveries.
