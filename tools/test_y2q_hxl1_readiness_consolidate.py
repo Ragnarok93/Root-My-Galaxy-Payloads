@@ -75,5 +75,17 @@ class ReconcileTests(unittest.TestCase):
         with self.assertRaisesRegex(m.EvidenceError,"Debug-symbol inventory"):
             m.audit(fixture(),inventory=inventory)
 
+    def test_no_research_outputs_can_be_written_inside_repository(self):
+        import io
+        import sys
+        from unittest.mock import patch
+        destination=EVIDENCE.parents[2] / "tools" / "should-not-create-readiness.json"
+        arguments=["readiness", "--evidence", str(EVIDENCE),
+                   "--output", str(destination)]
+        with patch.object(sys, "argv", arguments), patch("sys.stderr", new_callable=io.StringIO) as err:
+            self.assertEqual(m.main(), 2)
+            self.assertIn("outside the repository", err.getvalue())
+        self.assertFalse(destination.exists())
+
 if __name__=="__main__":
     unittest.main()
