@@ -64,6 +64,13 @@ class GetterCallsiteTests(unittest.TestCase):
         with self.assertRaisesRegex(m.ProvenanceError,"xref"):
             m.analyze(d)
 
+    def test_duplicate_ref_label_is_rejected(self):
+        d=fixture()
+        d["xrefEvidence"][1]["label"]="dtb-index"
+        d["xrefEvidence"][1]["xrefSource"]="0x2c350"
+        with self.assertRaisesRegex(m.ProvenanceError,"duplicate"):
+            m.analyze(d)
+
     def test_stale_dtbo_callee_is_rejected(self):
         d=fixture();d["formatterContext"]["boundedPseudocodeExcerpt"][2]["text"]=" iVar8 = FUN_00023b40();"
         with self.assertRaisesRegex(m.ProvenanceError,"call"):
