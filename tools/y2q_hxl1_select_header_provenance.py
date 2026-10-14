@@ -46,16 +46,14 @@ def load_file(root: Path, relative: str) -> bytes:
     return file.read_bytes()
 
 
-def definitions(header: str) -> dict[str, str]:
-    """Accept only unique, simple object-like macro definitions."""
-    found: dict[str, str] = {}
+def definitions(header: str) -> dict[str, list[str]]:
+    """Record all definitions; reject ambiguity only in the followed chain."""
+    found: dict[str, list[str]] = {}
     for match in DEFINE.finditer(header):
         name, value = match.groups()
-        if name in found:
-            raise SourceError("Ambiguous repeated macro definition: " + name)
         value = value.split("//", 1)[0].split("/*", 1)[0].strip()
         insist(value and "\\" not in value, "Unsupported macro syntax: " + name)
-        found[name] = value
+        found.setdefault(name, []).append(value)
     return found
 
 
@@ -69,14 +67,15 @@ def unparen(raw: str) -> str:
     return token
 
 
-def resolve(defs: dict[str, str], name: str) -> tuple[int, list[str]]:
+def resolve(defs: dict[str, list[str]], name: str) -> tuple[int, list[str]]:
     used: set[str] = set()
     chain = []
     for _ in range(12):
         insist(name not in used, "Macro alias cycle: " + name)
         used.add(name)
         insist(name in defs, "Macro missing from exact HXL1 header: " + name)
-        expression = unparen(defs[name])
+        insist(len(defs[name]) == 1, "Ambiguous conditional definitions: " + name)
+        expression = unparen(defs[name][0])
         chain.append(name + "=" + expression)
         if NUMBER.fullmatch(expression):
             value = int(expression, 0)
