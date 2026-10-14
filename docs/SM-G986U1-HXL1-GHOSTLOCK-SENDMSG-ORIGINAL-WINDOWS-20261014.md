@@ -1,3 +1,15 @@
+## Preferred one-command runner
+
+The more concise and safer default is now the committed script tools/run_y2q_hxl1_ghostlock_sendmsg_frame_attest.sh. It runs the 15 regressions, finds the unique one-level research-output manifest with SHA-256 8b95591b0da9b8645db862c0d3c2e8b8d9646492fd3dcdb32227dce4a466c7e8, invokes the full byte-level original kernel and disassembly verifier, and prints an abbreviated static-frame result:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    bash tools/run_y2q_hxl1_ghostlock_sendmsg_frame_attest.sh
+
+This does not launch ADB, REA, GhostLock, QEMU, firmware extraction, payload assembly, or KernelSU. It requires the six original saved .bin and .disasm.txt siblings, the exact original kernel.bin and recovered nm. If the original owner report or saved binary files are not present, it fails closed; no substitute is generated. The new suite and owner code verification remain pending external execution.
+
+---
+
 # HXL1 GhostLock — original sendmsg code windows (2026-10-14)
 
 Research-only follow-up to the user-uploaded original-sendmsg-windows.json. The uploaded 6416-byte JSON has SHA-256 8b95591b0da9b8645db862c0d3c2e8b8d9646492fd3dcdb32227dce4a466c7e8. **Only the report JSON was supplied, not the six saved code slices or their disassembly text.** The owner-run report claims exact kernel.bin SHA verification, but the underlying kernel bytes were not independently submitted in this turn.
@@ -23,7 +35,7 @@ Missing recovered symbol names do not prove compilation absence or source inlini
 
 tools/y2q_hxl1_ghostlock_sendmsg_frame_attest.py rehashes original kernel.bin and recovered nm, validates every saved binary window against the original kernel at its reported relative offset, verifies every saved disassembly digest, and decodes each native instruction slot against its original Image machine word. It then reuses the existing static AArch64 frame-footprint helper for literal SP adjustments only; no compiler C-local identities or runtime aliasing are certified.
 
-tools/test_y2q_hxl1_ghostlock_sendmsg_frame_attest.py contains 14 synthetic cases (original byte matching, altered code and disassembly, reordered symbols, absent symbols, forged runtime claims, standalone entrypoint). Both were added to .github/workflows/hxl1-ghostlock-stack-gate-ci.yml. These new tests and the original-kernel auditor **have not yet been observed running successfully on the owner's WSL host or GitHub CI**.
+tools/test_y2q_hxl1_ghostlock_sendmsg_frame_attest.py contains 15 synthetic cases (original byte matching, altered code and disassembly, reordered symbols, absent symbols, forged runtime claims, standalone entrypoint). Both were added to .github/workflows/hxl1-ghostlock-stack-gate-ci.yml. These new tests and the original-kernel auditor **have not yet been observed running successfully on the owner's WSL host or GitHub CI**.
 
 ## One-shot owner execution on the original saved artifacts
 
