@@ -36,6 +36,41 @@ class XrefTests(unittest.TestCase):
         self.assertTrue(writes[0]['isExact32BitAccess'])
         self.assertFalse(writes[0]['readWriteRegisterValueProven'])
 
+    def test_mov_of_page_base_prevents_false_writer(self):
+        extra={0x100:0xf0001829,  # adrp x9, original global page
+               0x104:0xaa0003e9,  # mov x9, x0 (clobber)
+               0x108:0xb9000000 | ((0x4cc//4)<<10) | (9<<5)}
+        rows=m.scan_words(make_text(extra),0x23b00)
+        self.assertFalse(any(x['mode']=='WRITE' for x in rows))
+
+    def test_load_of_page_base_prevents_false_writer(self):
+        extra={0x100:0xf0001829,
+               0x104:0xf9400009,  # ldr x9, [x0] replaces the ADRP base
+               0x108:0xb9000000 | ((0x4cc//4)<<10) | (9<<5)}
+        rows=m.scan_words(make_text(extra),0x23b00)
+        self.assertFalse(any(x['mode']=='WRITE' for x in rows))
+
+    def test_pair_load_second_register_clobbers_page_base(self):
+        extra={0x100:0xf0001829,
+               0x104:0xa9400000 | (9<<10) | 1,  # ldp x1, x9, [x0]
+               0x108:0xb9000000 | ((0x4cc//4)<<10) | (9<<5)}
+        rows=m.scan_words(make_text(extra),0x23b00)
+        self.assertFalse(any(x['mode']=='WRITE' for x in rows))
+
+    def test_store_of_page_base_does_not_invalidate_it(self):
+        extra={0x100:0xf0001829,
+               0x104:0xf9000009,  # str x9, [x0] does not change x9
+               0x108:0xb9000000 | ((0x4cc//4)<<10) | (9<<5)}
+        rows=m.scan_words(make_text(extra),0x23b00)
+        self.assertEqual(len([x for x in rows if x['mode']=='WRITE']),1)
+
+    def test_move_wide_clobber_prevents_false_writer(self):
+        extra={0x100:0xf0001829,
+               0x104:0xd2800009,  # movz x9, #0
+               0x108:0xb9000000 | ((0x4cc//4)<<10) | (9<<5)}
+        rows=m.scan_words(make_text(extra),0x23b00)
+        self.assertFalse(any(x['mode']=='WRITE' for x in rows))
+
     def test_nonmatching_page_cannot_create_writer_candidate(self):
         extra={0x100:0x90000009,
                0x104:0xb9000000 | ((0x4cc//4)<<10) | (9<<5)}
