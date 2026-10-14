@@ -57,6 +57,22 @@ for call in b["callTargetsInFirstBlock"]:
     target=call["recoveredTextTarget"]
     print("[DIRECT CALL]",call["relativeToDoFutexEntry"],
           target.get("status"),target.get("labels",target.get("lowerLabels",[])))
+print("[FIRST BLOCK TERMINAL]",b["terminalControlTransfer"])
+for x in b["immediateSuccessorBlocks"]:
+    print("[ONE-HOP]",x["relativeToDoFutexEntry"],x["status"],
+          x.get("instructionSlots"),x.get("stopReason"),
+          "BL=",len(x.get("directCalls",[])))
+for x in b["twoHopSuccessorBlocks"]:
+    print("[TWO-HOP]",x["relativeToDoFutexEntry"],"instructions=",
+          x["instructionSlots"],"stop=",x["stopReason"],
+          "BL=",len(x["directCalls"]))
+    for c in x["directCalls"]:
+        print("   [CALL]",c["relativeToDoFutexEntry"],
+              c["directCallTargetStaticVA"],
+              c["recoveredTarget"].get("status"),
+              c["recoveredTarget"].get("labels",
+                                        c["recoveredTarget"].get("lowerLabels",[])))
+print("[TWO-HOP DIRECT CALLS]",b["twoHopDirectCalls"])
 print("[FACTORY WAITER SLOT / KERNEL STACK REUSE / ROOT] UNVERIFIED")
 print("[FULL REPORT]",sys.argv[1])
 PY
