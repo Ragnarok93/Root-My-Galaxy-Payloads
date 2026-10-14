@@ -89,6 +89,19 @@ def unmodified_w20_path(rows, edges, start, target):
                 frontier.append((child,path+[child]))
     return None
 
+def statically_reachable(edges, start, goal):
+    if start==goal:
+        return True
+    q=deque([start]);seen=set()
+    while q:
+        pc=q.popleft()
+        if pc in seen:continue
+        seen.add(pc)
+        for next_pc in edges.get(pc,()):
+            if next_pc==goal:return True
+            if next_pc not in seen:q.append(next_pc)
+    return False
+
 def analyze(rows,edges):
     copy_pc=ENTRY+COPY_OFFSET
     require(copy_pc in rows and rows[copy_pc]['word']==COPY_WORD and
@@ -100,18 +113,20 @@ def analyze(rows,edges):
             continue
         value=literal_definition(row)
         path=unmodified_w20_path(rows,edges,pc+4,copy_pc)
+        entry_reachable=statically_reachable(edges,ENTRY,pc)
         definitions.append({
             'at':row['relative'],
             'instruction':row['op']+' '+row['args'],
             'machineWord':row['word'],
             'signed32Literal':value,
+            'entryStaticallyReachable':entry_reachable,
             'mayReachReturnCopyWithoutInterveningW20Write':path is not None,
             'witness':path,
             'isNegativeLiteral':value is not None and value<0,
             'isDeadlockErrorLiteral':value==-35,
             'feasibleWithOtherThreadsProven':False,
         })
-    negatives=[d for d in definitions if d['isNegativeLiteral'] and d['witness']]
+    negatives=[d for d in definitions if d['isNegativeLiteral'] and d['witness'] and d['entryStaticallyReachable']]
     return {
         'schemaVersion':1,
         'target':'SM-G986U1/G986U1UESCHXL1',
