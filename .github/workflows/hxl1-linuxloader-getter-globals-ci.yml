@@ -1,0 +1,22 @@
+name: HXL1 LinuxLoader original getter global decoding
+on:
+  push:
+    branches:
+      - feature/s20plus-investigation-shizuku-20261009
+    paths:
+      - tools/y2q_hxl1_linuxloader_raw_getter_globals.py
+      - tools/test_y2q_hxl1_linuxloader_raw_getter_globals.py
+      - .github/workflows/hxl1-linuxloader-getter-globals-ci.yml
+  workflow_dispatch:
+
+jobs:
+  isolated-raw-getter-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Original HXL1 64-byte getter windows (synthetic fixture, no REA)
+        run: python3 -m unittest -q tools.test_y2q_hxl1_linuxloader_raw_getter_globals
