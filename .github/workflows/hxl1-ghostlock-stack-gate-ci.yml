@@ -17,6 +17,8 @@ on:
       - tools/test_y2q_hxl1_lifetime_contract_audit.py
       - tools/y2q_hxl1_select_header_provenance.py
       - tools/test_y2q_hxl1_select_header_provenance.py
+      - tools/y2q_hxl1_factory_debug_ceiling.py
+      - tools/test_y2q_hxl1_factory_debug_ceiling.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -43,7 +45,9 @@ jobs:
             tools/y2q_hxl1_lifetime_contract_audit.py \
             tools/test_y2q_hxl1_lifetime_contract_audit.py \
             tools/y2q_hxl1_select_header_provenance.py \
-            tools/test_y2q_hxl1_select_header_provenance.py
+            tools/test_y2q_hxl1_select_header_provenance.py \
+            tools/y2q_hxl1_factory_debug_ceiling.py \
+            tools/test_y2q_hxl1_factory_debug_ceiling.py
       - name: Run synthetic original-image and dispatch evidence tests
         run: |
           python -m unittest -v \
@@ -52,4 +56,5 @@ jobs:
             tools.test_y2q_hxl1_frame_footprint_audit \
             tools.test_y2q_hxl1_static_cfg_audit \
             tools.test_y2q_hxl1_lifetime_contract_audit \
-            tools.test_y2q_hxl1_select_header_provenance
+            tools.test_y2q_hxl1_select_header_provenance \
+            tools.test_y2q_hxl1_factory_debug_ceiling
