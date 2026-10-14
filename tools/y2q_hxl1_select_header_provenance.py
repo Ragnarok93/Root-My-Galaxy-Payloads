@@ -130,7 +130,81 @@ def audit(root: Path) -> dict:
     }
 
 
-def check_saved_disassembly(path: Path) -> dict:
+
+def numeric_select_crosswalk(disassembly: str, stack_bytes: int) -> dict:
+    """Prove the native select boundary arithmetic, not C local stack offsets.
+
+    The saved ARM64 control flow tests rounded FD count in 64-descriptor
+    units and allocates six 8-byte bitmaps per unit on the dynamic path.
+    Require one ordered, contiguous sequence; unrelated CMPs are not enough.
+    """
+    word_bytes, bitmaps, bits_per_word = 8, 6, 64
+    insist(stack_bytes % word_bytes == 0,
+           "Select stack bytes cannot hold whole native longs")
+    words_per_bitmap = stack_bytes // (bitmaps * word_bytes)
+    insist(words_per_bitmap > 0, "Select stack bitmap capacity is zero")
+    maximum_nfds = words_per_bitmap * bits_per_word
+    expected_rounded_limit = maximum_nfds + bits_per_word
+
+    pattern = re.compile(
+        r"(?m)^([0-9a-f]{16}):\s+[0-9a-f]{8}\s+([a-z0-9.]+)(?:\s+([^\n]*))?$",
+        re.I)
+    decoded = []
+    for match in pattern.finditer(disassembly):
+        decoded.append((int(match.group(1), 16), match.group(2).lower(),
+                        (match.group(3) or "").split("//")[0].strip()))
+    sequence = [
+        ("sxtw", "x8, w22"),
+        ("add", "x8, x8, #0x3f"),
+        ("lsr", "x27, x8, #6"),
+        ("cmp", "x8, #0x" + format(expected_rounded_limit, "x")),
+    ]
+    matches = [i for i in range(len(decoded) - 4)
+               if [(op, args) for _, op, args in decoded[i:i+4]]
+               == sequence
+               and all(decoded[i+j][0] == decoded[i][0] + 4*j
+                       for j in range(5))
+               and decoded[i+4][1] == "b.cc"]
+    insist(len(matches) == 1,
+           "Original native select rounded-count comparison disagrees "
+           "with source stack bytes or is ambiguous")
+    i = matches[0]
+    branch_address = decoded[i+4][2]
+    insist(re.fullmatch(r"0x[0-9a-f]+", branch_address) is not None,
+           "Original select stack decision branch has no direct target")
+    stack_target = int(branch_address, 16)
+    insist(sum(1 for va, op, args in decoded
+               if va == stack_target and op == "add"
+               and args == "x19, sp, #0x50") == 1,
+           "Branch no longer targets original stack-backed path")
+
+    # Dynamic path: 3 * units << 4 => 48 * ceil(n / 64) bytes.
+    dynamic = [
+        ("add", "x8, x27, x27, lsl #1"),
+        ("lsl", "x0, x8, #4")
+    ]
+    pos = [next((j for j in range(i+5, len(decoded))
+                 if (decoded[j][1], decoded[j][2]) == item), None)
+           for item in dynamic]
+    insist(None not in pos and i < pos[0] < pos[1]
+           and decoded[pos[1]][0] < stack_target,
+           "Native select dynamic allocation sizing path changed")
+    return {
+        "sourceSelectStackBytes": stack_bytes,
+        "nativeLongBytes": word_bytes,
+        "bitmapCount": bitmaps,
+        "wordsPerBitmapFittingStack": words_per_bitmap,
+        "maximumNfdsUsingStack": maximum_nfds,
+        "firstNfdsRequiringDynamicAllocation": maximum_nfds + 1,
+        "dynamicAllocationBytesPer64Descriptors": bitmaps * word_bytes,
+        "roundedCountComparisonOperand": expected_rounded_limit,
+        "compiledArithmeticMatchesSourceCapacity": True,
+        "sourceObjectPhysicalLocationCertified": False,
+        "crossSyscallReuseOrRootCertified": False,
+    }
+
+
+def check_saved_disassembly(path: Path, source_stack_bytes: int | None = None) -> dict:
     """Confirm recorded native select source structure against saved code.
 
     Rechecks the existing archive's own HXL1 manifest and disassembly SHA;
@@ -157,6 +231,8 @@ def check_saved_disassembly(path: Path) -> dict:
             text.decode("utf-8")) is not None
         insist(has_stack and has_choice,
                "Original select buffer/allocation branch evidence changed")
+        numeric = (numeric_select_crosswalk(text.decode("utf-8"), source_stack_bytes)
+                   if source_stack_bytes is not None else None)
         return {
             "savedArchiveSha256": sha256(path.read_bytes()),
             "savedDisassemblyTextHashesChecked":
@@ -164,6 +240,7 @@ def check_saved_disassembly(path: Path) -> dict:
             "nativeSelectStackPathRecognized": True,
             "nativeSelectDynamicChoiceRecognized": True,
             "sourceMacroToExactMachineObjectCertified": False,
+            "numericSelectAllocationCrosswalk": numeric,
             "originalKernelImageRehashedIndependently": False,
         }
 
@@ -181,7 +258,7 @@ def main() -> int:
         result = audit(args.source)
         if args.disassembly_archive is not None:
             result["savedMachineCodeEvidence"] = check_saved_disassembly(
-                args.disassembly_archive)
+                args.disassembly_archive, result["selectStackAllocationSourceBytes"])
         if args.output is not None:
             insist(not args.output.exists() and not args.output.is_symlink(),
                    "Refusing to overwrite an existing report")
