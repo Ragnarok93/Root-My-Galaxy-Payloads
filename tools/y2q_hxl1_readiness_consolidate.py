@@ -149,13 +149,17 @@ def main():
         result["sha256OfInputReports"]={"evidence":sha,**{
             k:v[1] for k,v in zip(("readiness","select","debug"),inputs)
             if v[1] is not None}}
-        insist(not args.output.exists() and not args.output.is_symlink(),
+        report_path=args.output.expanduser().resolve()
+        repository=Path(__file__).resolve().parents[1]
+        insist(report_path != repository and repository not in report_path.parents,
+               "Research report must be written outside the repository")
+        insist(not report_path.exists() and not report_path.is_symlink(),
                "Refusing to overwrite an existing report")
-        args.output.parent.mkdir(parents=True,exist_ok=True)
-        args.output.write_text(json.dumps(result,indent=2)+"\n")
+        report_path.parent.mkdir(parents=True,exist_ok=True)
+        report_path.write_text(json.dumps(result,indent=2)+"\n")
         print("[HXL1 STAGES]",",".join(g["state"] for g in result["nineStages"]))
         print("[ROOT / KERNELSU / FEED] NOT VALIDATED")
-        print("[REPORT]",args.output)
+        print("[REPORT]",report_path)
         return 0
     except (OSError,ValueError,KeyError,TypeError) as exc:
         print("[STOP]",exc,file=sys.stderr)
