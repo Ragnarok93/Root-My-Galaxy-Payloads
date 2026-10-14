@@ -61,7 +61,29 @@
     "unprivilegedDeviceTreeRootReadGate": "BLOCKED_BY_PERMISSION",
     "bootPropertyIndexInterpretation": "INDEX_VALUES_OBSERVED_MAPPING_TO_OEM_BLOB_NOT_AUTHENTICATED",
     "noRepeatProtectedRead": true,
-    "nextUsefulGate": "Offline inspection of verified original HXL1 boot/DTB/DTBO metadata for semantics of ro.boot.dtb_idx and ro.boot.dtbo_idx without assuming indexes identify the first embedded tree or applied overlay; physical load remains separate."
+    "nextUsefulGate": "Inspect whether saved native high-pcode trace already exists for shared formatter and determine index value source only; do not redo xrefs, use direct read-only archived evidence; never equate reported indices to FDT candidate order."
   },
-  "caveat": "Only owner console output was supplied; not a byte-for-byte independently authenticated JSON artifact. The stale unit test failed; owner/CI must confirm updated assertion."
+  "caveat": "Only owner console output was supplied; not a byte-for-byte independently authenticated JSON artifact. The stale unit test failed; owner/CI must confirm updated assertion.",
+  "priorResearchCrosscheck": {
+    "sourceDocument": "docs/SM-G986U1-HXL1-NEXT-STEPS.md",
+    "twoPriorOwnerADBReports": [
+      "20261010T130008Z",
+      "20261010T130021Z"
+    ],
+    "priorDtbIndex": "0",
+    "priorDtboIndex": "2",
+    "indexValuesAlreadyKnown": true,
+    "priorRawRootAndBootargsAccess": "PERMISSION_DENIED",
+    "relevantOriginalLinuxLoaderSha256": "5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003",
+    "originalCompiledSharedFormatter": {
+      "functionEntry": "0x2bdf8",
+      "functionName": "FUN_0002bdf8",
+      "dtbStringXref": "0x2c350",
+      "dtboStringXref": "0x2c308",
+      "provedScope": "Both androidboot index strings referenced by same original LinuxLoader command-line formatting function; index producer/selector semantics not established."
+    },
+    "cachedOwnerEvidencePath": "/home/main/s20-artifacts/hxl1-research/abl-linuxloader/rea-dt-index-LBaPQ6",
+    "nextNonDuplicateAction": "Inspect whether saved native high-pcode trace already exists for shared formatter and determine index value source only; do not redo xrefs, use direct read-only archived evidence; never equate reported indices to FDT candidate order.",
+    "stage4Complete": false
+  }
 }
