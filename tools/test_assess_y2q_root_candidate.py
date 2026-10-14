@@ -45,6 +45,41 @@ class OfflineAssessmentTests(unittest.TestCase):
         self.assertTrue(payload["deploymentBlocked"])
         self.assertGreater(len(report["unmetGates"]), 3)
 
+    def test_samsung_lkm_gate_is_separate_from_signature_and_hook(self):
+        options = {
+            "CONFIG_MODULES": "y",
+            "CONFIG_MODULE_SIG_FORCE": "y",
+            "CONFIG_MODULE_SIG": "y",
+            "CONFIG_UH_LKM_BLOCK": "y",
+            "CONFIG_UH_RKP": "y",
+            "CONFIG_KPROBES": "n",
+            "CONFIG_FTRACE": "y",
+            "CONFIG_FUNCTION_TRACER": "n",
+        }
+        result = module.assess_kernel_su_stock_loading(options)
+        self.assertEqual(result["moduleInfrastructure"], "CONFIGURED")
+        self.assertEqual(result["mandatoryModuleSignature"], "CONFIGURED")
+        self.assertEqual(result["samsungLkmBlockingConfig"], "CONFIGURED")
+        self.assertEqual(result["kprobeFeature"], "NOT_CONFIGURED")
+        self.assertEqual(result["functionTracerFeature"], "NOT_CONFIGURED")
+        self.assertFalse(result["moduleAuthorizedToLoadProven"])
+        self.assertFalse(result["kernelSu419HookBackendDemonstrated"])
+
+    def test_unreported_vendor_options_are_not_imputed(self):
+        output = module.assess_kernel_su_stock_loading(
+            {"CONFIG_MODULE_SIG_FORCE": "y"})
+        self.assertEqual(output["samsungLkmBlockingConfig"], "UNKNOWN_CONFIG_EVIDENCE")
+        self.assertEqual(output["moduleInfrastructure"], "UNKNOWN_CONFIG_EVIDENCE")
+        self.assertEqual(output["kprobeFeature"], "UNKNOWN_CONFIG_EVIDENCE")
+        self.assertFalse(output["factoryKernelSuLoaded"])
+
+    def test_candidate_includes_failsafe_stock_ksu_classification(self):
+        report = module.make_report(self.evidence(), {"classification": "UNKNOWN"}, {})
+        result = report["kernelSu419Integration"]
+        self.assertEqual(result["classification"], "STAGE7_BLOCKED_NO_LOAD_OR_HOOK_PROOF")
+        self.assertEqual(result["samsungLkmBlockingConfig"], "UNKNOWN_CONFIG_EVIDENCE")
+        self.assertFalse(report["candidatePayload"]["readyToInstall"])
+
     def test_rejects_incorrect_firmware(self):
         wrong = self.evidence()
         wrong["identity"]["firmware"] = "unrelated"
