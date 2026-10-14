@@ -205,6 +205,12 @@ def report_writer_window(original:bytes, references:dict):
         access_word=struct.unpack_from('<I',chunk,at-section['rva'])[0]
         reg=base_word&31
         page=getter.adrp_address(base_word,adr,reg)
+        for offset in range(adr+4,at,4):
+            intermediate=struct.unpack_from(
+                '<I',chunk,offset-section['rva'])[0]
+            need(not pe.decode_control(intermediate,offset) and
+                 not overwrites_page_base(intermediate,reg),
+                 'Reported global writer crosses control transfer or base clobber')
         found=None
         for mask,opcode,mode,width in ENCODINGS:
             if access_word&mask==opcode and ((access_word>>5)&31)==reg:
