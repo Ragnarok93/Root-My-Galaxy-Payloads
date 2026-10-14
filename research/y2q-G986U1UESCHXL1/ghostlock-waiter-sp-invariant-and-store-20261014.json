@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "scope": "ORIGINAL_DOFUTEX_CONDITIONAL_STACK_DERIVED_WAITER_ADDRESS_STORE_ONLY",
+  "dateUtc": "2026-10-14",
+  "originalOwnerReportSha256": "f90df3db38e68e246fda6052896f72607b8dfd8a950e19c8a45d70c7500f3a40",
+  "originalDoFutexArchiveSha256": "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997",
+  "originalDoFutexDisassemblySha256": "56286516ae9e6a873beab22b16af3ab330a768dc1b02f901854eb96f193789a5",
+  "separateGeneratedMachineCensusJsonSha256": "ecc56228da824198da07c0bbb96597a2c407169db0b8807b6ecdb55ce6989560",
+  "separateConditionalStoreJsonSha256": "3e0f71ef849232c2ee03ee13fa2c9e3c9521c7e2af5b7c174debd57145da49b8",
+  "staticSpInventory": {
+    "instructions": 1766,
+    "spReferences": 158,
+    "explicitSpWrites": 2,
+    "writebacks": 0,
+    "prologue": [
+      "0x0",
+      "d10783ff",
+      "sub sp, sp, #0x1e0"
+    ],
+    "epilogue": [
+      "0xb78",
+      "910783ff",
+      "add sp, sp, #0x1e0"
+    ],
+    "returnImmediatelyAfterEpilogue": [
+      "0xb7c",
+      "d65f03c0",
+      "ret"
+    ],
+    "frameBytes": 480,
+    "inferredStackBaseStableBetweenEntryAndReturnUnderNormalAbi": true
+  },
+  "conditionalDerivedPointerStore": {
+    "pointerConstruction": [
+      "0x1194",
+      "910303f9",
+      "add x25, sp, #0xc0"
+    ],
+    "initWaiterCall": [
+      "0x1198",
+      "97fedf8e",
+      "bl 0xffffff80081474fc"
+    ],
+    "getFutexKeyCall": [
+      "0x11b0",
+      "94000e84",
+      "bl 0xffffff80081930ec"
+    ],
+    "skipStoreWhenW0Nonzero": [
+      "0x11b4",
+      "35004ac0",
+      "cbnz w0, 0xffffff8008190038"
+    ],
+    "fallthroughStore": [
+      "0x11d0",
+      "a90a6ff9",
+      "stp x25, x27, [sp, #160]"
+    ],
+    "noInterveningX25RegisterReferences": true,
+    "x25CalleeSavedAarch64AbiAssumed": true,
+    "firstStoreAddress": "sp + 0xa0",
+    "firstStoredValue": "x25, stack-derived from sp + 0xc0",
+    "sourceCStructFieldIdentityCertified": false,
+    "allPathsInvokeStore": false
+  },
+  "limitations": {
+    "compiledWaiterExactStructureBoundsProven": false,
+    "pathSensitiveLifetimeToUnqueueProven": false,
+    "stackReuseAcrossSyscallsProven": false,
+    "runtimeExploitPrimitiveOrRootProven": false,
+    "kernelSuLoaded": false,
+    "phoneModified": false
+  },
+  "newTools": {
+    "module": "tools/y2q_hxl1_waiter_argument_lifetime_audit.py",
+    "testsModule": "tools.test_y2q_hxl1_waiter_argument_lifetime_audit",
+    "testCasesWritten": 25,
+    "newFrameIntegrityCases": 7,
+    "newConditionalPointerStoreCases": 6,
+    "ownerTests25PassedConfirmed": false,
+    "githubCiPassedConfirmed": false,
+    "runner": "tools/run_y2q_hxl1_waiter_argument_lifetime_audit.sh"
+  },
+  "readiness": [
+    "COMPLETE",
+    "COMPLETE",
+    "PARTIAL",
+    "OPEN",
+    "OPEN",
+    "OPEN",
+    "BLOCKED",
+    "BLOCKED",
+    "DEFERRED"
+  ]
+}
