@@ -21,6 +21,7 @@ if not __package__:
 from tools import y2q_hxl1_ghostlock_stack_gate as gate
 
 REPO=Path(__file__).resolve().parents[1]
+STOCK_SOURCE=Path.home()/"src/samsung-y2q-hxl1-stock"
 NAMES=(
     "__sys_sendmsg","___sys_sendmsg","____sys_sendmsg",
     "__sys_sendto","__sys_sendmmsg",
@@ -138,6 +139,8 @@ def main():
                 "Missing/unsafe input original Image or recovered nm")
         require(not out.exists() and not out.is_symlink() and
                 REPO not in out.parents and out!=REPO and
+                STOCK_SOURCE not in out.parents and out!=STOCK_SOURCE and
+                out!=image and out!=nm and
                 image not in out.parents and nm not in out.parents,
                 "Use a fresh output directory outside source and inputs")
         raw=image.read_bytes()
