@@ -1,3 +1,27 @@
+## October 14, 07:51 UTC — GhostLock 41 stock sendmsg callsites, 21 unique targets
+
+Owner reran the previous fail-closed, original-HXL1 instruction callsite audit: **13/13 tests passed**, 746 original Image instruction slots confirmed, and 41 direct BL calls over the six bounded original sendmsg/iovec code windows. There are 21 distinct static destinations. Exactly 19 of the calls have textual SP-address constructions in the preceding 12 instruction slots; **40 of 41** also have a prior branch or other call in that linear interval, which does not prove dataflow or dynamic control flow.
+
+The original code-call edges already match known recovered HXL1 entries: `__sys_sendmsg -> ___sys_sendmsg` once, `__sys_sendmmsg -> ___sys_sendmsg` twice, and `___sys_sendmsg -> copy_msghdr_from_user` once. This narrows static review without establishing any `rt_mutex_waiter` C-local, pointer lifetime or GhostLock stack alias.
+
+New `tools/y2q_hxl1_ghostlock_call_target_crosswalk.py` plus 12 synthetic tests (wired to GhostLock CI) will resolve the 21 destinations against SHA-pinned original recovered `vmlinux-stock.nm`; exact labels and ambiguous interior intervals are **separate classifications**. Owner/CI run of the new 12-test suite is still pending.
+
+See [the 41-call owner evidence, original SHA notes and one WSL command](SM-G986U1-HXL1-GHOSTLOCK-SENDMSG-CALLTARGETS-20261014.md) and [machine-readable accepted owner summary](../research/y2q-G986U1UESCHXL1/ghostlock-sendmsg-41-calls-owner-20261014.json). Next: symbolize the unique original call destinations **once**, not another kernel extraction or broad REA trace. No Stage 3/5 upgrade, root or KernelSU claim.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -v tools.test_y2q_hxl1_ghostlock_call_target_crosswalk
+EVIDENCE="$HOME/s20-artifacts/hxl1-research"
+OUT="$EVIDENCE/ghostlock-call-targets-$(date -u +%Y%m%dT%H%M%SZ).json"
+python3 -m tools.y2q_hxl1_ghostlock_call_target_crosswalk \
+  --report "$EVIDENCE/ghostlock-sendmsg-calls-20261014T075055Z.json" \
+  --nm "$EVIDENCE/vmlinux-stock.nm" --output "$OUT"
+cat "$OUT"
+```
+
+---
+
 ## October 14, 07:13 UTC — six factory sendmsg ARM64 entry frames attested
 
 Owner supplied the full HXL1 `ghostlock-sendmsg-frame-20261014T071250203042958Z.json` report, independently hashed as `a0426c036e614611c368338c9f80e298f13b23bc238e1b3dc67aa1a3c20dcc10`. The owner-side tool rehashed the exact original Image, Nm, six code slices and saved disassemblies, checking **746 native instruction slots** against original Image machine words.
