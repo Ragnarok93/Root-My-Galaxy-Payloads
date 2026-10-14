@@ -117,6 +117,71 @@ def compiled_argument_ledger(rows):
         })
     return out
 
+# A code-text SP census is not compiler C-local DWARF or runtime observation.
+# Fail closed if this particular original HXL1 function acquires another SP
+# adjustment, unexpected SP mnemonic, or an SP memory writeback form.
+SP_OPERAND=re.compile(r"(?<![A-Za-z0-9_])sp(?![A-Za-z0-9_])",re.I)
+SP_WRITEBACK=re.compile(r"\[sp(?:,\s*[^\]]+)?\]!|\[sp\],",re.I)
+SP_KNOWN_OPCODES={"add","sub","ldr","str","stp","ldp"}
+ORIGINAL_FRAME_BYTES=0x1e0
+EXPECTED_SP_WRITES={
+    0x0:("d10783ff","sub","sp, sp, #0x1e0"),
+    0xb78:("910783ff","add","sp, sp, #0x1e0"),
+}
+
+def compiled_sp_integrity(rows:dict)->dict:
+    """Check every emitted SP use, not just the three chosen waiter sites."""
+    ref=[]
+    writes=[]
+    unknown=[]
+    writebacks=[]
+    for va,(word,op,args) in sorted(rows.items()):
+        if not SP_OPERAND.search(args):
+            continue
+        offset=va-BASE
+        ref.append(offset)
+        if op not in SP_KNOWN_OPCODES:
+            unknown.append((offset,op,args))
+        if SP_WRITEBACK.search(args):
+            writebacks.append((offset,op,args))
+        # For these ARM64 instructions, destination is their first operand.
+        # Non-add/sub first-operand SP is unexpected and must also fail.
+        first=args.split(",",1)[0].strip().lower()
+        if first=="sp":
+            writes.append((offset,word,op,args))
+    check(not unknown and not writebacks,
+          "Unexpected SP instruction form or implicit memory writeback")
+    observed={off:(word,op,args) for off,word,op,args in writes}
+    check(len(writes)==len(observed)==2 and observed==EXPECTED_SP_WRITES,
+          "Original do_futex SP-write instruction inventory drift")
+    check(len(ref)==158,"Original do_futex SP reference count drift")
+    check(rows.get(BASE+0xb7c)==("d65f03c0","ret",""),
+          "Original SP-restoration epilogue is not immediately followed by ret")
+    check(all(BASE+site["argOffset"] in rows and
+              site["argOffset"] not in observed
+              for site in SITES),
+          "Unexpected compiled waiter address construction position")
+    return {
+       "status":"BOUNDED_ORIGINAL_DOFUTEX_SP_WRITE_INVENTORY_VERIFIED",
+       "originalFunctionInstructionSlots":len(rows),
+       "observedInstructionsReferencingSp":len(ref),
+       "observedSpWrites":2,
+       "observedSpWriteOffsets":[hex(x) for x in sorted(observed)],
+       "entryAdjustment":"sub sp, sp, #0x1e0",
+       "epilogueAdjustment":"add sp, sp, #0x1e0",
+       "epilogueImmediateReturn":True,
+       "writebackMemoryInstructionsTouchingSp":0,
+       "unexpectedSpInstructionForms":0,
+       "frameAllocationBytes":ORIGINAL_FRAME_BYTES,
+       "waiterLiteralStackAddressOffsetBytes":0xc0,
+       "waiterLiteralOffsetWithinFrame":True,
+       "frameBaseSpHasNoOtherSyntacticWrites":True,
+       "normalCallingConventionSpPreservationAssumed":True,
+       "allPathCallSequenceAndObjectLifetimeProven":False,
+       "compilerCSourceWaiterFieldLayoutCertified":False,
+       "runtimeWaiterToSendmsgFrameOverlapProven":False,
+    }
+
 def source_markers(raw:bytes):
     text=raw.decode('utf-8','strict')
     start=text.find('static int futex_wait_requeue_pi(')
@@ -148,7 +213,9 @@ def audit(source:Path,disasm:Path,nm:Path|None=None):
     c=tar_part(source,PINS['source_archive'],'kernel/futex.c',PINS['futex_source'])
     a=tar_part(disasm,PINS['disasm_archive'],'do_futex.disasm.txt',PINS['do_futex_disasm'])
     markers=source_markers(c)
-    uses=compiled_argument_ledger(parse_original_instructions(a))
+    instructions=parse_original_instructions(a)
+    uses=compiled_argument_ledger(instructions)
+    frame=compiled_sp_integrity(instructions)
     if nm is not None:exact_nm_labels(file_bytes(nm,20_000_000))
     return {
         'schemaVersion':1,'target':TARGET,
@@ -161,6 +228,7 @@ def audit(source:Path,disasm:Path,nm:Path|None=None):
         'originalRecoveredNmIndependentlyRehashed':nm is not None,
         'waiterSourceMarkers':markers,
         'compiledCallArgumentSites':uses,
+        'compiledSpFrameInventory':frame,
         'sameLiteralSpRelativeExpressionAcrossThreeStaticSites':True,
         'compiledSourceLocalWaiterObjectIdentityCertified':False,
         'conditionalWaiterLifetimeAcrossAllPathsCertified':False,
@@ -195,6 +263,7 @@ def main():
             stream.write('\n')
         print('[ORIGINAL FUTEX SOURCE LANDMARKS]',len(result['waiterSourceMarkers']))
         print('[ORIGINAL COMPILED SP-DERIVED CALL ARGUMENTS]',len(result['compiledCallArgumentSites']))
+        print('[EXPLICIT DO_FUTEX SP WRITES]',result['compiledSpFrameInventory']['observedSpWrites'])
         print('[NM INDEPENDENTLY REHASHED]',result['originalRecoveredNmIndependentlyRehashed'])
         print('[OBJECT LIFETIME / CROSS-SYSCALL ALIAS / ROOT] UNVERIFIED')
         print('[REPORT]',target)
