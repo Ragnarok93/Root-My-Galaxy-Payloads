@@ -1,3 +1,32 @@
+## October 14, 05:05 UTC — correct standalone Python package import before re-running cached audit
+
+Actual owner WSL validation: the original 10/10 offline synthetic tests passed, but the direct entry-point command failed with ModuleNotFoundError: No module named 'tools' at the deferred import of tools.y2q_linuxloader_rea_stage4_xrefs inside review_cached. No report was created at the owner's new linuxloader-index-cache-20261014T050521Z.json path. No REA provider analysis was run; cached EFI and reports were not changed.
+
+Cause: a directly executed tools/filename.py starts with tools/ in sys.path, not the repository root. The pre-existing test runner did include the repository root, masking this integration defect.
+
+The committed script now adds its own repository root before importing validated existing tools and tests the real CLI entry point in a new subprocess with -I (isolated Python) and an external working directory. Tests increased from 10 to 12. **Corrected suite and real cache rerun have not yet been observed passing on owner WSL**, so do not claim the original dataflow audit finished.
+
+Re-run *only* the existing cached audit after pulling the fix:
+
+    cd ~/src/Root-My-Galaxy-Payloads
+    git pull --ff-only
+    python3 -m unittest -v tools.test_y2q_hxl1_linuxloader_cached_index_audit
+
+    BASE="$HOME/s20-artifacts/hxl1-research/abl-linuxloader"
+    RUN="$BASE/rea-dt-index-LBaPQ6"
+    OUT="$HOME/s20-artifacts/hxl1-research/linuxloader-index-cache-$(date -u +%Y%m%dT%H%M%SZ).json"
+
+    python3 tools/y2q_hxl1_linuxloader_cached_index_audit.py \
+      --run-dir "$RUN" --loader "$BASE/LinuxLoader-HXL1.efi" \
+      --output "$OUT" &&
+    cat "$OUT"
+
+Do not rerun the cancelled REA trace, original xrefs or ADB root-property probe; this audits only saved, SHA-validated metadata and bounded pseudocode. The existing stage-4 loader selector and physical Linux kernel handoff remain unverified, regardless of the import fix.
+
+Source-only checkpoint: research/y2q-G986U1UESCHXL1/stage4-cached-rea-cli-import-fix-20261014.json.
+
+---
+
 # SM-G986U1 HXL1 — Cancelled REA DTB/DTBO value trace (2026-10-14 UTC)
 
 Research-only checkpoint. No handset modification, root, bootloader patch or firmware writes.
