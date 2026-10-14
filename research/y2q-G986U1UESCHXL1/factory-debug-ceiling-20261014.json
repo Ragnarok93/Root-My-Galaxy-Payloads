@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "scope": "RECONSTRUCTED_ELF_DEBUG_METADATA_AVAILABILITY",
+  "localOwnerAuditSha256": "cb9a66c6a300d753895fccea96835c7f1825710dbf2c11b3c03bced4e8d94e05",
+  "ownerStockConfigSha256": "ec6da4cfe412f7d0669c7d621751753375e32197a2602f98627eb95e71b9c0b2",
+  "ownerDwarfReportArchiveSha256": "86b8b172c8f302ac7533da62449fcfbdada86c8b4d3bda34aab90318f84c0a97",
+  "config": {
+    "CONFIG_CC_IS_CLANG": "y",
+    "CONFIG_CLANG_VERSION": "100006",
+    "CONFIG_LTO_NONE": "y",
+    "CONFIG_DEBUG_INFO": "y",
+    "CONFIG_FRAME_POINTER": "y",
+    "CONFIG_STACKPROTECTOR_STRONG": "y",
+    "CONFIG_MODULE_SIG_FORCE": "y",
+    "CONFIG_KPROBES": "n"
+  },
+  "stockReconstructedElf": {
+    "hasSymtab": true,
+    "hasDebugInfo": false,
+    "hasBTF": false,
+    "paholeStockStructRecovery": false,
+    "originalUnstrippedOEMVmlinuxAvailableInSuppliedEvidence": false
+  },
+  "qemuNormalComparison": {
+    "hasDebugInfo": true,
+    "factoryEquivalent": false
+  },
+  "qemuKasanComparison": {
+    "hasDebugInfo": true,
+    "factoryEquivalent": false
+  },
+  "debugInfoConfiguredButAbsentFromReconstructedElf": true,
+  "linkTimeOptimizationConfiguredNone": true,
+  "recoveredNmProvidesFactoryCVariableLocationLists": false,
+  "compilerLocalIdentityProven": false,
+  "workingGhostLockOrKernelSu": false,
+  "limitations": "Reconstructed ELF section absence does not prove the original OEM build never had DWARF. QEMU DWARF cannot certify OEM stack locals. Original factory code-to-struct mappings and kernel runtime behavior remain unverified."
+}
