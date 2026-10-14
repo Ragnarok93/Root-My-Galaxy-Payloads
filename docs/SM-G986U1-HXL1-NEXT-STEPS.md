@@ -1,3 +1,23 @@
+## October 14, 10:53 UTC — owner NM pin passed; original do_futex frame SP invariant and conditional waiter-pointer stack store
+
+Owner's uploaded full report `hxl1-waiter-source-compiled-20261014T105255123936007Z.json` (SHA-256 `f90df3db38e68e246fda6052896f72607b8dfd8a950e19c8a45d70c7500f3a40`) confirms 12 source markers, all three compiled waiter-helper arguments and **independent recovered NM rehash**. The upload does not include console test output, so 12 prior tests can be described only as earlier local test work.
+
+The original archived **1,766-instruction `do_futex`** was independently checked again: **158 SP-referencing instructions, exactly two SP writes**—`+0x0: sub sp,sp,#0x1e0` and `+0xb78: add sp,sp,#0x1e0`—followed immediately by `ret` at `+0xb7c`. There are no SP memory-writeback forms or unexpected SP opcodes. On ordinary ABI-compliant paths, this supports a stable relative frame base for `SP+0xc0` within the 480-byte function frame, not all-path waiter execution or cross-syscall reuse.
+
+A new bounded original pointer-transfer check further finds `+0x1194: add x25,sp,#0xc0`, two subsequent BLs (waiter init `+0x1198`, futex-key acquisition `+0x11b0`), `+0x11b4: cbnz w0, ...` (skip when the key operation fails), and `+0x11d0: stp x25,x27,[sp,#160]` on fall-through. No intervening `x25/w25` references were present in this original straight-line region. With the normal ARM64 callee-preserved-register assumption, `x25` carries the original stack-derived value `SP+0xc0` to a stack store at `SP+0xa0`. **The destination C object and `q.rt_waiter` field identity remain unverified**.
+
+These checks were integrated into the same `tools/y2q_hxl1_waiter_argument_lifetime_audit.py` (no new archive extraction). Its regression suite now contains **25 written cases** and the existing WSL runner prints the frame and pointer-store results; the current **25-test suite has not yet been observed passing on owner WSL or CI**. [Full research write-up](SM-G986U1-HXL1-GHOSTLOCK-WAITER-THREE-ARGUMENTS-20261014.md), [frame census](../research/y2q-G986U1UESCHXL1/ghostlock-dofutex-sp-frame-census-20261014.json), and [conditional store checkpoint](../research/y2q-G986U1UESCHXL1/ghostlock-waiter-sp-invariant-and-store-20261014.json).
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_waiter_argument_lifetime_audit.sh
+```
+
+**No stage promotion:** compiler C-local bounds, path-sensitive waiter lifetime, cross-syscall stack overlap, GhostLock primitive/root, and KernelSU remain unverified. Porting readiness stays COMPLETE, COMPLETE, PARTIAL, OPEN, OPEN, OPEN, BLOCKED, BLOCKED, DEFERRED.
+
+---
+
 ## October 14, 10:23 UTC — three original waiter callsite arguments independently corroborated
 
 Independently rehashed both original user-provided Samsung archives. The original `kernel/futex.c` source's source-local `rt_waiter` and `q.rt_waiter` lifetime sequence has **12 ordered markers** (declaration 3238 through return 3402), including **conditional**, not unconditional, proxy cleanup. Separately, the archived **1,766-instruction original `do_futex` machine code** has three exact static stack-relative argument constructions: `x0 = sp + 0xc0` before `rt_mutex_init_waiter` (`+0x1198`), `x2 = sp + 0xc0` before `rt_mutex_wait_proxy_lock` (`+0x1308`), and `x1 = sp + 0xc0` before `rt_mutex_cleanup_proxy_lock` (`+0x1328`). The tool hashes and checks machine words and complete intervening straight-line argument instructions, not just their proximity.
