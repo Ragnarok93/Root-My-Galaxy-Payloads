@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "dateUtc": "2026-10-14T05:05:21Z",
+  "source": "owner WSL terminal output; no standalone audit report produced",
+  "ownerRun": {
+    "gitPulledThrough": "89d5e56",
+    "tests": {
+      "suite": "tools.test_y2q_hxl1_linuxloader_cached_index_audit",
+      "passed": 10,
+      "total": 10,
+      "durationSeconds": 0.01
+    },
+    "command": "python3 tools/y2q_hxl1_linuxloader_cached_index_audit.py --run-dir [existing] --loader [existing] --output [fresh]",
+    "result": "ModuleNotFoundError: No module named 'tools'",
+    "tracebackLocation": "tools/y2q_hxl1_linuxloader_cached_index_audit.py:92",
+    "reportNotCreated": "/home/main/s20-artifacts/hxl1-research/linuxloader-index-cache-20261014T050521Z.json",
+    "wasREAProviderInvoked": false,
+    "cachedFileOrLinuxLoaderModified": false
+  },
+  "rootCause": "Invoking python3 tools/filename.py sets sys.path[0] to tools/ rather than repository root; deferred package import from tools.y2q_linuxloader_rea_stage4_xrefs failed. Unit test execution imported script under a repo-root sys.path and missed the CLI contract.",
+  "correction": {
+    "script": "tools/y2q_hxl1_linuxloader_cached_index_audit.py",
+    "gitCommit": "b301852dbd0752a49457aeae5a97299a8c886275",
+    "method": "Explicit repository root sys.path initialization for direct script invocation; import dependencies at module load.",
+    "regressionSuite": "tools.test_y2q_hxl1_linuxloader_cached_index_audit",
+    "regressionCommit": "92b4326c1b19e9e3a163d83d1db2a7ce563f952f",
+    "testCount": 12,
+    "newTests": [
+      "isolated Python standalone --help from external cwd",
+      "isolated Python standalone missing original EFI fail-closed with no import traceback"
+    ],
+    "ownerRerunConfirmed": false,
+    "currentHostedCiPassConfirmed": false
+  },
+  "currentEvidence": {
+    "partialTraceCode": "cancelled",
+    "originalLinuxLoaderAuthenticatedInEarlierResearch": true,
+    "nativeValueTraceCompleted": false,
+    "actualSelectorInputsVerified": false,
+    "bootloaderSelectedDtBVerified": false,
+    "physicalKernelHandoffVerified": false,
+    "stage4": "OPEN",
+    "rootOrKernelSuDemonstrated": false
+  },
+  "nextAction": "Rerun only corrected standalone offline audit using same cached read-only Ghidra reports and original EFI. Do not relaunch REA trace or repeat protected handset device-tree reads."
+}
