@@ -1,3 +1,42 @@
+## Independently rechecked original HXL1 archive — two-hop machine-code evidence (October 14, 2026)
+
+The actual previously uploaded `hxl1-disassembly-review.tar.gz` was present in the conversation files and **independently rehashed** in the analysis environment: `20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997`. Its `do_futex.disasm.txt` has SHA-256 `56286516ae9e6a873beab22b16af3ab330a768dc1b02f901854eb96f193789a5`, containing **1,766 contiguous AArch64 instructions**. The stored manifest's original Image SHA is `ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123`; **the complete Image was not rehashed in this new pass**.
+
+The original operation-11 dispatcher compares `w8, #0xb` at `do_futex + 0xb14` and conditionally branches from `+0xb18` to `+0xbd0`. The exact two-hop branch exploration stopped at the next explicit branch per block:
+
+| Depth | Static block start relative to do_futex | Consecutive instructions | Terminator | Literal BL calls |
+| ---: | --- | ---: | --- | ---: |
+| 0 | `+0xbd0` | 24 | `b.eq` at `+0xc2c` | 0 |
+| 1 | `+0xc30` | 1 | `cbz` | 0 |
+| 1 | `+0x117c` | 2 | `b` | 0 |
+| 2 | `+0xc34` | 16 | `b` | 3 |
+| 2 | `+0x118c` | 11 | `cbnz` | 2 |
+| 2 | `+0x128c` | 2 | `b` | 0 |
+
+These are six **alternative static control-flow blocks**, not 56 instructions in a single runtime invocation. The two alternatives reached from `+0xc30` are `+0xc34` and `+0x118c`; the `+0x117c` block unconditionally branches to `+0x128c`. Across the depth-two alternatives, five original static direct branch-with-link callsites are found:
+
+- `do_futex +0xc48` → static target `0xffffff8008179e84`
+- `do_futex +0xc58` → static target `0xffffff800817a86c`
+- `do_futex +0xc68` → static target `0xffffff8008179084`
+- `do_futex +0x1198` → static target `0xffffff80081474fc`
+- `do_futex +0x11b0` → static target `0xffffff80081930ec`
+
+These five direct target addresses are confirmed from the archived original **instruction text**; the independent archive-only review did not reload the original recovered `vmlinux-stock.nm` and therefore **does not newly certify callee labels**, source-level argument objects, helper inlining or actual runtime branch feasibility. The original op-11 first-block observation of **zero** BL calls remains correct only for that first block. The 5 subsequent sites disprove any claim that the two-hop bounded region contains no BL instructions.
+
+Machine-readable evidence checkpoint: `research/y2q-G986U1UESCHXL1/ghostlock-op11-original-twohop-20261014.json`. The existing one-command `tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh` and existing analyzer now implement two-hop enumeration, verify exactly the six pinned block/count triples and report the five calls with static recovered-symbol lookups on the owner host. Four extra synthetic regression tests bring the suite from 18 to **22**. No owner or hosted test result for these new changes has been observed yet.
+
+To verify on WSL using the same authenticated archive, run:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh
+```
+
+This performs no root attempts, kernel mutations, device operations or firmware re-extraction. No compiled `rt_mutex_waiter` C-local identity, waiter lifetime, cross-syscall memory overlap, live exploit primitive or KernelSU has been established. Stage 3 remains PARTIAL.
+
+---
+
 ## Owner result — 08:35:39 UTC; bounded successor audit extension
 
 The owner ran the original single-block runner after pulling `b37bf5d`. All **13/13 original regression tests passed**, and the exact cached HXL1 archive and original NM validation succeeded. **The first compiled operation-11 block begins at `do_futex + 0xbd0`, contains 24 consecutive AArch64 instructions, and has no direct `bl` calls before an explicit control transfer.** The original output is `/home/main/s20-artifacts/hxl1-research/ghostlock-original-futex-op11-20261014T083539553990891Z.json`; its full bytes were not uploaded. The terminating opcode and branch operand are **not visible in the pasted terminal output**, so they cannot yet be classified.
