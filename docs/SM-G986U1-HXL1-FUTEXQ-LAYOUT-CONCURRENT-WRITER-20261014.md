@@ -1,3 +1,26 @@
+## October 14, 12:56 UTC — NEW return-copy evidence; inspect only post-copy w0 lifetime
+
+The owner uploaded `hxl1-task-blocks-return-transfer-20261014.json` (SHA-256 `1c743d3b646bd25a679d99339df9ecb3a01e55e7ea22d75df73da7053e23877c`). The original `task_blocks_on_rt_mutex` 208-instruction compiled function now shows **one** candidate post-chain-walk result copy after `+0x18c: bl rt_mutex_adjust_prio_chain`: `+0x190: mov w20,w0` (stock word `2a0003f4`) and `+0x2b8: mov w0,w20` (stock word `2a1403e0`). Its conservative non-clobber `w20` path is `+0x194 → +0x198 → +0x19c → +0x2b8`; the common function return is statically reachable afterward at `+0x2d4`. This fills the missing **callee-return-value capture to candidate return-copy** relationship from the previous report.
+
+The uploaded evidence *does not* inspect whether `w0` is subsequently clobbered **between** `+0x2b8` and the actual `ret`, and explicitly says `branchPredicatesJointlyFeasibleVerified=false`, `pathSensitiveRuntimeValuePropagationProven=false`, and `runtimeNonzeroChainwalkErrorProven=false`. Do not reinterpret the current `returnStaticReachableAfterCopy=true` as a nonzero late-error proof.
+
+The existing **single-function** extractor now evaluates an additional post-copy-to-ret path that refuses syntactic writes to `w0`/`x0` and treats any `bl`/`blr` call as a caller-saved-register clobber. Only three new synthetic regression cases were added; no prior 47-case stack, symbol or source audit was rerun. This **new post-copy segment has not yet been validated against the owner's pinned stock ELF**. The question after a clean post-copy segment will be whether a *nonzero* chain-walk result and the proxy owner's rollback guard are jointly feasible, not whether the previously identified wrong-task cleanup code exists.
+
+Focused owner command:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+python3 -m unittest -q tools.test_y2q_hxl1_task_blocks_original_compiled_gap
+python3 tools/y2q_hxl1_task_blocks_original_compiled_gap.py \
+  --elf "$HOME/s20-artifacts/ghostlock-419/stock-kernel/stock-vmlinux.elf" \
+  --nm "$HOME/s20-artifacts/hxl1-research/vmlinux-stock.nm" \
+  --output "$HOME/s20-artifacts/hxl1-research/hxl1-task-blocks-postcopy-return-20261014.json"
+```
+
+Neither the uploaded report nor the new code establishes a post-return stale reference, temporary root, or KernelSU.
+
+---
 ## October 14, 12:36 UTC — new original two-function compiled reachability; late result still conditional
 
 Owner's corrected 208-instruction `task_blocks_on_rt_mutex` report (SHA-256 `6ada776b7ec27fe5f4cbc77b2c1d00e4f95a1c72717e6bee530794ccfee7caed`) now resolves **12/12** static direct BL labels and reports **zero unresolved CFG edges**. It verifies conservative code reachability from entry to candidate `task->pi_blocked_on` publication at `+0xf0` (`str x21,[x20,#2296]`), from that store to the exact recovered `rt_mutex_adjust_prio_chain` call at `+0x18c`, and from the call to the common return at `+0x2d4`. The initial false reachability was a GNU AArch64 objdump hex-prefix parser defect and is superseded.
