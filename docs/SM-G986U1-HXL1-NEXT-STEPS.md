@@ -1,3 +1,20 @@
+## October 14, 11:38 UTC — 47/47 owner tests confirmed; four-call witness NM crosswalk automated
+
+The owner uploaded a complete WSL console transcript with fast-forward through ac4cd4a and **all 47 current tests passing** (25 waiter/frame, 15 static store/load CFG, 7 witness). The three original-archive audits completed and rehashed recovered vmlinux-stock.nm. The original frame is 480 bytes, with two SP writes in 1,766 instructions; the candidate SP+0xa0 stack pointer store/load/null-test remains linked by a conservative 31-instruction CFG witness with four calls and five conditional branches. The full runtime lifetime, memory side effects, factory q.rt_waiter layout and root **are not established**.
+
+The confirmed [47-test owner checkpoint](../research/y2q-G986U1UESCHXL1/ghostlock-owner-waiter-47-tests-20261014T1138.json) and [brief audit guide](SM-G986U1-HXL1-GHOSTLOCK-WAITER-47-TESTS-20261014.md) are committed. Rather than repeating code extraction or asking for a standalone NM upload, the existing `tools/y2q_hxl1_waiter_store_load_witness.py` now accepts `--nm` and uses the strict original recovered-NM SHA to **name the four intervening direct BL destinations**, with alias/interior ambiguity and unknown memory effects retained. The existing WSL runner passes the already available NM automatically.
+
+Six new synthetic regressions bring the witness suite to **13 cases written**, beyond the **7/7** owner-confirmed baseline. Execution of these six newest tests and the new NM-enhanced report is **not yet observed**.
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_waiter_argument_lifetime_audit.sh
+```
+
+No readiness changes: stages 1–2 complete, 3 partial, 4–6 open, 7–8 blocked, 9 deferred. The four called helpers' memory effects remain a substantive static-analysis uncertainty, not solved by the act of labeling them.
+
+---
 ## October 14, 11:26 UTC — uploaded original waiter reports and conservative call-effects witness
 
 The owner uploaded two completed SHA-pinned read-only outputs: original waiter source/compiled audit (6,461 bytes, SHA-256 440c7fa2426b5e620eb6b28c1d7ad1ac20057767a4e6b0b56f8574f8d2407da3), and original store/load static CFG audit (2,363 bytes, SHA-256 5e7defd15144f2d792ae63c8f9caf244e1f3f247300078671f80d5a74acff024). They affirm 12 C source landmarks, 3 stack-derived helper arguments, 158 original SP uses with only 2 explicit SP writes (480-byte do_futex frame), an SP+0xa0 pointer store and matching later reload into x9, and a 31-instruction conservative CFG path. The owner-side recovered NM was independently rehashed. There is no claim of OEM struct field identity, full pointer lifetime, cross-syscall alias or root; no current unittest console transcript was uploaded.
