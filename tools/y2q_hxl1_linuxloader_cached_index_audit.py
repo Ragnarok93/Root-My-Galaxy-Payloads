@@ -93,6 +93,214 @@ def snippet(pseudocode: str) -> dict:
             'producerValueFlowProved':False}
 
 
+def audit_getter_calls(pseudocode: str) -> dict:
+    """Validate decompiler CALL-result use in the two format operations.
+
+    This establishes the *immediate* getter calls feeding appended values,
+    not where each getter obtains its value or which DTB was loaded.
+    """
+    insist(isinstance(pseudocode,str) and len(pseudocode)<5_000_000,
+           'Missing/oversized cached formatter pseudocode')
+    lines=pseudocode.splitlines()
+    outputs=[]
+    specs=(
+        ('dtbo','FUN_00023b00','androidboot.dtbo_idx='),
+        ('dtb','FUN_00023b40','androidboot.dtb_idx='),
+    )
+    for kind,callee,literal in specs:
+        observed=[]
+        pattern=re.compile(r'^\s*([A-Za-z_]\w*)\s*=\s*'+re.escape(callee)+r'\(\s*\);\s*    insist(run.is_dir() and not run.is_symlink(), 'Missing/symlink cached REA run')
+    insist(loader.is_file() and not loader.is_symlink() and sha(loader)==LOADER_PIN,
+           'Original stock HXL1 LinuxLoader file SHA mismatch')
+    reports=[]
+    for name, literal, source in EXPECTED:
+        refs=parse_xrefs(run/(name+'-xrefs.json'),literal)
+        insist(refs.get('sourceAddresses')==[source],
+               'Missing/nonunique original '+name+' xref source')
+        row=validated(run,name,source)
+        insist(row['entry']==ENTRY and row['pcodeAvailable'] is True,
+               'Cached Ghidra function identity / p-code unavailable')
+        reports.append(row)
+    insist(reports[0]['body']==reports[1]['body'],
+           'Cached original body ranges disagree')
+    hashes=[hashlib.sha256(x['pseudocode'].encode('utf-8')).hexdigest() for x in reports]
+    return {
+        'target':'SM-G986U1/G986U1UESCHXL1',
+        'classification':'VERIFIED_CACHED_ORIGINAL_CMDLINE_FUNCTION_NO_VALUE_FLOW',
+        'originalLinuxLoaderSha256':LOADER_PIN,
+        'sharedFunctionAnalysisEntry':ENTRY,
+        'sharedFunctionStaticBodyRanges':reports[0]['body'],
+        'cachedFunctionPseudocodeConsistent':len(set(hashes))==1,
+        'xrefEvidence':[
+            {'label':label,'stringAnalysisAddress':literal,'xrefSource':src,
+             'functionEvidenceId':row['evidenceId'],
+             'pcodeAvailable':row['pcodeAvailable'],
+             'pcodeTruncated':row['pcodeTruncated']}
+            for (label,literal,src),row in zip(EXPECTED,reports)
+        ],
+        'formatterContext':snippet(reports[0]['pseudocode']),
+        'verifiedFormatterGetterCallsites':audit_getter_calls(reports[0]['pseudocode']) if len(set(hashes))==1 else {'status':'CACHED_DECOMPILES_DISAGREE','allImmediateGetterCallsitesVerified':False,'upstreamGetterValueSourceVerified':False},
+        'savedNativeTrace':trace_status(partial),
+        'indexOperandsProducerVerified':False,
+        'bootloaderDtbSelectionVerified':False,
+        'dtbIdx0MapsToFirstEmbeddedFdt':False,
+        'dtboIdx2MapsToOriginalOverlay':False,
+        'physicalLinuxHandoffVerified':False,
+        'rootOrKernelSuDemonstrated':False,
+        'scopeLimit':'Static xref and bounded cached pseudocode only. '
+                     'A cancelled trace cannot certify def-use, memory aliases, '
+                     'runtime selection or kernel physical base. No REA provider is invoked.'
+    }
+
+
+def main() -> int:
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--run-dir',type=Path,required=True)
+    parser.add_argument('--loader',type=Path,required=True)
+    parser.add_argument('--partial',type=Path)
+    parser.add_argument('--output',type=Path,required=True)
+    args=parser.parse_args()
+    try:
+        partial=args.partial or args.run_dir/TRACE_NAME
+        result=review_cached(args.run_dir,args.loader,partial)
+        output=args.output.expanduser().resolve()
+        repository=Path(__file__).resolve().parents[1]
+        insist(output!=repository and repository not in output.parents,
+               'Output cannot be written inside source repository')
+        insist(not output.exists() and not output.is_symlink(),
+               'Refusing to overwrite previous report')
+        output.parent.mkdir(parents=True,exist_ok=True)
+        output.write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8')
+        print('[CACHED ORIGINAL FUNCTION]',result['sharedFunctionAnalysisEntry'])
+        print('[SAVED REA TRACE]',result['savedNativeTrace']['state'])
+        print('[STATIC INDEX LITERAL LINES]',result['formatterContext']['indexLiteralLineCount'])
+        print('[INDEX VALUE PRODUCER VERIFIED] NO')
+        print('[REPORT]',output)
+        return 0
+    except (OSError,ValueError,TypeError,KeyError) as err:
+        print('[STOP]',err,file=sys.stderr)
+        return 2
+
+
+if __name__=='__main__':
+    raise SystemExit(main())
+)
+        for i,line in enumerate(lines):
+            match=pattern.fullmatch(line)
+            if match is None:
+                continue
+            var=match.group(1)
+            following=lines[i+1:i+5]
+            reject=any(re.search(r'\bif\s*\(\s*'+re.escape(var)+r'\s*!=\s*-1\s*\)',x)
+                       for x in following)
+            append=any('FUN_0000ddc4(' in x and literal in x and
+                       re.search(r','+re.escape(var)+r'\s*\);',x)
+                       for x in following)
+            if reject and append:
+                observed.append({'callLine':i+1,'getter':callee,
+                                 'resultVariable':var,
+                                 'sentinelCheck':'return != -1',
+                                 'formatLiteral':literal,
+                                 'appendWithinFollowingFourLines':True})
+        outputs.append({'kind':kind,'observed':observed,
+                        'uniqueVerifiedCallsite':len(observed)==1})
+    gate_re=re.compile(r'([A-Za-z_]\w*)\s*=\s*FUN_000235b0\(\s*\);\s*    insist(run.is_dir() and not run.is_symlink(), 'Missing/symlink cached REA run')
+    insist(loader.is_file() and not loader.is_symlink() and sha(loader)==LOADER_PIN,
+           'Original stock HXL1 LinuxLoader file SHA mismatch')
+    reports=[]
+    for name, literal, source in EXPECTED:
+        refs=parse_xrefs(run/(name+'-xrefs.json'),literal)
+        insist(refs.get('sourceAddresses')==[source],
+               'Missing/nonunique original '+name+' xref source')
+        row=validated(run,name,source)
+        insist(row['entry']==ENTRY and row['pcodeAvailable'] is True,
+               'Cached Ghidra function identity / p-code unavailable')
+        reports.append(row)
+    insist(reports[0]['body']==reports[1]['body'],
+           'Cached original body ranges disagree')
+    hashes=[hashlib.sha256(x['pseudocode'].encode('utf-8')).hexdigest() for x in reports]
+    return {
+        'target':'SM-G986U1/G986U1UESCHXL1',
+        'classification':'VERIFIED_CACHED_ORIGINAL_CMDLINE_FUNCTION_NO_VALUE_FLOW',
+        'originalLinuxLoaderSha256':LOADER_PIN,
+        'sharedFunctionAnalysisEntry':ENTRY,
+        'sharedFunctionStaticBodyRanges':reports[0]['body'],
+        'cachedFunctionPseudocodeConsistent':len(set(hashes))==1,
+        'xrefEvidence':[
+            {'label':label,'stringAnalysisAddress':literal,'xrefSource':src,
+             'functionEvidenceId':row['evidenceId'],
+             'pcodeAvailable':row['pcodeAvailable'],
+             'pcodeTruncated':row['pcodeTruncated']}
+            for (label,literal,src),row in zip(EXPECTED,reports)
+        ],
+        'formatterContext':snippet(reports[0]['pseudocode']),
+        'savedNativeTrace':trace_status(partial),
+        'indexOperandsProducerVerified':False,
+        'bootloaderDtbSelectionVerified':False,
+        'dtbIdx0MapsToFirstEmbeddedFdt':False,
+        'dtboIdx2MapsToOriginalOverlay':False,
+        'physicalLinuxHandoffVerified':False,
+        'rootOrKernelSuDemonstrated':False,
+        'scopeLimit':'Static xref and bounded cached pseudocode only. '
+                     'A cancelled trace cannot certify def-use, memory aliases, '
+                     'runtime selection or kernel physical base. No REA provider is invoked.'
+    }
+
+
+def main() -> int:
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--run-dir',type=Path,required=True)
+    parser.add_argument('--loader',type=Path,required=True)
+    parser.add_argument('--partial',type=Path)
+    parser.add_argument('--output',type=Path,required=True)
+    args=parser.parse_args()
+    try:
+        partial=args.partial or args.run_dir/TRACE_NAME
+        result=review_cached(args.run_dir,args.loader,partial)
+        output=args.output.expanduser().resolve()
+        repository=Path(__file__).resolve().parents[1]
+        insist(output!=repository and repository not in output.parents,
+               'Output cannot be written inside source repository')
+        insist(not output.exists() and not output.is_symlink(),
+               'Refusing to overwrite previous report')
+        output.parent.mkdir(parents=True,exist_ok=True)
+        output.write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8')
+        print('[CACHED ORIGINAL FUNCTION]',result['sharedFunctionAnalysisEntry'])
+        print('[SAVED REA TRACE]',result['savedNativeTrace']['state'])
+        print('[STATIC INDEX LITERAL LINES]',result['formatterContext']['indexLiteralLineCount'])
+        print('[INDEX VALUE PRODUCER VERIFIED] NO')
+        print('[REPORT]',output)
+        return 0
+    except (OSError,ValueError,TypeError,KeyError) as err:
+        print('[STOP]',err,file=sys.stderr)
+        return 2
+
+
+if __name__=='__main__':
+    raise SystemExit(main())
+)
+    gate=[]
+    for i,line in enumerate(lines):
+        x=gate_re.search(line)
+        if x and i+1<len(lines) and re.search(
+                r'\bif\s*\(\s*'+re.escape(x.group(1))+r"\s*==\s*'\\0'\s*\)",
+                lines[i+1]):
+            gate.append({'callLine':i+1,'function':'FUN_000235b0',
+                         'condition':"return == '\\0'"})
+    return {
+        'getterCallsiteEvidence':outputs,
+        'allImmediateGetterCallsitesVerified':all(
+            x['uniqueVerifiedCallsite'] for x in outputs),
+        'gateCallsiteEvidence':gate,
+        'gateCallsiteUnique':len(gate)==1,
+        'upstreamGetterValueSourceVerified':False,
+        'actualBootloaderFdtIndexSelectionVerified':False,
+        'evidenceScope':'Decompiler CALL-to-formatter textual correlation only; '
+                        'requires same hash-attested original Ghidra function. '
+                        'Not a complete native p-code def-use proof.'
+    }
+
+
 def review_cached(run: Path, loader: Path, partial: Path) -> dict:
     insist(run.is_dir() and not run.is_symlink(), 'Missing/symlink cached REA run')
     insist(loader.is_file() and not loader.is_symlink() and sha(loader)==LOADER_PIN,
