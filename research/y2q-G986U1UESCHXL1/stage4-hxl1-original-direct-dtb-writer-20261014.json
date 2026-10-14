@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "scope": "OWNER_SUPPLIED_ORIGINAL_LINUXLOADER_DIRECT_DTB_WRITER",
+  "ownerReport": "hxl1-linuxloader-index-global-refs-20261014.json",
+  "ownerReportSha256": "3c1d00c0dc5353902a05e5b377b9b6b6dd304f9820678287e750e38741ee3a4c",
+  "originalLinuxLoaderSha256": "5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003",
+  "authenticatedOriginalImageOnOwnerHost": true,
+  "originalImageNotUploadedToAssistant": true,
+  "executableText": {
+    "rva": "0x1000",
+    "bytesScanned": 978944
+  },
+  "indexGlobals": {
+    "dtbo": "0x32a4cc",
+    "dtb": "0x32a4d0"
+  },
+  "verifiedReportedDirectReferences": [
+    {
+      "kind": "dtbo",
+      "mode": "READ",
+      "adrpRva": "0x23b0c",
+      "accessRva": "0x23b18",
+      "effectiveRva": "0x32a4cc",
+      "word": "0xb944cd20",
+      "width": 4
+    },
+    {
+      "kind": "dtb",
+      "mode": "READ",
+      "adrpRva": "0x23b4c",
+      "accessRva": "0x23b58",
+      "effectiveRva": "0x32a4d0",
+      "word": "0xb944d120",
+      "width": 4
+    },
+    {
+      "kind": "dtb",
+      "mode": "WRITE_CANDIDATE",
+      "adrpRva": "0x250e8",
+      "accessRva": "0x250f0",
+      "effectiveRva": "0x32a4d0",
+      "word": "0xb904d128",
+      "width": 4,
+      "storedRegister": "w8",
+      "baseRegister": "x9"
+    }
+  ],
+  "originalScanCounts": {
+    "dtbo": {
+      "reads": 1,
+      "directWrites": 0
+    },
+    "dtb": {
+      "reads": 1,
+      "directWrites": 1
+    }
+  },
+  "noDirectDtboWriterIsNotProofOfNoWriter": true,
+  "writerValueProven": false,
+  "actualDtbSelectionProven": false,
+  "physicalKernelHandoffProven": false,
+  "notes": "The scan recognizes bounded ADRP plus same-register immediate scalar access; unknown aliases, firmware initializers and indirect stores are not counted.",
+  "nextMinimalOfflineAction": {
+    "code": "tools/y2q_hxl1_linuxloader_index_global_refs.py",
+    "mode": "--existing-refs",
+    "behavior": "Rehash exact original loader and confirm existing machine references before exporting bounded code words near candidate writer; do not repeat full-PE ADRP scan.",
+    "targetedCandidate": "DTB index write at RVA 0x250f0",
+    "ciTests": 17,
+    "ciRun": "https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38621737278"
+  },
+  "noDeviceAccess": true,
+  "noExploitOrRootClaim": true
+}
