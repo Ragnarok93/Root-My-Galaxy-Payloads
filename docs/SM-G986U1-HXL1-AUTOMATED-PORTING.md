@@ -1,3 +1,28 @@
+## October 14, 16:48 UTC — Stage 4 original LinuxLoader getter probe, resumable without duplicate REA calls
+
+The actual **two unresolved original index-value getter functions** are already identified in the SHA-pinned cached LinuxLoader formatter: `0x23b00` for the observed `androidboot.dtbo_idx` formatting call and `0x23b40` for `androidboot.dtb_idx`. The owner HXL1 phone reports `ro.boot.dtbo_idx=2` and `ro.boot.dtb_idx=0`, but access to both stock device-tree root paths was denied; these boot property values **do not establish an OEM DTB or overlay selection**. The saved whole-formatter REA trace was cancelled, and its partial error JSON contains no valid value-flow results.
+
+**No new provider or full firmware extraction is needed.** Use the existing bounded two-function runner; its October 14 update makes a partially completed run resumable and avoids reanalyzing successful getter dossiers:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_linuxloader_getter_functions.sh
+```
+
+The runner announces `[OUTPUT DIRECTORY] ...`. If exactly one getter fails (including timeout, cancelled provider or mismatched returned entry), preserve the directory and retry **only missing getters** without restarting the successful one:
+
+```bash
+bash tools/run_y2q_hxl1_linuxloader_getter_functions.sh \
+  --resume "$HOME/s20-artifacts/hxl1-research/targeted-dtb-dtbo-getters-<EXISTING_RUN_SUFFIX>"
+```
+
+The `--resume` path independently authenticates the existing callsite dossier against the saved original SHA-pinned formatter report; each completed getter dossier must match both the original EFI SHA and the exact requested Ghidra function entry. It preserves prior partial logs and writes fresh retry partial/exit files. After both getters are authenticated it combines **their complete two pseudocodes into a single portable** `verified-getter-packet.json`; no third provider call is made.
+
+The dedicated [Stage 4 getter CI run](https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38609253203) passed Bash syntax validation and the preexisting getter provenance/identity unit suite. This is a **host-side test**, not REA execution against the owner WSL EFI and not proof of a selected OEM DTB, physical kernel load base, unlocked bootloader, root or KernelSU. Stages 3–8 are unchanged until genuinely authenticated missing evidence exists.
+
+---
+
 ## Fresh REA/Ghidra offsets: exact factory code (Stage 3)
 
 REA/Ghidra is an **active source of original ARM64 machine-code and HighFunction/P-code evidence** for HXL1, not just a label on a pre-existing disassembly. The saved Stage 3 checker has already attested **31 original instruction words, three factory-byte-identical bounded Ghidra inputs and two separate Clang10 comparison objects**; all 13 C-member offsets remain **hypotheses**.
