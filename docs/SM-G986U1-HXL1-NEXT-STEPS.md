@@ -1,3 +1,21 @@
+## October 14 — independent uploaded-archive verification: op11 two-hop callsites
+
+Independently rehashed the original uploaded five-function `hxl1-disassembly-review.tar.gz` (SHA-256 `20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997`) and its original `do_futex.disasm.txt` (`56286516ae9e6a873beab22b16af3ab330a768dc1b02f901854eb96f193789a5`). Analyzed the **actual static instruction text** without QEMU, a new build or device operation.
+
+The original case-11 block at `do_futex+0xbd0` has 24 instructions and no BL calls. Its immediate static alternatives are `+0xc30` (1 instruction, terminates in `cbz`) and `+0x117c` (2 instructions, terminates in `b`). Their successor alternatives, reached through the next static branch edge, are `+0xc34` (16 instructions; BL at `+0xc48`, `+0xc58`, `+0xc68`), `+0x118c` (11 instructions; BL at `+0x1198`, `+0x11b0`) and `+0x128c` (2 instructions; zero BL). There are **five original literal BL sites in these depth-two alternatives**, not zero throughout case 11.
+
+A versioned [machine-readable two-hop checkpoint](../research/y2q-G986U1UESCHXL1/ghostlock-op11-original-twohop-20261014.json) and the [updated full forensic guide](SM-G986U1-HXL1-GHOSTLOCK-OP11-COMPILED-BLOCK-20261014.md) contain the exact addresses, bounds and provenance limitations. The existing `tools/y2q_hxl1_ghostlock_futex_op11_block.py` now checks the exact original six block/count triples and produces two-hop branches and exact recovered-NM labels. Four extra synthetic tests increase that suite to **22**, and the existing runner now prints all bounded successor calls:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh
+```
+
+**New 22-test suite execution on owner/CI still unconfirmed**; the original archive itself *was* independently examined in this turn. The absolute kernel Image was not freshly rehashed in this archive-only pass. Five branch calls do not establish specific C-local objects, actual runtime path feasibility, waiter lifetime, stack reuse, exploitable corruption, temporary root or KernelSU. Stage 3 still PARTIAL; no downstream deployment gate is promoted.
+
+---
+
 ## October 14, 08:35 UTC — original HXL1 futex operation-11 first block established
 
 Owner ran `bash tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh` on original SHA-pinned five-function code archive after `b37bf5d`. All **13/13** original synthetic tests passed. Exact cached compiled `do_futex` operation-11 dispatch enters a **24-instruction first basic block at `do_futex+0xbd0`**, with **zero direct `bl` calls before the first explicit control transfer**. The full JSON lives on owner WSL as `ghostlock-original-futex-op11-20261014T083539553990891Z.json`; the terminal paste does **not** include the terminating branch opcode or its target.
