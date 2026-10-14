@@ -109,6 +109,72 @@ def can_reach(edges,start,goal,exclude=frozenset()):
             work.extend(x for x in edges.get(pc,()) if x not in seen and x not in exclude)
     return False
 
+def bounded_path_avoiding_register_writes(edges,rows,start,end,register):
+    """One conservative path; no claim that its branch predicates are feasible."""
+    pending=[(start,[start])]
+    seen=set()
+    store_ops={"str","stp","stur","stnp","stxr","stlxr","stlr","sttr"}
+    while pending and len(seen)<len(rows):
+        pc,path=pending.pop(0)
+        if pc in seen or pc not in rows:
+            continue
+        seen.add(pc)
+        if pc==end:
+            return [hex(x-EXPECTED_ENTRY) for x in path]
+        row=rows[pc]
+        first=row["args"].split(",",1)[0].strip().lower()
+        second=(row["args"].split(",",2)[1].strip().lower()
+                if "," in row["args"] else "")
+        writes=(row["op"] not in store_ops and
+                (first in ("x"+register,"w"+register) or
+                 (row["op"]=="ldp" and
+                  second in ("x"+register,"w"+register))))
+        if writes:
+            continue
+        for dest in edges.get(pc,()):
+            if dest not in seen:
+                pending.append((dest,path+[dest]))
+    return None
+
+
+def compiled_chainwalk_return_capture(rows,edges,returns):
+    """Identify only captured-result-to-return-copy *static candidate* paths."""
+    call_pc=EXPECTED_ENTRY+0x18c
+    capture_pc=call_pc+4
+    capture=rows.get(capture_pc)
+    need(capture is not None and capture["word"]=="2a0003f4" and
+         capture["op"]=="mov" and capture["args"]=="w20, w0",
+         "Original post-chainwalk w20 return-value capture changed")
+    matches=[]
+    for pc,row in sorted(rows.items()):
+        if (row["op"]=="mov" and row["args"]=="w0, w20") or (
+             row["op"]=="orr" and
+             row["args"] in ("w0, wzr, w20","w0, w20, wzr")):
+            path=bounded_path_avoiding_register_writes(
+                edges,rows,capture_pc+4,pc,"20")
+            matches.append({
+                "returnCopyRelativeVA":row["relative"],
+                "originalOpcodeWord":row["word"],
+                "instruction":row["op"]+" "+row["args"],
+                "w20NotSyntacticallyOverwrittenAlongAConservativePath":bool(path),
+                "conservativeWitnessFromCapture":path,
+                "returnStaticReachableAfterCopy":any(
+                    can_reach(edges,pc,ret) for ret in returns),
+                "branchPredicatesJointlyFeasibleVerified":False,
+                "fullReturnValuePropagationProven":False,
+            })
+    return {
+       "chainwalkCallRelativeVA":"0x18c",
+       "immediateReturnResultCaptureRelativeVA":"0x190",
+       "captureInstruction":"mov w20, w0",
+       "captureMachineWordVerified":"2a0003f4",
+       "compiledReturnCopyCandidates":matches,
+       "candidateCopiesFound":len(matches),
+       "runtimeNonzeroChainwalkErrorProven":False,
+       "pathSensitiveRuntimeValuePropagationProven":False,
+    }
+
+
 def inspect(rows,by_address,addresses):
     code={pc:(r["op"],r["args"]) for pc,r in rows.items()}
     edges,_,_,_=graphlib.edges_for(code)
@@ -161,7 +227,9 @@ def inspect(rows,by_address,addresses):
            "lateChainwalkErrorReturnProven":False,
         })
     chain=chainwalk
+    returnFlow=compiled_chainwalk_return_capture(rows,edges,returns)
     return {
+      "compiledChainwalkReturnCapture":returnFlow,
       "target":"SM-G986U1/G986U1UESCHXL1",
       "scope":"STOCK_TASK_BLOCKS_ON_RT_MUTEX_COMPILER_PUBLICATION_RETURN_GAP",
       "originalStockElfSha256":ELF_SHA,
@@ -237,6 +305,14 @@ def main():
                       "call->ret",c["staticChainwalkMayReachReturn"],
                       "late error UNVERIFIED")
         print("[RETURN POINTS]",len(result["returns"]))
+        f=result["compiledChainwalkReturnCapture"]
+        print("[ORIGINAL CHAINWALK RETURN CAPTURE]",f["immediateReturnResultCaptureRelativeVA"],
+              f["captureInstruction"])
+        print("[POSSIBLE W20 RETURN COPIES]",f["candidateCopiesFound"])
+        for r in f["compiledReturnCopyCandidates"]:
+            print("[RETURN COPY CANDIDATE]",r["returnCopyRelativeVA"],r["instruction"],
+                  "no-clobber witness",r["w20NotSyntacticallyOverwrittenAlongAConservativePath"],
+                  "may reach ret",r["returnStaticReachableAfterCopy"])
         print("[LATE ERROR / LIVE STALE REFERENCE] NOT VERIFIED")
         print("[REPORT]",output)
         return 0
