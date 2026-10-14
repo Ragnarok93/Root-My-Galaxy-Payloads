@@ -20,8 +20,9 @@ EXPECTED_FRAME_SHA = "a0426c036e614611c368338c9f80e298f13b23bc238e1b3dc67aa1a3c2
 EXPECTED_WINDOWS_SHA = "8b95591b0da9b8645db862c0d3c2e8b8d9646492fd3dcdb32227dce4a466c7e8"
 BASE = Path.home()/"s20-artifacts/hxl1-research"
 REPO = Path(__file__).resolve().parents[1]
+STOCK_SOURCE = Path.home()/"src/samsung-y2q-hxl1-stock"
 HEX = re.compile(r"^\s*(?:0x)?([0-9a-f]+)\b", re.I)
-CONTROL = {"b", "br", "blr", "ret", "eret", "cbz", "cbnz", "tbz", "tbnz"}
+CONTROL = {"b", "bl", "br", "blr", "ret", "eret", "cbz", "cbnz", "tbz", "tbnz"}
 
 class EvidenceError(ValueError):
     pass
@@ -182,9 +183,11 @@ def main()->int:
             "ghostlock-original-sendmsg-*/original-sendmsg-windows.json",
             EXPECTED_WINDOWS_SHA,200000)
         out=args.output.expanduser().resolve()
-        require(not out.exists() and not out.is_symlink() and
-                out!=REPO and REPO not in out.parents,
-                "Output must be new and outside this repository")
+        require(not args.output.expanduser().is_symlink() and
+                not out.exists() and not out.is_symlink() and
+                out!=REPO and REPO not in out.parents and
+                out!=STOCK_SOURCE and STOCK_SOURCE not in out.parents,
+                "Output must be new and outside source trees")
         frame=json.loads(read(frame_path,200000))
         windows=json.loads(read(manifest_path,200000))
         result=audit(frame,windows,manifest_path.parent)
