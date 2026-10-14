@@ -15,6 +15,9 @@ import re
 import sys
 import tarfile
 
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 SOURCE_PINS = {
     "kernel/futex.c": "493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5",
     "fs/select.c": "8b73f69f3f1929a39d7d7549f96cf6fa670420e140b9d67cae8177d1fe4642f3",
