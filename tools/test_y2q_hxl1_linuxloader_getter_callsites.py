@@ -148,6 +148,34 @@ class GetterProviderDossierTests(unittest.TestCase):
         with self.assertRaisesRegex(m.ProvenanceError, "error or non-object"):
             m.verify_getter_dossier(d, "0x23b00")
 
+    def test_portable_packet_contains_both_only_and_retains_semantic_unknown(self):
+        dtbo=self.result("0x23b00")
+        dtb=self.result("0x23b40")
+        dtb["parameters"]["procedure"]="0x23b40"
+        dtb["normalized_result"]["pseudocode"]="int FUN_00023b40(void) { return -1; }"
+        packet=m.package_verified_getter_dossiers({"dtbo":dtbo, "dtb":dtb})
+        self.assertTrue(packet["bothGetterEntriesAuthenticated"])
+        self.assertFalse(packet["indexSelectionSemanticsInterpreted"])
+        self.assertEqual([x["kind"] for x in packet["dossiers"]],["dtbo","dtb"])
+        self.assertEqual(len(packet["dossiers"]),2)
+
+    def test_portable_packet_cannot_omit_one_getter(self):
+        with self.assertRaisesRegex(m.ProvenanceError,"Exactly the dtb and dtbo"):
+            m.package_verified_getter_dossiers({"dtbo":self.result()})
+
+    def test_portable_packet_cannot_swap_function_dossiers(self):
+        swapped=self.result("0x23b40")
+        with self.assertRaisesRegex(m.ProvenanceError,"different Ghidra function entry"):
+            m.package_verified_getter_dossiers({"dtbo":swapped,"dtb":swapped})
+
+    def test_portable_packet_rejects_oversized_pseudocode(self):
+        dtbo=self.result()
+        dtb=self.result("0x23b40")
+        dtb["parameters"]["procedure"]="0x23b40"
+        dtb["normalized_result"]["pseudocode"]="abc"*170_000
+        with self.assertRaisesRegex(m.ProvenanceError,"Oversized getter"):
+            m.package_verified_getter_dossiers({"dtbo":dtbo,"dtb":dtb})
+
     def test_unsafe_request_target_rejected(self):
         with self.assertRaisesRegex(m.ProvenanceError, "Unexpected getter target"):
             m.verify_getter_dossier(self.result(), "0x2bdf8")
