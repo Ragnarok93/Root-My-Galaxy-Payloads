@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "scope": "ORIGINAL_DOFUTEX_STATIC_STORE_LOAD_AND_NULL_TEST_CROSSCHECK",
+  "observedDateUtc": "2026-10-14",
+  "originalUploadedOwnerReport": {
+    "file": "hxl1-waiter-source-compiled-20261014T110728979320740Z.json",
+    "sha256": "440c7fa2426b5e620eb6b28c1d7ad1ac20057767a4e6b0b56f8574f8d2407da3",
+    "sizeBytes": 6461,
+    "ownerRecoveredNmIndependentlyRehashed": true,
+    "originalSourceMarkers": 12,
+    "originalWaiterArgumentSites": 3,
+    "compiledSpWrites": 2,
+    "compiledSpReferences": 158,
+    "conditionalX25StoreVerified": true,
+    "owner25CaseRegressionOutputUploaded": false
+  },
+  "originalArchivePins": {
+    "source": "deac172780286aeca1d3b1d9ab7f036e84532a6d087cc89721fd5cc7d16fe1a3",
+    "futexC": "493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5",
+    "disassembly": "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997",
+    "doFutex": "56286516ae9e6a873beab22b16af3ab330a768dc1b02f901854eb96f193789a5"
+  },
+  "independentlyExaminedOriginalInstructions": 1766,
+  "originalStore": {
+    "relativeVA": "0x11d0",
+    "machineWord": "a90a6ff9",
+    "asm": "stp x25, x27, [sp, #160]",
+    "firstSlot": "SP+0xa0"
+  },
+  "originalLoad": {
+    "relativeVA": "0x12ec",
+    "machineWord": "a949a7e8",
+    "asm": "ldp x8, x9, [sp, #152]",
+    "secondSlot": "SP+0xa0",
+    "secondRegister": "x9"
+  },
+  "originalNullTest": {
+    "relativeVA": "0x12f0",
+    "machineWord": "b4000e29",
+    "asm": "cbz x9, 0xffffff800818f9e0"
+  },
+  "conditionalFurtherCalls": [
+    {
+      "relativeVA": "0x1308",
+      "callee": "rt_mutex_wait_proxy_lock",
+      "firstStackDerivedArg": "x2 = SP+0xc0"
+    },
+    {
+      "relativeVA": "0x1328",
+      "callee": "rt_mutex_cleanup_proxy_lock",
+      "firstStackDerivedArg": "x1 = SP+0xc0",
+      "conditional": true
+    }
+  ],
+  "compiledStaticCFG": {
+    "storeToLoadReachable": true,
+    "shortestStaticPathInstructionCount": 31,
+    "shortestPathConditionalBranches": [
+      "0x11dc",
+      "0x1230",
+      "0x12c0",
+      "0x12d0",
+      "0x12e0"
+    ],
+    "cfgIsOverApproximation": true,
+    "runtimeSatisfiableConditionsProven": false
+  },
+  "originalSource": {
+    "structFutexQDeclaredLine": 244,
+    "structFutexQRandomizeLayoutAnnotationLine": 254,
+    "sourceAssignmentQrtWaiterLine": 3274,
+    "sourceConditionalQrtWaiterLine": 3314,
+    "sourceProxyWaitLine": 3343,
+    "sourceCleanupLine": 3346,
+    "actualStockCompilerRandstructReorderingEnabledProven": false,
+    "mappingSP0xa0ToQrtWaiterStatus": "CANDIDATE_CORROBORATED_NOT_FACTORY_LAYOUT_CERTIFIED"
+  },
+  "unsupportedClaims": {
+    "completeIndirectMemoryAliasAnalysis": false,
+    "runtimePointerLifetimeProven": false,
+    "originalCompiledWaiterCObjectBoundsCertified": false,
+    "crossSyscallStackOverlapProven": false,
+    "liveGhostLockPrimitiveProven": false,
+    "temporaryRootProven": false,
+    "kernelSuLoaded": false
+  },
+  "automation": {
+    "tool": "tools/y2q_hxl1_waiter_store_load_cfg.py",
+    "tests": "tools/test_y2q_hxl1_waiter_store_load_cfg.py",
+    "syntheticCasesCommitted": 15,
+    "localReferenceSuitePassed": 15,
+    "ownerOrHostedExecutionOfRepositorySuiteConfirmed": false,
+    "existingRunner": "tools/run_y2q_hxl1_waiter_argument_lifetime_audit.sh",
+    "ci": ".github/workflows/hxl1-ghostlock-stack-gate-ci.yml",
+    "localOutputFile": "owner-hxl1-waiter-store-load-static-cfg-20261014.json",
+    "localOutputSha256": "2cd5d67c9e41cd2d41478535271612e0a95092cbd051a1ad5e770a0ed4491325"
+  },
+  "readiness": [
+    "COMPLETE",
+    "COMPLETE",
+    "PARTIAL",
+    "OPEN",
+    "OPEN",
+    "OPEN",
+    "BLOCKED",
+    "BLOCKED",
+    "DEFERRED"
+  ]
+}
