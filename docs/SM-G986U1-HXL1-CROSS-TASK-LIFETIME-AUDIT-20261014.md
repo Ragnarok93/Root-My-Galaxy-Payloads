@@ -43,3 +43,25 @@ The genuine remaining readiness gate is **factory-credible joint-state reachabil
 
 **Source provenance:** Samsung original `kernel/futex.c` from user-provided `hxl1-source-dispatch-review.tar.gz`; original rt-mutex source excerpts and stock disassembly from `rtmutex-stock-evidence.zip`; original 534-instruction target chainwalk ledger from owner-uploaded `hxl1-chainwalk-complete-20261014.json`; preexisting `task_blocks_on_rt_mutex` W20 register evidence.
 
+
+## New official correction crosswalk and bounded source-transition model
+
+The official Linux CVE advisory explicitly enumerates three consequences of the **same** wrong-task rollback: holding the wrong task's `pi_lock` during dequeue, leaving the target task's `pi_blocked_on` uncleared, and adjusting the priority-inheritance chain using the wrong task. The upstream fix is Linux commit [3bfdc63936dd4773109b7b8c280c0f3b5ae7d349](https://github.com/torvalds/linux/commit/3bfdc63936dd4773109b7b8c280c0f3b5ae7d349); official announcement: [CVE-2026-43499](https://lists.openwall.net/linux-cve-announce/2026/05/21/7).
+
+The upstream diff applies **three identity-sensitive corrections**: obtains the task from `waiter->task`, takes that task's `pi_lock` while dequeuing and clearing its PI state, and passes that task as the top task in `rt_mutex_adjust_prio_chain()`. This supports the HXL1 cross-task ownership diagnosis but does **not** make an upstream v7.x patch a mechanically safe drop-in for Samsung's 4.19 tree: the modern diff uses `scoped_guard`, and backport locking conventions differ.
+
+New offline model: [`tools/y2q_hxl1_pi_lifetime_state_model.py`](../tools/y2q_hxl1_pi_lifetime_state_model.py), with [nine regression invariants](../tools/test_y2q_hxl1_pi_lifetime_state_model.py) and [isolated CI](../.github/workflows/hxl1-pi-lifetime-model-ci.yml). Nine equivalent local tests passed on 2026-10-14; CI execution is not yet confirmed.
+
+The model distinguishes four conditional states rather than inferring a live exploit:
+
+| Abstract source assumptions | Modeled target `pi_blocked_on` after original-key return |
+| --- | --- |
+| Published waiter, late nonzero error, lock owner still present, stock rollback, no other repair | **Retained reference to expired stack-local waiter** |
+| Same assumptions, corrected rollback uses `waiter->task` | **Cleared** |
+| Same assumptions, but another legitimate operation clears target PI field first | **Cleared** |
+| Lock owner disappears before proxy rollback guard | **This particular nonzero-error rollback is suppressed; other continuation not modeled** |
+
+These are **logical implications under stated assumptions**, not real HXL1 scheduling witnesses. In particular, the model does not claim that a cycle/depth error, owner-present guard and later original-key wake can be made true simultaneously. It does not create a syscall trigger, runtime UAF, privilege escalation or deployable firmware.
+
+The next substantive research must assess joint-state feasibility and all legitimate intervening cleanup paths, **not** redisassemble or rehash the now completed 534-instruction PI-chain function.
+
