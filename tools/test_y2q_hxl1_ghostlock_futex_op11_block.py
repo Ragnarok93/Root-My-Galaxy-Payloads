@@ -158,6 +158,65 @@ class Op11FirstBlockTests(unittest.TestCase):
         self.assertFalse(result["terminalControlTransfer"]["observedTerminator"])
         self.assertEqual(result["immediateSuccessorBlocks"],[])
 
+    def test_depth_two_follows_only_static_two_hop_branches(self):
+        code=make_code()
+        first=BASE+0xb90
+        second_a=BASE+0xba0
+        second_b=BASE+0xbb0
+        code[TARGET+8]=("b.eq",hex(first))
+        code[TARGET+12]=("b",hex(second_a))
+        code[first]=("b",hex(second_b))
+        code[second_a]=("bl",hex(CALLEE))
+        code[second_a+4]=("ret","")
+        code[second_b]=("bl",hex(CALLEE))
+        code[second_b+4]=("ret","")
+        result=self.run_block(code)
+        self.assertEqual(result["oneHopSuccessorDirectCalls"],0)
+        self.assertEqual(result["twoHopDirectCalls"],2)
+        self.assertEqual([x["relativeToDoFutexEntry"]
+                          for x in result["twoHopSuccessorBlocks"]],
+                         ["0xba0","0xbb0"])
+        self.assertTrue(all(x["sourceLocalWaiterIdentityVerified"] is False
+                            for x in result["twoHopSuccessorBlocks"]))
+        self.assertFalse(result["allRuntimePathsVerified"])
+
+    def test_depth_two_cycles_not_followed_recursively(self):
+        code=make_code()
+        code[TARGET+8]=("b",hex(BASE+0xb90))
+        code[BASE+0xb90]=("b",hex(TARGET))
+        result=self.run_block(code)
+        self.assertEqual(len(result["immediateSuccessorBlocks"]),1)
+        self.assertEqual(result["twoHopSuccessorBlocks"],[])
+        self.assertEqual(result["twoHopDirectCalls"],0)
+
+    def test_depth_two_requires_terminated_first_successor(self):
+        code=make_code()
+        code[TARGET+8]=("b",hex(BASE+0xb90))
+        for i in range(m.MAX_SUCCESSOR_INSTRUCTIONS):
+            code[BASE+0xb90+i*4]=("nop","")
+        code[BASE+0xb90+m.MAX_SUCCESSOR_INSTRUCTIONS*4]=("b",hex(BASE+0xf00))
+        code[BASE+0xf00]=("bl",hex(CALLEE))
+        result=self.run_block(code)
+        self.assertEqual(result["immediateSuccessorBlocks"][0]["stopReason"],
+                         "MAX_SUCCESSOR_BOUND")
+        self.assertEqual(result["twoHopSuccessorBlocks"],[])
+        self.assertEqual(result["twoHopDirectCalls"],0)
+
+    def test_depth_two_produces_bounded_no_runtime_identity_claims(self):
+        code=make_code()
+        code[TARGET+8]=("b",hex(BASE+0xb90))
+        code[BASE+0xb90]=("b",hex(BASE+0xbb0))
+        code[BASE+0xbb0]=("bl",hex(CALLEE))
+        code[BASE+0xbb4]=("ret","")
+        result=self.run_block(code)
+        depth2=result["twoHopSuccessorBlocks"]
+        self.assertEqual(len(depth2),1)
+        self.assertEqual(depth2[0]["instructionSlots"],2)
+        self.assertFalse(depth2[0]["dynamicPathFeasibilityVerified"])
+        self.assertFalse(depth2[0]["directCalls"][0][
+            "effectiveCalleeOrWaiterSourceIdentityVerified"])
+        self.assertEqual(result["maxOriginalBranchHopsInspected"],2)
+
     def test_archive_original_sha_is_strict_pin(self):
         self.assertEqual(m.ARCHIVE_SHA,
           "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997")
