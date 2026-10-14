@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "model": "SM-G986U1",
+  "firmware": "G986U1UESCHXL1",
+  "timestamp": "2026-10-14T04:35:31Z",
+  "source": "owner terminal output of failed original live FDT probe",
+  "ownerExistingTestRun": {
+    "passed": 18,
+    "total": 18
+  },
+  "originalProbe": {
+    "exitCode": 2,
+    "status": "ROOT_PROPERTY_PARSE_REQUIRES_REVIEW",
+    "report": "/home/main/s20-artifacts/hxl1-research/hxl1-live-dtb-diagnostic-20261014T043531Z.json",
+    "error": "model: FDT root property contains unsafe/nonprintable bytes"
+  },
+  "observations": [
+    {
+      "name": "model",
+      "readPath": "/sys/firmware/devicetree/base/model",
+      "rawBytesLength": 60,
+      "sha256": "e591413e7850b4a64ce8bdd10f6c435334f062d53f5cea7674086ffe12ffc0bf",
+      "decodedObservedText": "cat: /sys/firmware/devicetree/base/model: Permission denied\n",
+      "rawFdtPropertyCaptured": false
+    },
+    {
+      "name": "compatible",
+      "readPath": "/sys/firmware/devicetree/base/compatible",
+      "rawBytesLength": 65,
+      "sha256": "135a778e2d5ca332e80657a1281c984126e9fb2cd87287684957d2848435e3c1",
+      "decodedObservedText": "cat: /sys/firmware/devicetree/base/compatible: Permission denied\n",
+      "rawFdtPropertyCaptured": false
+    }
+  ],
+  "rootCause": "ADB exec-out cat can emit remote-cat Permission denied text on stdout with transport return status zero; original probe trusted stdout solely based on exit status.",
+  "revisedProbe": {
+    "originalCatErrorsDetected": true,
+    "alternateProcDeviceTreeRootAttempted": true,
+    "requiresRawNulTerminator": true,
+    "writesStructuredAccessDeniedReport": true,
+    "unprivilegedPublicGetpropsOnly": true,
+    "newRegressionMethods": 7,
+    "totalRegressionMethods": 25,
+    "githubOrOwnerExecutionOfNewRegressionMethodsConfirmed": false
+  },
+  "outcome": "READ_ACCESS_DENIED_NO_RUNTIME_FDT_COMPARISON_POSSIBLE_FROM_ORIGINAL_SYSFS_PROBE",
+  "gates": {
+    "liveRootModelMatchCertified": false,
+    "bootloaderSelectedDtBVerified": false,
+    "kernelPhysicalHandoffVerified": false,
+    "root": false,
+    "kernelSu": false,
+    "stage4": "OPEN"
+  },
+  "caveat": "Only sysfs cat permission denied observed in original probe; /proc/device-tree alternative has not yet been tried by revised owner-run."
+}
