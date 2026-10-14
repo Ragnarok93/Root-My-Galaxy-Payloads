@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "ownerObservationUtc": "2026-10-14T04:40:57Z",
+  "source": "owner pasted WSL console, not separately uploaded JSON bytes",
+  "sourceOwnerOutputPath": "/home/main/s20-artifacts/hxl1-research/hxl1-live-dtb-access-v2-20261014T044057Z.json",
+  "ownerGitFastForwardFrom": "4445140",
+  "ownerGitFastForwardTo": "6ebaa32",
+  "unitTestsOriginalOwnerRun": {
+    "passed": 24,
+    "failed": "test_adb_denial_does_not_promote_evidence",
+    "total": 25,
+    "durationSeconds": 0.063,
+    "observedFailure": "Expected 'unavailable' but raised 'ADB_COMMAND_FAILED'",
+    "cause": "stale unit-test error-message assertion after explicit ADB status refactor",
+    "productionProbeRegressedByFailedAssertion": false,
+    "assertionCorrectedInCommit": "b4269b64bf5cabe6736977a71c43405eda152bbb",
+    "correctedSuiteRunConfirmed": false
+  },
+  "liveProbe": {
+    "exitCode": 2,
+    "status": "ROOT_PROPERTIES_INACCESSIBLE",
+    "attemptedPaths": [
+      "/sys/firmware/devicetree/base",
+      "/proc/device-tree"
+    ],
+    "modelAttemptResults": [
+      "PERMISSION_DENIED",
+      "PERMISSION_DENIED"
+    ],
+    "compatibleAttemptResults": [
+      "PERMISSION_DENIED",
+      "PERMISSION_DENIED"
+    ],
+    "readableRawRootProperties": {
+      "model": false,
+      "compatible": false
+    },
+    "observedBuildIdentity": {
+      "ro.product.model": "SM-G986U1",
+      "ro.build.display.id": "TP1A.220624.014.G986U1UESCHXL1",
+      "uname -r": "4.19.113-27095354"
+    },
+    "liveIdentityMatchesPinnedHxl1": true,
+    "readOnlyBootPropertyHints": {
+      "ro.hardware": "qcom",
+      "ro.board.platform": "kona",
+      "ro.boot.hardware": "qcom",
+      "ro.boot.dtb_idx": "0",
+      "ro.boot.dtbo_idx": "2"
+    },
+    "noCandidateMatched": true,
+    "bootPropertyHintsProveSelectedDtb": false,
+    "bootloaderSelectedDtbProven": false,
+    "physicalLinuxLoadBaseVerified": false,
+    "deviceModified": false,
+    "rootOrKernelSuDemonstrated": false
+  },
+  "researchDecision": {
+    "stage4": "OPEN",
+    "unprivilegedDeviceTreeRootReadGate": "BLOCKED_BY_PERMISSION",
+    "bootPropertyIndexInterpretation": "INDEX_VALUES_OBSERVED_MAPPING_TO_OEM_BLOB_NOT_AUTHENTICATED",
+    "noRepeatProtectedRead": true,
+    "nextUsefulGate": "Offline inspection of verified original HXL1 boot/DTB/DTBO metadata for semantics of ro.boot.dtb_idx and ro.boot.dtbo_idx without assuming indexes identify the first embedded tree or applied overlay; physical load remains separate."
+  },
+  "caveat": "Only owner console output was supplied; not a byte-for-byte independently authenticated JSON artifact. The stale unit test failed; owner/CI must confirm updated assertion."
+}
