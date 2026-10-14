@@ -109,6 +109,15 @@ class FrameAttestationTests(unittest.TestCase):
         with self.assertRaisesRegex(m.VerifyError,"word differs"):
             self.audit()
 
+    def test_gnu_unknown_inst_still_accounts_for_authenticated_machine_word(self):
+        path=self.path/"__sys_sendmsg.disasm.txt"
+        raw=path.read_bytes().replace(b"\tsub\t",b"\t.inst\t")
+        path.write_bytes(raw)
+        self.report["functions"][0]["disassembly"]["sha256"]=sha(raw)
+        result=self.audit()
+        self.assertEqual(result["functions"][0]["features"]["instructionSlotsChecked"],2)
+        self.assertFalse(result["exactOriginalCompilerStackObjectsKnown"])
+
     def test_disasm_missing_one_slot_rejected(self):
         path=self.path/"__sys_sendmsg.disasm.txt"
         raw=path.read_bytes().splitlines(keepends=True)[0]
