@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "input": {
+    "ownerFile": "getter-raw-native-windows-20261014T181835Z.json",
+    "fileSha256": "e90b1afa70ff60cc1ec8de55597e0166cb790db46f17e58037b63e32ebc34a30",
+    "claimedOriginalLoaderSha256": "5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003",
+    "loaderIndependentlyRehashedInChat": false,
+    "peMachine": "0xaa64",
+    "preferredImageBase": "0x0"
+  },
+  "staticFindings": {
+    "dtbo": {
+      "candidateGetterRva": "0x23b00",
+      "readInstructionRva": "0x23b18",
+      "readInstruction": "ldr w0,[x9,#0x4cc]",
+      "adrpBaseRva": "0x32a000",
+      "globalU32ReadRva": "0x32a4cc",
+      "normalReturn": "0x23b38",
+      "mismatchCall": "0x1e81c"
+    },
+    "dtb": {
+      "candidateGetterRva": "0x23b40",
+      "readInstructionRva": "0x23b58",
+      "readInstruction": "ldr w0,[x9,#0x4d0]",
+      "adrpBaseRva": "0x32a000",
+      "globalU32ReadRva": "0x32a4d0",
+      "normalReturn": "0x23b78",
+      "mismatchCall": "0x1e81c"
+    },
+    "sharedCheckWordAt": "0x32a4b8",
+    "adjacentU32GlobalDistanceBytes": 4,
+    "bothVariablesInOriginalPeDataSection": true,
+    "canaryLikeSaveAndCompareSequenceObserved": true,
+    "commonMismatchCallTargetNameAuthenticated": false,
+    "retBasedOnGlobalReadAlongCanaryEqualBranch": true,
+    "secondRawWindowContainsFollowingUnrelatedInstructions": true
+  },
+  "clarifications": {
+    "ghidraAnalysisCoordinateEqualsRawPeRvaAuthenticated": false,
+    "actualGlobalValuesOrWritersAuthenticated": false,
+    "selectedDtbIndexValueAtBootProvenByThisReport": false,
+    "selectedDtboIndexValueAtBootProvenByThisReport": false,
+    "actualDtbOverlayImagesSelected": false,
+    "physicalKernelHandoffVerified": false,
+    "rootOrKernelSuDemonstrated": false
+  },
+  "automation": {
+    "tool": "tools/y2q_hxl1_linuxloader_raw_getter_globals.py",
+    "test": "tools/test_y2q_hxl1_linuxloader_raw_getter_globals.py",
+    "localSyntheticTestsPassed": 6,
+    "hostedCIResult": "PENDING"
+  }
+}
