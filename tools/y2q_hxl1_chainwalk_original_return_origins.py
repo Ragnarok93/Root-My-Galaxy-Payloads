@@ -109,116 +109,6 @@ def no_clobber_path(rows, edges, start, end):
                 q.append((nxt, path+[nxt]))
     return None
 
-# The original compiled epilogue does NOT return an immediate: +0x7a0 copies
-# callee-saved w20 into w0. A "negative literal written to w0" inventory alone
-# therefore cannot rule out a negative chain-walk result.
-CARRIER_COPY_OFFSET=0x7a0
-CARRIER_COPY_WORD="2a1403e0"
-NO_REGISTER_DEST={"cmp","cmn","ccmp","ccmn","tst","prfm","b","br","ret",
-                  "cbz","cbnz","tbz","tbnz","nop","yield","wfe","wfi",
-                  "sev","sevl","dmb","dsb","isb"}
-WRITEBACK_X20=re.compile(r"\[\s*x20(?:\s*,[^\]]*)?\s*\]!|\[\s*x20\s*\]\s*,",re.I)
-
-def writes_w20_carrier(row):
-    """Conservative syntactic assignment to W20/X20 (same ARM64 register).
-
-    AArch64 ABI-preserving BL is not itself a clobber of callee-saved X20.
-    """
-    op,args=row["op"],row["args"]
-    if WRITEBACK_X20.search(args):
-        return True
-    if op in CALLS or op in STORES or op in NO_REGISTER_DEST or op.startswith("b."):
-        return False
-    operands=[x.strip().lower() for x in args.split(",")]
-    if not operands:
-        return False
-    if operands[0] in ("w20","x20"):
-        return True
-    if op in ("ldp","ldnp","ldpsw") and len(operands)>1 and operands[1] in ("w20","x20"):
-        return True
-    return False
-
-def immediate_carrier_value(row):
-    """Only simple full-width w20 immediate assignments, no shifted MOVK guess."""
-    op=row["op"]
-    operands=[x.strip().lower() for x in row["args"].split(",")]
-    if op not in ("mov","movz","movn") or len(operands)!=2 or operands[0]!="w20":
-        return None
-    token=operands[1]
-    if not re.fullmatch(r"#(?:-?(?:0x[0-9a-f]+|\d+))",token):
-        return None
-    number=int(token[1:],0)
-    word=(~number if op=="movn" else number) & 0xffffffff
-    return word if word < 0x80000000 else word - 0x100000000
-
-def carrier_path_without_w20_overwrite(rows,edges,start,end):
-    """Existential conservative CFG path; not satisfiability or live propagation."""
-    if start not in rows or end not in rows:
-        return None
-    queue=deque([(start,[start])])
-    seen=set()
-    while queue:
-        pc,path=queue.popleft()
-        if pc in seen:continue
-        seen.add(pc)
-        if pc==end:
-            return [hex(addr-ENTRY) for addr in path]
-        if writes_w20_carrier(rows[pc]):
-            continue
-        for nxt in edges.get(pc,()):
-            if nxt in rows and nxt not in seen:
-                queue.append((nxt,path+[nxt]))
-    return None
-
-def carrier_origins(rows,edges):
-    copy_pc=ENTRY+CARRIER_COPY_OFFSET
-    original=rows.get(copy_pc)
-    pinned.need(original is not None and
-                original["word"]==CARRIER_COPY_WORD and
-                original["op"]=="mov" and original["args"]=="w0, w20",
-                "Expected original w20 to w0 epilogue copy is missing")
-    definitions=[]
-    for pc,row in sorted(rows.items()):
-        if not writes_w20_carrier(row):
-            continue
-        value=immediate_carrier_value(row)
-        path=carrier_path_without_w20_overwrite(rows,edges,pc+4,copy_pc)
-        definitions.append({
-            "definitionRelativeVA":row["relative"],
-            "word":row["word"],
-            "instruction":row["op"]+" "+row["args"],
-            "signed32LiteralWhenSyntacticallyCertain":value,
-            "mayReachReturnCopyWithoutFurtherSyntacticW20Write":bool(path),
-            "conservativePathToCopy":path,
-            "callSitesAssumedToPreserveX20PerAarch64Abi":True,
-            "branchConditionsJointlySatisfiableProven":False,
-            "valueOnRealHxl1RuntimePathProven":False,
-        })
-    negative=[
-        d for d in definitions
-        if d["signed32LiteralWhenSyntacticallyCertain"] is not None
-        and d["signed32LiteralWhenSyntacticallyCertain"]<0
-        and d["mayReachReturnCopyWithoutFurtherSyntacticW20Write"]
-    ]
-    return {
-        "finalReturnCopyRelativeVA":hex(CARRIER_COPY_OFFSET),
-        "finalReturnCopy":"mov w0, w20",
-        "originalFinalReturnCopyMachineWord":CARRIER_COPY_WORD,
-        "w20OrX20Definitions":definitions,
-        "definitionsCount":len(definitions),
-        "syntacticNegativeCarrierCandidates":negative,
-        "negativeCarrierCandidatesCount":len(negative),
-        "compiledReturnPathPredicatesSatisfied":False,
-        "negativeErrorFeasibleAfterWaiterPublicationVerified":False,
-        "rollbackOwnerStateFeasibleAtSameTimeVerified":False,
-        "danglingWaiterOrRootDemonstrated":False,
-        "limit":"Tracks only literal w20 assignments and conservative paths without "
-                "further syntactic w20/x20 writes; actual value and branch feasibility "
-                "require stronger dataflow and real thread state. Callees must "
-                "honor AArch64 callee-saved x20 convention."
-    }
-
-
 def inspect(rows, names, addrs):
     edges, branches, outside, unresolved = cfg.edges_for(
         {p:(r["op"],r["args"]) for p,r in rows.items()})
@@ -254,9 +144,7 @@ def inspect(rows, names, addrs):
             "symbolMatch":label,
             "calleeSideEffectsProven":False
         })
-    carrier=carrier_origins(rows,edges)
     return {
-        "returnCarrierW20Analysis":carrier,
         "schemaVersion":1,
         "target":"SM-G986U1/G986U1UESCHXL1",
         "scope":"ORIGINAL_RT_MUTEX_ADJUST_PRIO_CHAIN_RETURN_ORIGIN_ONLY",
@@ -308,19 +196,8 @@ def main():
         print("[NEW COMPILED FUNCTION]",FUNC)
         print("[RETURN SITES]",result["returnSites"])
         print("[RETURN REGISTER WRITES]",len(result["returnRegisterWriteCandidates"]))
-        print("[POTENTIAL NEGATIVE IMMEDIATE WRITES TO W0]",
+        print("[POTENTIAL NEGATIVE IMMEDIATE WRITES]",
               len(result["syntacticNegativeImmediateReturnCandidates"]))
-        carrier=result["returnCarrierW20Analysis"]
-        print("[FINAL RETURN VALUE CARRIER]",carrier["finalReturnCopyRelativeVA"],
-              carrier["finalReturnCopy"])
-        print("[W20 DEFINITIONS]",carrier["definitionsCount"])
-        print("[NEGATIVE W20 ORIGINS WITH STATIC PATH]",
-              carrier["negativeCarrierCandidatesCount"])
-        for origin in carrier["syntacticNegativeCarrierCandidates"]:
-            print("[NEGATIVE W20 STATIC CANDIDATE]",
-                  origin["definitionRelativeVA"],
-                  origin["signed32LiteralWhenSyntacticallyCertain"])
-        print("[RUNTIME PREDICATES / STALE REFERENCE] NOT VERIFIED")
         print("[LATE ERROR FEASIBILITY / STALE REFERENCE / ROOT] UNVERIFIED")
         print("[REPORT]",destination)
         return 0
