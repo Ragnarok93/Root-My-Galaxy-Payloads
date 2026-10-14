@@ -72,6 +72,33 @@ PY
     FAILED=1
   fi
 done
+
+# Produce ONE small, self-contained source package only after both original
+# Ghidra getter entries have passed exact SHA and function-entry validation.
+# No additional provider request is made; full raw dossiers remain saved.
+if test "$FAILED" -eq 0; then
+  if python3 - "$DIR" > "$DIR/verified-getter-packet.partial.json" <<'PY'
+import json,sys
+from pathlib import Path
+from tools import y2q_hxl1_linuxloader_getter_callsites as audit
+
+base=Path(sys.argv[1])
+input_files={kind:base/(kind+"-getter.json") for kind in ("dtbo","dtb")}
+original={kind:json.loads(path.read_text(encoding="utf-8"))
+          for kind,path in input_files.items()}
+packet=audit.package_verified_getter_dossiers(original)
+print(json.dumps(packet,indent=2))
+PY
+  then
+    mv "$DIR/verified-getter-packet.partial.json" "$DIR/verified-getter-packet.json"
+    echo "[PORTABLE TWO-GETTER EVIDENCE] $DIR/verified-getter-packet.json"
+  else
+    echo "[TWO-GETTER PACKET REJECTED; PARTIAL PRESERVED]"
+    FAILED=1
+  fi
+else
+  echo "[TWO-GETTER PACKET SKIPPED: incomplete verified inputs]"
+fi
 echo "[OUTPUT DIRECTORY] $DIR"
 echo "[SCOPE] two original static getter functions only; no selector proven"
 echo "[PHYSICAL HANDOFF / ROOT / KERNELSU] NOT VERIFIED"
