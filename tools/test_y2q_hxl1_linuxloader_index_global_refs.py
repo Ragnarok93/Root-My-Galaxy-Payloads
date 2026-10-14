@@ -120,7 +120,10 @@ class XrefTests(unittest.TestCase):
         text,report,section=self._context_fixture()
         corrupted=bytearray(text)
         struct.pack_into('<I',corrupted,0x104,0xd503201f)
-        with self.assertRaisesRegex(m.Stop,'Original loader SHA mismatch'):
+        # Re-pin the independent synthetic ELF hash to exercise the
+        # instruction-word crosscheck, rather than the earlier digest gate.
+        report['originalLinuxLoaderSha256']=hashlib.sha256(corrupted).hexdigest()
+        with self.assertRaisesRegex(m.Stop,'Reference not confirmed'):
             self._evaluate_context(bytes(corrupted),report,section)
 
     def test_existing_report_rejects_modified_global_summary(self):
