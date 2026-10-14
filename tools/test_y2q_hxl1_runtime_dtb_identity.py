@@ -89,7 +89,7 @@ class DtbIdentityTests(unittest.TestCase):
         from subprocess import CompletedProcess
         with patch.object(m.subprocess,"run",
              return_value=CompletedProcess(args=[],returncode=1,stdout=b"",stderr=b"permission denied")):
-            with self.assertRaisesRegex(m.GateError,"unavailable"):
+            with self.assertRaisesRegex(m.GateError,"ADB_COMMAND_FAILED"):
                 m.adb_read("adb",None,["exec-out","cat","/proc/device-tree/model"])
 
 
