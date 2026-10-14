@@ -91,4 +91,58 @@ class DiscoveryTests(unittest.TestCase):
             self.assertEqual(report['filesExamined'],2)
             self.assertFalse(report['oemSymbolsAuthenticated'])
 
+
+    def test_breadth_first_finds_shallow_candidate_despite_deep_source_noise(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            src=root/'linux-4.19.325'/'arch'/'arm64'
+            src.mkdir(parents=True)
+            for i in range(100):
+                (src/('src%d.c' % i)).write_text('irrelevant')
+            project=root/'zz-build'; project.mkdir()
+            (project/'vmlinux.debug').write_bytes(elf64())
+            report=m.inventory([root],max_depth=4,max_entries=12)
+            self.assertTrue(report['truncated'])
+            self.assertTrue(any(x['path'].endswith('zz-build/vmlinux.debug')
+                                for x in report['candidates']))
+            self.assertFalse(report['scopeCompleteAtRequestedDepth'])
+            self.assertGreaterEqual(report['pendingDirectoryCountAtTruncation'],0)
+
+    def test_unknown_section_table_is_indeterminate_not_clean(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'xbl.elf'
+            raw=bytearray(elf64())
+            struct.pack_into('<Q',raw,40,0)
+            struct.pack_into('<H',raw,60,0)
+            path.write_bytes(raw)
+            elf=m.inspect_elf(path)
+            self.assertEqual(elf['sectionHeadersUsable'],False)
+            self.assertEqual(m.classify(path,elf),
+                             'UNREADABLE_ELF_SECTION_TABLE_INDETERMINATE')
+
+    def test_exclude_source_filename_noise_and_nonelf_lookalikes(self):
+        for basename in ('Kconfig.debug','vmlinux.lds.S','vmlinux.lds',
+                         'System.map','kallsyms'):
+            self.assertFalse(m.likely_candidate(basename))
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/'arbitrary.debug';p.write_text('A'*100)
+            out=m.inventory([Path(d)])
+            self.assertEqual(out['candidateFiles'],0)
+            self.assertEqual(out['filenameMatchedButNonElf'],1)
+            self.assertTrue(out['scopeCompleteAtRequestedDepth'])
+
+    def test_multi_root_breadth_first_prioritizes_other_root(self):
+        with tempfile.TemporaryDirectory() as d:
+            r=Path(d); first=r/'aaa'; second=r/'zzz'
+            first.mkdir();second.mkdir()
+            heavy=first/'x'/'y';heavy.mkdir(parents=True)
+            for i in range(30):
+                (heavy/('junk%d.c'%i)).write_text('no')
+            (second/'vmlinux.debug').write_bytes(elf64())
+            out=m.inventory([first,second],max_entries=6)
+            self.assertTrue(out['truncated'])
+            self.assertEqual(out['candidateFiles'],1)
+            self.assertEqual(out['rootCoverage'][str(second)]['candidateFiles'],1)
+
+
 if __name__ == '__main__': unittest.main()
