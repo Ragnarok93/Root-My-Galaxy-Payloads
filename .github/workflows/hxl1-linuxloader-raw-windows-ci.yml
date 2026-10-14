@@ -1,0 +1,22 @@
+name: HXL1 offline LinuxLoader getter windows
+on:
+  push:
+    branches:
+      - feature/s20plus-investigation-shizuku-20261009
+    paths:
+      - tools/y2q_hxl1_linuxloader_getter_raw_windows.py
+      - tools/test_y2q_hxl1_linuxloader_getter_raw_windows.py
+      - .github/workflows/hxl1-linuxloader-raw-windows-ci.yml
+  workflow_dispatch:
+
+jobs:
+  offline-pe32-getter-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Unit tests without firmware or REA
+        run: python3 -m unittest -v tools.test_y2q_hxl1_linuxloader_getter_raw_windows
