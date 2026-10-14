@@ -1,3 +1,11 @@
+## October 14 — Defensive 4.19 cleanup-backport candidate staged (NEW)
+
+The outstanding source defect is independently covered by the existing [cross-task lifetime audit](SM-G986U1-HXL1-CROSS-TASK-LIFETIME-AUDIT-20261014.md) and nine-test abstract model. **Do not duplicate that work.** A separate [defensive backport review](SM-G986U1-HXL1-RTMUTEX-DEFENSIVE-419-BACKPORT-20261014.md) now stages a source-only Linux 4.19 `remove_waiter()` task-identity fix, adapted from the upstream CVE-2026-43499 correction. The patch applies cleanly to the exact archived original function excerpt (including when embedded after dummy preceding lines); the complete Samsung source tree has **not** been checked or built here. Nothing was flashed. No root/KernelSU stage change.
+
+**Only safe next action:** run the one `git apply --check` command documented in the remediation review against the owner's full stock source checkout. A passing dry-run is source-context evidence, not factory compatibility or a deployable image.
+
+---
+
 ## October 14 — post-error cross-task ownership gate (NEW; old instruction audits closed)
 
 The **new** cross-function evidence is [HXL1 cross-task lifetime audit](SM-G986U1-HXL1-CROSS-TASK-LIFETIME-AUDIT-20261014.md). Original stock source correlates an already published target-task PI waiter, wrong-task `remove_waiter` rollback, `futex_requeue` error exit before moving the futex_q, original-key early-wakeup handling, and eventual waiter stack return. If (and only if) a **late** chain-walk error returns while the proxy lock still has an owner, and no other operation clears the target PI state, the source-level state transitions permit a retained target-task pointer after waiter lifetime ends. The **official upstream fix** `3bfdc63936dd` confirms that the rollback must operate on `waiter->task`, including PI locking and chain top-task identity. A small [abstract-only source state model](../tools/y2q_hxl1_pi_lifetime_state_model.py) and nine new tests are committed; no runtime trigger.
