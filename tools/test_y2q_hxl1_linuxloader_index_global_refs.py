@@ -1,6 +1,8 @@
 """Focused synthetic tests for original LinuxLoader direct global reference scan."""
 import struct
+import hashlib
 import unittest
+from unittest import mock
 from tools import y2q_hxl1_linuxloader_index_global_refs as m
 from tools import y2q_hxl1_linuxloader_raw_getter_globals as getter
 from tools.test_y2q_hxl1_linuxloader_raw_getter_globals import fixture, WORDS
@@ -70,6 +72,82 @@ class XrefTests(unittest.TestCase):
                0x108:0xb9000000 | ((0x4cc//4)<<10) | (9<<5)}
         rows=m.scan_words(make_text(extra),0x23b00)
         self.assertFalse(any(x['mode']=='WRITE' for x in rows))
+
+    def _context_fixture(self):
+        text=make_text({0x100:0xf0001829,
+                        0x104:0xb9000000 | ((0x4d0//4)<<10) | (9<<5),
+                        0x108:0xd65f03c0})
+        reads=m.scan_words(text,0x23b00)
+        counters={kind:{'readCandidates':0,'writeCandidates':0}
+                  for kind in m.TARGETS}
+        for row in reads:
+            k='readCandidates' if row['mode']=='READ' else 'writeCandidates'
+            counters[row['indexKind']][k]+=1
+        cfg={'schemaVersion':1,'target':'SM-G986U1/G986U1UESCHXL1',
+             'classification':'EXACT_HASH_ORIGINAL_LOADER_DIRECT_GLOBAL_REFERENCES_ONLY',
+             'nativeGetterWindowsReconciledAgainstHashedOriginalLoader':True,
+             'originalLinuxLoaderSha256':hashlib.sha256(text).hexdigest(),
+             'originalPeImageSize':0x4000000,
+             'textSectionRva':'0x23b00','textBytesScanned':len(text),
+             'getterGlobalAddresses':{k:hex(v) for k,v in m.TARGETS.items()},
+             'directScalarReferences':reads,
+             'summaryByKind':counters}
+        section={'name':'.text','rva':0x23b00,'fileOffset':0,
+                 'fileBytes':len(text),'executable':True}
+        return text,cfg,section
+
+    def _evaluate_context(self,text,report,section):
+        with mock.patch.object(m.pe,'ORIGINAL_SHA',hashlib.sha256(text).hexdigest()),\
+             mock.patch.object(m.pe,'sections_for_image',
+                               return_value=(0,0x4000000,[section])):
+            return m.report_writer_window(text,report)
+
+    def test_existing_reference_report_yields_one_bounded_original_writer_packet(self):
+        text,report,section=self._context_fixture()
+        result=self._evaluate_context(text,report,section)
+        self.assertEqual(result['classification'],
+                         'EXACT_ORIGINAL_LOADER_BOUNDED_DTB_WRITER_CODE_CONTEXT')
+        self.assertEqual(len(result['writerWindows']),1)
+        writer=result['writerWindows'][0]
+        self.assertEqual(writer['indexKind'],'dtb')
+        self.assertEqual(writer['writerCandidateRva'],'0x23c04')
+        self.assertEqual(writer['writerBaseRegister'],'x9')
+        self.assertEqual(writer['writerValueRegister'],'w8')
+        self.assertTrue(writer['originalWords'])
+        self.assertFalse(writer['valueDefinitionAndBranchFeasibilityEstablished'])
+
+    def test_existing_report_cannot_reinterpret_mutated_original_store_word(self):
+        text,report,section=self._context_fixture()
+        corrupted=bytearray(text)
+        struct.pack_into('<I',corrupted,0x104,0xd503201f)
+        with self.assertRaisesRegex(m.Stop,'Reference not confirmed|SHA mismatch'):
+            self._evaluate_context(bytes(corrupted),report,section)
+
+    def test_existing_report_rejects_modified_global_summary(self):
+        text,report,section=self._context_fixture()
+        report['summaryByKind']['dtb']['writeCandidates']=2
+        with self.assertRaisesRegex(m.Stop,'summary is inconsistent'):
+            self._evaluate_context(text,report,section)
+
+    def test_existing_report_rejects_stale_adrp_base(self):
+        text,report,section=self._context_fixture()
+        corrupted=bytearray(text)
+        struct.pack_into('<I',corrupted,0x100,0x90000009) # different page
+        with self.assertRaisesRegex(m.Stop,'Reference not confirmed'):
+            self._evaluate_context(bytes(corrupted),report,section)
+
+    def test_existing_report_rejects_intervening_base_overwrite(self):
+        text,report,section=self._context_fixture()
+        # Move the recorded store four bytes later, with a register clobber
+        # after the ADRP: never infer this as a writer of the original global.
+        corrupted=bytearray(text)
+        struct.pack_into('<I',corrupted,0x104,0xaa0003e9) # mov x9,x0
+        struct.pack_into('<I',corrupted,0x108,
+                         0xb9000000 | ((0x4d0//4)<<10) | (9<<5))
+        row=next(x for x in report['directScalarReferences'] if x['mode']=='WRITE')
+        row['accessRva']='0x23c08'
+        with self.assertRaisesRegex(m.Stop,'base clobber'):
+            self._evaluate_context(bytes(corrupted),report,section)
 
     def test_nonmatching_page_cannot_create_writer_candidate(self):
         extra={0x100:0x90000009,
