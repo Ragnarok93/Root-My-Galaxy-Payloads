@@ -107,6 +107,7 @@ WITNESS="$EVIDENCE/hxl1-waiter-store-load-witness-$(date -u +%Y%m%dT%H%M%S%NZ).j
 python3 -m tools.y2q_hxl1_waiter_store_load_witness \
   --source-archive "$SOURCE" \
   --disassembly-archive "$DISASM" \
+  "${OPTIONS[@]}" \
   --output "$WITNESS"
 python3 - "$WITNESS" <<'PY'
 import json,sys
@@ -115,6 +116,11 @@ w=json.loads(Path(sys.argv[1]).read_text())["witness"]
 print("[STORE-LOAD SHORTEST STATIC WITNESS STEPS]",w["staticInstructionCount"])
 print("[CONDITIONAL BRANCHES; PREDICATES NOT PROVEN]",len(w["conditionalBranches"]))
 print("[INTERPROCEDURAL CALLS; SIDE EFFECTS UNKNOWN]",len(w["directCalls"]))
+ledger=json.loads(Path(sys.argv[1]).read_text())['originalCalleeLabelLedger']
+print('[NM REHASHED FOR FOUR CALLS]',ledger['recoveredNmIndependentlyRehashed'])
+for c in ledger['namedCalls']:
+    l=c.get('recoveredLabel',{})
+    print('[ORIGINAL CALLEE LABEL]',c['relativeVA'],l.get('status','NM_NOT_PRESENT'),l.get('labels',l.get('lowerLabels',[])))
 print("[EXPLICIT STORES ON WITNESS]",len(w["explicitStores"]))
 print("[LIFETIME / STACK REUSE / ROOT] UNVERIFIED")
 print("[WITNESS REPORT]",sys.argv[1])
