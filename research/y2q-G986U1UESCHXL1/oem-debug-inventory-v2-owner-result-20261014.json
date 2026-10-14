@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "timestampUtc": "2026-10-14",
+  "sourceUploadedReport": "oem-debug-inventory-v2-20261014T032509Z.json",
+  "sourceUploadedReportSha256": "4b562b1ff2370a62bc81ec4c64f80f24cb3f0b2c33815abf5e46344de763e830",
+  "strategy": "BREADTH_FIRST_ALL_ROOTS",
+  "scan": {
+    "filesExamined": 180000,
+    "directoriesVisited": 11342,
+    "candidates": 29,
+    "filenameMatchesNonElf": 17,
+    "truncated": true,
+    "pendingDirectoriesAtTruncation": 9805,
+    "scannerErrors": 0,
+    "depthLimitedDirectoryCount": 0,
+    "globalCoverageComplete": false,
+    "roots": {
+      "/home/main/s20-artifacts": {
+        "filesExamined": 9403,
+        "candidateFiles": 29,
+        "directoriesVisited": 543,
+        "rootScopeCompleteUnproven": true
+      },
+      "/home/main/src": {
+        "filesExamined": 170597,
+        "candidateFiles": 0,
+        "directoriesVisited": 10799,
+        "rootScopeCompleteUnproven": true
+      }
+    },
+    "classes": {
+      "STOCK_RECONSTRUCTED_NOT_ORIGINAL_DEBUG_ELF": 2,
+      "NO_DEBUG_METADATA_IN_CANDIDATE": 16,
+      "NON_AARCH64_OR_NON_ELF_CANDIDATE": 5,
+      "UNREADABLE_ELF_SECTION_TABLE_INDETERMINATE": 2,
+      "COMPARISON_BUILD_NOT_FACTORY": 4
+    }
+  },
+  "verifiedContext": {
+    "debugInfoBearingKernelElfs": [
+      "/home/main/s20-artifacts/qemu-lab/kernel-build/vmlinux",
+      "/home/main/s20-artifacts/qemu-lab-kasan/kernel-build/vmlinux"
+    ],
+    "areQemuComparisonBuilds": true,
+    "authenticatedOemHxl1DebugSymbolsFound": 0,
+    "unknownXblSectionTableEntries": 2
+  },
+  "conclusion": "NO_OEM_DEBUG_SYMBOL_ARTIFACT_IDENTIFIED_IN_INCOMPLETE_SCAN",
+  "limitations": [
+    "Unvisited 9805 queued directories mean global search is incomplete.",
+    "Pending-directory examples are all within src but the report does not certify s20-artifacts root completeness.",
+    "Search only recognizes matching loose candidate filenames; compressed or differently named artifacts may not be discovered.",
+    "Debug-bearing QEMU ELFs cannot certify original OEM C-variable locations."
+  ],
+  "nextAction": "One read-only --root $HOME/s20-artifacts --max-depth 7 --max-entries 50000 scan and check scopeCompleteAtRequestedDepth/truncated; defer broad src scanning unless a specific OEM build artifact is indicated.",
+  "factoryCompiledObjectLocationsCertified": false,
+  "liveGhostLockRootOrKernelSuDemonstrated": false
+}
