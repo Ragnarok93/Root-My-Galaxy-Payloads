@@ -8,15 +8,19 @@ CHAIN=0xffffff8008146ca4
 def example():
     sequence=[
       (0x0,'cmp','x20, x19'),
-      (0x4,'b.eq',hex(E+0x18)),
+      (0x4,'b.eq',hex(E+0x1a4)),
       (0x8,'mov','x20, x2'),
       (0xc,'str','x21, [x20, #2296]'),
-      (0x10,'bl',hex(CHAIN)),
-      (0x14,'b',hex(E+0x18)),
-      (0x18,'ret',''),
+      (0x10,'b',hex(E+0x18c)),
+      (0x18c,'bl',hex(CHAIN)),
+      (0x190,'mov','w20, w0'),
+      (0x194,'mov','w0, w20'),
+      (0x198,'b',hex(E+0x1a4)),
+      (0x1a4,'ret',''),
     ]
     return {E+off:{'relative':hex(off),'pc':hex(E+off),
-                    'word':'d503201f','op':op,'args':args}
+                    'word':'2a0003f4' if off==0x190 else 'd503201f',
+                    'op':op,'args':args}
             for off,op,args in sequence}
 
 class NewFunctionBranchSyntaxTests(unittest.TestCase):
@@ -48,6 +52,28 @@ class NewFunctionBranchSyntaxTests(unittest.TestCase):
         self.assertTrue(flow['staticChainwalkMayReachReturn'])
         self.assertFalse(flow['postPublicationErrorResultProven'])
         self.assertFalse(out['lateErrorPostPublicationObservedAtRuntime'])
+        captured=out['compiledChainwalkReturnCapture']
+        self.assertEqual(captured['captureInstruction'],'mov w20, w0')
+        self.assertEqual(captured['candidateCopiesFound'],1)
+        self.assertTrue(captured['compiledReturnCopyCandidates'][0][
+            'w20NotSyntacticallyOverwrittenAlongAConservativePath'])
+        self.assertFalse(captured['runtimeNonzeroChainwalkErrorProven'])
+
+    def test_intermediate_w20_clobber_blocks_return_copy_witness(self):
+        rows=example()
+        pc=E+0x194
+        rows[pc]={'relative':'0x194','pc':hex(pc),
+                  'word':'d503201f','op':'mov','args':'w20, w7'}
+        copy=E+0x198
+        rows[copy]={'relative':'0x198','pc':hex(copy),
+                    'word':'d503201f','op':'mov','args':'w0, w20'}
+        rows[E+0x19c]={'relative':'0x19c','pc':hex(E+0x19c),
+                        'word':'d503201f','op':'b','args':hex(E+0x1a4)}
+        out=gap.inspect(rows,{CHAIN:['rt_mutex_adjust_prio_chain']},[CHAIN])
+        copies=out['compiledChainwalkReturnCapture']['compiledReturnCopyCandidates']
+        self.assertEqual(len(copies),1)
+        self.assertFalse(copies[0]['w20NotSyntacticallyOverwrittenAlongAConservativePath'])
+        self.assertFalse(out['actualRuntimeLateErrorConditionProven'])
 
 if __name__=='__main__':
     unittest.main()
