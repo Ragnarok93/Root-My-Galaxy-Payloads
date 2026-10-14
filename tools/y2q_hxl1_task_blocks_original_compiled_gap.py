@@ -27,7 +27,24 @@ NAME="task_blocks_on_rt_mutex"
 EXPECTED_ENTRY=0xffffff80081479d4   # Original HXL1 proxy helper branch destination
 MAX_FUNCTION_BYTES=0x3000
 PC_LINE=re.compile(r"^\s*([0-9a-fA-F]{16}):\s+([0-9a-fA-F]{8})\s+(\S+)(?:\s+(.*?))?\s*$")
-IMM=re.compile(r"0x[0-9a-fA-F]+$")
+IMM=re.compile(r"0x[0-9a-fA-F]{16}$")
+OBJ_HEX=re.compile(r"(?:0x)?[0-9a-fA-F]{16}$")
+BRANCH_OPS={"b","bl","cbz","cbnz","tbz","tbnz"}
+
+def normalize_objdump_control_target(op:str,operands:str)->str:
+    """GNU ARM64 objdump writes branch VAs without 0x; normalise only VAs.
+
+    Never change non-branch immediate operands, data offsets or register names.
+    Unknown branch syntax stays unknown, rather than constructing an edge.
+    """
+    if op not in BRANCH_OPS and not op.startswith("b."):
+        return operands
+    prefix,sep,last=operands.rpartition(",")
+    field=(last if sep else operands).strip()
+    if not OBJ_HEX.fullmatch(field):
+        return operands
+    resolved="0x"+field.removeprefix("0x").lower()
+    return (prefix+", "+resolved) if sep else resolved
 SP_OFF=re.compile(r"\[\s*x\d+,\s*#(?:2296|0x8f8)\s*\]")
 class EvidenceGap(ValueError):pass
 
@@ -73,7 +90,9 @@ def disassemble(elf:Path,end:int,program:str)->dict:
             rows[va]={"relative":hex(va-EXPECTED_ENTRY),
                       "pc":hex(va),"word":m.group(2).lower(),
                       "op":m.group(3).lower(),
-                      "args":(m.group(4) or "").split("//",1)[0].split(" <",1)[0].strip()}
+                      "args":normalize_objdump_control_target(
+                          m.group(3).lower(),
+                          (m.group(4) or "").split("//",1)[0].split(" <",1)[0].strip())}
     need(len(rows)==(end-EXPECTED_ENTRY)//4 and
          all(EXPECTED_ENTRY+4*i in rows for i in range(len(rows))),
          "Original compiler function text incomplete; do not infer control flow")
@@ -107,12 +126,30 @@ def inspect(rows,by_address,addresses):
             callsites.append({"relativeVA":r["relative"],"staticVA":r["pc"],
                               "target":args,"recoveredLabel":name,
                               "sourceArgumentIdentityCertified":False})
+    chainwalk=[c for c in callsites
+               if "rt_mutex_adjust_prio_chain" in
+               c["recoveredLabel"].get("labels",[])]
     returns=[pc for pc,r in rows.items() if r["op"]=="ret"]
     need(bool(returns),"Original task_blocks_on_rt_mutex return not found")
     entry=EXPECTED_ENTRY
     candidates=[]
     for pc in store_candidates:
+        publicationToChain=[
+            {
+              "call":call,
+              "staticEntryMayReachPublication":can_reach(edges,entry,pc),
+              "staticPublicationMayReachChainwalk":can_reach(
+                  edges,pc,int(call["staticVA"],16)),
+              "staticChainwalkMayReachReturn":any(can_reach(
+                  edges,int(call["staticVA"],16),ret) for ret in returns),
+              "callReturnContext":[rows[a] for a in sorted(rows)
+                                   if abs(a-int(call["staticVA"],16))<=48],
+              "postPublicationErrorResultProven":False,
+            } for call in chainwalk
+        ]
         candidates.append({
+           "chainwalkCandidatesFromPublication":publicationToChain,
+           "staticEntryMayReachPublication":can_reach(edges,entry,pc),
            "site":rows[pc],
            "possibleReturnReachableAfterStoreUnderConservativeGraph":
                any(can_reach(edges,pc,x) for x in returns),
@@ -123,9 +160,7 @@ def inspect(rows,by_address,addresses):
            "taskRegisterAndWaiterValueDataflowCertified":False,
            "lateChainwalkErrorReturnProven":False,
         })
-    chain=[c for c in callsites
-           if "rt_mutex_adjust_prio_chain" in
-           c["recoveredLabel"].get("labels",[])]
+    chain=chainwalk
     return {
       "target":"SM-G986U1/G986U1UESCHXL1",
       "scope":"STOCK_TASK_BLOCKS_ON_RT_MUTEX_COMPILER_PUBLICATION_RETURN_GAP",
@@ -139,6 +174,13 @@ def inspect(rows,by_address,addresses):
       "returns":[rows[x] for x in sorted(returns)],
       "callsiteLedger":callsites,
       "exactRtMutexAdjustPrioChainCallCount":len(chain),
+      "symbolizedBlCallCount":sum(
+          x["recoveredLabel"].get("status")=="EXACT_RECOVERED_TEXT_LABEL"
+          for x in callsites),
+      "normalizedObjdumpBranchAndCallOperands":True,
+      "conservativeCfgUnresolvedEdges":graphlib.edges_for(code)[3],
+      "meaningOfPositiveReachability":"Potential path under overapproximated branches, not path predicate feasibility",
+      "actualRuntimeLateErrorConditionProven":False,
       "compilerOriginalChainwalkCalls":chain,
       "branchAndStoreRelationshipsConservativeOnly":True,
       "factoryOriginalCallSequenceRuntimeFeasibleProven":False,
@@ -182,7 +224,18 @@ def main():
         print("[NEW FACTORY FUNCTION]",NAME)
         print("[INSTRUCTIONS]",result["originalInstructionCount"])
         print("[CANDIDATE BLOCKED-ON STORES]",result["candidateStoresCount"])
+        print("[RESOLVED ORIGINAL CALLS]",result["symbolizedBlCallCount"],"/",len(result["callsiteLedger"]))
+        print("[CFG UNRESOLVED BRANCHES]",result["conservativeCfgUnresolvedEdges"])
         print("[COMPILED CHAINWALK CALLS]",len(result["compilerOriginalChainwalkCalls"]))
+        for s in result["candidatePiBlockedOnStoreDisplacements"]:
+            print("[PUBLICATION]",s["site"]["relative"],"entry->store",s["staticEntryMayReachPublication"],
+                  "store->ret",s["possibleReturnReachableAfterStoreUnderConservativeGraph"],
+                  "early ret without store",s["possibleEarlyReturnAvoidingThisStoreUnderConservativeGraph"])
+            for c in s["chainwalkCandidatesFromPublication"]:
+                print("[CHAINWALK PATH]",c["call"]["relativeVA"],
+                      "publication->call",c["staticPublicationMayReachChainwalk"],
+                      "call->ret",c["staticChainwalkMayReachReturn"],
+                      "late error UNVERIFIED")
         print("[RETURN POINTS]",len(result["returns"]))
         print("[LATE ERROR / LIVE STALE REFERENCE] NOT VERIFIED")
         print("[REPORT]",output)
