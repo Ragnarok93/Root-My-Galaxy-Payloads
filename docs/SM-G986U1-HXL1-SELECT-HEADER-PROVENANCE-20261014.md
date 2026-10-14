@@ -1,3 +1,15 @@
+## October 14 — updated numeric crosswalk returned and verified
+
+Owner's `hxl1-select-numeric-crosswalk-20261014.json` (SHA-256 `f1c5114692a059ebc1c5d1542af19170640989054b998697c26ca0f7eb21a478`) confirms the **updated numeric verifier ran successfully**. The report records `compiledArithmeticMatchesSourceCapacity=true` and preserves all non-certification flags. Independent container review of previously uploaded `hxl1-source-dispatch-review.tar.gz` rehashed both source files and matched `kernel/futex.c` and `fs/select.c` to the report. An independent pass over the separately uploaded original disassembly archive matched its SHA (`20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997`), validated all five saved disassembly text SHA-256s, and counted 266 contiguous native `core_sys_select` instruction slots.
+
+The native HXL1 source/binary arithmetic matches: **256-byte local `stack_fds` source capacity**, six native bitmaps using eight-byte longs, **five words per bitmap**, local storage through **320 descriptors**, first dynamic-allocation count **321**, allocation scaling **48 bytes per group of 64 descriptors**, and `cmp x8, #0x180` after rounding the count up by 63. Saved code also has the corresponding conditional branch into `add x19, sp, #0x50`, and `3 * group_count << 4` dynamic sizing.
+
+The compiled cutoff alone is compatible with source array capacities 240–287 bytes; the **exact 256** comes from the owner's same-checkout `include/linux/poll.h` macro report (header SHA `42b7aa8396b95893d943cafebb41030034a55df67b20e914040ea97545bedeb3`). The header bytes themselves were not included, so this header hash was *not* independently rechecked from raw uploaded bytes. The OEM compiler inputs, exact source-local stack coordinates, physical stack reuse, exploitation and KernelSU remain **UNVERIFIED**.
+
+The compact machine-readable checkpoint is versioned under `research/y2q-G986U1UESCHXL1/select-numeric-crosswalk-20261014.json`. The next work should not repeat the buffer-threshold or missing-symbol work; it must address independent compiler-local evidence and deployment blockers. Source-level bitmap size does **not** establish a usable cross-function kernel stack overlap.
+
+---
+
 ## October 14 — owner run resolves the exact header and native select threshold
 
 The owner uploaded `hxl1-select-header-provenance-20261014.json` from the hash-pinned local checkout. The audit reports:
