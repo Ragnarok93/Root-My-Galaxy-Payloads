@@ -96,6 +96,13 @@ def audit(report:dict,image:bytes,nm:bytes,directory:Path)->dict:
             report.get("staticImageTextVA")==hex(gate.IMAGE_VA) and
             report.get("requestedSymbols")==EXPECTED_COUNT,
             "manifest identity or original-Image contract")
+    for flag in ("exactCompiledWaiterLocalIdentified",
+                 "sendmsgFrameAliasVerified",
+                 "crossSyscallLifetimeReclamationVerified",
+                 "actualGhostLockPrimitiveOrRootVerified",
+                 "physicalKernelHandoffVerified"):
+        require(report.get(flag) is False,
+                "upstream report improperly certifies runtime exploit/frame: "+flag)
     require(digest(image)==gate.STOCK_SHA and
             len(image)>0x3c and image[0x38:0x3c]==b"ARM\x64",
             "independent original kernel SHA/header")
@@ -202,7 +209,7 @@ def main()->int:
     opts=parser.parse_args()
     try:
         report_path=opts.report.expanduser().absolute()
-        output=opts.output.expanduser().absolute()
+        output=opts.output.expanduser().resolve()
         kernel=opts.kernel.expanduser().absolute()
         nm=opts.nm.expanduser().absolute()
         source=SOURCE.resolve()
