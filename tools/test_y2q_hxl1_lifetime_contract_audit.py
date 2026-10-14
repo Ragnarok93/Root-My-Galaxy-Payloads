@@ -123,7 +123,7 @@ class LifetimeContractTests(unittest.TestCase):
 
     def test_markdown_explicitly_disclaims_root(self):
         body = m.markdown({'sourceLifetimeContract': {'stages': {}}})
-        self.assertIn('Root', body)
+        self.assertIn('temporary root', body)
         self.assertIn('NOT VERIFIED', body)
 
 
