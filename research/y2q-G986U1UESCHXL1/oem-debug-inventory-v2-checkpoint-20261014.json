@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "checkpointUtc": "2026-10-14",
+  "analysis": "TRUNCATED_OWNER_ELF_INVENTORY_AND_SCANNER_BFS_FIX",
+  "ownerReport": {
+    "filename": "oem-debug-inventory-20261014T031620Z.json",
+    "sha256": "c0051fdbf61f580fd40391343b7cd67e72971f56f64207f58cfa04ad8a3e52b8",
+    "roots": [
+      "/home/main/s20-artifacts",
+      "/home/main/src"
+    ],
+    "filesExamined": 40000,
+    "candidateFiles": 43,
+    "truncated": true,
+    "classificationCounts": {
+      "NON_AARCH64_OR_NON_ELF_CANDIDATE": 12,
+      "STOCK_RECONSTRUCTED_NOT_ORIGINAL_DEBUG_ELF": 3,
+      "NO_DEBUG_METADATA_IN_CANDIDATE": 18,
+      "COMPARISON_BUILD_NOT_FACTORY": 10
+    }
+  },
+  "observed": {
+    "debugInfoBearingCompiledVmlinux": [
+      "/home/main/s20-artifacts/qemu-lab/kernel-build/vmlinux",
+      "/home/main/s20-artifacts/qemu-lab-kasan/kernel-build/vmlinux"
+    ],
+    "authenticatedOriginalOemDebugFiles": 0,
+    "conclusion": "NO_FACTORY_DEBUG_ARTIFACT_IDENTIFIED_IN_TRUNCATED_SCOPE"
+  },
+  "diagnostic": "Original depth-first scan exhausted 40k file budget on linux-4.19.325 source files; source-name false positives and undecidable sectionless ELF results require correction.",
+  "revisedScanner": {
+    "strategy": "BREADTH_FIRST_ALL_ROOTS",
+    "cliDefaultMaxEntries": 180000,
+    "explicitPerRootCoverage": true,
+    "unreadableElfSectionsClassifiedIndeterminate": true,
+    "syntheticUnitTestsPassed": 13,
+    "githubCiPassObserved": false,
+    "ownerRerunCompleted": false,
+    "localSmoke": {
+      "filesExamined": 78,
+      "directoriesVisited": 11,
+      "truncated": false,
+      "candidateFiles": 0
+    }
+  },
+  "limitations": "The original inventory was truncated; newer scan not yet performed in WSL. The presence of debug sections or a build ID is not OEM provenance. Absent original unstripped factory DWARF, compiled C-local locations remain unverified.",
+  "deviceModified": false,
+  "rootEstablished": false,
+  "kernelSuEstablished": false
+}
