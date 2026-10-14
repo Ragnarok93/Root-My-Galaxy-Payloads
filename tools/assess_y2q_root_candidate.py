@@ -16,7 +16,10 @@ import re
 import sys
 from pathlib import Path
 
-from prepare_samsung_vdso_compat import source_gate
+# Support both python3 tools/assess_y2q_root_candidate.py and package tests.
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tools.prepare_samsung_vdso_compat import source_gate
 
 FIRMWARE = "G986U1UESCHXL1"
 MODEL = "SM-G986U1"
