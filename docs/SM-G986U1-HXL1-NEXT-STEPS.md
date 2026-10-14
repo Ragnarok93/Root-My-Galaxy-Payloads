@@ -1,3 +1,19 @@
+## October 14, 10:23 UTC — three original waiter callsite arguments independently corroborated
+
+Independently rehashed both original user-provided Samsung archives. The original `kernel/futex.c` source's source-local `rt_waiter` and `q.rt_waiter` lifetime sequence has **12 ordered markers** (declaration 3238 through return 3402), including **conditional**, not unconditional, proxy cleanup. Separately, the archived **1,766-instruction original `do_futex` machine code** has three exact static stack-relative argument constructions: `x0 = sp + 0xc0` before `rt_mutex_init_waiter` (`+0x1198`), `x2 = sp + 0xc0` before `rt_mutex_wait_proxy_lock` (`+0x1308`), and `x1 = sp + 0xc0` before `rt_mutex_cleanup_proxy_lock` (`+0x1328`). The tool hashes and checks machine words and complete intervening straight-line argument instructions, not just their proximity.
+
+New [single offline verifier and 12 locally passing regressions](SM-G986U1-HXL1-GHOSTLOCK-WAITER-THREE-ARGUMENTS-20261014.md) are committed to `tools/y2q_hxl1_waiter_argument_lifetime_audit.py`, `tools/test_y2q_hxl1_waiter_argument_lifetime_audit.py`, and `tools/run_y2q_hxl1_waiter_argument_lifetime_audit.sh`, with GhostLock CI integration. Original static/source evidence checkpoint: [three waiter argument sites](../research/y2q-G986U1UESCHXL1/ghostlock-waiter-three-argument-sites-20261014.json).
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_waiter_argument_lifetime_audit.sh
+```
+
+This refines evidence of the source/compiler waiter path but **does not** prove all-path stack-pointer stability, exact C-local byte bounds, pointer-lifetime under a block, cross-syscall stack reuse, exploitability, root or KernelSU. No readiness stage was promoted. **Owner/hosted CI tests of the new commit remain unconfirmed.**
+
+---
+
 ## October 14, 09:27 UTC — original futex waiter initializer receives stack-derived pointer
 
 The newly uploaded two-hop `do_futex` report (SHA-256 `9ea5655068fa39ecb0387bb9fa3b566d4463f613a585d977282056364e057321`) and independently rehashed original `do_futex.disasm.txt` establish the consecutive compiled machine instructions `do_futex+0x1190: add x0, sp, #0xc0`, `+0x1194: add x25, sp, #0xc0`, `+0x1198: bl rt_mutex_init_waiter`. Thus the original stock kernel **passes a stack-derived first argument (`x0`) to the recovered waiter-initialization function**, not merely a nearby stack address. The separate `x25` copy is also observed.
