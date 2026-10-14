@@ -75,7 +75,7 @@ class XrefTests(unittest.TestCase):
 
     def _context_fixture(self):
         text=make_text({0x100:0xf0001829,
-                        0x104:0xb9000000 | ((0x4d0//4)<<10) | (9<<5),
+                        0x104:0xb9000000 | ((0x4d0//4)<<10) | (9<<5) | 8,
                         0x108:0xd65f03c0})
         reads=m.scan_words(text,0x23b00)
         counters={kind:{'readCandidates':0,'writeCandidates':0}
@@ -143,7 +143,7 @@ class XrefTests(unittest.TestCase):
         corrupted=bytearray(text)
         struct.pack_into('<I',corrupted,0x104,0xaa0003e9) # mov x9,x0
         struct.pack_into('<I',corrupted,0x108,
-                         0xb9000000 | ((0x4d0//4)<<10) | (9<<5))
+                         0xb9000000 | ((0x4d0//4)<<10) | (9<<5) | 8)
         row=next(x for x in report['directScalarReferences'] if x['mode']=='WRITE')
         row['accessRva']='0x23c08'
         with self.assertRaisesRegex(m.Stop,'base clobber'):
