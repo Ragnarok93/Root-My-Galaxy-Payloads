@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "receivedUtc": "2026-10-14T07:51:09Z",
+  "sourceType": "OWNER_CONSOLE_PASTE_WITH_EMBEDDED_JSON",
+  "ownerPastedConsoleSha256": "ea9d18bea3ef841300dd9e3173004fc91d374ff6828eccaf16f573c960ddbdae",
+  "ownerPastedConsoleBytes": 31798,
+  "originalReportPathOnOwner": "/home/main/s20-artifacts/hxl1-research/ghostlock-sendmsg-calls-20261014T075055Z.json",
+  "originalStandaloneJsonFileUploaded": false,
+  "originalStandaloneJsonSha256": "NOT_INDEPENDENTLY_CHECKED",
+  "originalKernelReportedAndPreviouslyAttestedSha256": "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123",
+  "recoveredNmSha256": "c2306a026756230fb009576613c07e5461cccf8fd92ca5f72a52647933870f2f",
+  "priorFrameReportSha256": "a0426c036e614611c368338c9f80e298f13b23bc238e1b3dc67aa1a3c20dcc10",
+  "priorCodeManifestSha256": "8b95591b0da9b8645db862c0d3c2e8b8d9646492fd3dcdb32227dce4a466c7e8",
+  "verification": {
+    "ownerTestSuite": "tools.test_y2q_hxl1_ghostlock_sendmsg_callsite_audit",
+    "ownerTestsPassed": 13,
+    "ownerTestsTotal": 13,
+    "ownerCodeInstructionSlotsVerified": 746,
+    "originalCodeFunctionsReviewed": 6,
+    "originalUnrecoveredFunctionNames": [
+      "____sys_sendmsg",
+      "futex_wait_requeue_pi"
+    ],
+    "originalDirectCallsites": 41,
+    "originalIndirectCallsites": 0,
+    "uniqueDirectTargets": 21,
+    "staticCallsWithSpConstructionInPrevious12Instructions": 19,
+    "callsWithInterveningBranchOrCallFlag": 40,
+    "runtimePointerFlowOrWaiterStackReuseVerified": false
+  },
+  "callsitesByFunction": {
+    "__sys_sendmsg": 4,
+    "___sys_sendmsg": 15,
+    "____sys_sendmsg": 0,
+    "__sys_sendto": 7,
+    "__sys_sendmmsg": 6,
+    "rw_copy_check_uvector": 4,
+    "copy_msghdr_from_user": 5,
+    "futex_wait_requeue_pi": 0
+  },
+  "verifiedDirectCallSitePairs": [
+    {
+      "caller": "__sys_sendmsg",
+      "staticCallVA": "0xffffff800966f248",
+      "staticTargetVA": "0xffffff800966f2a4",
+      "recoveredTargetSymbol": "___sys_sendmsg"
+    },
+    {
+      "caller": "__sys_sendmmsg",
+      "staticCallVA": "0xffffff800966f750",
+      "staticTargetVA": "0xffffff800966f2a4",
+      "recoveredTargetSymbol": "___sys_sendmsg"
+    },
+    {
+      "caller": "__sys_sendmmsg",
+      "staticCallVA": "0xffffff800966f7d4",
+      "staticTargetVA": "0xffffff800966f2a4",
+      "recoveredTargetSymbol": "___sys_sendmsg"
+    },
+    {
+      "caller": "___sys_sendmsg",
+      "staticCallVA": "0xffffff800966f304",
+      "staticTargetVA": "0xffffff800967357c",
+      "recoveredTargetSymbol": "copy_msghdr_from_user"
+    }
+  ],
+  "note": "Intervening branch/call flag is based on any branch/call in the preceding 12 instruction slots, not a path-sensitive CFG proof. Not all 19 syntactic SP proximities are pointer arguments to the following call.",
+  "strongestFinding": "Exactly four original static callsite-target pairs connect the recovered sendmsg family and copy_msghdr_from_user, independently of K40 source geometry.",
+  "newWork": {
+    "tool": "tools/y2q_hxl1_ghostlock_call_target_crosswalk.py",
+    "regressionSuite": "tools.test_y2q_hxl1_ghostlock_call_target_crosswalk",
+    "testCountWritten": 12,
+    "ciPath": ".github/workflows/hxl1-ghostlock-stack-gate-ci.yml",
+    "requiresOriginalNmSha256": true,
+    "preventsSymbolNeighborhoodFromProvingFunctionOwnership": true,
+    "runnerUsesExistingOwnerCallsiteJsonOnly": true,
+    "verifiedCIOrOwnerTestOfNewSuite": false
+  },
+  "gates": {
+    "factoryLocalWaiterSlotVerified": false,
+    "sendmsgWaiterStackOverlapVerified": false,
+    "kernelPhysicalRuntimeBaseVerified": false,
+    "rootOrKernelSuDemonstrated": false,
+    "stage3": "PARTIAL",
+    "stage5": "OPEN",
+    "stage7": "BLOCKED",
+    "productionReady": false
+  }
+}
