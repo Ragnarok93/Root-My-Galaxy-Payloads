@@ -1,3 +1,21 @@
+## October 14, 11:26 UTC — uploaded original waiter reports and conservative call-effects witness
+
+The owner uploaded two completed SHA-pinned read-only outputs: original waiter source/compiled audit (6,461 bytes, SHA-256 440c7fa2426b5e620eb6b28c1d7ad1ac20057767a4e6b0b56f8574f8d2407da3), and original store/load static CFG audit (2,363 bytes, SHA-256 5e7defd15144f2d792ae63c8f9caf244e1f3f247300078671f80d5a74acff024). They affirm 12 C source landmarks, 3 stack-derived helper arguments, 158 original SP uses with only 2 explicit SP writes (480-byte do_futex frame), an SP+0xa0 pointer store and matching later reload into x9, and a 31-instruction conservative CFG path. The owner-side recovered NM was independently rehashed. There is no claim of OEM struct field identity, full pointer lifetime, cross-syscall alias or root; no current unittest console transcript was uploaded.
+
+A further bounded read-only inspection of the **actual original archived disassembly** enumerated that same shortest 31-instruction store-to-load path in full. It contains **four direct BL callsites** at do_futex +0x11d4, +0x12a4, +0x12b0, +0x12e8, and **five conditional branch sites** at +0x11dc (taken), +0x1230 (taken), +0x12c0 (fall-through), +0x12d0 (fall-through), +0x12e0 (fall-through). The only syntactic explicit store instruction on that shortest path is the first at +0x11d0. **This is not complete memory-alias analysis:** the four called functions may affect reachable memory, the conditions are not proved jointly satisfiable, and other paths have not been analyzed. No C-local factory field or live waiter overlap can be inferred.
+
+New tools/y2q_hxl1_waiter_store_load_witness.py, seven locally passing synthetic tests, CI integration, and extension of tools/run_y2q_hxl1_waiter_argument_lifetime_audit.sh are committed. The next owner run tests and rechecks all existing original source+compiled and new static witness evidence without reflashing or phone access:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_waiter_argument_lifetime_audit.sh
+```
+
+New [machine-readable research checkpoint](../research/y2q-G986U1UESCHXL1/ghostlock-waiter-store-load-witness-20261014.json). New suite owner/CI pass not observed yet. No readiness promotion: Stage 3 PARTIAL, Stages 4–6 OPEN, 7–8 BLOCKED, 9 DEFERRED. Runtime exploitation and KernelSU unverified.
+
+---
+
 ## October 14, 11:07 UTC — original HXL1 waiter stack-slot store/load and null-test linked conservatively
 
 Owner uploaded the completed extended waiter report, SHA-256 440c7fa2426b5e620eb6b28c1d7ad1ac20057767a4e6b0b56f8574f8d2407da3 (6461 bytes). The tool independently rehashed recovered NM and confirmed 12 original source landmarks, 3 compiled waiter helper arguments, 158 original SP references/2 writes in a 480-byte frame, and conditional x25 store. This upload **does not contain a 25-test console transcript**.
