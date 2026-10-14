@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "observedUtc": "2026-10-14T05:28:20Z",
+  "source": "owner pasted completed offline cached LinuxLoader audit console and full JSON",
+  "ownerPastedLogSha256": "3b5fd729f1bf7c619821d7f2e8632800dc08704e7682eecb9a408a2cf1d9276b",
+  "ownerRepoPulledThrough": "d6a8d16",
+  "tests": {
+    "module": "tools.test_y2q_hxl1_linuxloader_cached_index_audit",
+    "passed": 12,
+    "total": 12,
+    "failures": 0,
+    "executionConfirmedFromOwnerConsole": true
+  },
+  "ownerAudit": {
+    "output": "/home/main/s20-artifacts/hxl1-research/linuxloader-index-cache-20261014T052820Z.json",
+    "classification": "VERIFIED_CACHED_ORIGINAL_CMDLINE_FUNCTION_NO_VALUE_FLOW",
+    "originalLinuxLoaderSha256": "5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003",
+    "sharedFunctionAnalysisEntry": "0x2bdf8",
+    "originalFunctionRange": {
+      "start": "0x2bdf8",
+      "end": "0x2cae3"
+    },
+    "cachedFunctionPseudocodeConsistent": true,
+    "pseudocodeSha256": "885c6f0fe59139c559194c6bf962b221bb0e5bbef8dedff501f12473d9adfc09",
+    "pseudocodeLines": 398,
+    "indexLiteralLines": [
+      254,
+      263
+    ],
+    "pseudocodeExcerptTruncated": false,
+    "highFunctionPcodeTruncated": true,
+    "savedTraceState": "SAVED_TRACE_FAILURE",
+    "savedTraceCode": "cancelled",
+    "savedPartialSha256": "0bd68713838b2536f67ff683b284d35008b5fcdcc05cfac608dee9c0b1a5e847"
+  },
+  "originalStaticFormattingCallsites": [
+    {
+      "kind": "dtbo",
+      "functionName": "FUN_00023b00",
+      "analysisCoordinate": "0x23b00",
+      "getValuePseudoLine": 252,
+      "sentinelCheckLine": 253,
+      "formatLine": 254,
+      "formatLiteral": "androidboot.dtbo_idx=",
+      "formatValue": "iVar8",
+      "omitWhenMinusOne": true,
+      "priorBranchContext": "FUN_000235b0()==0"
+    },
+    {
+      "kind": "dtb",
+      "functionName": "FUN_00023b40",
+      "analysisCoordinate": "0x23b40",
+      "getValuePseudoLine": 261,
+      "sentinelCheckLine": 262,
+      "formatLine": 263,
+      "formatLiteral": "androidboot.dtb_idx=",
+      "formatValue": "iVar8",
+      "omitWhenMinusOne": true,
+      "priorBranchContext": "FUN_000235b0()==0"
+    }
+  ],
+  "originalIndexStringXrefAttestations": [
+    {
+      "kind": "dtbo",
+      "literalAt": "0xbfd82",
+      "xref": "0x2c308",
+      "functionEvidenceId": "ev_14f1e57b01fe90c2b5f6a15871dcf09b86d465d44550a7b7fcff5d97a393b81f"
+    },
+    {
+      "kind": "dtb",
+      "literalAt": "0xbfd99",
+      "xref": "0x2c350",
+      "functionEvidenceId": "ev_c2fd2200127d2a4bfef7b18a6ae80d09abcc09fe8d78e996af33dd3a635f51c4"
+    }
+  ],
+  "conclusion": "TWO_IMMEDIATE_CMDLINE_INDEX_GETTER_CALLS_IDENTIFIED_FROM_PINNED_CACHED_GHIDRA_PSEUDOCODE",
+  "limitations": {
+    "dynamicGetterReturnValuesObserved": false,
+    "getterInternalImplementationAuthenticated": false,
+    "actualDtbSelectionAlgorithmAuthenticated": false,
+    "dtbIdx0ToEmbeddedFdtMappingProven": false,
+    "dtboIdx2ToOverlayMappingProven": false,
+    "physicalHandoffVerified": false,
+    "rootOrKernelSu": false
+  },
+  "newFollowOn": {
+    "offlineCallsiteVerifier": "tools/y2q_hxl1_linuxloader_getter_callsites.py",
+    "syntheticRegressionTests": 10,
+    "newRunner": "tools/run_y2q_hxl1_linuxloader_getter_functions.sh",
+    "runnerIntent": "Each original getter function addressed individually via REA function, preserving independent results and partials; no full formatter value trace.",
+    "newOwnerExecutionConfirmed": false,
+    "ciSuccessConfirmed": false
+  }
+}
