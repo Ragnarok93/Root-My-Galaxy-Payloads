@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "dateUtc": "2026-10-14",
+  "source": "owner uploaded five files from the bounded two-getter REA/Ghidra runner",
+  "completedStaticCallsite": {
+    "filename": "callsite-evidence.json",
+    "sha256": "3065eaf2a075bcfa0888124f25ba2def189aedad21f0041943984e75e17f7d0f",
+    "classification": "VERIFIED_STATIC_FORMATTER_GETTER_CALLSITES_NO_SELECTOR_PROOF",
+    "loaderSHA256": "5e69a9718569fca1a13ccf5cecc5308619d459d4e796e7ec25fa090c06d99003",
+    "dtboGetter": "0x23b00",
+    "dtbGetter": "0x23b40",
+    "integerMinusOneSuppressesCmdlineFormatting": true
+  },
+  "providerResults": [
+    {
+      "getter": "dtbo",
+      "analysisAddress": "0x23b00",
+      "exitCode": 124,
+      "jsonSHA256": "0bd68713838b2536f67ff683b284d35008b5fcdcc05cfac608dee9c0b1a5e847",
+      "code": "cancelled",
+      "category": "cancelled",
+      "cleanup": "complete",
+      "successfulDossier": false
+    },
+    {
+      "getter": "dtb",
+      "analysisAddress": "0x23b40",
+      "exitCode": 124,
+      "jsonSHA256": "0bd68713838b2536f67ff683b284d35008b5fcdcc05cfac608dee9c0b1a5e847",
+      "code": "cancelled",
+      "category": "cancelled",
+      "cleanup": "complete",
+      "successfulDossier": false
+    }
+  ],
+  "nextMethod": {
+    "source": "tools/y2q_hxl1_linuxloader_getter_raw_windows.py",
+    "launcher": "tools/run_y2q_hxl1_linuxloader_getter_raw_fallback.sh",
+    "verifier": "tools/test_y2q_hxl1_linuxloader_getter_raw_windows.py",
+    "githubCiRun": "https://github.com/Ragnarok93/Root-My-Galaxy-Payloads/actions/runs/38612410046",
+    "unitTestsPassed": 9,
+    "runOriginalOwnerEfiObserved": false,
+    "note": "Original LinuxLoader EFI was not included in uploaded files; source-file candidate PE RVA windows cannot be authenticated or read from these five reports alone. No more REA provider calls are required for raw windows."
+  },
+  "limitations": {
+    "ghidraAddressEqualsPeRvaVerified": false,
+    "getterInternalsObserved": false,
+    "actualDtbOrDtboSelectorAlgorithmVerified": false,
+    "originalDtbOrOverlayIndexMappingVerified": false,
+    "physicalKernelHandoffVerified": false,
+    "stage4": "OPEN",
+    "rootOrKernelSuDemonstrated": false
+  }
+}
