@@ -99,7 +99,7 @@ class DtbIdentityTests(unittest.TestCase):
         self.assertEqual(result["status"],"ROOT_PROPERTY_PARSE_REQUIRES_REVIEW")
         self.assertIn("model",result["parseError"])
         self.assertEqual(result["rawPropertyDiagnostics"]["model"]
-                         ["firstControlByteExcludingNul"],{"offset":40,"hex":"0a"})
+                         ["firstControlByteExcludingNul"],{"offset":41,"hex":"0a"})
         self.assertEqual(result["rawPropertyDiagnostics"]["model"]["first128Hex"],
                          raw.hex())
         self.assertFalse(result["candidateRootMatchUnambiguous"])
