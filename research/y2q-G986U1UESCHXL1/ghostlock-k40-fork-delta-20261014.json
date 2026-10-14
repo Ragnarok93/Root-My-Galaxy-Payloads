@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "researchDateUtc": "2026-10-14",
+  "kind": "GHOSTLOCK_419_CROSS_FORK_DELTA_STAGE3_TO_STAGE5_READ_ONLY",
+  "sourceAuthority": {
+    "originalSamsungSourceRoot": "/home/main/src/samsung-y2q-hxl1-stock",
+    "originalKernelRelease": "4.19.113-27095354",
+    "originalKernelImageSha256": "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123",
+    "originalSamsungFutexSha256": "493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5",
+    "originalSamsungRtmutexSha256": "36b187173cfb3934a5c9d51952bce58c2f41701d3585326f18cd3965e46a21f9",
+    "samsungBugPatternPreviouslyCorroborated": true,
+    "originalCompiledEntryBytesSelectivelyCorroborated": true,
+    "originalFactoryStackLifetimesAuthenticated": false
+  },
+  "referenceForks": [
+    {
+      "url": "https://github.com/ccp-p/ghostlock-cve-2026-43499-4.19-k40",
+      "revision": "68f191029f20162de3c402935c2f0213210e2de6",
+      "dateOfRevision": "2026-09-17T04:34:34Z",
+      "blobs": {
+        "docs/status.md": "5c9fd4a613741d267ac9bd660efcb3c0635b315f",
+        "docs/specs/kernel-frame-placement-enumeration.md": "c4a6beccfdfc447f0fed8b42e4be99daa25294cf",
+        "docs/specs/rt-waiter-placement-audit.md": "8e54b1346a934e66999a6a902bce27503130f206"
+      },
+      "observedStatus": {
+        "summaryRootChain": "BLOCKED",
+        "summaryCandidateConvergence": "BLOCKED",
+        "statusContainsSept15Sept16RuntimeTests": true,
+        "k40SendmsgTrialReturn": 65540,
+        "k40SendmsgTrialImplication": "Return before intended kernel blocking; no stable carrier during attempt",
+        "laterSmallTCPBufferVariant": "STATIC_OFFLINE_BUILD_NO_VERIFIED_HXL1_RUN",
+        "framePlacementCandidate": "K40 compiled native sendmsg iovstack+address adjacency; nonportable to Samsung HXL1",
+        "fullRootConfirmedFromCurrentStatus": false
+      }
+    },
+    {
+      "url": "https://github.com/yijiacloud/ghostlock-cve-2026-43499-4.19-k40",
+      "observedRole": "earlier simplified K40 baseline; no Samsung HXL1 target"
+    }
+  ],
+  "recognizedAreas": {
+    "bug": "remove_waiter current vs waiter->task mismatch already Samsung source-correlated",
+    "source419": "additional configfs, cred, ashmem, pipe and mm structures require original Samsung verification, prior HXL1 checker already exists",
+    "stack": "K40 iovstack/address frame and dangling waiter overlap cannot be assumed for stock HXL1",
+    "collisions": "K40 collision candidates and selected pile evidence are device build specific; do not reuse as HXL1 proof",
+    "kaslr": "K40 VA/PA/text/linker and runtime slide calculations are device-specific",
+    "module": "stock HXL1 CONFIG_MODULE_SIG_FORCE=y, CONFIG_KPROBES=n, RKP/KDP/DEFEX remain independent KernelSU blocker"
+  },
+  "newWork": {
+    "sourceAndReferenceGate": "tools/y2q_hxl1_ghostlock_crossfork_419_gate.py",
+    "syntheticTests": "tools/test_y2q_hxl1_ghostlock_crossfork_419_gate.py",
+    "testsWritten": 10,
+    "ownerExecutionValidated": false,
+    "hostedCiSuccessConfirmed": false,
+    "appendedToWorkflow": ".github/workflows/hxl1-ghostlock-stack-gate-ci.yml",
+    "safeOperation": "Source docs offline only; no ADB, no generated target.h, no exploit binary, no source/firmware writes"
+  },
+  "nextMilestone": "Run pinned cross-fork gate once on existing owner original source and cloned reference; then prioritize stock factory sendmsg/futex frame-window attribution rather than repeating source bug heuristics or copying K40 physical constants.",
+  "stageStatus": [
+    "COMPLETE",
+    "COMPLETE",
+    "PARTIAL",
+    "OPEN",
+    "OPEN",
+    "OPEN",
+    "BLOCKED",
+    "BLOCKED",
+    "DEFERRED"
+  ],
+  "productionReady": false,
+  "rootVerified": false,
+  "kernelSuLoaded": false
+}
