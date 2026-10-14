@@ -1,3 +1,31 @@
+## New original compiled waiter-initialization argument evidence — 09:27 UTC
+
+The owner supplied an updated full two-hop report `ghostlock-original-futex-op11-20261014T092730510900548Z.json` (SHA-256 **`9ea5655068fa39ecb0387bb9fa3b566d4463f613a585d977282056364e057321`**, 14,821 bytes). The original archived `do_futex.disasm.txt`, SHA-256 `56286516ae9e6a873beab22b16af3ab330a768dc1b02f901854eb96f193789a5`, was **independently read and verified**, showing these consecutive instructions in the operation-11 successor block:
+
+```asm
+do_futex +0x1190: add x0, sp, #0xc0
+do_futex +0x1194: add x25, sp, #0xc0
+do_futex +0x1198: bl  0xffffff80081474fc  // exact recovered label: rt_mutex_init_waiter
+```
+
+The AArch64 PCS passes its first argument through `x0`. These three instructions establish **local, straight-line provenance of a stack-derived first argument** to the recovered `rt_mutex_init_waiter` entry. There is no intervening write to `x0`; `x25` receives the same constructed pointer. This goes beyond lexical adjacency of SP instructions and a callee label. It does **not** establish all upstream state or the complete lifetime of the pointed-to object, nor is `SP+0xc0` a runtime physical address.
+
+We also independently reviewed the user-uploaded original source-dispatch archive, SHA-256 `deac172780286aeca1d3b1d9ab7f036e84532a6d087cc89721fd5cc7d16fe1a3`, with pinned `kernel/futex.c` SHA-256 `493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5`. The source declares `struct rt_mutex_waiter rt_waiter` at line 3238 of the archived file; its comment at lines 3263–3265 explicitly says the waiter is allocated on the stack. It calls `rt_mutex_init_waiter(&rt_waiter)` at line 3267, then assigns `q.rt_waiter = &rt_waiter` at line 3274. The original `do_futex` source dispatch for `FUTEX_WAIT_REQUEUE_PI` is at lines 3736–3739.
+
+**Evidence distinction:** The compiled `x0 = SP+0xc0` argument construction and direct call are observed machine-code facts. The C source's local waiter, initialization call and queue-pointer assignment are observed source facts. Their agreement strongly corroborates this as the waiter initialization path, but exact compiler source-local attribution, object size/bounds, full cleanup/lifetime, blocked-thread behavior, overlap with another syscall, usable GhostLock primitive, root and KernelSU are still **NOT VERIFIED**.
+
+The original operation-11 analyzer now reports an extra `waiterInitStackDerivedArgument` block with `stackDerivedFirstArgumentObserved=true` and all unsupported lifetime/exploitation flags false, and requires the exact three-instruction sequence. Four new regression tests bring the suite to **30**, *not yet confirmed passing on the owner WSL or hosted CI*. The 09:27 observation is checkpointed in [machine-readable research evidence](../research/y2q-G986U1UESCHXL1/ghostlock-op11-stack-derived-argument-20261014.json). Run only the existing read-only owner-side command after a pull:
+
+```bash
+cd ~/src/Root-My-Galaxy-Payloads
+git pull --ff-only
+bash tools/run_y2q_hxl1_ghostlock_futex_op11_block.sh
+```
+
+This does not generate an exploit, modify the phone, rerun firmware extraction or advance the porting readiness gate. Full original Image kernel.bin bytes were not independently rehashed in this report-only pass.
+
+---
+
 ## Owner 09:12 UTC report — five exact original operation-11 callee labels
 
 The owner supplied the saved two-hop JSON report `ghostlock-original-futex-op11-20261014T091255731595838Z.json`. Its **uploaded bytes were parsed and hashed independently**: SHA-256 `82735ba24c2b14b652e0f965cdc9939918d812985153fa1a98548be59731de75` (14,815 bytes). The report attests the existing disassembly archive SHA `20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997` and NM SHA `c2306a026756230fb009576613c07e5461cccf8fd92ca5f72a52647933870f2f`. It does **not** independently rehash the complete original kernel Image.
