@@ -1,3 +1,29 @@
+## October 14 — focused artifact-only scan outcome (supersedes the earlier root-coverage uncertainty)
+
+The owner supplied `oem-debug-artifacts-only-20261014T033146Z.json` (raw uploaded SHA-256 `fc08987fe6a6a3f217e7a5d563ccce962ec0adf29963500a9bec13faeb0f304a`). The independent report review validates the numerical counts and candidate classifications.
+
+| Property | Outcome |
+|---|---|
+| Root scanned | `/home/main/s20-artifacts` only |
+| Traversal | Breadth-first; `maxDepth=7`, `maxEntries=50000` |
+| File entries / directories visited | **24,080 / 6,466** |
+| Candidate ELF files | **29** |
+| Truncated / errors / pending queue | `false` / 0 / 0 |
+| `scopeCompleteAtRequestedDepth` | **true** |
+| **Directories excluded by depth 7** | **895** |
+| Known debug-bearing kernel ELFs | **2; both QEMU comparisons, not factory** |
+| Independently authenticated OEM HXL1 `vmlinux` + DWARF | **none** |
+
+Reconciled classes are **2 reconstructed stock ELF files**, **16 AArch64 ELF wrappers with no recognized debug sections**, **5 non-AArch64 or unsupported candidates**, **2 unreadable-section-table Qualcomm `xbl.elf` bootloader artifacts**, and **4 QEMU comparison artifacts**. No newly found file provides verified OEM compiler-local symbols.
+
+**Decision:** Mark the *configured loose-ELF filename-filter scan through depth 7* `COMPLETE`; keep **factory debug artifact acquisition `UNRESOLVED`**. This is not a claim that the filesystem, the 895 deeper directories, skipped links or compressed firmware/source archives were exhaustively inspected. Even a debug-bearing file would still require matching OEM build provenance. Do not re-run broad directory sweeps without a specific likely debug artifact or evidence of a relevant OEM build output.
+
+The machine-readable accepted-result checkpoint is `research/y2q-G986U1UESCHXL1/oem-debug-artifacts-only-result-20261014.json`.
+
+**Next priority:** Review the already-collected firmware-to-profile and signed module/bootloader prerequisite evidence as separate gates. No conclusion from missing DWARF can establish GhostLock runtime behavior, kernel stack aliasing, temporary root, or KernelSU.
+
+---
+
 # SM-G986U1 HXL1 OEM debug-symbol scan v2 — owner results (2026-10-14 UTC)
 
 **Scope:** review of the owner-uploaded, read-only `oem-debug-inventory-v2-20261014T032509Z.json` (SHA-256 `4b562b1ff2370a62bc81ec4c64f80f24cb3f0b2c33815abf5e46344de763e830`). No device access, builds, exploitation, or firmware changes.
