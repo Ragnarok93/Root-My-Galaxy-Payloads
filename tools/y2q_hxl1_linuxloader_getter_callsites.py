@@ -36,6 +36,8 @@ def analyze(d: dict) -> dict:
             "Original HXL1 loader and shared formatter provenance not authenticated")
     refs=d.get("xrefEvidence",[])
     require(isinstance(refs,list) and len(refs)==2,"Missing original Ghidra refs")
+    require({x.get("label") for x in refs if isinstance(x,dict)}==set(EXPECTED_XREF),
+            "Missing or duplicate original index xref labels")
     for ref in refs:
         require(isinstance(ref,dict) and ref.get("xrefSource")==EXPECTED_XREF.get(ref.get("label")) and
                 ref.get("pcodeAvailable") is True and
