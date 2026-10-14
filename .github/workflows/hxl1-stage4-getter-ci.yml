@@ -1,0 +1,25 @@
+name: HXL1 Stage 4 two-getter integrity
+on:
+  push:
+    branches:
+      - feature/s20plus-investigation-shizuku-20261009
+    paths:
+      - tools/run_y2q_hxl1_linuxloader_getter_functions.sh
+      - tools/y2q_hxl1_linuxloader_getter_callsites.py
+      - tools/test_y2q_hxl1_linuxloader_getter_callsites.py
+      - .github/workflows/hxl1-stage4-getter-ci.yml
+  workflow_dispatch:
+
+jobs:
+  bounded-getter-static-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check resumable WSL runner shell syntax
+        run: bash -n tools/run_y2q_hxl1_linuxloader_getter_functions.sh
+      - name: Authenticate cached getter contracts using synthetic fixtures
+        run: python3 -m unittest -q tools.test_y2q_hxl1_linuxloader_getter_callsites
