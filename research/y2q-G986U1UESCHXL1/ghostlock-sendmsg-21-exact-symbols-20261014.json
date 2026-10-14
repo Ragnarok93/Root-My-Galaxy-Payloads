@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "recordedUtc": "2026-10-14T08:06:38Z",
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "observationType": "owner_console_output_not_standalone_uploaded_json",
+  "ownerRepositoryBranch": "feature/s20plus-investigation-shizuku-20261009",
+  "ownerPulledThrough": "3c59afc",
+  "ownerRegression": {
+    "suite": "tools.test_y2q_hxl1_ghostlock_call_target_crosswalk",
+    "passed": 12,
+    "total": 12,
+    "durationSeconds": 0.101
+  },
+  "ownerTool": {
+    "module": "tools.y2q_hxl1_ghostlock_call_target_crosswalk",
+    "outputPath": "/home/main/s20-artifacts/hxl1-research/ghostlock-call-targets-20261014T080638Z.json",
+    "printed": {
+      "originalCallsites": 41,
+      "uniqueTargets": 21,
+      "exactRecoveredLabelDestinations": 21
+    },
+    "standaloneOriginalJsonRehashedByThisCommit": false
+  },
+  "trustedOriginalIdentities": {
+    "stockKernelImageSha256": "ffbc90af676558557eb917687736c11f15b560dbb3cb9ca237224da5acb14123",
+    "recoveredNmSha256": "c2306a026756230fb009576613c07e5461cccf8fd92ca5f72a52647933870f2f",
+    "priorVerifiedOriginalInstructionSlots": 746
+  },
+  "knownOriginalTargets": [
+    [
+      "__stack_chk_fail",
+      5
+    ],
+    [
+      "__kmalloc",
+      1
+    ],
+    [
+      "kfree",
+      1
+    ],
+    [
+      "__check_object_size",
+      2
+    ],
+    [
+      "fput",
+      4
+    ],
+    [
+      "__fdget",
+      3
+    ],
+    [
+      "security_socket_sendmsg",
+      2
+    ],
+    [
+      "import_iovec",
+      1
+    ],
+    [
+      "import_single_range",
+      1
+    ],
+    [
+      "move_addr_to_kernel",
+      2
+    ],
+    [
+      "___sys_sendmsg",
+      3
+    ],
+    [
+      "copy_msghdr_from_user",
+      1
+    ],
+    [
+      "sock_kmalloc",
+      1
+    ],
+    [
+      "sock_kfree_s",
+      1
+    ],
+    [
+      "get_compat_msghdr",
+      1
+    ],
+    [
+      "cmsghdr_from_user_compat_to_kern",
+      1
+    ],
+    [
+      "__arch_copy_from_user",
+      3
+    ],
+    [
+      "__pi_memcmp",
+      1
+    ],
+    [
+      "__memcpy | __pi_memcpy",
+      1
+    ],
+    [
+      "__memset | __pi_memset",
+      3
+    ],
+    [
+      "jopp_springboard_blr_x8",
+      3
+    ]
+  ],
+  "highValueObservations": {
+    "directSymbolMatch": true,
+    "namedJopSpringboardCalls": 3,
+    "finalFunctionsReachedThroughJopVerified": false,
+    "stackCanaryFailureBranches": 5,
+    "mallocFreeFamilyBranchSites": 4,
+    "mallocFreePairingOfSameCObjectVerified": false,
+    "securitySocketSendmsgBranchSites": 2,
+    "staticInternalSendmsgBranchesToSharedImplementation": 3,
+    "originalHelperCopyMsghdrCallsites": 1,
+    "actualCallFrequencyAndPathsObserved": false,
+    "allCompilerSourceLocalSlotsVerified": false,
+    "futexWaiterToSendmsgAliasVerified": false
+  },
+  "classificationWork": {
+    "newScript": "tools/y2q_hxl1_ghostlock_helper_classes.py",
+    "testSuite": "tools.test_y2q_hxl1_ghostlock_helper_classes",
+    "newSyntheticRegressionCases": 10,
+    "ciWorkflow": ".github/workflows/hxl1-ghostlock-stack-gate-ci.yml",
+    "ownerExecutionOfNewWorkConfirmed": false,
+    "hostedCiPassConfirmed": false,
+    "artifactFromLivePhone": false
+  },
+  "nextResearchDecision": "Use already-recovered original 4.19 source and authenticated instruction windows to constrain whether particular callsites preserve stack-resident message metadata, and separately obtain original compiled futex-waiter lifetime. Do not infer pointer def-use from a symbol name, near-SP textual instruction, or trampoline branch.",
+  "readinessStages": [
+    "COMPLETE",
+    "COMPLETE",
+    "PARTIAL",
+    "OPEN",
+    "OPEN",
+    "OPEN",
+    "BLOCKED",
+    "BLOCKED",
+    "DEFERRED"
+  ],
+  "kernelSuVerified": false,
+  "rootVerified": false,
+  "productionProfileAllowed": false
+}
