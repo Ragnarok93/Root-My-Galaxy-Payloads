@@ -5,6 +5,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 python3 -m unittest -v tools.test_y2q_hxl1_waiter_argument_lifetime_audit
 python3 -m unittest -v tools.test_y2q_hxl1_waiter_store_load_cfg
+python3 -m unittest -v tools.test_y2q_hxl1_waiter_store_load_witness
 
 EVIDENCE="${HXL1_EVIDENCE_DIR:-$HOME/s20-artifacts/hxl1-research}"
 
@@ -98,4 +99,23 @@ print("[STATIC REACHABILITY]",r["staticControlFlowPathStoreToLoadFound"],
 print("[OEM q.rt_waiter LAYOUT]",r["calleeSourceFieldQrtWaiterMapping"])
 print("[LIFETIME / CROSS-SYSCALL REUSE / ROOT] UNVERIFIED")
 print("[FULL STORE-LOAD REPORT]",sys.argv[1])
+PY
+
+
+# One bounded static witness: four direct calls, five branches, no runtime claims.
+WITNESS="$EVIDENCE/hxl1-waiter-store-load-witness-$(date -u +%Y%m%dT%H%M%S%NZ).json"
+python3 -m tools.y2q_hxl1_waiter_store_load_witness \
+  --source-archive "$SOURCE" \
+  --disassembly-archive "$DISASM" \
+  --output "$WITNESS"
+python3 - "$WITNESS" <<'PY'
+import json,sys
+from pathlib import Path
+w=json.loads(Path(sys.argv[1]).read_text())["witness"]
+print("[STORE-LOAD SHORTEST STATIC WITNESS STEPS]",w["staticInstructionCount"])
+print("[CONDITIONAL BRANCHES; PREDICATES NOT PROVEN]",len(w["conditionalBranches"]))
+print("[INTERPROCEDURAL CALLS; SIDE EFFECTS UNKNOWN]",len(w["directCalls"]))
+print("[EXPLICIT STORES ON WITNESS]",len(w["explicitStores"]))
+print("[LIFETIME / STACK REUSE / ROOT] UNVERIFIED")
+print("[WITNESS REPORT]",sys.argv[1])
 PY
