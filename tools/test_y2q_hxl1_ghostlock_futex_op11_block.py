@@ -103,6 +103,61 @@ class Op11FirstBlockTests(unittest.TestCase):
         self.assertEqual(len(d["callTargetsInFirstBlock"]),0)
         self.assertFalse(d["compilerInlinedFutexWaitRequeuePiProven"])
 
+    def test_terminal_control_transfer_is_explicit_not_inferred(self):
+        result=self.run_block()
+        self.assertEqual(result["terminalControlTransfer"]["opcode"],"ret")
+        self.assertTrue(result["terminalControlTransfer"]["observedTerminator"])
+        self.assertEqual(result["immediateSuccessorBlocks"],[])
+        self.assertFalse(result["allRuntimePathsVerified"])
+
+    def test_one_hop_conditional_successors_are_separate_windows(self):
+        code=make_code()
+        branch=BASE+0xb90
+        code[TARGET+8]=("b.eq",hex(branch))
+        code[TARGET+12]=("mov","x1, x2")
+        code[TARGET+16]=("ret","")
+        code[branch]=("bl",hex(CALLEE))
+        code[branch+4]=("ret","")
+        result=self.run_block(code)
+        successors=result["immediateSuccessorBlocks"]
+        self.assertEqual(len(successors),2)
+        self.assertEqual({x["relativeToDoFutexEntry"] for x in successors},
+                         {"0xb2c","0xb90"})
+        self.assertEqual(result["oneHopSuccessorDirectCalls"],1)
+        self.assertTrue(all(x["dynamicPathFeasibilityVerified"] is False for x in successors))
+        self.assertFalse(result["interproceduralPointerDataflowVerified"])
+
+    def test_unconditional_branch_successor_does_not_follow_third_block(self):
+        code=make_code()
+        branch=BASE+0xb90
+        code[TARGET+8]=("b",hex(branch))
+        code[branch]=("b",hex(BASE+0xba0))
+        code[BASE+0xba0]=("bl",hex(CALLEE))
+        code[BASE+0xba4]=("ret","")
+        result=self.run_block(code)
+        self.assertEqual(len(result["immediateSuccessorBlocks"]),1)
+        self.assertEqual(result["oneHopSuccessorDirectCalls"],0)
+        self.assertEqual(result["immediateSuccessorBlocks"][0]["instructionSlots"],1)
+        self.assertEqual(result["immediateSuccessorBlocks"][0]["stopReason"],
+                         "STOPPED_AT_CONTROL_TRANSFER")
+
+    def test_branch_to_first_block_is_not_recursively_followed(self):
+        code=make_code()
+        code[TARGET+8]=("b",hex(TARGET))
+        result=self.run_block(code)
+        self.assertEqual(result["immediateSuccessorBlocks"][0]["status"],
+                         "CYCLE_TO_FIRST_BLOCK_NOT_FOLLOWED")
+        self.assertEqual(result["oneHopSuccessorDirectCalls"],0)
+
+    def test_no_successor_when_first_block_truncated_at_archive_boundary(self):
+        code=make_code()
+        code.pop(TARGET+8)
+        result=self.run_block(code)
+        self.assertEqual(result["stopReason"],
+                         "STOPPED_AT_RECOVERED_FUNCTION_WINDOW_BOUNDARY")
+        self.assertFalse(result["terminalControlTransfer"]["observedTerminator"])
+        self.assertEqual(result["immediateSuccessorBlocks"],[])
+
     def test_archive_original_sha_is_strict_pin(self):
         self.assertEqual(m.ARCHIVE_SHA,
           "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997")
