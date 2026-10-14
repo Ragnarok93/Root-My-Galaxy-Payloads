@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "acceptedAtUtc": "2026-10-14T11:38Z",
+  "kind": "OWNER_WSL_CONSOLE_TRANSCRIPT_VERIFIED_THREE_COMMITTED_TEST_SUITES",
+  "uploadedPasteSha256": "15acc86b1565e7812d8c1898e9ffd0d9342d7cef014eb8b3c40a875655868b06",
+  "ownerBranchFastForwardThrough": "ac4cd4a",
+  "suites": [
+    {
+      "module": "tools.test_y2q_hxl1_waiter_argument_lifetime_audit",
+      "passed": 25,
+      "total": 25,
+      "reportedDurationSeconds": 0.075
+    },
+    {
+      "module": "tools.test_y2q_hxl1_waiter_store_load_cfg",
+      "passed": 15,
+      "total": 15,
+      "reportedDurationSeconds": 0.084
+    },
+    {
+      "module": "tools.test_y2q_hxl1_waiter_store_load_witness",
+      "passed": 7,
+      "total": 7,
+      "reportedDurationSeconds": 0.004
+    }
+  ],
+  "passedTotal": 47,
+  "testsTotal": 47,
+  "ownerRunOriginalArtifacts": {
+    "originalSourceAndDisasmHashesValidated": true,
+    "originalNmIndependentlyRehashed": true,
+    "originalSourceLandmarks": 12,
+    "compiledArgumentSites": 3,
+    "disassembledDoFutexInstructions": 1766,
+    "spReferences": 158,
+    "explicitSpWrites": 2,
+    "frameSizeBytes": 480,
+    "conditionallyStoredPointerStackSlot": "sp + 0xa0",
+    "laterReloadMatchesSlot": true,
+    "shortestStaticStoreLoadPathSteps": 31,
+    "fourInterveningDirectBlSites": true,
+    "conditionalBranchDecisions": 5,
+    "explicitStoresOnSelectedPath": 1
+  },
+  "ownerReportedOutputs": [
+    "hxl1-waiter-source-compiled-20261014T113759004974450Z.json",
+    "hxl1-waiter-store-load-cfg-20261014T113759435482789Z.json",
+    "hxl1-waiter-store-load-witness-20261014T113759545161808Z.json"
+  ],
+  "standaloneOwnerReportBytesIndependentlyUploadedThisTurn": false,
+  "unresolved": {
+    "interproceduralMemoryEffectProof": false,
+    "staticPathPredicatesJointlyFeasible": false,
+    "allAlternativePathsAnalyzed": false,
+    "factoryFutexQFieldLayoutCertified": false,
+    "completeWaiterLifetimeAndStackReuseVerified": false,
+    "ghostlockRuntimePrimitiveVerified": false,
+    "rootVerified": false,
+    "kernelSuLoaded": false
+  },
+  "stageReadiness": [
+    "COMPLETE",
+    "COMPLETE",
+    "PARTIAL",
+    "OPEN",
+    "OPEN",
+    "OPEN",
+    "BLOCKED",
+    "BLOCKED",
+    "DEFERRED"
+  ]
+}
