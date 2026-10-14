@@ -217,6 +217,46 @@ class Op11FirstBlockTests(unittest.TestCase):
             "effectiveCalleeOrWaiterSourceIdentityVerified"])
         self.assertEqual(result["maxOriginalBranchHopsInspected"],2)
 
+    @staticmethod
+    def sample_five_callees():
+        rows=[
+            ("0xc48","hrtimer_init"),("0xc58","hrtimer_init_sleeper"),
+            ("0xc68","ktime_add_safe"),("0x1198","rt_mutex_init_waiter"),
+            ("0x11b0","get_futex_key"),
+        ]
+        def mk(addr,label):
+            return {"relativeToDoFutexEntry":addr,
+                    "recoveredTarget":{
+                        "status":"EXACT_RECOVERED_TEXT_LABEL","labels":[label]}}
+        return {"twoHopSuccessorBlocks":[
+            {"directCalls":[mk(a,l) for a,l in rows[:3]]},
+            {"directCalls":[mk(a,l) for a,l in rows[3:]]},
+            {"directCalls":[]},
+        ]}
+
+    def test_exact_five_original_callee_labels_accepted(self):
+        self.assertIsNone(m.verify_known_twohop_callees(
+            self.sample_five_callees()))
+
+    def test_swapped_original_callee_labels_rejected(self):
+        r=self.sample_five_callees()
+        r["twoHopSuccessorBlocks"][1]["directCalls"][0][
+            "recoveredTarget"]["labels"]=["get_futex_key"]
+        with self.assertRaisesRegex(m.Stop,"ledger drift"):
+            m.verify_known_twohop_callees(r)
+
+    def test_uncertain_label_rejected_in_original_five(self):
+        r=self.sample_five_callees()
+        r["twoHopSuccessorBlocks"][0]["directCalls"][0][
+            "recoveredTarget"]["status"]="INTERIOR_CANDIDATE_ONLY"
+        with self.assertRaisesRegex(m.Stop,"not exactly labeled"):
+            m.verify_known_twohop_callees(r)
+
+    def test_audit_scope_is_two_hops_not_first_block_only(self):
+        s=Path(m.__file__).read_text()
+        self.assertIn("ORIGINAL_DOFUTEX_OP11_BOUNDED_TWO_HOP_STATIC_BRANCH_INSPECTION",s)
+        self.assertNotIn("EXISTING_ORIGINAL_DOFUTEX_OP11_SINGLE_STATIC_BASIC_BLOCK",s)
+
     def test_archive_original_sha_is_strict_pin(self):
         self.assertEqual(m.ARCHIVE_SHA,
           "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997")
