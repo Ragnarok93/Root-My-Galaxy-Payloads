@@ -177,6 +177,43 @@ def verify_getter_dossier(value: dict, expected_address: str,
     }
 
 
+def package_verified_getter_dossiers(raw_results: dict) -> dict:
+    """One portable evidence packet from *both* original provider dossiers.
+
+    Does not guess index numbers from a decompilation. Used by the existing
+    two-getter owner runner, so no third REA query is necessary.
+    """
+    require(isinstance(raw_results, dict) and
+            set(raw_results) == {"dtbo", "dtb"},
+            "Exactly the dtb and dtbo getter dossiers are required")
+    dossiers = []
+    for kind, address, *_ in CALLS:
+        raw = raw_results[kind]
+        summary = verify_getter_dossier(raw, address)
+        code = raw["normalized_result"]["pseudocode"]
+        require(len(code) <= 500_000,
+                "Oversized getter pseudocode; refuse portable package")
+        dossiers.append({
+            "kind": kind,
+            "requestedFunctionAddress": address,
+            "verifiedIdentity": summary,
+            "pseudocode": code,
+        })
+    return {
+        "schemaVersion": 1,
+        "target": "SM-G986U1/G986U1UESCHXL1",
+        "scope": "TWO_ORIGINAL_GETTER_PSEUDOCODES_ONLY",
+        "originalLinuxLoaderSha256": LOADER_SHA256,
+        "dossiers": dossiers,
+        "bothGetterEntriesAuthenticated": True,
+        "indexSelectionSemanticsInterpreted": False,
+        "selectedDtbOrOverlayAuthenticated": False,
+        "physicalKernelHandoffVerified": False,
+        "deviceModified": False,
+        "rootOrKernelSuDemonstrated": False,
+    }
+
+
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--cached-report",required=True,type=Path)
