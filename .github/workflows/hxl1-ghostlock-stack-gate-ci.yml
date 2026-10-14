@@ -21,6 +21,9 @@ on:
       - tools/test_y2q_hxl1_factory_debug_ceiling.py
       - tools/y2q_hxl1_oem_debug_discovery.py
       - tools/test_y2q_hxl1_oem_debug_discovery.py
+      - tools/y2q_hxl1_readiness_consolidate.py
+      - tools/test_y2q_hxl1_readiness_consolidate.py
+      - research/y2q-G986U1UESCHXL1/evidence.json
   workflow_dispatch:
 permissions:
   contents: read
@@ -51,7 +54,9 @@ jobs:
             tools/y2q_hxl1_factory_debug_ceiling.py \
             tools/test_y2q_hxl1_factory_debug_ceiling.py \
             tools/y2q_hxl1_oem_debug_discovery.py \
-            tools/test_y2q_hxl1_oem_debug_discovery.py
+            tools/test_y2q_hxl1_oem_debug_discovery.py \
+            tools/y2q_hxl1_readiness_consolidate.py \
+            tools/test_y2q_hxl1_readiness_consolidate.py
       - name: Run synthetic original-image and dispatch evidence tests
         run: |
           python -m unittest -v \
@@ -62,4 +67,5 @@ jobs:
             tools.test_y2q_hxl1_lifetime_contract_audit \
             tools.test_y2q_hxl1_select_header_provenance \
             tools.test_y2q_hxl1_factory_debug_ceiling \
-            tools.test_y2q_hxl1_oem_debug_discovery
+            tools.test_y2q_hxl1_oem_debug_discovery \
+            tools.test_y2q_hxl1_readiness_consolidate
