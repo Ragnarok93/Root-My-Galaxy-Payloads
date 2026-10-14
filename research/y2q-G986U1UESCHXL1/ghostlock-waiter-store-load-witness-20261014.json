@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "dateUtc": "2026-10-14",
+  "scope": "ORIGINAL_DOFUTEX_SHORTEST_STATIC_STORE_LOAD_PATH_WITNESS",
+  "ownerUploadedFiles": [
+    {
+      "filename": "hxl1-waiter-source-compiled-20261014T112611615398216Z.json",
+      "sha256": "440c7fa2426b5e620eb6b28c1d7ad1ac20057767a4e6b0b56f8574f8d2407da3",
+      "size": 6461
+    },
+    {
+      "filename": "hxl1-waiter-store-load-cfg-20261014T112612140032485Z.json",
+      "sha256": "5e7defd15144f2d792ae63c8f9caf244e1f3f247300078671f80d5a74acff024",
+      "size": 2363
+    }
+  ],
+  "originalArchivePins": {
+    "source": "deac172780286aeca1d3b1d9ab7f036e84532a6d087cc89721fd5cc7d16fe1a3",
+    "disasm": "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997",
+    "futexC": "493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5",
+    "doFutex": "56286516ae9e6a873beab22b16af3ab330a768dc1b02f901854eb96f193789a5"
+  },
+  "sourceOriginalKernelEntireImageRehashedInThisPass": false,
+  "ownerReport": {
+    "sourceLandmarks": 12,
+    "stackDerivedWaiterArgumentSites": 3,
+    "recoveredNmIndependentlyRehashed": true,
+    "stackFrameBytes": 480,
+    "explicitSpWrites": 2,
+    "conditionalPointerStoredAtSpPlusA0": true,
+    "staticStoreToLoadPathConfirmed": true,
+    "shortestPathInstructions": 31,
+    "qRtWaiterSourceFieldMapping": "CANDIDATE_NOT_FACTORY_LAYOUT_VERIFIED",
+    "ownerUnittestPassConsoleNotIncluded": true
+  },
+  "independentlyEnumeratedStaticWitness": {
+    "instructions": 31,
+    "callsites": [
+      [
+        "0x11d4",
+        "0xffffff80081929ac"
+      ],
+      [
+        "0x12a4",
+        "0xffffff8008192f44"
+      ],
+      [
+        "0x12b0",
+        "0xffffff800996d544"
+      ],
+      [
+        "0x12e8",
+        "0xffffff800996d774"
+      ]
+    ],
+    "branches": [
+      [
+        "0x11dc",
+        "taken"
+      ],
+      [
+        "0x1230",
+        "taken"
+      ],
+      [
+        "0x12c0",
+        "fallthrough"
+      ],
+      [
+        "0x12d0",
+        "fallthrough"
+      ],
+      [
+        "0x12e0",
+        "fallthrough"
+      ]
+    ],
+    "explicitStores": [
+      [
+        "0x11d0",
+        "stp x25, x27, [sp, #160]"
+      ]
+    ],
+    "noOtherExplicitStoresOnThisShortestPath": true,
+    "localOutputFile": "hxl1-waiter-store-load-witness-20261014.json",
+    "localOutputSha256": "f7c31e53dc4db558a93983a82e5686e072b1fd437a2874600f823383dd8e18e9",
+    "locallyExecutedSyntheticCasesPassed": 7,
+    "syntheticCasesTotal": 7
+  },
+  "newWork": {
+    "script": "tools/y2q_hxl1_waiter_store_load_witness.py",
+    "tests": "tools.test_y2q_hxl1_waiter_store_load_witness",
+    "runner": "tools/run_y2q_hxl1_waiter_argument_lifetime_audit.sh",
+    "ciWorkflow": ".github/workflows/hxl1-ghostlock-stack-gate-ci.yml",
+    "ownerOrHostedNewSuitePassingObserved": false
+  },
+  "proofLimitations": {
+    "fourCalleeMemoryEffectsRuledOut": false,
+    "branchPredicatesJointlyFeasible": false,
+    "completeAlternativePathCoverage": false,
+    "factoryFutexQFieldIdentityCertified": false,
+    "originalWaiterLifetimeProven": false,
+    "crossSyscallReuseProven": false,
+    "rootProven": false,
+    "kernelSuLoaded": false,
+    "deviceModified": false
+  },
+  "readinessStages": [
+    "COMPLETE",
+    "COMPLETE",
+    "PARTIAL",
+    "OPEN",
+    "OPEN",
+    "OPEN",
+    "BLOCKED",
+    "BLOCKED",
+    "DEFERRED"
+  ]
+}
