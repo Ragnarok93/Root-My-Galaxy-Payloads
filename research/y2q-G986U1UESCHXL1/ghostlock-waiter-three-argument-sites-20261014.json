@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "status": "ORIGINAL_ARCHIVE_STATIC_WAITER_ARGUMENTS_ATTESTED_SOURCE_LIFETIME_PARTIAL",
+  "verificationDateUtc": "2026-10-14",
+  "validatedFromUserSuppliedArchivedFiles": true,
+  "evidenceHashes": {
+    "originalSourceArchive": "deac172780286aeca1d3b1d9ab7f036e84532a6d087cc89721fd5cc7d16fe1a3",
+    "originalDisassemblyArchive": "20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997",
+    "originalFutexSourceFile": "493565da491190d11cf023841128872c07799ddc786b708e3eb4f3130c9894a5",
+    "originalDoFutexDisassembly": "56286516ae9e6a873beab22b16af3ab330a768dc1b02f901854eb96f193789a5",
+    "originalOwnerReportGeneratedHere": "e9d5aae22e7a6b35cb11fc9a1b240948112f75c553fe972b6b9022646f20cbcc"
+  },
+  "sourceLifetimeLandmarks": [
+    [
+      "declaration",
+      3238
+    ],
+    [
+      "stack_comment",
+      3264
+    ],
+    [
+      "initializer",
+      3267
+    ],
+    [
+      "queue_pointer",
+      3274
+    ],
+    [
+      "wait_setup",
+      3281
+    ],
+    [
+      "queue_wait",
+      3296
+    ],
+    [
+      "queue_field_check",
+      3314
+    ],
+    [
+      "proxy_wait",
+      3343
+    ],
+    [
+      "conditional_cleanup",
+      3346
+    ],
+    [
+      "debug_release",
+      3349
+    ],
+    [
+      "unqueue",
+      3373
+    ],
+    [
+      "return",
+      3402
+    ]
+  ],
+  "originalDoFutexInstructionCount": 1766,
+  "compiledStackAddressArgumentUses": [
+    {
+      "role": "initialize",
+      "relativeCallsite": "0x1198",
+      "argumentRegister": "x0",
+      "literalExpression": "sp + 0xc0",
+      "target": "0xffffff80081474fc",
+      "priorNmLabel": "rt_mutex_init_waiter"
+    },
+    {
+      "role": "proxy_wait",
+      "relativeCallsite": "0x1308",
+      "argumentRegister": "x2",
+      "literalExpression": "sp + 0xc0",
+      "target": "0xffffff8008148024",
+      "priorNmLabel": "rt_mutex_wait_proxy_lock"
+    },
+    {
+      "role": "proxy_cleanup",
+      "relativeCallsite": "0x1328",
+      "argumentRegister": "x1",
+      "literalExpression": "sp + 0xc0",
+      "target": "0xffffff80081480b4",
+      "priorNmLabel": "rt_mutex_cleanup_proxy_lock"
+    }
+  ],
+  "independentlyRehashedOriginalNmThisTurn": false,
+  "originallyUploadedKernelImageRehashedThisTurn": false,
+  "archiveOnlyStaticPassExecutedLocally": true,
+  "locallyExecutedUnitTestsPass": 12,
+  "locallyExecutedUnitTestsTotal": 12,
+  "ownerWslOrHostedCiOfNewAuditObserved": false,
+  "cObjectCompilerLocalIdentityProven": false,
+  "stackPointerLifetimeAcrossAllPathsProven": false,
+  "bufferAliasAcrossSeparateSyscallsProven": false,
+  "exploitableGhostLockPrimitiveProven": false,
+  "rootVerified": false,
+  "kernelSuLoaded": false,
+  "deviceModified": false,
+  "nextUsefulWork": "Use prior source comments plus compiler-output calling convention and conservative branch annotations to characterize conditional queue ownership and cleanup. Path-sensitive runtime reuse and kernel physical layout remain unmeasured.",
+  "runner": "tools/run_y2q_hxl1_waiter_argument_lifetime_audit.sh",
+  "repositoryScript": "tools/y2q_hxl1_waiter_argument_lifetime_audit.py",
+  "regressionSuite": "tools.test_y2q_hxl1_waiter_argument_lifetime_audit"
+}
