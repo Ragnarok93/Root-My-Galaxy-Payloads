@@ -23,6 +23,16 @@ EVIDENCE_SHA="d12ac8a1f7f29e8d106f87cb439cb75d60aec4253c50d6b525c2cefdcdb49303"
 class GateError(ValueError):
     pass
 
+
+class DeviceTreeAccessError(GateError):
+    """Non-root restriction or invalid remote cat result; not an FDT mismatch."""
+    def __init__(self, build_identity, attempts, readable):
+        super().__init__("Live device-tree root properties inaccessible")
+        self.build_identity = build_identity
+        self.attempts = attempts
+        self.readable = readable
+
+
 def require(ok, reason):
     if not ok:
         raise GateError(reason)
@@ -146,32 +156,116 @@ def analyze(evidence, raw_model, raw_compatible, properties):
                  "exact DTB byte match, proof of applied overlays, physical "
                  "Linux kernel handoff or authorization to load modules."}
 
+def remote_cat_failure(raw):
+    """ADB exec-out may exit 0 even though toybox cat printed its error."""
+    if not isinstance(raw,bytes) or len(raw)>8192:
+        return "UNAVAILABLE"
+    normalized=raw.strip().lower()
+    if not normalized.startswith(b"cat: ") or b"\x00" in raw:
+        return None
+    if normalized.endswith(b": permission denied"):
+        return "PERMISSION_DENIED"
+    if normalized.endswith(b": operation not permitted"):
+        return "OPERATION_NOT_PERMITTED"
+    if normalized.endswith(b": no such file or directory"):
+        return "NOT_FOUND"
+    if normalized.endswith(b": is a directory"):
+        return "IS_DIRECTORY"
+    return "REMOTE_CAT_ERROR"
+
+
 def adb_read(adb, serial, args):
     cmd=[adb]+(["-s",serial] if serial else [])+args
     try:
         result=subprocess.run(cmd,stdin=subprocess.DEVNULL,capture_output=True,
                               timeout=15,check=False)
     except (OSError,subprocess.TimeoutExpired) as err:
-        raise GateError("Read-only ADB command failed: "+type(err).__name__)
-    require(result.returncode==0 and len(result.stdout)<8192,
-            "Read-only ADB observation unavailable; check authorization/permissions")
+        raise GateError("ADB_HOST_"+type(err).__name__.upper())
+    require(len(result.stdout)<8192,"ADB_OUTPUT_EXCEEDED_LIMIT")
+    if args[:2]==["exec-out","cat"]:
+        code=remote_cat_failure(result.stdout)
+        if code:
+            raise GateError(code)
+    require(result.returncode==0,"ADB_COMMAND_FAILED")
     return result.stdout
+
+
+HINTS=("ro.hardware","ro.board.platform","ro.boot.hardware",
+       "ro.boot.dtb_idx","ro.boot.dtbo_idx")
+
+
+def capture_hints(adb, serial):
+    """Optional public boot properties; neither IDs nor indices certify DTB."""
+    hints={}
+    for key in HINTS:
+        try:
+            value=adb_read(adb,serial,["shell","getprop",key])
+            text=value.decode("utf-8","strict").strip()
+            hints[key]=text if len(text)<128 and text.isprintable() else ""
+        except (GateError,UnicodeDecodeError):
+            hints[key]=""
+    return hints
+
+
+def access_report(err, hints):
+    require(isinstance(err,DeviceTreeAccessError),
+            "Expected explicit permission/access exception")
+    return {
+        "target":MODEL+"/"+FIRMWARE,
+        "scope":"READ_ONLY_DEVICE_TREE_ROOT_MODEL_COMPARISON",
+        "status":"ROOT_PROPERTIES_INACCESSIBLE",
+        "rootReadAttempts":err.attempts,
+        "readableRawRootProperties":err.readable,
+        "observedBuildIdentity":err.build_identity,
+        "liveIdentityMatchesPinnedHxl1":(
+            err.build_identity.get("ro.product.model")==MODEL and
+            FIRMWARE in err.build_identity.get("ro.build.display.id","") and
+            err.build_identity.get("uname -r")==KERNEL),
+        "readOnlyBootPropertyHints":hints,
+        "bootPropertyHintsProveSelectedDtb":False,
+        "matchingOriginalRootModelCandidateIndices":[],
+        "candidateRootMatchUnambiguous":False,
+        "candidateRootMatchProvesExactRuntimeDtb":False,
+        "bootloaderSelectedDtbProven":False,
+        "physicalLinuxLoadBaseVerified":False,
+        "kernelRamOrKASLRMeasured":False,
+        "deviceModified":False,
+        "rootOrKernelSuDemonstrated":False,
+        "limits":"ADB cat diagnostic text is not DTB data. The root properties "
+                 "are inaccessible or unreadable to the shell UID. "
+                 "Allowlisted Android boot properties are only unverified "
+                 "hints and cannot prove original DTB selection, overlay "
+                 "state, kernel physical handoff, or KASLR."
+    }
+
 
 def capture(adb, serial):
     props={}
     for key in ("ro.product.model","ro.build.display.id"):
         props[key]=adb_read(adb,serial,["shell","getprop",key]).decode("utf-8","replace").strip()
     props["uname -r"]=adb_read(adb,serial,["shell","uname","-r"]).decode("utf-8","replace").strip()
+    attempts=[]
     def tree(name):
-        for root in ("/sys/firmware/devicetree/base", "/proc/device-tree"):
+        for root in ("/sys/firmware/devicetree/base","/proc/device-tree"):
             try:
                 value=adb_read(adb,serial,["exec-out","cat",root+"/"+name])
-                if value:
+                if value and value.endswith(b"\x00"):
+                    attempts.append({"property":name,"source":root,
+                                     "status":"READ_OK_NUL_TERMINATED"})
                     return value
-            except GateError:
-                continue
-        raise GateError("Cannot read device tree property "+name+" over unprivileged ADB")
-    return tree("model"),tree("compatible"),props
+                attempts.append({"property":name,"source":root,
+                                 "status":"NOT_NUL_TERMINATED_OR_EMPTY"})
+            except GateError as exc:
+                attempts.append({"property":name,"source":root,
+                                 "status":str(exc)})
+        return None
+    model,compatible=tree("model"),tree("compatible")
+    if model is None or compatible is None:
+        raise DeviceTreeAccessError(props,attempts,
+                                    {"model":model is not None,
+                                     "compatible":compatible is not None})
+    return model,compatible,props
+
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
@@ -191,12 +285,15 @@ def main():
                 "Output cannot be written inside repository")
         require(not dest.exists() and not dest.is_symlink(),
                 "Refusing to overwrite existing evidence")
-        model,compatible,props=capture(args.adb,args.adb_serial)
-        result=diagnose(evidence,model,compatible,props)
+        try:
+            model,compatible,props=capture(args.adb,args.adb_serial)
+            result=diagnose(evidence,model,compatible,props)
+        except DeviceTreeAccessError as exc:
+            result=access_report(exc,capture_hints(args.adb,args.adb_serial))
         dest.parent.mkdir(parents=True,exist_ok=True)
         dest.write_text(json.dumps(result,indent=2)+"\n",encoding="utf-8")
         if result["status"]!="ROOT_PROPERTY_PARSED":
-            print("[STOP]",result["parseError"],file=sys.stderr)
+            print("[STOP]",result.get("parseError",result["status"]),file=sys.stderr)
             print("[DIAGNOSTIC REPORT]",dest)
             return 2
         print("[HXL1 LIVE IDENTITY MATCH]",result["liveIdentityMatchesPinnedHxl1"])
