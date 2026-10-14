@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "target": "SM-G986U1/G986U1UESCHXL1",
+  "checkpointDateUtc": "2026-10-14",
+  "sourceReport": "oem-debug-artifacts-only-20261014T033146Z.json",
+  "sourceReportSha256": "fc08987fe6a6a3f217e7a5d563ccce962ec0adf29963500a9bec13faeb0f304a",
+  "source": "owner-run, read-only breadth-first loose ELF discovery",
+  "root": "/home/main/s20-artifacts",
+  "coverage": {
+    "maxDepth": 7,
+    "maxEntries": 50000,
+    "filesExamined": 24080,
+    "directoriesVisited": 6466,
+    "candidateFiles": 29,
+    "filenameMatchedButNonElf": 0,
+    "skippedSymlinksOrIgnoredDirectoryEntries": 18,
+    "depthLimitedDirectoryCount": 895,
+    "truncated": false,
+    "pendingDirectoryCountAtTruncation": 0,
+    "errorCount": 0,
+    "scopeCompleteAtRequestedDepth": true,
+    "allNestedDirectoriesExhaustivelyCovered": false,
+    "contentsInsideCompressedArchivesExamined": false
+  },
+  "classes": {
+    "STOCK_RECONSTRUCTED_NOT_ORIGINAL_DEBUG_ELF": 2,
+    "NO_DEBUG_METADATA_IN_CANDIDATE": 16,
+    "NON_AARCH64_OR_NON_ELF_CANDIDATE": 5,
+    "UNREADABLE_ELF_SECTION_TABLE_INDETERMINATE": 2,
+    "COMPARISON_BUILD_NOT_FACTORY": 4
+  },
+  "observations": {
+    "fullFactoryDebugSymbolCandidatesConfirmed": 0,
+    "debugBearingKnownQemuBuilds": 2,
+    "knownQemuDebugVmlinuxPaths": [
+      "/home/main/s20-artifacts/qemu-lab/kernel-build/vmlinux",
+      "/home/main/s20-artifacts/qemu-lab-kasan/kernel-build/vmlinux"
+    ],
+    "knownReconstructedStockElfs": 2,
+    "inconclusiveXblBootloaderSectionTables": 2,
+    "noUnexpectedCandidateClassifications": true,
+    "classCountsReconciledTo29": true,
+    "fullReportRawBytesVerifiedByAssistant": true
+  },
+  "decision": {
+    "looseElfSearchDepth7": "CLOSED_FOR_SELECTED_ROOT_AND_FILENAME_FILTER",
+    "factoryDebugArtifactAcquisition": "UNRESOLVED_NOT_GLOBALLY_EXCLUDED",
+    "nextPriority": "Shift to independent firmware and boot/deployment prerequisite provenance audit rather than repeated broad scans; reopen debug-symbol hunt only if targeted OEM build or symbols are located.",
+    "compiledFactoryLocalVariableIdentity": false,
+    "runtimeStackReuseOrExploitability": false,
+    "temporaryRootEstablished": false,
+    "kernelSuDeploymentEstablished": false
+  },
+  "limits": "No endorsement of a globally exhaustive filesystem scan. The 895 depth-limited directories, ignored symlinks and archives are uninspected. Scanner did not authenticate original factory linker output and cannot prove original OEM DWARF never existed."
+}
