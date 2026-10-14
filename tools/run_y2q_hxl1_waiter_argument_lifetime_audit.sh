@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Read-only HXL1 source-and-original-instruction waiter argument audit.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+python3 -m unittest -v tools.test_y2q_hxl1_waiter_argument_lifetime_audit
+
+EVIDENCE="${HXL1_EVIDENCE_DIR:-$HOME/s20-artifacts/hxl1-research}"
+
+find_pinned() {
+  python3 - "$1" "$2" "$HOME" "$EVIDENCE" <<'PY'
+import hashlib
+from pathlib import Path
+import sys
+name,wanted,home,research=sys.argv[1:]
+home=Path(home);research=Path(research)
+candidates=[
+  home/name,home/"s20-artifacts"/name,research/name,
+  *research.glob("*/"+name),
+  *research.glob("*/*/"+name),
+]
+matches=[]
+for path in candidates:
+    if path.is_file() and not path.is_symlink() and 0<path.stat().st_size<4_000_000:
+        if hashlib.sha256(path.read_bytes()).hexdigest()==wanted:
+            matches.append(path)
+if not matches:
+    raise SystemExit("[STOP] Exact SHA-matching "+name+
+        " not found. Set HXL1_SOURCE_ARCHIVE or HXL1_DISASSEMBLY_ARCHIVE.")
+print(sorted(set(matches))[0])
+PY
+}
+
+SOURCE="${HXL1_SOURCE_ARCHIVE:-}"
+DISASM="${HXL1_DISASSEMBLY_ARCHIVE:-}"
+if [[ -z "$SOURCE" ]]; then
+  SOURCE="$(find_pinned hxl1-source-dispatch-review.tar.gz deac172780286aeca1d3b1d9ab7f036e84532a6d087cc89721fd5cc7d16fe1a3)"
+fi
+if [[ -z "$DISASM" ]]; then
+  DISASM="$(find_pinned hxl1-disassembly-review.tar.gz 20edab24364b4ae269b99bf20434f93cf10212f92e5cf791582549ae82bf9997)"
+fi
+
+OUT="$EVIDENCE/hxl1-waiter-source-compiled-$(date -u +%Y%m%dT%H%M%S%NZ).json"
+OPTIONS=()
+NM="${HXL1_NM:-$EVIDENCE/vmlinux-stock.nm}"
+if [[ -f "$NM" ]]; then OPTIONS+=(--nm "$NM"); fi
+
+python3 -m tools.y2q_hxl1_waiter_argument_lifetime_audit \
+  --source-archive "$SOURCE" \
+  --disassembly-archive "$DISASM" \
+  "${OPTIONS[@]}" \
+  --output "$OUT"
+
+python3 - "$OUT" <<'PY'
+import json,sys
+from pathlib import Path
+r=json.loads(Path(sys.argv[1]).read_text())
+print("[SOURCE LANDMARKS]",len(r["waiterSourceMarkers"]))
+print("[ORIGINAL COMPILED ARGUMENT SITES]",len(r["compiledCallArgumentSites"]))
+for x in r["compiledCallArgumentSites"]:
+    print(x["role"],x["argumentRegister"],x["literalArgumentExpression"],
+          x["calleeRecoveredLabelFromPriorOwnerNm"],
+          "relative-callsite="+x["calleeCallRelativeVA"])
+print("[COMPILER OBJECT LIFETIME / CROSS-SYSCALL OVERLAP / ROOT] UNVERIFIED")
+print("[REPORT]",sys.argv[1])
+PY
